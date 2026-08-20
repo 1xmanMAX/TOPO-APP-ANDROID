@@ -93,4 +93,13 @@ describe('almacén', () => {
     expect(campania.estaciones).toHaveLength(3)
     expect(campania.estaciones[2]!.vistaAtras.valor).toBe(1.5)
   })
+
+  it('quita la vista adelante de una estación', () => {
+    const campaniaId = useAlmacen.getState().campaniaActivaId!
+    useAlmacen.getState().quitarVistaAdelante(campaniaId, 1)
+
+    const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!
+    expect(estacion.vistaAdelante).toBeUndefined()
+    expect(estacion.intermedias).toHaveLength(1)
+  })
 })

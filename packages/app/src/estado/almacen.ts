@@ -58,6 +58,7 @@ interface EstadoApp {
     estacionIndice: number,
     lectura: { destino: DestinoLectura; valor: number },
   ): void
+  quitarVistaAdelante(campaniaId: Id, estacionIndice: number): void
   agregarIntermedia(
     campaniaId: Id,
     estacionIndice: number,
@@ -260,6 +261,26 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
                       }
                     : e,
                 ),
+              }
+            : c,
+        ),
+      }),
+    })),
+
+  quitarVistaAdelante: (campaniaId, estacionIndice) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        campanias: s.proyecto.campanias.map((c) =>
+          c.id === campaniaId
+            ? {
+                ...c,
+                estaciones: c.estaciones.map((e, i) => {
+                  if (i !== estacionIndice) return e
+                  const copia = { ...e }
+                  delete copia.vistaAdelante
+                  return copia
+                }),
               }
             : c,
         ),

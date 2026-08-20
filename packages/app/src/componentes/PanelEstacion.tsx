@@ -34,6 +34,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
   const actualizarLectura = useAlmacen((s) => s.actualizarLectura)
   const eliminarLectura = useAlmacen((s) => s.eliminarLectura)
   const fijarVistaAdelante = useAlmacen((s) => s.fijarVistaAdelante)
+  const quitarVistaAdelante = useAlmacen((s) => s.quitarVistaAdelante)
   const agregarEstacion = useAlmacen((s) => s.agregarEstacion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
 
@@ -137,7 +138,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
         </div>
       )}
 
-      {esUltima && (
+      {esUltima && !estacion.vistaAdelante && (
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -154,6 +155,16 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
             Cerrar el circuito
           </button>
         </div>
+      )}
+
+      {esUltima && estacion.vistaAdelante && (
+        <button
+          type="button"
+          onClick={() => quitarVistaAdelante(campania.id, estacionIndice)}
+          className="self-start rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+        >
+          Quitar la vista adelante
+        </button>
       )}
     </div>
   )

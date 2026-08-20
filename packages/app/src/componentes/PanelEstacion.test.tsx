@@ -42,11 +42,44 @@ describe('PanelEstacion', () => {
     const alCambiarEstacion = vi.fn()
     render(<PanelEstacion estacionIndice={1} alCambiarEstacion={alCambiarEstacion} />)
 
+    // La estación 2 del ejemplo ya cerró contra BM-1. Para trasladarse desde ella
+    // hay que soltar ese cierre primero: no se puede cerrar y trasladar a la vez.
+    await usuario.click(screen.getByRole('button', { name: /quitar la vista adelante/i }))
     await usuario.click(screen.getByRole('button', { name: /trasladar el instrumento/i }))
 
     const campania = useAlmacen.getState().proyecto.campanias[0]!
     expect(campania.estaciones).toHaveLength(3)
     expect(campania.estaciones[2]!.vistaAtras.destino).toEqual({ tipo: 'cambio', nombre: 'PC-2' })
     expect(alCambiarEstacion).toHaveBeenCalledWith(2)
+  })
+
+  it('no ofrece cerrar el circuito cuando la estación ya tiene vista adelante', () => {
+    render(<PanelEstacion estacionIndice={1} alCambiarEstacion={vi.fn()} />)
+
+    expect(screen.queryByRole('button', { name: /cerrar el circuito/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /trasladar el instrumento/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /quitar la vista adelante/i })).toBeInTheDocument()
+  })
+
+  it('quitar la vista adelante deja el cierre sin veredicto, no con uno falso', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelEstacion estacionIndice={1} alCambiarEstacion={vi.fn()} />)
+
+    await usuario.click(screen.getByRole('button', { name: /quitar la vista adelante/i }))
+
+    const resultado = useAlmacen.getState().calcular()!
+    expect(resultado.cierre.pasa).toBeNull()
+    expect(useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante).toBeUndefined()
+  })
+
+  it('cierra el circuito contra el banco de nivel de la campaña', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelEstacion estacionIndice={1} alCambiarEstacion={vi.fn()} />)
+
+    await usuario.click(screen.getByRole('button', { name: /quitar la vista adelante/i }))
+    await usuario.click(screen.getByRole('button', { name: /cerrar el circuito/i }))
+
+    const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!
+    expect(estacion.vistaAdelante?.destino).toEqual({ tipo: 'bm', bmId: 'bm-1' })
   })
 })
