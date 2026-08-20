@@ -184,8 +184,8 @@ describe('calcularCampania', () => {
     const aviso = resultado.avisos.find((a) => a.mensaje.includes('ya no caen en la grilla'))
     expect(aviso).toBeDefined()
     expect(aviso?.nivel).toBe('advertencia')
-    expect(aviso?.mensaje).toContain('0|EJE')
-    expect(aviso?.mensaje).toContain('20|EJE')
+    expect(aviso?.mensaje).toContain('0+000 EJE')
+    expect(aviso?.mensaje).toContain('0+020 EJE')
   })
 
   it('avisa si el banco de nivel de cierre ya no existe en el proyecto', () => {
