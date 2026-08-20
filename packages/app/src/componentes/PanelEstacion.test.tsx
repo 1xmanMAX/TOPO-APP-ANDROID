@@ -106,4 +106,24 @@ describe('PanelEstacion', () => {
     const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!
     expect(estacion.vistaAdelante?.destino).toEqual({ tipo: 'bm', bmId: 'bm-1' })
   })
+
+  it('nombra las visadas de enlace diciendo a qué punto se visa', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
+
+    const atras = screen.getByLabelText(/Vista atrás a BM/)
+    expect(atras).toHaveValue('1.425')
+
+    await usuario.clear(atras)
+    await usuario.type(atras, '1.500')
+
+    const campania = useAlmacen.getState().proyecto.campanias[0]!
+    expect(campania.estaciones[0]!.vistaAtras.valor).toBeCloseTo(1.5, 9)
+  })
+
+  it('nombra la vista adelante diciendo a qué punto se visa', () => {
+    render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
+
+    expect(screen.getByLabelText(/Vista adelante a PC-1/)).toHaveValue('1.150')
+  })
 })
