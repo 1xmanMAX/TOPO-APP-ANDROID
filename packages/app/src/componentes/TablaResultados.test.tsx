@@ -28,4 +28,13 @@ describe('TablaResultados', () => {
     expect(useAlmacen.getState().seleccion.clave).toBe('20|EJE')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(20)
   })
+
+  it('con una calle de progresiva final menor que la inicial, se dibuja sin lanzar', () => {
+    const proyecto = proyectoEjemplo()
+    proyecto.calles[0]!.progresivaInicio = 200
+    proyecto.calles[0]!.progresivaFin = 180
+    useAlmacen.getState().cargarProyecto(proyecto)
+
+    expect(() => render(<TablaResultados />)).not.toThrow()
+  })
 })

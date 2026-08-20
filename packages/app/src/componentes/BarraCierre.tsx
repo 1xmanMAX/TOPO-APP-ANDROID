@@ -1,4 +1,5 @@
 import type { ResultadoCierre } from '@topo/core'
+import CampoNumero from './CampoNumero'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
 
@@ -34,25 +35,21 @@ export default function BarraCierre() {
     <div className={`flex flex-wrap items-center gap-4 rounded border px-3 py-2 text-sm ${fondo}`}>
       <span className="font-semibold">CIERRE</span>
 
-      <label className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
         K
-        <input
-          aria-label="Longitud K"
-          inputMode="decimal"
-          value={cierre.longitudKKm.toFixed(3)}
-          readOnly={config.longitudKAuto}
-          onChange={(evento) => {
-            const numero = Number(evento.target.value.replace(',', '.'))
-            if (Number.isFinite(numero)) {
-              actualizarCampania(contexto.campania.id, {
-                cierre: { ...config, longitudK: numero, longitudKAuto: false },
-              })
-            }
+        <CampoNumero
+          ariaLabel="Longitud K"
+          valor={cierre.longitudKKm}
+          soloLectura={config.longitudKAuto}
+          ancho="w-20"
+          alCambiar={(numero) => {
+            actualizarCampania(contexto.campania.id, {
+              cierre: { ...config, longitudK: numero, longitudKAuto: false },
+            })
           }}
-          className="numerico w-20 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-right dark:border-slate-700 dark:bg-slate-900"
         />
         km
-      </label>
+      </div>
 
       <label className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
         <input
@@ -60,7 +57,11 @@ export default function BarraCierre() {
           checked={config.longitudKAuto}
           onChange={(evento) =>
             actualizarCampania(contexto.campania.id, {
-              cierre: { ...config, longitudKAuto: evento.target.checked },
+              cierre: {
+                ...config,
+                longitudKAuto: evento.target.checked,
+                longitudK: evento.target.checked ? config.longitudK : cierre.longitudKKm,
+              },
             })
           }
         />

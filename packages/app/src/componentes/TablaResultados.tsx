@@ -10,10 +10,14 @@ export default function TablaResultados() {
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
 
-  const celdas = useMemo(
-    () => (contexto ? construirGrilla(contexto.calle, contexto.plantilla) : []),
-    [contexto],
-  )
+  const celdas = useMemo(() => {
+    if (!contexto) return []
+    try {
+      return construirGrilla(contexto.calle, contexto.plantilla)
+    } catch {
+      return []
+    }
+  }, [contexto])
 
   const { progresivas, elementos } = useMemo(() => {
     const progresivas = [...new Set(celdas.map((c) => c.progresiva))].sort((a, b) => a - b)

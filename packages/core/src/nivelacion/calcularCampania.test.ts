@@ -167,6 +167,27 @@ describe('calcularCampania', () => {
     expect(resultado.avisos.some((a) => a.mensaje.includes('fuera de tolerancia'))).toBe(false)
   })
 
+  it('avisa de las lecturas que quedan huérfanas al renombrar el elemento de una lectura ya tomada', () => {
+    const plantillaRenombrada: typeof PLANTILLA_EJEMPLO = {
+      ...PLANTILLA_EJEMPLO,
+      elementos: PLANTILLA_EJEMPLO.elementos.map((elemento) =>
+        elemento.clave === 'EJE' ? { ...elemento, clave: 'EJE-C' } : elemento,
+      ),
+    }
+    const resultado = calcularCampania({
+      campania: campaniaEjemplo(),
+      calle: CALLE_EJEMPLO,
+      plantilla: plantillaRenombrada,
+      bms: [BM_1],
+    })
+
+    const aviso = resultado.avisos.find((a) => a.mensaje.includes('ya no caen en la grilla'))
+    expect(aviso).toBeDefined()
+    expect(aviso?.nivel).toBe('advertencia')
+    expect(aviso?.mensaje).toContain('0|EJE')
+    expect(aviso?.mensaje).toContain('20|EJE')
+  })
+
   it('avisa si el banco de nivel de cierre ya no existe en el proyecto', () => {
     const campania = campaniaEjemplo()
     campania.cierre = { ...campania.cierre, bmFinalId: 'bm-borrado' }

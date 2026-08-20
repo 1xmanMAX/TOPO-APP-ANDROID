@@ -38,6 +38,18 @@ describe('VistaResultados', () => {
     expect(screen.getByRole('img', { name: /Perfil longitudinal de BOR-I/ })).toBeInTheDocument()
   })
 
+  it('con el cierre fuera de tolerancia, el título dice que las cotas no están compensadas y se ve el veredicto', () => {
+    const campaniaId = useAlmacen.getState().campaniaActivaId!
+    const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id
+    useAlmacen.getState().actualizarLectura(campaniaId, lecturaId, 1.887)
+
+    render(<VistaResultados />)
+
+    expect(screen.getByText('Cotas sin compensar')).toBeInTheDocument()
+    expect(screen.queryByText('Cotas compensadas')).not.toBeInTheDocument()
+    expect(screen.getByText(/NO COMPROBADAS/)).toBeInTheDocument()
+  })
+
   it('el perfil cae a otro elemento si el elegido ya no está en la plantilla', async () => {
     render(<VistaResultados />)
     const plantilla = useAlmacen.getState().proyecto.plantillas[0]!

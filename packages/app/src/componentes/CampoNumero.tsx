@@ -10,6 +10,8 @@ interface Props {
   sufijo?: string
   ancho?: string
   alPresionarEnter?: () => void
+  /** Muestra el valor pero no deja escribir. Para cuando otra cosa manda el número. */
+  soloLectura?: boolean
 }
 
 /**
@@ -25,6 +27,7 @@ export default function CampoNumero({
   sufijo,
   ancho,
   alPresionarEnter,
+  soloLectura = false,
 }: Props) {
   const [texto, setTexto] = useState(valor.toFixed(decimales))
   const [editando, setEditando] = useState(false)
@@ -50,16 +53,21 @@ export default function CampoNumero({
           inputMode="decimal"
           aria-label={ariaLabel ?? etiqueta}
           value={texto}
+          readOnly={soloLectura}
           onFocus={() => setEditando(true)}
           onBlur={() => {
             setEditando(false)
             setTexto(valor.toFixed(decimales))
           }}
-          onChange={(evento) => manejarCambio(evento.target.value)}
+          onChange={(evento) => {
+            if (!soloLectura) manejarCambio(evento.target.value)
+          }}
           onKeyDown={(evento) => {
             if (evento.key === 'Enter') alPresionarEnter?.()
           }}
-          className="numerico w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-right text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900"
+          className={`numerico w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-right text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900 ${
+            soloLectura ? 'text-slate-400 dark:text-slate-500' : ''
+          }`}
         />
         {sufijo && <span className="text-xs text-slate-500">{sufijo}</span>}
       </div>

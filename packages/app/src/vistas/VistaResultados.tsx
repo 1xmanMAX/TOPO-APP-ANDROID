@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
-import { armarTabla, copiarAlPortapapeles, descargarCsv, descargarXlsx } from '../archivo/exportar'
+import { armarCabecera, armarTabla, copiarAlPortapapeles, descargarCsv, descargarXlsx } from '../archivo/exportar'
+import BarraCierre from '../componentes/BarraCierre'
 import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
+import ListaAvisos from '../componentes/ListaAvisos'
 import PerfilLongitudinal from '../componentes/PerfilLongitudinal'
 import TablaResultados from '../componentes/TablaResultados'
 import { useAlmacen } from '../estado/almacen'
@@ -12,6 +14,7 @@ export default function VistaResultados() {
   const resultado = useResultado()
   const seleccion = useAlmacen((s) => s.seleccion)
   const irAProgresiva = useAlmacen((s) => s.irAProgresiva)
+  const proyecto = useAlmacen((s) => s.proyecto)
   const [elementoPedido, setElementoPedido] = useState('EJE')
 
   const progresivas = useProgresivas()
@@ -20,6 +23,23 @@ export default function VistaResultados() {
     () => (resultado && contexto ? armarTabla(resultado, contexto.calle, contexto.plantilla) : []),
     [resultado, contexto],
   )
+
+  const tablaCompleta = useMemo(() => {
+    if (!resultado || !contexto) return []
+    const bmInicial = proyecto.bms.find((bm) => bm.id === contexto.campania.bmInicialId)
+    return [
+      ...armarCabecera({
+        calle: contexto.calle,
+        capa: contexto.capa,
+        campania: contexto.campania,
+        bmInicial,
+        resultado,
+      }),
+      [],
+      ...tabla,
+    ]
+  }, [resultado, contexto, tabla, proyecto.bms])
+
   const [copiado, setCopiado] = useState(false)
   const nombreArchivo = `${contexto?.calle.nombre ?? 'cotas'} — ${contexto?.capa?.nombre ?? ''}`.trim()
 
@@ -39,18 +59,22 @@ export default function VistaResultados() {
   return (
     <div className="flex flex-col gap-6 p-4">
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Cotas compensadas</h2>
+        <h2 className="text-lg font-semibold">
+          {resultado.cierre.pasa === true ? 'Cotas compensadas' : 'Cotas sin compensar'}
+        </h2>
+        <BarraCierre />
+        <ListaAvisos />
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => descargarXlsx(tabla, nombreArchivo)}
+            onClick={() => descargarXlsx(tablaCompleta, nombreArchivo)}
             className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
           >
             Exportar a Excel
           </button>
           <button
             type="button"
-            onClick={() => descargarCsv(tabla, nombreArchivo)}
+            onClick={() => descargarCsv(tablaCompleta, nombreArchivo)}
             className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
           >
             Exportar a CSV
@@ -58,7 +82,7 @@ export default function VistaResultados() {
           <button
             type="button"
             onClick={() => {
-              void copiarAlPortapapeles(tabla).then(() => {
+              void copiarAlPortapapeles(tablaCompleta).then(() => {
                 setCopiado(true)
                 window.setTimeout(() => setCopiado(false), 2000)
               })

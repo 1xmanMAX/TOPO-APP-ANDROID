@@ -21,10 +21,14 @@ export default function VistaLibreta() {
   const [claveActiva, setClaveActiva] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
 
-  const celdas = useMemo(
-    () => (contexto ? construirGrilla(contexto.calle, contexto.plantilla) : []),
-    [contexto],
-  )
+  const celdas = useMemo(() => {
+    if (!contexto) return []
+    try {
+      return construirGrilla(contexto.calle, contexto.plantilla)
+    } catch {
+      return []
+    }
+  }, [contexto])
   const llenas = useMemo(
     () => new Set(resultado ? [...resultado.cotasPorCelda.keys()] : []),
     [resultado],

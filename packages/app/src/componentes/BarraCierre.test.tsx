@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
@@ -52,6 +53,38 @@ describe('BarraCierre', () => {
     render(<BarraCierre />)
 
     expect(screen.getByText(/falta cerrar contra un banco de nivel/)).toBeInTheDocument()
+  })
+
+  it('se puede escribir una longitud con decimales y queda guardada', async () => {
+    const usuario = userEvent.setup()
+    const proyecto = proyectoEjemplo()
+    proyecto.campanias[0]!.cierre = { ...proyecto.campanias[0]!.cierre, longitudKAuto: false }
+    useAlmacen.getState().cargarProyecto(proyecto)
+
+    render(<BarraCierre />)
+
+    const campo = screen.getByLabelText('Longitud K')
+    await usuario.clear(campo)
+    await usuario.type(campo, '0.5')
+
+    expect(campo).toHaveValue('0.5')
+
+    const campaniaId = useAlmacen.getState().campaniaActivaId!
+    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId)!
+    expect(campania.cierre.longitudK).toBe(0.5)
+  })
+
+  it('al desmarcar «calcular sola», la longitud no cae a cero', async () => {
+    const usuario = userEvent.setup()
+    render(<BarraCierre />)
+
+    const casilla = screen.getByRole('checkbox', { name: /calcular sola/i })
+    await usuario.click(casilla)
+
+    const campaniaId = useAlmacen.getState().campaniaActivaId!
+    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId)!
+    expect(campania.cierre.longitudK).not.toBe(0)
+    expect(campania.cierre.longitudK).toBeCloseTo(0.36, 9)
   })
 
   it('dice cuando el banco de nivel de cierre ya no está en el proyecto', () => {

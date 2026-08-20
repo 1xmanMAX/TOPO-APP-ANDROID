@@ -1,9 +1,13 @@
 import {
   construirGrilla,
   formatearProgresiva,
+  type BM,
   type Calle,
+  type Campania,
+  type Capa,
   type Plantilla,
   type ResultadoCampania,
+  type ResultadoCierre,
 } from '@topo/core'
 import { formatearCota } from '../formato'
 import { armarXlsx } from './xlsx'
@@ -33,6 +37,41 @@ export function armarTabla(
   }
 
   return filas
+}
+
+export interface DatosDeCabecera {
+  calle: Calle
+  capa: Capa | undefined
+  campania: Campania
+  bmInicial: BM | undefined
+  resultado: ResultadoCampania
+}
+
+function veredicto(cierre: ResultadoCierre): string {
+  if (cierre.pasa === true) return 'VERIFICADO — cierra dentro de tolerancia'
+  if (cierre.pasa === false) return 'COTAS NO COMPROBADAS — el cierre está fuera de tolerancia'
+  return 'COTAS NO COMPROBADAS — el circuito no se verificó'
+}
+
+/**
+ * Encabezado del entregable. Sin esto, el archivo que llega a la obra son
+ * cotas desnudas: nadie puede saber de qué calle y capa son, ni si el
+ * trabajo llegó a verificarse.
+ */
+export function armarCabecera(datos: DatosDeCabecera): string[][] {
+  const { calle, capa, campania, bmInicial, resultado } = datos
+  const { cierre } = resultado
+
+  return [
+    ['Calle', calle.nombre],
+    ['Capa', capa?.nombre ?? '—'],
+    ['Fecha', campania.fecha],
+    ['Banco de nivel de arranque', bmInicial ? `${bmInicial.nombre} · ${formatearCota(bmInicial.cota)}` : '—'],
+    ['Longitud del circuito', `${cierre.longitudKKm.toFixed(3)} km`],
+    ['Tolerancia', cierre.toleranciaMm === null ? '—' : `±${cierre.toleranciaMm.toFixed(1)} mm`],
+    ['Error de cierre', cierre.errorMm === null ? '—' : `${cierre.errorMm > 0 ? '+' : ''}${cierre.errorMm.toFixed(1)} mm`],
+    ['Estado', veredicto(cierre)],
+  ]
 }
 
 export function aTextoSeparado(tabla: string[][], separador: string): string {

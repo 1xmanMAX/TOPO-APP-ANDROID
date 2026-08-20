@@ -73,16 +73,6 @@ export default function App() {
         {vista === 'campanias' && <VistaCampanias />}
         {vista === 'libreta' && <VistaLibreta />}
         {vista === 'resultados' && <VistaResultados />}
-        {vista !== 'proyecto' &&
-          vista !== 'plantilla' &&
-          vista !== 'calle' &&
-          vista !== 'campanias' &&
-          vista !== 'libreta' &&
-          vista !== 'resultados' && (
-            <p className="p-6 text-sm text-slate-500">
-              Pantalla en construcción. Abre «Proyecto» mientras tanto.
-            </p>
-          )}
       </div>
     </div>
   )

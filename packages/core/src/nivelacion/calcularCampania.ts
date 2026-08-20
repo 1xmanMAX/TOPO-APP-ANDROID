@@ -93,6 +93,7 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
     agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos)
     agregarAvisosDeApartamiento(cotasPorCelda, avisos)
     agregarAvisosDeCierre(cierre, campania, bms, avisos)
+    agregarAvisosDeHuerfanas(grilla, cotasPorCelda, avisos)
 
     return {
       cotasPorCelda,
@@ -245,6 +246,34 @@ function agregarAvisosDeApartamiento(
           '¿La anotaste bien?',
       })
     }
+  }
+}
+
+/**
+ * Las lecturas apuntan a su elemento por la clave de texto, y esa clave puede
+ * cambiar (renombrar un elemento de la plantilla, cambiar el intervalo de
+ * progresivas) después de que ya se tomaron lecturas. El dato crudo no se
+ * pierde, pero deja de caer en la grilla: desaparece de la tabla y de la
+ * exportación sin que nada lo diga. Esto avisa.
+ */
+function agregarAvisosDeHuerfanas(
+  grilla: CeldaGrilla[],
+  cotasPorCelda: Map<string, CotaCelda>,
+  avisos: Aviso[],
+): void {
+  const clavesDeLaGrilla = new Set(grilla.map((celda) => celda.clave))
+  const huerfanas = [...cotasPorCelda.keys()].filter((clave) => !clavesDeLaGrilla.has(clave))
+
+  if (huerfanas.length > 0) {
+    avisos.push({
+      nivel: 'advertencia',
+      clave: null,
+      mensaje:
+        `Hay ${huerfanas.length} ${huerfanas.length === 1 ? 'lectura' : 'lecturas'} que ya no ` +
+        'caen en la grilla de esta calle, así que no salen en la tabla ni en la exportación: ' +
+        `${huerfanas.slice(0, 5).join(', ')}${huerfanas.length > 5 ? '…' : ''}. ` +
+        'Suele pasar al renombrar un elemento de la plantilla o al cambiar el intervalo.',
+    })
   }
 }
 

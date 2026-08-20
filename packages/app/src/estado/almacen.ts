@@ -13,7 +13,7 @@ import {
 import { create } from 'zustand'
 import { nuevoId, proyectoEjemplo, proyectoVacio } from './ejemplo'
 
-export type Vista = 'inicio' | 'proyecto' | 'plantilla' | 'calle' | 'campanias' | 'libreta' | 'resultados'
+export type Vista = 'proyecto' | 'plantilla' | 'calle' | 'campanias' | 'libreta' | 'resultados'
 
 export interface Seleccion {
   clave: string | null
@@ -89,7 +89,7 @@ function ultimaEstacion(campania: Campania | undefined): number {
 
 export const useAlmacen = create<EstadoApp>((set, get) => ({
   proyecto: proyectoEjemplo(),
-  vista: 'inicio',
+  vista: 'proyecto',
   campaniaActivaId: 'camp-1',
   estacionActiva: 0,
   plantillaEnEdicionId: null,

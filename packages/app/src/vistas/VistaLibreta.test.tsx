@@ -51,6 +51,15 @@ describe('VistaLibreta', () => {
     expect(screen.getByText(/llenadas 3 de 70/i)).toBeInTheDocument()
   })
 
+  it('con una calle de progresiva final menor que la inicial, se dibuja sin lanzar', () => {
+    const proyecto = proyectoEjemplo()
+    proyecto.calles[0]!.progresivaInicio = 200
+    proyecto.calles[0]!.progresivaFin = 180
+    useAlmacen.getState().cargarProyecto(proyecto)
+
+    expect(() => render(<VistaLibreta />)).not.toThrow()
+  })
+
   it('muestra el aviso de cierre fuera de tolerancia', async () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
     const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id

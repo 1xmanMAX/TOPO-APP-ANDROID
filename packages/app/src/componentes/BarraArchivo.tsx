@@ -2,12 +2,17 @@ import { useRef, useState } from 'react'
 import { abrirTopo, descargarTopo } from '../archivo/topo'
 import { useAlmacen } from '../estado/almacen'
 
+const TEXTO_CONFIRMACION = '¿Seguro? Se pierde lo no guardado'
+
+type Armado = 'nuevo' | 'abrir' | null
+
 export default function BarraArchivo() {
   const proyecto = useAlmacen((s) => s.proyecto)
   const cargarProyecto = useAlmacen((s) => s.cargarProyecto)
   const nuevoProyecto = useAlmacen((s) => s.nuevoProyecto)
   const entradaArchivo = useRef<HTMLInputElement>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  const [armado, setArmado] = useState<Armado>(null)
 
   async function abrir(archivo: File) {
     try {
@@ -24,18 +29,33 @@ export default function BarraArchivo() {
         type="button"
         onClick={() => {
           setMensaje(null)
-          nuevoProyecto()
+          if (armado === 'nuevo') {
+            nuevoProyecto()
+            setArmado(null)
+          } else {
+            setArmado('nuevo')
+          }
         }}
+        onBlur={() => setArmado((actual) => (actual === 'nuevo' ? null : actual))}
         className="rounded px-2 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
       >
-        Nuevo
+        {armado === 'nuevo' ? TEXTO_CONFIRMACION : 'Nuevo'}
       </button>
       <button
         type="button"
-        onClick={() => entradaArchivo.current?.click()}
+        onClick={() => {
+          setMensaje(null)
+          if (armado === 'abrir') {
+            setArmado(null)
+            entradaArchivo.current?.click()
+          } else {
+            setArmado('abrir')
+          }
+        }}
+        onBlur={() => setArmado((actual) => (actual === 'abrir' ? null : actual))}
         className="rounded px-2 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
       >
-        Abrir
+        {armado === 'abrir' ? TEXTO_CONFIRMACION : 'Abrir'}
       </button>
       <button
         type="button"
