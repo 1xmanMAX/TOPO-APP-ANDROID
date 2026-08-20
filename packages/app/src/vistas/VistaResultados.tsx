@@ -9,6 +9,7 @@ import {
   descargarCsv,
   descargarXlsx,
 } from '../archivo/exportar'
+import AvisoEspesores from '../componentes/AvisoEspesores'
 import BarraCierre from '../componentes/BarraCierre'
 import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
@@ -17,6 +18,7 @@ import PerfilLongitudinal from '../componentes/PerfilLongitudinal'
 import SelectorCapas from '../componentes/SelectorCapas'
 import TablaEspesores from '../componentes/TablaEspesores'
 import TablaResultados from '../componentes/TablaResultados'
+import { calcularEstadoComparacion } from '../estadoComparacion'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useContextoDe, useProgresivas, useResultado, useResultadoDe } from '../estado/derivados'
 
@@ -66,6 +68,21 @@ export default function VistaResultados() {
     if (!comparacion || !contextoInferior) return []
     return armarTablaEspesores(comparacion, contextoInferior.calle, contextoInferior.plantilla)
   }, [comparacion, contextoInferior])
+
+  // Misma fuente que la cabecera del archivo exportado: si una de las dos
+  // campañas no cerró, el espesor no está comprobado aunque la resta haya
+  // sido posible. `null` mientras falte elegir alguna de las dos capas.
+  const estadoComparacion = useMemo(() => {
+    if (!contextoInferior || !contextoSuperior || !resultadoInferior || !resultadoSuperior) return null
+    return calcularEstadoComparacion({
+      capaInferior: contextoInferior.capa,
+      capaSuperior: contextoSuperior.capa,
+      campaniaInferior: contextoInferior.campania,
+      campaniaSuperior: contextoSuperior.campania,
+      resultadoInferior,
+      resultadoSuperior,
+    })
+  }, [contextoInferior, contextoSuperior, resultadoInferior, resultadoSuperior])
 
   const tablaEspesoresCompleta = useMemo(() => {
     if (!comparacion || !contextoInferior || !contextoSuperior || !resultadoInferior || !resultadoSuperior) return []
@@ -147,7 +164,13 @@ export default function VistaResultados() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Espesor entre capas</h2>
+        <h2 className="text-lg font-semibold">
+          {estadoComparacion === null
+            ? 'Espesor entre capas'
+            : estadoComparacion.comprobado
+              ? 'Espesores comprobados'
+              : 'Espesores no comprobados'}
+        </h2>
         <SelectorCapas />
         {comparacion && (
           <div className="flex gap-2">
@@ -179,6 +202,7 @@ export default function VistaResultados() {
             </button>
           </div>
         )}
+        {estadoComparacion && <AvisoEspesores estado={estadoComparacion} />}
         <TablaEspesores />
       </section>
 

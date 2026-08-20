@@ -12,6 +12,7 @@ import {
   type ResultadoComparacion,
 } from '@topo/core'
 import { formatearCota } from '../formato'
+import { calcularEstadoComparacion } from '../estadoComparacion'
 import { armarXlsx } from './xlsx'
 
 interface EsqueletoTabla {
@@ -147,45 +148,6 @@ export interface DatosDeCabeceraComparacion {
   comparacion: ResultadoComparacion
 }
 
-function etiquetaCapa(capa: Capa | undefined, campania: Campania): string {
-  return `${capa?.nombre ?? '—'} · ${campania.fecha}`
-}
-
-function motivoNoComprobado(cierre: ResultadoCierre): string {
-  if (cierre.pasa === false) return 'el cierre está fuera de tolerancia'
-  return 'el circuito no se verificó'
-}
-
-/**
- * Un espesor sale de restar dos cotas. Si cualquiera de las dos campañas no
- * cerró, el espesor calculado sobre ella tampoco está comprobado — aunque la
- * resta en sí dé un número. El estado tiene que decir cuál de las dos falla,
- * porque de eso depende qué campaña hay que volver a nivelar.
- */
-function veredictoComparacion(datos: DatosDeCabeceraComparacion): string {
-  const { capaInferior, capaSuperior, campaniaInferior, campaniaSuperior, resultadoInferior, resultadoSuperior } = datos
-  const falloInferior = resultadoInferior.cierre.pasa !== true
-  const falloSuperior = resultadoSuperior.cierre.pasa !== true
-
-  if (!falloInferior && !falloSuperior) {
-    return 'ESPESORES VERIFICADOS — las dos campañas cierran dentro de tolerancia'
-  }
-
-  const motivos: string[] = []
-  if (falloInferior) {
-    motivos.push(
-      `la capa de abajo (${etiquetaCapa(capaInferior, campaniaInferior)}): ${motivoNoComprobado(resultadoInferior.cierre)}`,
-    )
-  }
-  if (falloSuperior) {
-    motivos.push(
-      `la capa de arriba (${etiquetaCapa(capaSuperior, campaniaSuperior)}): ${motivoNoComprobado(resultadoSuperior.cierre)}`,
-    )
-  }
-
-  return `ESPESORES NO COMPROBADOS — ${motivos.join('; ')}`
-}
-
 /**
  * Encabezado del entregable de espesores. Identifica las dos capas
  * comparadas con sus fechas, resume mínimo, máximo y medio, y dice si el
@@ -206,7 +168,7 @@ export function armarCabeceraComparacion(datos: DatosDeCabeceraComparacion): str
     ['Espesor máximo', comparacion.espesorMaximo === null ? '—' : formatearCota(comparacion.espesorMaximo)],
     ['Espesor medio', comparacion.espesorMedio === null ? '—' : formatearCota(comparacion.espesorMedio)],
     ['Celdas comparables', `${comparacion.comparables} de ${totalCeldas}`],
-    ['Estado', veredictoComparacion(datos)],
+    ['Estado', calcularEstadoComparacion(datos).texto],
   ]
 }
 

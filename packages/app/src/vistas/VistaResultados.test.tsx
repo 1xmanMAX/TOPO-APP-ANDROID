@@ -1,7 +1,8 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Campania } from '@topo/core'
+import { calcularCampania, compararCapas, type Campania } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { armarCabeceraComparacion } from '../archivo/exportar'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
 import VistaResultados from './VistaResultados'
@@ -43,6 +44,20 @@ function campaniaTerreno(): Campania {
         vistaAdelante: { id: 'lt-3', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
       },
     ],
+  }
+}
+
+/**
+ * La misma campaña, pero con el circuito sin cerrar: es la forma más directa
+ * de reproducir "el circuito no se verificó", el motivo del defecto real que
+ * corrige esta tarea (una campaña que nunca llegó a cerrar contra un banco
+ * de nivel).
+ */
+function conCircuitoAbierto(campania: Campania): Campania {
+  return {
+    ...campania,
+    estado: 'abierta',
+    cierre: { ...campania.cierre, tipo: 'abierto', bmFinalId: undefined },
   }
 }
 
@@ -150,5 +165,99 @@ describe('VistaResultados', () => {
     expect(screen.getByRole('button', { name: /Exportar espesores a CSV/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copiar cotas' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copiar espesores' })).toBeInTheDocument()
+  })
+
+  it('si la capa de abajo no cierra, la pantalla avisa y la nombra, aunque la de arriba sí cierre', () => {
+    const proyecto = proyectoEjemplo()
+    proyecto.campanias.push(conCircuitoAbierto(campaniaTerreno()))
+    useAlmacen.getState().cargarProyecto(proyecto)
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+
+    render(<VistaResultados />)
+
+    expect(screen.getByRole('heading', { name: 'Espesores no comprobados' })).toBeInTheDocument()
+    const aviso = screen.getByText(/ESPESORES NO COMPROBADOS/)
+    expect(aviso.textContent).toContain('TERRENO EXISTENTE')
+    expect(aviso.textContent).not.toContain('SUBRASANTE')
+  })
+
+  it('si la capa de arriba no cierra, la pantalla avisa y la nombra, aunque la de abajo sí cierre', () => {
+    const proyecto = proyectoEjemplo()
+    const subrasanteAbierta = conCircuitoAbierto(proyecto.campanias[0]!)
+    proyecto.campanias = [subrasanteAbierta, campaniaTerreno()]
+    useAlmacen.getState().cargarProyecto(proyecto)
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+
+    render(<VistaResultados />)
+
+    expect(screen.getByRole('heading', { name: 'Espesores no comprobados' })).toBeInTheDocument()
+    const aviso = screen.getByText(/ESPESORES NO COMPROBADOS/)
+    expect(aviso.textContent).toContain('SUBRASANTE')
+    expect(aviso.textContent).not.toContain('TERRENO EXISTENTE')
+  })
+
+  it('si ninguna de las dos capas cierra, la pantalla nombra a las dos', () => {
+    const proyecto = proyectoEjemplo()
+    const subrasanteAbierta = conCircuitoAbierto(proyecto.campanias[0]!)
+    proyecto.campanias = [subrasanteAbierta, conCircuitoAbierto(campaniaTerreno())]
+    useAlmacen.getState().cargarProyecto(proyecto)
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+
+    render(<VistaResultados />)
+
+    const aviso = screen.getByText(/ESPESORES NO COMPROBADOS/)
+    expect(aviso.textContent).toContain('TERRENO EXISTENTE')
+    expect(aviso.textContent).toContain('SUBRASANTE')
+  })
+
+  it('cuando las dos campañas cierran, la pantalla dice que los espesores están verificados', () => {
+    const proyecto = proyectoEjemplo()
+    proyecto.campanias.push(campaniaTerreno())
+    useAlmacen.getState().cargarProyecto(proyecto)
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+
+    render(<VistaResultados />)
+
+    expect(screen.getByRole('heading', { name: 'Espesores comprobados' })).toBeInTheDocument()
+    expect(screen.getByText(/ESPESORES VERIFICADOS/)).toBeInTheDocument()
+  })
+
+  // El requisito no es que el texto "se parezca" al de la cabecera del
+  // archivo exportado: tiene que ser exactamente el mismo, porque los dos
+  // salen de la misma función (`calcularEstadoComparacion`). Se compara
+  // contra lo que arma `armarCabeceraComparacion` — la misma función que usa
+  // `exportar.ts` — y no contra una cadena copiada a mano, que podría quedar
+  // desactualizada sin que la prueba se enterara.
+  it('el texto que ve el topógrafo es exactamente el mismo que lleva la cabecera del archivo exportado', () => {
+    const proyecto = proyectoEjemplo()
+    const subrasanteAbierta = conCircuitoAbierto(proyecto.campanias[0]!)
+    const terreno = campaniaTerreno()
+    proyecto.campanias = [subrasanteAbierta, terreno]
+    useAlmacen.getState().cargarProyecto(proyecto)
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+
+    render(<VistaResultados />)
+
+    const calle = proyecto.calles[0]!
+    const plantilla = proyecto.plantillas[0]!
+    const resultadoInferior = calcularCampania({ campania: terreno, calle, plantilla, bms: proyecto.bms })
+    const resultadoSuperior = calcularCampania({ campania: subrasanteAbierta, calle, plantilla, bms: proyecto.bms })
+    const capaInferior = proyecto.capas.find((c) => c.id === terreno.capaId)
+    const capaSuperior = proyecto.capas.find((c) => c.id === subrasanteAbierta.capaId)
+
+    const cabecera = armarCabeceraComparacion({
+      calle,
+      capaInferior,
+      capaSuperior,
+      campaniaInferior: terreno,
+      campaniaSuperior: subrasanteAbierta,
+      resultadoInferior,
+      resultadoSuperior,
+      comparacion: compararCapas(resultadoInferior, resultadoSuperior),
+    })
+    const textoDeCabecera = cabecera.find((fila) => fila[0] === 'Estado')![1]!
+
+    expect(textoDeCabecera).toContain('ESPESORES NO COMPROBADOS')
+    expect(screen.getByText(textoDeCabecera)).toBeInTheDocument()
   })
 })
