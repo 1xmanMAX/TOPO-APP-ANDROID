@@ -1,4 +1,5 @@
 import { useAlmacen, type Vista } from '../estado/almacen'
+import BarraArchivo from './BarraArchivo'
 
 const PESTANAS: { vista: Vista; texto: string }[] = [
   { vista: 'proyecto', texto: 'Proyecto' },
@@ -33,6 +34,9 @@ export default function BarraSuperior() {
           </button>
         ))}
       </nav>
+      <div className="ml-auto">
+        <BarraArchivo />
+      </div>
     </header>
   )
 }
