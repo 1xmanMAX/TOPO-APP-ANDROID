@@ -33,6 +33,13 @@ describe('extension', () => {
   it('devuelve cero a uno con una lista vacía', () => {
     expect(extension([], 0.1)).toEqual([0, 1])
   })
+
+  it('funciona con valores negativos, como los offsets a la izquierda del eje', () => {
+    const [minimo, maximo] = extension([-5.6, 4.2], 0.1)
+
+    expect(minimo).toBeCloseTo(-6.58, 9)
+    expect(maximo).toBeCloseTo(5.18, 9)
+  })
 })
 
 describe('marcas', () => {
@@ -48,5 +55,9 @@ describe('marcas', () => {
 
   it('devuelve un solo valor si el dominio es un punto', () => {
     expect(marcas([5, 5], 4)).toEqual([5])
+  })
+
+  it('admite un dominio al revés y da las mismas marcas', () => {
+    expect(marcas([10, 0], 5)).toEqual(marcas([0, 10], 5))
   })
 })

@@ -26,6 +26,10 @@ export function marcas(dominio: [number, number], cantidadObjetivo: number): num
   const [minimo, maximo] = dominio
   if (minimo === maximo) return [minimo]
 
+  // Un dominio al revés no puede venir de `extension`, pero si llegara, más vale
+  // devolver las marcas correctas que una lista vacía por un NaN silencioso.
+  if (maximo < minimo) return marcas([maximo, minimo], cantidadObjetivo)
+
   const paso = pasoLegible((maximo - minimo) / Math.max(1, cantidadObjetivo))
   const primera = Math.ceil(minimo / paso) * paso
 
