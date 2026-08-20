@@ -104,7 +104,7 @@ await pagina.screenshot({ path: `${SALIDA}/resultados.png`, fullPage: true })
 // 9. RIESGO ABIERTO: exportar a Excel y validar el archivo
 const descarga = await Promise.all([
   pagina.waitForEvent('download'),
-  pagina.getByRole('button', { name: 'Exportar a Excel' }).click(),
+  pagina.getByRole('button', { name: 'Exportar cotas a Excel' }).click(),
 ]).then(([d]) => d)
 const rutaXlsx = `${SALIDA}/exportado.xlsx`
 await descarga.saveAs(rutaXlsx)
