@@ -2,6 +2,7 @@ import { useAlmacen, type Vista } from '../estado/almacen'
 
 const PESTANAS: { vista: Vista; texto: string }[] = [
   { vista: 'proyecto', texto: 'Proyecto' },
+  { vista: 'plantilla', texto: 'Plantilla' },
   { vista: 'calle', texto: 'Calle' },
   { vista: 'libreta', texto: 'Libreta' },
   { vista: 'resultados', texto: 'Resultados' },
