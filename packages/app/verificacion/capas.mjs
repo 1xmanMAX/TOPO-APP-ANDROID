@@ -172,6 +172,17 @@ const etiquetaCapaEnLibreta = await pagina.getByText(/^(TERRENO EXISTENTE|SUBRAS
 comprobar('el corte de la libreta no rotula la capa (una sola serie, como antes de esta tarea)',
   etiquetaCapaEnLibreta === 0, `${etiquetaCapaEnLibreta} etiquetas de capa`)
 
+// Contar un solo trazo no basta: hay que comprobar que ese trazo es el de la
+// campaña ACTIVA y no el de la otra. La celda 0+000 BOR-I la midió la campaña
+// nueva (la activa) y no la del ejemplo, así que su presencia en el corte de
+// la libreta es la firma de que se está dibujando la campaña correcta.
+const puntosLibreta = await pagina
+  .locator('svg [aria-label]')
+  .evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
+
+comprobar('el corte de la libreta dibuja los puntos de la campaña que se está midiendo',
+  puntosLibreta.some((n) => n?.includes('BOR-I')), puntosLibreta.join(' | ') || '(ningún punto)')
+
 await navegador.close()
 
 const fallos = resultados.filter((r) => !r.ok)
