@@ -1,13 +1,26 @@
+import { compararCapas } from '@topo/core'
 import { useMemo, useState } from 'react'
-import { armarCabecera, armarTabla, copiarAlPortapapeles, descargarCsv, descargarXlsx } from '../archivo/exportar'
+import {
+  armarCabecera,
+  armarCabeceraComparacion,
+  armarTabla,
+  armarTablaEspesores,
+  copiarAlPortapapeles,
+  descargarCsv,
+  descargarXlsx,
+} from '../archivo/exportar'
+import AvisoEspesores from '../componentes/AvisoEspesores'
 import BarraCierre from '../componentes/BarraCierre'
 import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import ListaAvisos from '../componentes/ListaAvisos'
 import PerfilLongitudinal from '../componentes/PerfilLongitudinal'
+import SelectorCapas from '../componentes/SelectorCapas'
+import TablaEspesores from '../componentes/TablaEspesores'
 import TablaResultados from '../componentes/TablaResultados'
+import { calcularEstadoComparacion } from '../estadoComparacion'
 import { useAlmacen } from '../estado/almacen'
-import { useContexto, useProgresivas, useResultado } from '../estado/derivados'
+import { useContexto, useContextoDe, useProgresivas, useResultado, useResultadoDe } from '../estado/derivados'
 
 export default function VistaResultados() {
   const contexto = useContexto()
@@ -15,7 +28,18 @@ export default function VistaResultados() {
   const seleccion = useAlmacen((s) => s.seleccion)
   const irAProgresiva = useAlmacen((s) => s.irAProgresiva)
   const proyecto = useAlmacen((s) => s.proyecto)
+  const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
+  const capasVisibles = useAlmacen((s) => s.capasVisibles)
   const [elementoPedido, setElementoPedido] = useState('EJE')
+
+  // Sin ninguna capa marcada en el selector, se dibuja la campaña activa: así
+  // el corte no queda en blanco antes de que el topógrafo abra el panel de
+  // capas. Esta pantalla sí manda `capasVisibles` — es la que tiene el
+  // selector de capas —; la libreta no lo lee en absoluto.
+  const idsVisiblesCorte = useMemo(
+    () => (capasVisibles.length > 0 ? capasVisibles : campaniaActivaId ? [campaniaActivaId] : []),
+    [capasVisibles, campaniaActivaId],
+  )
 
   const progresivas = useProgresivas()
 
@@ -40,8 +64,63 @@ export default function VistaResultados() {
     ]
   }, [resultado, contexto, tabla, proyecto.bms])
 
+  const comparacionSeleccion = useAlmacen((s) => s.comparacion)
+  const contextoInferior = useContextoDe(comparacionSeleccion.inferior)
+  const contextoSuperior = useContextoDe(comparacionSeleccion.superior)
+  const resultadoInferior = useResultadoDe(comparacionSeleccion.inferior)
+  const resultadoSuperior = useResultadoDe(comparacionSeleccion.superior)
+
+  const comparacion = useMemo(() => {
+    if (!resultadoInferior || !resultadoSuperior) return null
+    return compararCapas(resultadoInferior, resultadoSuperior)
+  }, [resultadoInferior, resultadoSuperior])
+
+  const tablaEspesores = useMemo(() => {
+    if (!comparacion || !contextoInferior) return []
+    return armarTablaEspesores(comparacion, contextoInferior.calle, contextoInferior.plantilla)
+  }, [comparacion, contextoInferior])
+
+  // Misma fuente que la cabecera del archivo exportado: si una de las dos
+  // campañas no cerró, el espesor no está comprobado aunque la resta haya
+  // sido posible. `null` mientras falte elegir alguna de las dos capas.
+  const estadoComparacion = useMemo(() => {
+    if (!contextoInferior || !contextoSuperior || !resultadoInferior || !resultadoSuperior) return null
+    return calcularEstadoComparacion({
+      capaInferior: contextoInferior.capa,
+      capaSuperior: contextoSuperior.capa,
+      campaniaInferior: contextoInferior.campania,
+      campaniaSuperior: contextoSuperior.campania,
+      resultadoInferior,
+      resultadoSuperior,
+    })
+  }, [contextoInferior, contextoSuperior, resultadoInferior, resultadoSuperior])
+
+  const tablaEspesoresCompleta = useMemo(() => {
+    if (!comparacion || !contextoInferior || !contextoSuperior || !resultadoInferior || !resultadoSuperior) return []
+    return [
+      ...armarCabeceraComparacion({
+        calle: contextoInferior.calle,
+        capaInferior: contextoInferior.capa,
+        capaSuperior: contextoSuperior.capa,
+        campaniaInferior: contextoInferior.campania,
+        campaniaSuperior: contextoSuperior.campania,
+        resultadoInferior,
+        resultadoSuperior,
+        comparacion,
+      }),
+      [],
+      ...tablaEspesores,
+    ]
+  }, [comparacion, contextoInferior, contextoSuperior, resultadoInferior, resultadoSuperior, tablaEspesores])
+
   const [copiado, setCopiado] = useState(false)
+  const [copiadoEspesores, setCopiadoEspesores] = useState(false)
   const nombreArchivo = `${contexto?.calle.nombre ?? 'cotas'} — ${contexto?.capa?.nombre ?? ''}`.trim()
+  // Con un guion en vez de una cadena vacía cuando falta la capa: así nunca
+  // quedan dos espacios seguidos ("Espesores  a SUBRASANTE") si a alguna de
+  // las dos campañas no se le pudo resolver la capa.
+  const nombreArchivoEspesores =
+    `${contextoInferior?.calle.nombre ?? 'espesores'} — Espesores ${contextoInferior?.capa?.nombre ?? '—'} a ${contextoSuperior?.capa?.nombre ?? '—'}`.trim()
 
   if (!contexto || !resultado) {
     return <p className="p-6 text-sm text-slate-500">No hay una campaña abierta.</p>
@@ -67,17 +146,17 @@ export default function VistaResultados() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => descargarXlsx(tablaCompleta, nombreArchivo)}
+            onClick={() => descargarXlsx(tablaCompleta, nombreArchivo, 'Cotas')}
             className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
           >
-            Exportar a Excel
+            Exportar cotas a Excel
           </button>
           <button
             type="button"
             onClick={() => descargarCsv(tablaCompleta, nombreArchivo)}
             className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
           >
-            Exportar a CSV
+            Exportar cotas a CSV
           </button>
           <button
             type="button"
@@ -89,15 +168,58 @@ export default function VistaResultados() {
             }}
             className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
           >
-            {copiado ? 'Copiado ✓' : 'Copiar tabla'}
+            {copiado ? 'Copiado ✓' : 'Copiar cotas'}
           </button>
         </div>
         <TablaResultados />
       </section>
 
       <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold">
+          {estadoComparacion === null
+            ? 'Espesor entre capas'
+            : estadoComparacion.comprobado
+              ? 'Espesores comprobados'
+              : 'Espesores no comprobados'}
+        </h2>
+        <SelectorCapas />
+        {comparacion && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => descargarXlsx(tablaEspesoresCompleta, nombreArchivoEspesores, 'Espesores')}
+              className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
+            >
+              Exportar espesores a Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => descargarCsv(tablaEspesoresCompleta, nombreArchivoEspesores)}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+            >
+              Exportar espesores a CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void copiarAlPortapapeles(tablaEspesoresCompleta).then(() => {
+                  setCopiadoEspesores(true)
+                  window.setTimeout(() => setCopiadoEspesores(false), 2000)
+                })
+              }}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+            >
+              {copiadoEspesores ? 'Copiado ✓' : 'Copiar espesores'}
+            </button>
+          </div>
+        )}
+        {estadoComparacion && <AvisoEspesores estado={estadoComparacion} />}
+        <TablaEspesores />
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Corte transversal</h2>
-        <CorteTransversal progresiva={progresivaActiva} />
+        <CorteTransversal progresiva={progresivaActiva} idsVisibles={idsVisiblesCorte} />
         <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
       </section>
 

@@ -49,7 +49,28 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
     )
   }
 
-  return proyecto
+  return migrarCapasSinOrden(proyecto)
+}
+
+/**
+ * El campo `orden` de las capas es nuevo en la Entrega 2A: un archivo `.topo`
+ * guardado con la Entrega 1 trae capas sin él. Si se dejara así, `ordenarCapas`
+ * restaría `a.orden - b.orden`, que da `NaN` para cada par — y aunque V8 hoy
+ * conserva el orden original del array cuando el comparador da `NaN` (que es
+ * el orden físico del paquete, porque así se guardaban antes de que existiera
+ * el campo), la especificación del lenguaje no lo garantiza. Se renumera aquí
+ * por la posición en el array, no con `renumerarCapas` de `@topo/core`
+ * directamente: esa función empieza ordenando por el propio campo `orden`,
+ * que es justo el que falta.
+ */
+function migrarCapasSinOrden(proyecto: Proyecto): Proyecto {
+  const faltaOrden = proyecto.capas.some((capa) => typeof capa.orden !== 'number')
+  if (!faltaOrden) return proyecto
+
+  return {
+    ...proyecto,
+    capas: proyecto.capas.map((capa, indice) => ({ ...capa, orden: indice })),
+  }
 }
 
 export function descargarTopo(proyecto: Proyecto): void {

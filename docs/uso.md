@@ -1,6 +1,8 @@
-# Cómo usar la app — Entrega 1
+# Cómo usar la app
 
 Nivelación de una calle por progresivas: escribes las lecturas de mira, la app calcula las cotas, verifica si tu circuito cierra, compensa el error y te deja recorrer la calle corte por corte.
+
+Y una vez tienes dos capas niveladas, te dice **cuánto material hay entre ellas**, celda por celda.
 
 ## Arrancarla
 
@@ -31,6 +33,8 @@ Proyecto  →  Plantilla  →  Calle  →  Campañas  →  Libreta  →  Resulta
 Los datos de la obra y, sobre todo, los **bancos de nivel**: el punto de cota conocida donde arranca todo. Puedes tener varios — uno por esquina, por ejemplo — y usarlos para encadenar una calle con la siguiente.
 
 También defines aquí las **capas** de pavimento: terreno existente, subrasante, sub-base, base, carpeta.
+
+El **orden manda**: es el que decide qué capa queda debajo de cuál al calcular espesores. Si te falta una en medio, no hace falta borrar y rehacer — los botones de subir y bajar la ponen en su sitio.
 
 > Si corriges la cota de un banco de nivel, **todas las cotas del proyecto se recalculan solas**. La app no guarda cotas: guarda tus lecturas y deriva todo lo demás cada vez.
 
@@ -67,6 +71,47 @@ La tabla de cotas compensadas, el corte transversal con su deslizador y el perfi
 Al hacer clic en una celda de la tabla, el corte salta a esa progresiva. Al hacer clic en un punto del corte, se marca su celda. Todo está ligado.
 
 Desde aquí exportas a **Excel**, a **CSV** o **copias la tabla** para pegarla en una hoja ya abierta.
+
+## Comparar capas: el espesor colocado
+
+En la pantalla de Resultados, arriba, hay dos desplegables: **capa de abajo** y **capa de arriba**. Eliges dos campañas de la misma calle y la app resta una de otra.
+
+El resultado es el **espesor colocado**: lo que de verdad hay puesto, no lo que dice el proyecto.
+
+```
+Espesor colocado: mínimo 0.248 m · medio 0.250 m · máximo 0.253 m · 2 de 3 celdas comparables
+```
+
+Léelo así:
+
+- **Mínimo** es tu punto flaco. Si el proyecto pide 0.25 y el mínimo sale 0.19, ahí falta material aunque la media cuadre.
+- **Medio** se calcula con el espesor completo de cada celda, antes de redondearlo a milímetro para mostrarlo en la tabla. Si tú promedias a mano las cifras que ves en pantalla, puedes salir con 1 mm de diferencia: es normal, y el medio de la app es el más preciso de los dos.
+- **Celdas comparables** son las que midieron las dos campañas. Si nivelaste el terreno hasta la vereda pero la subrasante solo hasta el borde, esas celdas de vereda no tienen pareja.
+
+### Lo que la app no hace, y por qué
+
+- **Una celda sin pareja sale vacía, nunca cero.** Un cero diría «aquí no se puso material». Vacío dice «aquí no se midió». No es lo mismo, y no conviene confundirlo delante de una valorización.
+- **Un espesor negativo se marca.** Es físicamente imposible: o hay una lectura mal anotada, o elegiste las capas al revés.
+
+### El corte con las dos capas
+
+Debajo, el corte transversal dibuja las dos capas superpuestas con el área sombreada entre ellas. Un tramo delgado se ve antes de lo que se calcula.
+
+El sombreado **solo cubre donde las dos capas tienen medida**. Si se corta antes de llegar a la vereda, es que ahí solo mediste una.
+
+Con el selector de capas eliges cuáles se dibujan, sin cambiar la comparación.
+
+### Exportar
+
+Los botones distinguen qué tabla se llevan: **Exportar cotas a Excel** y **Exportar espesores a Excel**.
+
+El archivo de espesores lleva cabecera con las dos capas comparadas, sus fechas, el resumen y —esto es lo que importa— **el estado de verificación de las dos**:
+
+```
+ESPESORES NO COMPROBADOS — la capa de abajo (TERRENO EXISTENTE · 2026-08-20): el circuito no se verificó
+```
+
+Un espesor calculado sobre una nivelación que no cerró **tampoco está comprobado**. Quien reciba el archivo tiene que poder saberlo sin preguntarte.
 
 ## La barra de cierre: qué significa cada color
 
@@ -106,9 +151,9 @@ Con sol directo el modo claro se lee mejor; de noche o dentro del vehículo, el 
 
 ## Lo que todavía no hace
 
-Esta es la primera entrega. Todavía no:
+Todavía no:
 
-- Compara capas entre sí ni calcula espesores reales (Entrega 2)
+- Compara el terreno contra la **rasante de proyecto**, ni calcula corte y relleno (Entrega 2B)
 - Muestra la calle en 3D (Entrega 3)
 - Carga planos de fondo con marcadores (Entrega 4)
 - Se conecta a estación total ni a GNSS (llega con la versión Android)

@@ -71,12 +71,39 @@ describe('VistaProyecto', () => {
     const usuario = userEvent.setup()
     render(<VistaProyecto />)
 
-    await usuario.click(screen.getByRole('button', { name: 'Eliminar capa SUBRASANTE' }))
+    await usuario.click(screen.getByRole('button', { name: 'Eliminar capa TERRENO EXISTENTE' }))
     expect(useAlmacen.getState().proyecto.capas).toHaveLength(2)
 
     await usuario.click(
-      screen.getByRole('button', { name: 'Confirmar eliminación de la capa SUBRASANTE' }),
+      screen.getByRole('button', { name: 'Confirmar eliminación de la capa TERRENO EXISTENTE' }),
     )
     expect(useAlmacen.getState().proyecto.capas).toHaveLength(1)
+  })
+
+  it('no deja borrar una capa que alguna campaña está usando', async () => {
+    const usuario = userEvent.setup()
+    render(<VistaProyecto />)
+
+    await usuario.click(screen.getByRole('button', { name: 'Eliminar capa SUBRASANTE' }))
+
+    expect(screen.getByText(/la usa una campaña/i)).toBeInTheDocument()
+    expect(useAlmacen.getState().proyecto.capas).toHaveLength(2)
+  })
+
+  it('sube una capa y cambia su posición en la lista dibujada', async () => {
+    const usuario = userEvent.setup()
+    render(<VistaProyecto />)
+
+    // Orden inicial: TERRENO EXISTENTE, SUBRASANTE.
+    let nombres = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(nombres[0]).toMatch(/TERRENO EXISTENTE/)
+    expect(nombres[1]).toMatch(/SUBRASANTE/)
+
+    await usuario.click(screen.getByRole('button', { name: 'Subir la capa SUBRASANTE' }))
+
+    nombres = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(nombres[0]).toMatch(/SUBRASANTE/)
+    expect(nombres[1]).toMatch(/TERRENO EXISTENTE/)
+    expect(useAlmacen.getState().proyecto.capas.map((c) => c.orden)).toEqual([0, 1])
   })
 })

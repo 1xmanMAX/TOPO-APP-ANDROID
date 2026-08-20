@@ -1,3 +1,4 @@
+import { capaEnUso, ordenarCapas } from '@topo/core'
 import { useState } from 'react'
 import CampoNumero from '../componentes/CampoNumero'
 import CampoTexto from '../componentes/CampoTexto'
@@ -13,15 +14,14 @@ export default function VistaProyecto() {
   const eliminarBM = useAlmacen((s) => s.eliminarBM)
   const agregarCapa = useAlmacen((s) => s.agregarCapa)
   const eliminarCapa = useAlmacen((s) => s.eliminarCapa)
+  const moverCapa = useAlmacen((s) => s.moverCapa)
   const campanias = useAlmacen((s) => s.proyecto.campanias)
   const [porEliminar, setPorEliminar] = useState<string | null>(null)
+  const [avisoCapa, setAvisoCapa] = useState<string | null>(null)
+  const capasOrdenadas = ordenarCapas(capas)
 
   function bmEnUso(id: string): boolean {
     return campanias.some((c) => c.bmInicialId === id || c.cierre.bmFinalId === id)
-  }
-
-  function capaEnUso(id: string): boolean {
-    return campanias.some((c) => c.capaId === id)
   }
 
   function textoDeBorrado(id: string, enUso: boolean): string {
@@ -125,13 +125,42 @@ export default function VistaProyecto() {
             Agregar capa
           </button>
         </div>
+        <p className="text-xs text-slate-500">
+          El orden va de abajo hacia arriba del paquete: primero el terreno, al final la capa de
+          rodadura. De ese orden depende el cálculo del espesor colocado.
+        </p>
         <ul className="flex flex-wrap gap-2">
-          {capas.map((capa) => (
+          {capasOrdenadas.map((capa, indice) => (
             <li key={capa.id} className="flex items-center gap-2 rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700">
               <span>{capa.nombre}</span>
               <button
                 type="button"
+                aria-label={`Subir la capa ${capa.nombre}`}
+                onClick={() => moverCapa(capa.id, -1)}
+                disabled={indice === 0}
+                className="px-1 text-slate-400 hover:text-marca disabled:opacity-30"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                aria-label={`Bajar la capa ${capa.nombre}`}
+                onClick={() => moverCapa(capa.id, 1)}
+                disabled={indice === capasOrdenadas.length - 1}
+                className="px-1 text-slate-400 hover:text-marca disabled:opacity-30"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
                 onClick={() => {
+                  if (capaEnUso(campanias, capa.id)) {
+                    setAvisoCapa(
+                      `No se puede borrar ${capa.nombre}: la usa una campaña. Cámbiala de capa primero.`,
+                    )
+                    return
+                  }
+                  setAvisoCapa(null)
                   if (porEliminar === capa.id) {
                     eliminarCapa(capa.id)
                     setPorEliminar(null)
@@ -152,6 +181,7 @@ export default function VistaProyecto() {
             </li>
           ))}
         </ul>
+        {avisoCapa && <p className="text-sm text-falla">{avisoCapa}</p>}
       </section>
     </div>
   )

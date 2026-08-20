@@ -1,4 +1,4 @@
-import { formatearProgresiva, type DestinoLectura } from '@topo/core'
+import { claveCelda, formatearProgresiva, type DestinoLectura } from '@topo/core'
 import { formatearCota } from '../formato'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
@@ -18,9 +18,7 @@ function describirDestino(destino: DestinoLectura): string {
 }
 
 function claveDe(destino: DestinoLectura): string | null {
-  return destino.tipo === 'celda'
-    ? `${destino.celda.progresiva}|${destino.celda.elementoClave}`
-    : null
+  return destino.tipo === 'celda' ? claveCelda(destino.celda.progresiva, destino.celda.elementoClave) : null
 }
 
 interface Props {
@@ -81,6 +79,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
       <div className="grid grid-cols-[1fr_6rem] items-center gap-2 text-sm">
         <span className="text-slate-500">Vista atrás · {describirDestino(estacion.vistaAtras.destino)}</span>
         <CampoNumero
+          ariaLabel={`Vista atrás a ${describirDestino(estacion.vistaAtras.destino)}`}
           valor={estacion.vistaAtras.valor}
           alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAtras.id, v)}
         />
@@ -134,6 +133,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
             Vista adelante · {describirDestino(estacion.vistaAdelante.destino)}
           </span>
           <CampoNumero
+            ariaLabel={`Vista adelante a ${describirDestino(estacion.vistaAdelante.destino)}`}
             valor={estacion.vistaAdelante.valor}
             alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAdelante!.id, v)}
           />

@@ -18,15 +18,21 @@ describe('TablaResultados', () => {
 
   it('deja vacías las celdas sin medir', () => {
     render(<TablaResultados />)
-    expect(screen.getByLabelText('0+040 EJE').textContent).toBe('—')
+    expect(screen.getByLabelText(/Cota en 0\+040 EJE/).textContent).toBe('—')
   })
 
   it('selecciona la celda al hacer clic', async () => {
     const usuario = userEvent.setup()
     render(<TablaResultados />)
-    await usuario.click(screen.getByLabelText('0+020 EJE'))
+    await usuario.click(screen.getByLabelText(/Cota en 0\+020 EJE/))
     expect(useAlmacen.getState().seleccion.clave).toBe('20|EJE')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(20)
+  })
+
+  it('el nombre accesible de una celda con cota incluye la cota', () => {
+    render(<TablaResultados />)
+    const boton = screen.getByLabelText(/Cota en 0\+020 EJE/)
+    expect(boton.getAttribute('aria-label')).toContain(boton.textContent)
   })
 
   it('con una calle de progresiva final menor que la inicial, se dibuja sin lanzar', () => {

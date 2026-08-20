@@ -1,4 +1,5 @@
 import {
+  claveCelda,
   construirGrilla,
   formatearProgresiva,
   type BM,
@@ -8,20 +9,32 @@ import {
   type Plantilla,
   type ResultadoCampania,
   type ResultadoCierre,
+  type ResultadoComparacion,
 } from '@topo/core'
 import { formatearCota } from '../formato'
+import { calcularEstadoComparacion } from '../estadoComparacion'
 import { armarXlsx } from './xlsx'
 
-export function armarTabla(
-  resultado: ResultadoCampania,
-  calle: Calle,
-  plantilla: Plantilla,
-): string[][] {
+interface EsqueletoTabla {
+  progresivas: number[]
+  elementos: string[]
+}
+
+/**
+ * El armazón que comparten `armarTabla` y `armarTablaEspesores`: qué
+ * progresivas van de filas y en qué orden de columnas van los elementos
+ * (por `offset`, no por como estén escritos en la plantilla). Las dos tablas
+ * de la misma calle tienen que salir con las columnas alineadas — si cada
+ * una decidiera el orden por su cuenta, un empate de `offset` podría
+ * ordenarlas distinto y desalinear cotas y espesores en Excel sin que nada lo
+ * avisara. `null` si la calle o la plantilla no arman una grilla válida.
+ */
+function armarEsqueletoTabla(calle: Calle, plantilla: Plantilla): EsqueletoTabla | null {
   let celdas: ReturnType<typeof construirGrilla> = []
   try {
     celdas = construirGrilla(calle, plantilla)
   } catch {
-    return []
+    return null
   }
 
   const progresivas = [...new Set(celdas.map((c) => c.progresiva))].sort((a, b) => a - b)
@@ -30,14 +43,58 @@ export function armarTabla(
   for (const celda of celdas) if (!vistos.has(celda.elementoClave)) vistos.set(celda.elementoClave, celda.offset)
   const elementos = [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([clave]) => clave)
 
+  return { progresivas, elementos }
+}
+
+export function armarTabla(
+  resultado: ResultadoCampania,
+  calle: Calle,
+  plantilla: Plantilla,
+): string[][] {
+  const esqueleto = armarEsqueletoTabla(calle, plantilla)
+  if (!esqueleto) return []
+  const { progresivas, elementos } = esqueleto
+
   const filas: string[][] = [['Progresiva', ...elementos]]
 
   for (const progresiva of progresivas) {
     filas.push([
       formatearProgresiva(progresiva),
       ...elementos.map((elementoClave) => {
-        const celda = resultado.cotasPorCelda.get(`${progresiva}|${elementoClave}`)
+        const celda = resultado.cotasPorCelda.get(claveCelda(progresiva, elementoClave))
         return celda ? formatearCota(celda.cota) : ''
+      }),
+    ])
+  }
+
+  return filas
+}
+
+/**
+ * La tabla de espesores que baja a obra: misma forma que `armarTabla`, pero
+ * la celda sin pareja en la otra capa sale vacía y no en cero. Un cero se lee
+ * como «aquí no se colocó material», y eso no es lo mismo que «aquí no se
+ * comparó porque falta una de las dos cotas». Un espesor real de cero (dos
+ * cotas exactamente iguales) sí escribe 0.000: `celda.espesor !== null` es lo
+ * que decide, nunca la verdad del número.
+ */
+export function armarTablaEspesores(
+  comparacion: ResultadoComparacion,
+  calle: Calle,
+  plantilla: Plantilla,
+): string[][] {
+  const esqueleto = armarEsqueletoTabla(calle, plantilla)
+  if (!esqueleto) return []
+  const { progresivas, elementos } = esqueleto
+
+  const filas: string[][] = [['Progresiva', ...elementos]]
+
+  for (const progresiva of progresivas) {
+    filas.push([
+      formatearProgresiva(progresiva),
+      ...elementos.map((elementoClave) => {
+        const celda = comparacion.celdas.get(claveCelda(progresiva, elementoClave))
+        return celda && celda.espesor !== null ? formatearCota(celda.espesor) : ''
       }),
     ])
   }
@@ -80,6 +137,41 @@ export function armarCabecera(datos: DatosDeCabecera): string[][] {
   ]
 }
 
+export interface DatosDeCabeceraComparacion {
+  calle: Calle
+  capaInferior: Capa | undefined
+  capaSuperior: Capa | undefined
+  campaniaInferior: Campania
+  campaniaSuperior: Campania
+  resultadoInferior: ResultadoCampania
+  resultadoSuperior: ResultadoCampania
+  comparacion: ResultadoComparacion
+}
+
+/**
+ * Encabezado del entregable de espesores. Identifica las dos capas
+ * comparadas con sus fechas, resume mínimo, máximo y medio, y dice si el
+ * espesor está comprobado — lo que exige que las dos nivelaciones de origen
+ * hayan cerrado, no solo que la resta haya sido posible.
+ */
+export function armarCabeceraComparacion(datos: DatosDeCabeceraComparacion): string[][] {
+  const { calle, capaInferior, capaSuperior, campaniaInferior, campaniaSuperior, comparacion } = datos
+  const totalCeldas = comparacion.comparables + comparacion.sinPareja
+
+  return [
+    ['Calle', calle.nombre],
+    ['Capa de abajo', capaInferior?.nombre ?? '—'],
+    ['Fecha capa de abajo', campaniaInferior.fecha],
+    ['Capa de arriba', capaSuperior?.nombre ?? '—'],
+    ['Fecha capa de arriba', campaniaSuperior.fecha],
+    ['Espesor mínimo', comparacion.espesorMinimo === null ? '—' : formatearCota(comparacion.espesorMinimo)],
+    ['Espesor máximo', comparacion.espesorMaximo === null ? '—' : formatearCota(comparacion.espesorMaximo)],
+    ['Espesor medio', comparacion.espesorMedio === null ? '—' : formatearCota(comparacion.espesorMedio)],
+    ['Celdas comparables', `${comparacion.comparables} de ${totalCeldas}`],
+    ['Estado', calcularEstadoComparacion(datos).texto],
+  ]
+}
+
 export function aTextoSeparado(tabla: string[][], separador: string): string {
   return tabla
     .map((fila) =>
@@ -110,8 +202,8 @@ export function descargarCsv(tabla: string[][], nombre: string): void {
   URL.revokeObjectURL(url)
 }
 
-export function descargarXlsx(tabla: string[][], nombre: string): void {
-  const datos = armarXlsx(tabla, 'Cotas')
+export function descargarXlsx(tabla: string[][], nombre: string, nombreHoja = 'Cotas'): void {
+  const datos = armarXlsx(tabla, nombreHoja)
   const url = URL.createObjectURL(
     new Blob([datos], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

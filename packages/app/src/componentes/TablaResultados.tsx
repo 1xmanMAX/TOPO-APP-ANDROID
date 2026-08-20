@@ -1,4 +1,4 @@
-import { construirGrilla, formatearProgresiva } from '@topo/core'
+import { claveCelda, construirGrilla, formatearProgresiva } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
@@ -49,14 +49,18 @@ export default function TablaResultados() {
                 {formatearProgresiva(progresiva)}
               </td>
               {elementos.map((elementoClave) => {
-                const clave = `${progresiva}|${elementoClave}`
+                const clave = claveCelda(progresiva, elementoClave)
                 const celda = resultado.cotasPorCelda.get(clave)
                 const activa = seleccion.clave === clave
                 return (
                   <td key={clave} className="p-0.5">
                     <button
                       type="button"
-                      aria-label={`${formatearProgresiva(progresiva)} ${elementoClave}`}
+                      aria-label={
+                        celda
+                          ? `Cota en ${formatearProgresiva(progresiva)} ${elementoClave}: ${formatearCota(celda.cota)}`
+                          : `Cota en ${formatearProgresiva(progresiva)} ${elementoClave}, sin medir`
+                      }
                       onClick={() => seleccionar(clave)}
                       className={`numerico w-full rounded px-2 py-1 text-right ${
                         activa
