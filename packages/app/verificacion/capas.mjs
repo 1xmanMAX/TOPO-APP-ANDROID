@@ -39,7 +39,9 @@ await vistaAtras.fill('1.425')
 await vistaAtras.blur()
 
 // 3. Ahora sí, una lectura en la misma celda que midió la campaña anterior.
-await pagina.getByRole('button', { name: /^Cota en 0\+000 EJE/ }).first().click()
+// En la libreta la celda pertenece al mapa de grilla, que conserva su nombre
+// corto: ahí la celda muestra si está medida o no, no una cifra.
+await pagina.getByRole('button', { name: '0+000 EJE', exact: true }).first().click()
 const campo = pagina.getByLabel('Lectura de mira')
 await campo.click()
 await campo.type('2.230', { delay: 20 })
