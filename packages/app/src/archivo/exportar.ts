@@ -6,6 +6,7 @@ import {
   type ResultadoCampania,
 } from '@topo/core'
 import { formatearCota } from '../formato'
+import { armarXlsx } from './xlsx'
 
 export function armarTabla(
   resultado: ResultadoCampania,
@@ -64,12 +65,17 @@ export function descargarCsv(tabla: string[][], nombre: string): void {
   URL.revokeObjectURL(url)
 }
 
-/** SheetJS pesa; se carga solo cuando el usuario exporta de verdad. */
-export async function descargarXlsx(tabla: string[][], nombre: string): Promise<void> {
-  const XLSX = await import('xlsx')
-  const hoja = XLSX.utils.aoa_to_sheet(tabla)
-  const libro = XLSX.utils.book_new()
+export function descargarXlsx(tabla: string[][], nombre: string): void {
+  const datos = armarXlsx(tabla, 'Cotas')
+  const url = URL.createObjectURL(
+    new Blob([datos], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }),
+  )
+  const enlace = document.createElement('a')
 
-  XLSX.utils.book_append_sheet(libro, hoja, 'Cotas')
-  XLSX.writeFile(libro, `${nombre}.xlsx`)
+  enlace.href = url
+  enlace.download = `${nombre}.xlsx`
+  enlace.click()
+  URL.revokeObjectURL(url)
 }

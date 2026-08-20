@@ -43,7 +43,7 @@ export default function VistaResultados() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => void descargarXlsx(tabla, nombreArchivo)}
+            onClick={() => descargarXlsx(tabla, nombreArchivo)}
             className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
           >
             Exportar a Excel
