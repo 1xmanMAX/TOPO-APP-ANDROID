@@ -145,4 +145,101 @@ describe('almacén', () => {
     expect(estacion.vistaAdelante).toBeUndefined()
     expect(estacion.intermedias).toHaveLength(1)
   })
+
+  describe('selector de capas', () => {
+    const CIERRE_ABIERTO = {
+      tipo: 'abierto' as const,
+      longitudK: 0,
+      longitudKAuto: true,
+      clase: 'tercerOrden' as const,
+      coeficiente: 12,
+    }
+
+    it('alternarCapaVisible agrega y luego quita una campaña de las capas visibles', () => {
+      useAlmacen.getState().alternarCapaVisible('camp-1')
+      expect(useAlmacen.getState().capasVisibles).toEqual(['camp-1'])
+
+      useAlmacen.getState().alternarCapaVisible('camp-1')
+      expect(useAlmacen.getState().capasVisibles).toEqual([])
+    })
+
+    it('fijarComparacion guarda cuál campaña va abajo y cuál arriba', () => {
+      const otraId = useAlmacen.getState().agregarCampania({
+        fecha: '2026-08-20',
+        calleId: 'c-1',
+        capaId: 'cap-terreno',
+        bmInicialId: 'bm-1',
+        estado: 'abierta',
+        cierre: CIERRE_ABIERTO,
+      })
+
+      useAlmacen.getState().fijarComparacion('camp-1', otraId)
+
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: 'camp-1', superior: otraId })
+    })
+
+    it('fijarComparacion no deja que la misma campaña quede como inferior y superior', () => {
+      useAlmacen.getState().fijarComparacion('camp-1', 'camp-1')
+
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: 'camp-1', superior: null })
+    })
+
+    it('cambiar de campaña sin cambiar de calle no borra lo elegido', () => {
+      const otraId = useAlmacen.getState().agregarCampania({
+        fecha: '2026-08-20',
+        calleId: 'c-1',
+        capaId: 'cap-terreno',
+        bmInicialId: 'bm-1',
+        estado: 'abierta',
+        cierre: CIERRE_ABIERTO,
+      })
+      useAlmacen.getState().activarCampania('camp-1')
+      useAlmacen.getState().alternarCapaVisible('camp-1')
+      useAlmacen.getState().fijarComparacion('camp-1', otraId)
+
+      useAlmacen.getState().activarCampania(otraId)
+
+      expect(useAlmacen.getState().capasVisibles).toEqual(['camp-1'])
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: 'camp-1', superior: otraId })
+    })
+
+    it('cambiar la calle activa limpia lo que ya no aplica', () => {
+      useAlmacen.getState().agregarCalle({
+        nombre: 'Jr. Otra',
+        plantillaId: 'pl-1',
+        progresivaInicio: 0,
+        progresivaFin: 40,
+        intervalo: 20,
+        progresivasExtra: [],
+      })
+      const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
+      const campaniaOtraCalleId = useAlmacen.getState().agregarCampania({
+        fecha: '2026-08-20',
+        calleId: otraCalleId,
+        capaId: 'cap-terreno',
+        bmInicialId: 'bm-1',
+        estado: 'abierta',
+        cierre: CIERRE_ABIERTO,
+      })
+
+      useAlmacen.getState().activarCampania('camp-1')
+      useAlmacen.getState().alternarCapaVisible('camp-1')
+      useAlmacen.getState().fijarComparacion('camp-1', null)
+
+      useAlmacen.getState().activarCampania(campaniaOtraCalleId)
+
+      expect(useAlmacen.getState().capasVisibles).toEqual([])
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: null, superior: null })
+    })
+
+    it('cargarProyecto y nuevoProyecto también limpian la selección de capas', () => {
+      useAlmacen.getState().alternarCapaVisible('camp-1')
+      useAlmacen.getState().fijarComparacion('camp-1', null)
+
+      useAlmacen.getState().nuevoProyecto()
+
+      expect(useAlmacen.getState().capasVisibles).toEqual([])
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: null, superior: null })
+    })
+  })
 })

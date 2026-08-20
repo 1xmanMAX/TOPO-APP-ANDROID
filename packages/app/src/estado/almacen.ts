@@ -23,6 +23,12 @@ export interface Seleccion {
   progresiva: number | null
 }
 
+/** Cuál campaña va abajo y cuál arriba al calcular el espesor entre dos capas. */
+export interface Comparacion {
+  inferior: Id | null
+  superior: Id | null
+}
+
 interface EstadoApp {
   proyecto: Proyecto
   vista: Vista
@@ -30,6 +36,10 @@ interface EstadoApp {
   estacionActiva: number
   plantillaEnEdicionId: Id | null
   seleccion: Seleccion
+  /** Campañas que se dibujan superpuestas en el corte transversal. */
+  capasVisibles: Id[]
+  /** Qué dos campañas se comparan para calcular el espesor colocado entre ellas. */
+  comparacion: Comparacion
 
   cargarProyecto(proyecto: Proyecto): void
   nuevoProyecto(): void
@@ -76,6 +86,9 @@ interface EstadoApp {
   seleccionar(clave: string | null): void
   irAProgresiva(progresiva: number | null): void
 
+  alternarCapaVisible(campaniaId: Id): void
+  fijarComparacion(inferior: Id | null, superior: Id | null): void
+
   calcular(): ResultadoCampania | null
 }
 
@@ -91,6 +104,35 @@ function ultimaEstacion(campania: Campania | undefined): number {
   return Math.max(0, (campania?.estaciones.length ?? 0) - 1)
 }
 
+/** La calle de la campaña activa, o null si no hay campaña activa. */
+function calleDeCampania(proyecto: Proyecto, campaniaId: Id | null): Id | null {
+  if (!campaniaId) return null
+  return proyecto.campanias.find((c) => c.id === campaniaId)?.calleId ?? null
+}
+
+const SIN_COMPARACION: Comparacion = { inferior: null, superior: null }
+
+/**
+ * Qué se dibuja y qué se compara vive por calle: si la calle activa cambia,
+ * seguir arrastrando ids de campañas de otra calle no significaría nada
+ * (los espesores saldrían de restar cotas de sitios distintos). Cuando la
+ * calle no cambió, se conserva tal cual.
+ */
+function seleccionDeCapasTrasCambio(
+  calleAnterior: Id | null,
+  calleNueva: Id | null,
+  actual: { capasVisibles: Id[]; comparacion: Comparacion },
+): { capasVisibles: Id[]; comparacion: Comparacion } {
+  if (calleAnterior === calleNueva) {
+    // Devolver solo estos dos campos, nunca el objeto `actual` completo: quien
+    // llama hace `...seleccionDeCapasTrasCambio(...)` junto a otros campos ya
+    // calculados (campaniaActivaId, estacionActiva, proyecto), y devolver
+    // `actual` entero los pisaría con sus valores viejos.
+    return { capasVisibles: actual.capasVisibles, comparacion: actual.comparacion }
+  }
+  return { capasVisibles: [], comparacion: SIN_COMPARACION }
+}
+
 export const useAlmacen = create<EstadoApp>((set, get) => ({
   proyecto: proyectoEjemplo(),
   vista: 'proyecto',
@@ -98,6 +140,8 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
   estacionActiva: 0,
   plantillaEnEdicionId: null,
   seleccion: { clave: null, progresiva: null },
+  capasVisibles: [],
+  comparacion: SIN_COMPARACION,
 
   cargarProyecto: (proyecto) =>
     set({
@@ -105,6 +149,8 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       campaniaActivaId: proyecto.campanias[0]?.id ?? null,
       estacionActiva: ultimaEstacion(proyecto.campanias[0]),
       seleccion: { clave: null, progresiva: null },
+      capasVisibles: [],
+      comparacion: SIN_COMPARACION,
     }),
 
   nuevoProyecto: () =>
@@ -114,6 +160,8 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       estacionActiva: 0,
       vista: 'proyecto',
       seleccion: { clave: null, progresiva: null },
+      capasVisibles: [],
+      comparacion: SIN_COMPARACION,
     }),
 
   irA: (vista) => set({ vista }),
@@ -233,31 +281,45 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
 
   agregarCampania: (datos) => {
     const id = nuevoId('camp')
-    set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        campanias: [...s.proyecto.campanias, { ...datos, id, estaciones: [] }],
-      }),
-      campaniaActivaId: id,
-      // La campaña recién creada no tiene estaciones todavía.
-      estacionActiva: 0,
-    }))
+    set((s) => {
+      const calleAnterior = calleDeCampania(s.proyecto, s.campaniaActivaId)
+      return {
+        proyecto: marcarModificado({
+          ...s.proyecto,
+          campanias: [...s.proyecto.campanias, { ...datos, id, estaciones: [] }],
+        }),
+        campaniaActivaId: id,
+        // La campaña recién creada no tiene estaciones todavía.
+        estacionActiva: 0,
+        ...seleccionDeCapasTrasCambio(calleAnterior, datos.calleId, s),
+      }
+    })
     return id
   },
 
   actualizarCampania: (id, cambios) =>
-    set((s) => ({
-      proyecto: marcarModificado({
+    set((s) => {
+      const calleAnterior = calleDeCampania(s.proyecto, s.campaniaActivaId)
+      const proyecto = marcarModificado({
         ...s.proyecto,
         campanias: s.proyecto.campanias.map((c) => (c.id === id ? { ...c, ...cambios } : c)),
-      }),
-    })),
+      })
+      // Solo cambiar la calle de la campaña activa mueve la calle activa: las
+      // demás campañas pueden reasignarse sin afectar lo que se está viendo.
+      const calleNueva = id === s.campaniaActivaId ? calleDeCampania(proyecto, id) : calleAnterior
+      return { proyecto, ...seleccionDeCapasTrasCambio(calleAnterior, calleNueva, s) }
+    }),
 
   activarCampania: (id) =>
-    set((s) => ({
-      campaniaActivaId: id,
-      estacionActiva: ultimaEstacion(s.proyecto.campanias.find((c) => c.id === id)),
-    })),
+    set((s) => {
+      const calleAnterior = calleDeCampania(s.proyecto, s.campaniaActivaId)
+      const calleNueva = calleDeCampania(s.proyecto, id)
+      return {
+        campaniaActivaId: id,
+        estacionActiva: ultimaEstacion(s.proyecto.campanias.find((c) => c.id === id)),
+        ...seleccionDeCapasTrasCambio(calleAnterior, calleNueva, s),
+      }
+    }),
 
   activarEstacion: (indice) => set({ estacionActiva: indice }),
 
@@ -394,6 +456,20 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     }),
 
   irAProgresiva: (progresiva) => set((s) => ({ seleccion: { ...s.seleccion, progresiva } })),
+
+  alternarCapaVisible: (campaniaId) =>
+    set((s) => ({
+      capasVisibles: s.capasVisibles.includes(campaniaId)
+        ? s.capasVisibles.filter((id) => id !== campaniaId)
+        : [...s.capasVisibles, campaniaId],
+    })),
+
+  fijarComparacion: (inferior, superior) =>
+    set({
+      // Una capa no se compara consigo misma: si ambos lados quedarían
+      // apuntando a la misma campaña, la de arriba se limpia.
+      comparacion: { inferior, superior: superior !== null && superior === inferior ? null : superior },
+    }),
 
   calcular: () => {
     const { proyecto, campaniaActivaId } = get()
