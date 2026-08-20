@@ -67,6 +67,13 @@ describe('almacén', () => {
     expect(useAlmacen.getState().seleccion.progresiva).toBe(20)
   })
 
+  it('no inventa una progresiva cuando la clave viene malformada', () => {
+    useAlmacen.getState().seleccionar('|EJE')
+
+    expect(useAlmacen.getState().seleccion.clave).toBe('|EJE')
+    expect(useAlmacen.getState().seleccion.progresiva).toBeNull()
+  })
+
   it('un proyecto vacío no tiene campaña activa', () => {
     useAlmacen.getState().nuevoProyecto()
     expect(useAlmacen.getState().campaniaActivaId).toBeNull()
