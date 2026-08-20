@@ -10,9 +10,21 @@ describe('VistaLibreta', () => {
     useAlmacen.getState().cargarProyecto(proyectoEjemplo())
   })
 
-  it('muestra la cota instrumento de la estación', () => {
+  it('abre en la última estación, que es donde se sigue trabajando', () => {
     render(<VistaLibreta />)
+
+    expect(screen.getByText('3247.085')).toBeInTheDocument()
+    expect(screen.queryByText(/que no es la última/)).not.toBeInTheDocument()
+  })
+
+  it('muestra la cota instrumento de la estación que se elija', async () => {
+    const usuario = userEvent.setup()
+    render(<VistaLibreta />)
+
+    await usuario.click(screen.getByRole('button', { name: '1' }))
+
     expect(screen.getByText('3246.605')).toBeInTheDocument()
+    expect(screen.getByText(/Estás escribiendo en la estación 1 de 2, que no es la última/)).toBeInTheDocument()
   })
 
   it('muestra el veredicto del cierre en verde cuando pasa', () => {
