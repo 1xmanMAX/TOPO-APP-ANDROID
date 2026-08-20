@@ -5,6 +5,8 @@ import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import ListaAvisos from '../componentes/ListaAvisos'
 import PerfilLongitudinal from '../componentes/PerfilLongitudinal'
+import SelectorCapas from '../componentes/SelectorCapas'
+import TablaEspesores from '../componentes/TablaEspesores'
 import TablaResultados from '../componentes/TablaResultados'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useProgresivas, useResultado } from '../estado/derivados'
@@ -93,6 +95,12 @@ export default function VistaResultados() {
           </button>
         </div>
         <TablaResultados />
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold">Espesor entre capas</h2>
+        <SelectorCapas />
+        <TablaEspesores />
       </section>
 
       <section className="flex flex-col gap-2">
