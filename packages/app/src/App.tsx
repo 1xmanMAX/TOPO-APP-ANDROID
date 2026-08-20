@@ -5,6 +5,7 @@ import VistaPlantilla from './vistas/VistaPlantilla'
 import VistaCalle from './vistas/VistaCalle'
 import VistaCampanias from './vistas/VistaCampanias'
 import VistaLibreta from './vistas/VistaLibreta'
+import VistaResultados from './vistas/VistaResultados'
 
 export default function App() {
   const vista = useAlmacen((s) => s.vista)
@@ -18,11 +19,17 @@ export default function App() {
         {vista === 'calle' && <VistaCalle />}
         {vista === 'campanias' && <VistaCampanias />}
         {vista === 'libreta' && <VistaLibreta />}
-        {vista !== 'proyecto' && vista !== 'plantilla' && vista !== 'calle' && vista !== 'campanias' && vista !== 'libreta' && (
-          <p className="p-6 text-sm text-slate-500">
-            Pantalla en construcción. Abre «Proyecto» mientras tanto.
-          </p>
-        )}
+        {vista === 'resultados' && <VistaResultados />}
+        {vista !== 'proyecto' &&
+          vista !== 'plantilla' &&
+          vista !== 'calle' &&
+          vista !== 'campanias' &&
+          vista !== 'libreta' &&
+          vista !== 'resultados' && (
+            <p className="p-6 text-sm text-slate-500">
+              Pantalla en construcción. Abre «Proyecto» mientras tanto.
+            </p>
+          )}
       </div>
     </div>
   )
