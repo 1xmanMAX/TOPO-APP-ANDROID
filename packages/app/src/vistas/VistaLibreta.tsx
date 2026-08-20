@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import BarraCierre from '../componentes/BarraCierre'
 import ListaAvisos from '../componentes/ListaAvisos'
 import MapaGrilla from '../componentes/MapaGrilla'
+import PanelEstacion from '../componentes/PanelEstacion'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
 import { resumenPendientes, siguienteCeldaPendiente } from '../libreta/navegacion'
@@ -36,7 +37,6 @@ export default function VistaLibreta() {
     return <p className="p-6 text-sm text-slate-500">Crea una campaña para abrir la libreta.</p>
   }
 
-  const estacion = contexto.campania.estaciones[estacionIndice]
   const celdaActiva = celdas.find((c) => c.clave === claveActiva) ?? null
 
   function registrarLectura() {
@@ -88,20 +88,7 @@ export default function VistaLibreta() {
             </div>
           </div>
 
-          {estacion && (
-            <dl className="rounded border border-slate-200 p-3 text-sm dark:border-slate-800">
-              <div className="flex justify-between">
-                <dt className="text-slate-500">Vista atrás</dt>
-                <dd className="numerico">{estacion.vistaAtras.valor.toFixed(3)}</dd>
-              </div>
-              <div className="flex justify-between font-semibold">
-                <dt>Cota instrumento</dt>
-                <dd className="numerico">
-                  {resultado.cotasInstrumento[estacionIndice]?.toFixed(3) ?? '—'}
-                </dd>
-              </div>
-            </dl>
-          )}
+          <PanelEstacion estacionIndice={estacionIndice} alCambiarEstacion={setEstacionIndice} />
 
           <label className="flex flex-col gap-1">
             <span className="text-xs font-medium text-slate-500">

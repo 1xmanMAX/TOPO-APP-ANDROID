@@ -1,0 +1,52 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAlmacen } from '../estado/almacen'
+import { proyectoEjemplo } from '../estado/ejemplo'
+import PanelEstacion from './PanelEstacion'
+
+describe('PanelEstacion', () => {
+  beforeEach(() => {
+    useAlmacen.getState().cargarProyecto(proyectoEjemplo())
+  })
+
+  it('lista las lecturas intermedias de la estación con su cota', () => {
+    render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
+    expect(screen.getByLabelText('Lectura de 0+000 EJE')).toHaveValue('1.980')
+    expect(screen.getByText('3244.628')).toBeInTheDocument()
+  })
+
+  it('corregir una lectura recalcula la cota al instante', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
+
+    const campo = screen.getByLabelText('Lectura de 0+000 EJE')
+    await usuario.clear(campo)
+    await usuario.type(campo, '1.880')
+
+    const resultado = useAlmacen.getState().calcular()!
+    expect(resultado.cotasPorCelda.get('0|EJE')!.cotaCruda).toBeCloseTo(3244.725, 6)
+  })
+
+  it('borra una lectura', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
+    await usuario.click(screen.getByLabelText('Borrar lectura de 0+000 EJE'))
+
+    const resultado = useAlmacen.getState().calcular()!
+    expect(resultado.cotasPorCelda.has('0|EJE')).toBe(false)
+  })
+
+  it('traslada el instrumento creando punto de cambio y estación nueva', async () => {
+    const usuario = userEvent.setup()
+    const alCambiarEstacion = vi.fn()
+    render(<PanelEstacion estacionIndice={1} alCambiarEstacion={alCambiarEstacion} />)
+
+    await usuario.click(screen.getByRole('button', { name: /trasladar el instrumento/i }))
+
+    const campania = useAlmacen.getState().proyecto.campanias[0]!
+    expect(campania.estaciones).toHaveLength(3)
+    expect(campania.estaciones[2]!.vistaAtras.destino).toEqual({ tipo: 'cambio', nombre: 'PC-2' })
+    expect(alCambiarEstacion).toHaveBeenCalledWith(2)
+  })
+})

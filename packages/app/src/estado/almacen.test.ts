@@ -72,4 +72,25 @@ describe('almacén', () => {
     expect(useAlmacen.getState().campaniaActivaId).toBeNull()
     expect(useAlmacen.getState().calcular()).toBeNull()
   })
+
+  it('fija la vista adelante de una estación', () => {
+    const campaniaId = useAlmacen.getState().campaniaActivaId!
+    useAlmacen.getState().fijarVistaAdelante(campaniaId, 0, {
+      destino: { tipo: 'cambio', nombre: 'PC-2' },
+      valor: 1.2,
+    })
+    const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[0]!
+    expect(estacion.vistaAdelante?.valor).toBe(1.2)
+  })
+
+  it('agregar una estación la encadena al último punto de cambio', () => {
+    const campaniaId = useAlmacen.getState().campaniaActivaId!
+    useAlmacen.getState().agregarEstacion(campaniaId, {
+      destino: { tipo: 'cambio', nombre: 'PC-1' },
+      valor: 1.5,
+    })
+    const campania = useAlmacen.getState().proyecto.campanias[0]!
+    expect(campania.estaciones).toHaveLength(3)
+    expect(campania.estaciones[2]!.vistaAtras.valor).toBe(1.5)
+  })
 })

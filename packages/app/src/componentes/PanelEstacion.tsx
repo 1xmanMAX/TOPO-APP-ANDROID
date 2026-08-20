@@ -1,0 +1,160 @@
+import { formatearProgresiva, type DestinoLectura } from '@topo/core'
+import { formatearCota } from '../formato'
+import { useAlmacen } from '../estado/almacen'
+import { useContexto, useResultado } from '../estado/derivados'
+import CampoNumero from './CampoNumero'
+
+function describirDestino(destino: DestinoLectura): string {
+  switch (destino.tipo) {
+    case 'bm':
+      return 'BM'
+    case 'cambio':
+      return destino.nombre
+    case 'celda':
+      return `${formatearProgresiva(destino.celda.progresiva)} ${destino.celda.elementoClave}`
+    case 'suelto':
+      return destino.punto.etiqueta
+  }
+}
+
+function claveDe(destino: DestinoLectura): string | null {
+  return destino.tipo === 'celda'
+    ? `${destino.celda.progresiva}|${destino.celda.elementoClave}`
+    : null
+}
+
+interface Props {
+  estacionIndice: number
+  alCambiarEstacion: (indice: number) => void
+}
+
+export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Props) {
+  const contexto = useContexto()
+  const resultado = useResultado()
+  const actualizarLectura = useAlmacen((s) => s.actualizarLectura)
+  const eliminarLectura = useAlmacen((s) => s.eliminarLectura)
+  const fijarVistaAdelante = useAlmacen((s) => s.fijarVistaAdelante)
+  const agregarEstacion = useAlmacen((s) => s.agregarEstacion)
+  const seleccionar = useAlmacen((s) => s.seleccionar)
+
+  if (!contexto || !resultado) return null
+
+  const campania = contexto.campania
+  const estacion = campania.estaciones[estacionIndice]
+  if (!estacion) return null
+
+  const esUltima = estacionIndice === campania.estaciones.length - 1
+
+  function trasladarInstrumento() {
+    const nombrePC = `PC-${campania.estaciones.length}`
+    fijarVistaAdelante(campania.id, estacionIndice, {
+      destino: { tipo: 'cambio', nombre: nombrePC },
+      valor: 0,
+    })
+    agregarEstacion(campania.id, { destino: { tipo: 'cambio', nombre: nombrePC }, valor: 0 })
+    alCambiarEstacion(estacionIndice + 1)
+  }
+
+  function cerrarCircuito() {
+    const bmFinalId = campania.cierre.bmFinalId ?? campania.bmInicialId
+    fijarVistaAdelante(campania.id, estacionIndice, {
+      destino: { tipo: 'bm', bmId: bmFinalId },
+      valor: 0,
+    })
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded border border-slate-200 p-3 dark:border-slate-800">
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="font-semibold">Estación {estacionIndice + 1}</span>
+        <span className="text-slate-500">
+          CI{' '}
+          <span className="numerico">
+            {resultado.cotasInstrumento[estacionIndice] === undefined
+              ? '—'
+              : formatearCota(resultado.cotasInstrumento[estacionIndice]!)}
+          </span>
+        </span>
+      </div>
+
+      <div className="grid grid-cols-[1fr_6rem] items-center gap-2 text-sm">
+        <span className="text-slate-500">Vista atrás · {describirDestino(estacion.vistaAtras.destino)}</span>
+        <CampoNumero
+          valor={estacion.vistaAtras.valor}
+          alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAtras.id, v)}
+        />
+      </div>
+
+      <ul className="flex flex-col gap-1">
+        {estacion.intermedias.map((lectura) => {
+          const clave = claveDe(lectura.destino)
+          const cota = clave ? resultado.cotasPorCelda.get(clave)?.cota : undefined
+
+          return (
+            <li key={lectura.id} className="grid grid-cols-[1fr_6rem_5rem_auto] items-center gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => clave && seleccionar(clave)}
+                className="text-left text-slate-600 hover:text-marca dark:text-slate-300"
+              >
+                {describirDestino(lectura.destino)}
+              </button>
+              <input
+                aria-label={`Lectura de ${describirDestino(lectura.destino)}`}
+                inputMode="decimal"
+                defaultValue={lectura.valor.toFixed(3)}
+                onChange={(evento) => {
+                  const numero = Number(evento.target.value.replace(',', '.'))
+                  if (Number.isFinite(numero)) actualizarLectura(campania.id, lectura.id, numero)
+                }}
+                className="numerico rounded border border-slate-300 px-2 py-1 text-right dark:border-slate-700 dark:bg-slate-900"
+              />
+              <span className="numerico text-right text-slate-500">
+                {cota === undefined ? '—' : formatearCota(cota)}
+              </span>
+              <button
+                type="button"
+                aria-label={`Borrar lectura de ${describirDestino(lectura.destino)}`}
+                onClick={() => eliminarLectura(campania.id, lectura.id)}
+                className="px-1 text-slate-400 hover:text-falla"
+              >
+                ×
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+
+      {estacion.vistaAdelante && (
+        <div className="grid grid-cols-[1fr_6rem] items-center gap-2 text-sm">
+          <span className="text-slate-500">
+            Vista adelante · {describirDestino(estacion.vistaAdelante.destino)}
+          </span>
+          <CampoNumero
+            valor={estacion.vistaAdelante.valor}
+            alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAdelante!.id, v)}
+          />
+        </div>
+      )}
+
+      {esUltima && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={trasladarInstrumento}
+            className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+          >
+            Trasladar el instrumento
+          </button>
+          <button
+            type="button"
+            onClick={cerrarCircuito}
+            className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+          >
+            Cerrar el circuito
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}

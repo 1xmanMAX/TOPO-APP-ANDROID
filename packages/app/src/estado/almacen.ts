@@ -53,6 +53,11 @@ interface EstadoApp {
   actualizarCampania(id: Id, cambios: Partial<Omit<Campania, 'id'>>): void
   activarCampania(id: Id | null): void
   agregarEstacion(campaniaId: Id, vistaAtras: { destino: DestinoLectura; valor: number }): void
+  fijarVistaAdelante(
+    campaniaId: Id,
+    estacionIndice: number,
+    lectura: { destino: DestinoLectura; valor: number },
+  ): void
   agregarIntermedia(
     campaniaId: Id,
     estacionIndice: number,
@@ -233,6 +238,28 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
                     intermedias: [],
                   },
                 ],
+              }
+            : c,
+        ),
+      }),
+    })),
+
+  fijarVistaAdelante: (campaniaId, estacionIndice, lectura) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        campanias: s.proyecto.campanias.map((c) =>
+          c.id === campaniaId
+            ? {
+                ...c,
+                estaciones: c.estaciones.map((e, i) =>
+                  i === estacionIndice
+                    ? {
+                        ...e,
+                        vistaAdelante: { id: e.vistaAdelante?.id ?? nuevoId('l'), ...lectura },
+                      }
+                    : e,
+                ),
               }
             : c,
         ),
