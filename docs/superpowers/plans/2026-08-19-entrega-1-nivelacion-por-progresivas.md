@@ -957,6 +957,14 @@ describe('calcularCotas', () => {
       'La estación 2 arranca en PC-9, que no fue medido antes',
     )
   })
+
+  it('avisa si dos puntos de cambio se llaman igual', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[1]!.vistaAdelante!.destino = { tipo: 'cambio', nombre: 'PC-1' }
+    expect(() => calcularCotas(campania, [BM_1])).toThrow(
+      'El punto de cambio PC-1 está repetido: dos estaciones distintas lo usan como punto de llegada. Renombra uno de los dos.',
+    )
+  })
 })
 ```
 
@@ -1051,7 +1059,17 @@ export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
         cotaCruda: cota,
       })
 
-      if (estacion.vistaAdelante.destino.tipo === 'cambio') cotasConocidas.set(clave, cota)
+      if (estacion.vistaAdelante.destino.tipo === 'cambio') {
+        // Dos puntos de cambio con el mismo nombre harían que la estación
+        // siguiente arrancara de la cota equivocada, en silencio.
+        if (cotasConocidas.has(clave)) {
+          throw new Error(
+            `El punto de cambio ${estacion.vistaAdelante.destino.nombre} está repetido: ` +
+              'dos estaciones distintas lo usan como punto de llegada. Renombra uno de los dos.',
+          )
+        }
+        cotasConocidas.set(clave, cota)
+      }
       if (estacion.vistaAdelante.destino.tipo === 'bm') cotaLlegada = cota
     }
   })

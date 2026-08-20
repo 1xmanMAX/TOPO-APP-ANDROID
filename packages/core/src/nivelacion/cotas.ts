@@ -79,7 +79,17 @@ export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
         cotaCruda: cota,
       })
 
-      if (estacion.vistaAdelante.destino.tipo === 'cambio') cotasConocidas.set(clave, cota)
+      if (estacion.vistaAdelante.destino.tipo === 'cambio') {
+        // Dos puntos de cambio con el mismo nombre harían que la estación
+        // siguiente arrancara de la cota equivocada, en silencio.
+        if (cotasConocidas.has(clave)) {
+          throw new Error(
+            `El punto de cambio ${estacion.vistaAdelante.destino.nombre} está repetido: ` +
+              'dos estaciones distintas lo usan como punto de llegada. Renombra uno de los dos.',
+          )
+        }
+        cotasConocidas.set(clave, cota)
+      }
       if (estacion.vistaAdelante.destino.tipo === 'bm') cotaLlegada = cota
     }
   })

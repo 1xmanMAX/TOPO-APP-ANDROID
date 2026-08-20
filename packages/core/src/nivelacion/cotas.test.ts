@@ -67,4 +67,12 @@ describe('calcularCotas', () => {
       'La estación 2 arranca en PC-9, que no fue medido antes',
     )
   })
+
+  it('avisa si dos puntos de cambio se llaman igual', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[1]!.vistaAdelante!.destino = { tipo: 'cambio', nombre: 'PC-1' }
+    expect(() => calcularCotas(campania, [BM_1])).toThrow(
+      'El punto de cambio PC-1 está repetido: dos estaciones distintas lo usan como punto de llegada. Renombra uno de los dos.',
+    )
+  })
 })
