@@ -1,9 +1,16 @@
+import type { ResultadoCierre } from '@topo/core'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
 
 function formatearMm(valor: number): string {
   const signo = valor > 0 ? '+' : valor < 0 ? '−' : ''
   return `${signo}${Math.abs(valor).toFixed(1)} mm`
+}
+
+function textoSinVeredicto(cierre: ResultadoCierre): string {
+  if (cierre.tipo === 'abierto') return 'circuito abierto — sin verificación'
+  if (cierre.cotaLlegadaCalculada === null) return 'falta cerrar contra un banco de nivel'
+  return 'el banco de nivel de cierre ya no está en el proyecto'
 }
 
 export default function BarraCierre() {
@@ -63,11 +70,16 @@ export default function BarraCierre() {
       <select
         aria-label="Clase de nivelación"
         value={config.coeficiente}
-        onChange={(evento) =>
+        onChange={(evento) => {
+          const coeficiente = Number(evento.target.value)
           actualizarCampania(contexto.campania.id, {
-            cierre: { ...config, coeficiente: Number(evento.target.value) },
+            cierre: {
+              ...config,
+              coeficiente,
+              clase: coeficiente === 7 ? 'precision' : 'tercerOrden',
+            },
           })
-        }
+        }}
         className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
       >
         <option value={7}>Precisión · e = 7 mm</option>
@@ -84,7 +96,7 @@ export default function BarraCierre() {
           error {formatearMm(cierre.errorMm)} {cierre.pasa ? '✓ PASA' : '✗ FUERA DE TOLERANCIA'}
         </span>
       ) : (
-        <span className="font-medium">circuito abierto — sin verificación</span>
+        <span className="font-medium">{textoSinVeredicto(cierre)}</span>
       )}
     </div>
   )
