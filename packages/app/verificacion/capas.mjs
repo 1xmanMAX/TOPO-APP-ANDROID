@@ -144,6 +144,15 @@ comprobar('el Excel lleva los espesores como número',
   /<c r="[A-Z]+\d+"><v>0\.2\d{2}<\/v><\/c>/.test(hoja),
   (hoja.match(/<v>0\.2\d{2}<\/v>/g) ?? []).join(' '))
 
+// La progresiva 0+020 solo la midió la campaña de subrasante (la del
+// ejemplo): la campaña nueva de terreno no pasó de 0+000. Esa fila tiene que
+// salir vacía en el archivo real, no en 0.000 — un cero ahí diría que no se
+// colocó material, cuando lo que pasa es que no hay con qué compararla.
+const filaVeinte = (hoja.match(/<row r="\d+">[^]*?0\+020[^]*?<\/row>/) ?? [''])[0]
+comprobar('la progresiva sin pareja en la otra capa sale vacía en el Excel, no en cero',
+  filaVeinte !== '' && !/<v>/.test(filaVeinte),
+  filaVeinte)
+
 await navegador.close()
 
 const fallos = resultados.filter((r) => !r.ok)
