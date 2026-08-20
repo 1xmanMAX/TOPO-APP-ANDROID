@@ -61,4 +61,39 @@ describe('armarXlsx', () => {
 
     expect(libro).toContain('name="Cotas"')
   })
+
+  it('quita los caracteres de control, que dejarían el archivo ilegible', () => {
+    const contenido = unzipSync(armarXlsx([['Av. Sol\x07']], 'Cotas'))
+    const hoja = strFromU8(contenido['xl/worksheets/sheet1.xml']!)
+
+    expect(hoja).toContain('<t>Av. Sol</t>')
+    expect(hoja).not.toContain('\x07')
+  })
+
+  it('conserva acentos y eñes de los nombres de calle', () => {
+    const contenido = unzipSync(armarXlsx([['Jr. Ñuñoa', 'Cañón']], 'Cotas'))
+    const hoja = strFromU8(contenido['xl/worksheets/sheet1.xml']!)
+
+    expect(hoja).toContain('<t>Jr. Ñuñoa</t>')
+    expect(hoja).toContain('<t>Cañón</t>')
+  })
+
+  it('trata como texto lo que no es un número usable', () => {
+    const contenido = unzipSync(armarXlsx([['Infinity', 'NaN', '123abc', '']], 'Cotas'))
+    const hoja = strFromU8(contenido['xl/worksheets/sheet1.xml']!)
+
+    expect(hoja).not.toContain('<v>Infinity</v>')
+    expect(hoja).not.toContain('<v>NaN</v>')
+    expect(hoja).toContain('<is><t>123abc</t></is>')
+  })
+
+  it('recorta y limpia un nombre de hoja que Excel no aceptaría', () => {
+    const contenido = unzipSync(armarXlsx([['x']], 'Av. Sol / Jr. Lima: capa base de rodadura'))
+    const libro = strFromU8(contenido['xl/workbook.xml']!)
+
+    const nombre = /name="([^"]*)"/.exec(libro)![1]!
+    expect(nombre.length).toBeLessThanOrEqual(31)
+    expect(nombre).not.toContain('/')
+    expect(nombre).not.toContain(':')
+  })
 })

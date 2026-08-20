@@ -40,7 +40,7 @@ export function aTextoSeparado(tabla: string[][], separador: string): string {
     .map((fila) =>
       fila
         .map((valor) =>
-          valor.includes(separador) || valor.includes('"') || valor.includes('\n')
+          valor.includes(separador) || valor.includes('"') || valor.includes('\n') || valor.includes('\r')
             ? `"${valor.replace(/"/g, '""')}"`
             : valor,
         )

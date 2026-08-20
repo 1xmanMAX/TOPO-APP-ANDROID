@@ -52,4 +52,13 @@ describe('aTextoSeparado', () => {
   it('entrecomilla los valores que contienen el separador', () => {
     expect(aTextoSeparado([['a;b', 'c']], ';')).toBe('"a;b";c')
   })
+
+  it('entrecomilla los valores con saltos de línea o retornos de carro', () => {
+    expect(aTextoSeparado([['a\nb']], ';')).toBe('"a\nb"')
+    expect(aTextoSeparado([['a\rb']], ';')).toBe('"a\rb"')
+  })
+
+  it('dobla las comillas internas', () => {
+    expect(aTextoSeparado([['dijo "hola"']], ';')).toBe('"dijo ""hola"""')
+  })
 })

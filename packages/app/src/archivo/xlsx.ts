@@ -2,12 +2,26 @@ import { zipSync, strToU8 } from 'fflate'
 
 /** Escapa lo que XML no admite tal cual dentro de un texto. */
 function escapar(texto: string): string {
-  return texto
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
+  return (
+    texto
+      // XML 1.0 prohíbe los caracteres de control y no se arreglan escapándolos:
+      // uno solo, invisible y llegado de un copiar y pegar, deja el archivo
+      // ilegible y Excel no explica por qué. Se quitan. Tabulador, salto de
+      // línea y retorno de carro quedan permitidos a propósito: XML sí los admite.
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;')
+  )
+}
+
+/** Excel limita el nombre de hoja a 31 caracteres y prohíbe : \ / ? * [ ] */
+function nombreDeHojaValido(nombre: string): string {
+  const limpio = nombre.replace(/[:\\/?*[\]]/g, ' ').trim()
+  return (limpio || 'Hoja1').slice(0, 31)
 }
 
 /** A, B, ... Z, AA, AB, ... a partir de un índice de columna base cero. */
@@ -71,7 +85,7 @@ export function armarXlsx(tabla: string[][], nombreHoja: string): Uint8Array<Arr
     {
       '[Content_Types].xml': strToU8(TIPOS),
       '_rels/.rels': strToU8(RELACIONES_RAIZ),
-      'xl/workbook.xml': strToU8(libro(nombreHoja)),
+      'xl/workbook.xml': strToU8(libro(nombreDeHojaValido(nombreHoja))),
       'xl/_rels/workbook.xml.rels': strToU8(RELACIONES_LIBRO),
       'xl/worksheets/sheet1.xml': strToU8(hoja(tabla)),
     },
