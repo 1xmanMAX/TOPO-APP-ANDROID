@@ -10,33 +10,40 @@ export default function VistaCalle() {
   const plantillas = useAlmacen((s) => s.proyecto.plantillas)
   const actualizarCalle = useAlmacen((s) => s.actualizarCalle)
   const [textoExtra, setTextoExtra] = useState('')
-  const [displayIntervalo, setDisplayIntervalo] = useState(contexto?.calle.intervalo.toString() ?? '')
+  const [textoIntervalo, setTextoIntervalo] = useState(String(contexto?.calle.intervalo ?? 20))
+  const [editandoIntervalo, setEditandoIntervalo] = useState(false)
+  const [avisoExtra, setAvisoExtra] = useState<string | null>(null)
 
   useEffect(() => {
-    if (contexto) {
-      setDisplayIntervalo(contexto.calle.intervalo.toString())
-    }
-  }, [contexto?.calle.intervalo])
+    if (!editandoIntervalo) setTextoIntervalo(String(contexto?.calle.intervalo ?? 20))
+  }, [contexto?.calle.intervalo, editandoIntervalo])
 
-  const progresivas = useMemo(() => {
-    if (!contexto) return []
+  const { progresivas, problema } = useMemo(() => {
+    if (!contexto) return { progresivas: [] as number[], problema: null as string | null }
     const { calle } = contexto
     try {
-      return generarProgresivas(
-        calle.progresivaInicio,
-        calle.progresivaFin,
-        calle.intervalo,
-        calle.progresivasExtra,
-      )
-    } catch {
-      return []
+      return {
+        progresivas: generarProgresivas(
+          calle.progresivaInicio,
+          calle.progresivaFin,
+          calle.intervalo,
+          calle.progresivasExtra,
+        ),
+        problema: null as string | null,
+      }
+    } catch (fallo) {
+      return { progresivas: [] as number[], problema: (fallo as Error).message }
     }
   }, [contexto])
 
-  const celdas = useMemo(
-    () => (contexto ? construirGrilla(contexto.calle, contexto.plantilla) : []),
-    [contexto],
-  )
+  const celdas = useMemo(() => {
+    if (!contexto || problema) return []
+    try {
+      return construirGrilla(contexto.calle, contexto.plantilla)
+    } catch {
+      return []
+    }
+  }, [contexto, problema])
 
   if (!contexto) {
     return <p className="p-6 text-sm text-slate-500">Crea una calle y una campaña para empezar.</p>
@@ -46,9 +53,26 @@ export default function VistaCalle() {
 
   function agregarExtra() {
     const valor = parsearProgresiva(textoExtra)
-    if (valor === null) return
+
+    if (valor === null) {
+      setAvisoExtra('No entiendo esa progresiva. Escríbela como 0+047 o como 47.')
+      return
+    }
+    if (valor < calle.progresivaInicio || valor > calle.progresivaFin) {
+      setAvisoExtra(
+        `${formatearProgresiva(valor)} queda fuera del tramo, que va de ` +
+          `${formatearProgresiva(calle.progresivaInicio)} a ${formatearProgresiva(calle.progresivaFin)}.`,
+      )
+      return
+    }
+    if (calle.progresivasExtra.includes(valor)) {
+      setAvisoExtra(`${formatearProgresiva(valor)} ya está en la lista.`)
+      return
+    }
+
     actualizarCalle(calle.id, { progresivasExtra: [...calle.progresivasExtra, valor] })
     setTextoExtra('')
+    setAvisoExtra(null)
   }
 
   return (
@@ -92,14 +116,19 @@ export default function VistaCalle() {
           <span className="text-xs font-medium text-slate-500">Intervalo</span>
           <input
             aria-label="Intervalo"
-            type="text"
             inputMode="decimal"
-            value={displayIntervalo}
+            value={textoIntervalo}
+            onFocus={() => setEditandoIntervalo(true)}
+            onBlur={() => {
+              setEditandoIntervalo(false)
+              setTextoIntervalo(String(calle.intervalo))
+            }}
             onChange={(evento) => {
-              const nuevoDisplay = evento.target.value
-              setDisplayIntervalo(nuevoDisplay)
-              const numero = Number(nuevoDisplay.replace(',', '.'))
-              if (Number.isFinite(numero) && numero > 0) actualizarCalle(calle.id, { intervalo: numero })
+              setTextoIntervalo(evento.target.value)
+              const numero = Number(evento.target.value.replace(',', '.'))
+              if (Number.isFinite(numero) && numero > 0) {
+                actualizarCalle(calle.id, { intervalo: numero })
+              }
             }}
             className="numerico rounded border border-slate-300 px-2 py-1.5 text-right text-sm dark:border-slate-700 dark:bg-slate-900"
           />
@@ -124,13 +153,20 @@ export default function VistaCalle() {
             Agregar progresiva
           </button>
         </div>
+        {avisoExtra && <p className="text-sm text-aviso">{avisoExtra}</p>}
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-semibold">
-          Grilla: {progresivas.length} progresivas × {plantilla.elementos.length} elementos ={' '}
-          <span className="text-marca">{celdas.length} celdas</span>
-        </h3>
+        {problema ? (
+          <p className="rounded border border-aviso px-3 py-2 text-sm text-aviso">
+            {problema}. Corrige los valores para ver la grilla.
+          </p>
+        ) : (
+          <h3 className="font-semibold">
+            Grilla: {progresivas.length} progresivas × {plantilla.elementos.length} elementos ={' '}
+            <span className="text-marca">{celdas.length} celdas</span>
+          </h3>
+        )}
         <ul className="flex flex-wrap gap-1.5">
           {progresivas.map((progresiva) => {
             const esExtra = calle.progresivasExtra.includes(progresiva)

@@ -45,6 +45,7 @@ export default function CampoNumero({
         <input
           type="text"
           inputMode="decimal"
+          aria-label={etiqueta}
           value={texto}
           onFocus={() => setEditando(true)}
           onBlur={() => {
