@@ -22,14 +22,20 @@ export default function EditorPlantilla({ plantillaId }: Props) {
 
   if (!plantilla) return <p className="p-6 text-sm text-slate-500">Esa plantilla ya no existe.</p>
 
-  const ordenados = [...plantilla.elementos].sort((a, b) => a.offset - b.offset)
+  // Se ordena para mostrar de izquierda a derecha, pero se conserva el índice
+  // original: es la identidad estable del elemento mientras se edita, porque
+  // ni la clave ni el offset lo son.
+  const ordenados = plantilla.elementos
+    .map((elemento, indice) => ({ elemento, indice }))
+    .sort((a, b) => a.elemento.offset - b.elemento.offset)
+
   const repetidas = ordenados
-    .map((e) => e.clave)
+    .map((e) => e.elemento.clave)
     .filter((clave, i, todas) => clave !== '' && todas.indexOf(clave) !== i)
 
-  function cambiar(clave: string, cambios: Partial<ElementoPlantilla>) {
+  function cambiar(indice: number, cambios: Partial<ElementoPlantilla>) {
     actualizarPlantilla(plantillaId, {
-      elementos: plantilla!.elementos.map((e) => (e.clave === clave ? { ...e, ...cambios } : e)),
+      elementos: plantilla!.elementos.map((e, i) => (i === indice ? { ...e, ...cambios } : e)),
     })
   }
 
@@ -48,9 +54,9 @@ export default function EditorPlantilla({ plantillaId }: Props) {
     })
   }
 
-  function quitar(clave: string) {
+  function quitar(indice: number) {
     actualizarPlantilla(plantillaId, {
-      elementos: plantilla!.elementos.filter((e) => e.clave !== clave),
+      elementos: plantilla!.elementos.filter((_, i) => i !== indice),
     })
   }
 
@@ -74,14 +80,14 @@ export default function EditorPlantilla({ plantillaId }: Props) {
       )}
 
       <div className="flex flex-col gap-2">
-        {ordenados.map((elemento, i) => (
-          <div key={i} className="grid grid-cols-[7rem_1fr_7rem_9rem_auto] items-end gap-2">
+        {ordenados.map(({ elemento, indice }) => (
+          <div key={indice} className="grid grid-cols-[7rem_1fr_7rem_9rem_auto] items-end gap-2">
             <label className="flex flex-col gap-1">
               <span className="text-xs font-medium text-slate-500">Clave</span>
               <input
                 aria-label="Clave"
                 value={elemento.clave}
-                onChange={(evento) => cambiar(elemento.clave, { clave: evento.target.value.toUpperCase() })}
+                onChange={(evento) => cambiar(indice, { clave: evento.target.value.toUpperCase() })}
                 className="rounded border border-slate-300 px-2 py-1.5 text-sm uppercase dark:border-slate-700 dark:bg-slate-900"
               />
             </label>
@@ -90,14 +96,14 @@ export default function EditorPlantilla({ plantillaId }: Props) {
               <input
                 aria-label={`Etiqueta de ${elemento.clave}`}
                 value={elemento.etiqueta}
-                onChange={(evento) => cambiar(elemento.clave, { etiqueta: evento.target.value })}
+                onChange={(evento) => cambiar(indice, { etiqueta: evento.target.value })}
                 className="rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
               />
             </label>
             <CampoNumero
               etiqueta="Distancia"
               valor={elemento.offset}
-              alCambiar={(v) => cambiar(elemento.clave, { offset: v })}
+              alCambiar={(v) => cambiar(indice, { offset: v })}
               decimales={2}
               sufijo="m"
             />
@@ -106,7 +112,7 @@ export default function EditorPlantilla({ plantillaId }: Props) {
               <select
                 aria-label={`Tipo de ${elemento.clave}`}
                 value={elemento.tipo}
-                onChange={(evento) => cambiar(elemento.clave, { tipo: evento.target.value as TipoElemento })}
+                onChange={(evento) => cambiar(indice, { tipo: evento.target.value as TipoElemento })}
                 className="rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
               >
                 {TIPOS.map((tipo) => (
@@ -119,7 +125,7 @@ export default function EditorPlantilla({ plantillaId }: Props) {
             <button
               type="button"
               aria-label={`Quitar ${elemento.clave}`}
-              onClick={() => quitar(elemento.clave)}
+              onClick={() => quitar(indice)}
               className="rounded px-2 py-1.5 text-sm text-falla hover:bg-red-50 dark:hover:bg-red-950"
             >
               Quitar

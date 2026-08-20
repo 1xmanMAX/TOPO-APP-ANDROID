@@ -40,4 +40,23 @@ describe('EditorPlantilla', () => {
     await usuario.type(campoClave, 'EJE')
     expect(screen.getByText(/La clave EJE está repetida/i)).toBeInTheDocument()
   })
+
+  it('edita solo la fila tocada aunque dos elementos tengan la misma clave', async () => {
+    const usuario = userEvent.setup()
+    useAlmacen.getState().actualizarPlantilla('pl-1', {
+      elementos: [
+        { clave: 'DUP', etiqueta: 'Primero', offset: -1, tipo: 'otro' },
+        { clave: 'DUP', etiqueta: 'Segundo', offset: 1, tipo: 'otro' },
+      ],
+    })
+    render(<EditorPlantilla plantillaId="pl-1" />)
+
+    const etiquetas = screen.getAllByLabelText('Etiqueta de DUP')
+    await usuario.clear(etiquetas[0]!)
+    await usuario.type(etiquetas[0]!, 'Cambiado')
+
+    const plantilla = useAlmacen.getState().proyecto.plantillas.find((p) => p.id === 'pl-1')!
+    expect(plantilla.elementos[0]!.etiqueta).toBe('Cambiado')
+    expect(plantilla.elementos[1]!.etiqueta).toBe('Segundo')
+  })
 })
