@@ -59,6 +59,7 @@ El motor no sabe que existe una pantalla: recibe números y devuelve números. L
 - [Diseño de la herramienta 1](docs/superpowers/specs/2026-08-19-nivelacion-por-progresivas-design.md)
 - [Plan de implementación de la Entrega 1](docs/superpowers/plans/2026-08-19-entrega-1-nivelacion-por-progresivas.md)
 - [Guía de uso](docs/uso-entrega-1.md)
+- [Decisiones tomadas durante la Entrega 1](docs/decisiones-entrega-1.md)
 
 ## Lo que viene
 
