@@ -50,6 +50,10 @@ export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
   const cotasConocidas = new Map<string, number>()
   for (const bm of bms) cotasConocidas.set(`bm:${bm.id}`, bm.cota)
 
+  // Destinos que existen en la libreta pero cuya lectura todavía no sirve.
+  // No es lo mismo que un punto inventado: la cadena solo está a medio hacer.
+  const pendientes = new Set<string>()
+
   const cotasInstrumento: number[] = []
   const puntos: PuntoCalculado[] = []
   let cotaLlegada: number | null = null
@@ -60,6 +64,14 @@ export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
     const cotaPartida = cotasConocidas.get(clavePartida)
 
     if (cotaPartida === undefined) {
+      // Si ese punto está esperando su lectura, la estación queda pendiente y
+      // el resto del cálculo continúa: es lo que pasa justo después de
+      // trasladar el instrumento, antes de teclear las dos lecturas.
+      if (pendientes.has(clavePartida)) {
+        cotasInstrumento.push(Number.NaN)
+        return
+      }
+
       const nombre =
         estacion.vistaAtras.destino.tipo === 'cambio'
           ? estacion.vistaAtras.destino.nombre
@@ -124,6 +136,11 @@ export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
         cotaLlegada = cota
         bmLlegadaId = estacion.vistaAdelante.destino.bmId
       }
+    } else if (estacion.vistaAdelante) {
+      // La lectura no sirve todavía: el destino queda pendiente, no
+      // descartado. La estación siguiente que arranque ahí debe quedar
+      // pendiente también, en vez de que el motor la trate como un error.
+      pendientes.add(claveDestino(estacion.vistaAdelante.destino))
     }
   })
 

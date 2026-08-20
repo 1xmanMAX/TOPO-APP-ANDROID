@@ -87,6 +87,31 @@ describe('BarraCierre', () => {
     expect(campania.cierre.longitudK).toBeCloseTo(0.36, 9)
   })
 
+  it('dice que no cierra contra el banco configurado cuando la última estación remata en otro banco existente', () => {
+    const proyecto = proyectoEjemplo()
+    proyecto.bms.push({
+      id: 'bm-2',
+      nombre: 'BM-2',
+      cota: 3245.2,
+      tipo: 'oficial',
+      descripcion: 'otro banco de nivel del proyecto',
+    })
+    proyecto.campanias[0]!.estaciones[1]!.vistaAdelante = {
+      id: 'l-7',
+      destino: { tipo: 'bm', bmId: 'bm-2' },
+      valor: 1.91,
+    }
+    useAlmacen.getState().cargarProyecto(proyecto)
+
+    render(<BarraCierre />)
+
+    expect(
+      screen.getByText(/la última estación no cierra contra el banco de nivel configurado/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/ya no está en el proyecto/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/✓ PASA/)).not.toBeInTheDocument()
+  })
+
   it('dice cuando el banco de nivel de cierre ya no está en el proyecto', () => {
     const proyecto = proyectoEjemplo()
     proyecto.campanias[0]!.cierre = {

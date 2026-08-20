@@ -8,21 +8,24 @@ function formatearMm(valor: number): string {
   return `${signo}${Math.abs(valor).toFixed(1)} mm`
 }
 
-function textoSinVeredicto(cierre: ResultadoCierre): string {
+function textoSinVeredicto(cierre: ResultadoCierre, bmDeCierreExiste: boolean): string {
   if (cierre.tipo === 'abierto') return 'circuito abierto — sin verificación'
   if (cierre.cotaLlegadaCalculada === null) return 'falta cerrar contra un banco de nivel'
-  return 'el banco de nivel de cierre ya no está en el proyecto'
+  if (!bmDeCierreExiste) return 'el banco de nivel de cierre ya no está en el proyecto'
+  return 'la última estación no cierra contra el banco de nivel configurado'
 }
 
 export default function BarraCierre() {
   const resultado = useResultado()
   const contexto = useContexto()
+  const bms = useAlmacen((s) => s.proyecto.bms)
   const actualizarCampania = useAlmacen((s) => s.actualizarCampania)
 
   if (!resultado || !contexto) return null
 
   const { cierre } = resultado
   const config = contexto.campania.cierre
+  const bmDeCierreExiste = bms.some((bm) => bm.id === config.bmFinalId)
 
   const fondo =
     cierre.pasa === true
@@ -97,7 +100,7 @@ export default function BarraCierre() {
           error {formatearMm(cierre.errorMm)} {cierre.pasa ? '✓ PASA' : '✗ FUERA DE TOLERANCIA'}
         </span>
       ) : (
-        <span className="font-medium">{textoSinVeredicto(cierre)}</span>
+        <span className="font-medium">{textoSinVeredicto(cierre, bmDeCierreExiste)}</span>
       )}
     </div>
   )

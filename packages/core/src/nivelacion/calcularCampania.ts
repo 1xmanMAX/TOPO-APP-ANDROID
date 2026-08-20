@@ -262,16 +262,20 @@ function agregarAvisosDeHuerfanas(
   avisos: Aviso[],
 ): void {
   const clavesDeLaGrilla = new Set(grilla.map((celda) => celda.clave))
-  const huerfanas = [...cotasPorCelda.keys()].filter((clave) => !clavesDeLaGrilla.has(clave))
+  const huerfanas = [...cotasPorCelda.values()].filter((celda) => !clavesDeLaGrilla.has(celda.clave))
 
   if (huerfanas.length > 0) {
+    const nombres = huerfanas.map(
+      (celda) => `${formatearProgresiva(celda.progresiva)} ${celda.elementoClave}`,
+    )
+
     avisos.push({
       nivel: 'advertencia',
       clave: null,
       mensaje:
         `Hay ${huerfanas.length} ${huerfanas.length === 1 ? 'lectura' : 'lecturas'} que ya no ` +
         'caen en la grilla de esta calle, así que no salen en la tabla ni en la exportación: ' +
-        `${huerfanas.slice(0, 5).join(', ')}${huerfanas.length > 5 ? '…' : ''}. ` +
+        `${nombres.slice(0, 5).join(', ')}${nombres.length > 5 ? '…' : ''}. ` +
         'Suele pasar al renombrar un elemento de la plantilla o al cambiar el intervalo.',
     })
   }
@@ -284,13 +288,30 @@ function agregarAvisosDeCierre(
   avisos: Aviso[],
 ): void {
   const bmFinalId = campania.cierre.bmFinalId
-  if (cierre.tipo !== 'abierto' && bmFinalId && !bms.some((bm) => bm.id === bmFinalId)) {
+  const bmDeCierreExiste = bmFinalId ? bms.some((bm) => bm.id === bmFinalId) : false
+
+  if (cierre.tipo !== 'abierto' && bmFinalId && !bmDeCierreExiste) {
     avisos.push({
       nivel: 'advertencia',
       clave: null,
       mensaje:
         'El banco de nivel de cierre de esta campaña ya no existe en el proyecto. ' +
         'Elige otro para poder verificar el circuito.',
+    })
+  }
+
+  if (
+    cierre.tipo !== 'abierto' &&
+    bmDeCierreExiste &&
+    cierre.cotaLlegadaCalculada !== null &&
+    cierre.pasa === null
+  ) {
+    avisos.push({
+      nivel: 'advertencia',
+      clave: null,
+      mensaje:
+        'La última estación no cierra contra el banco de nivel configurado para esta campaña, ' +
+        'así que no se puede verificar el circuito.',
     })
   }
 

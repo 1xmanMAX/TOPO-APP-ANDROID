@@ -17,7 +17,13 @@ export function armarTabla(
   calle: Calle,
   plantilla: Plantilla,
 ): string[][] {
-  const celdas = construirGrilla(calle, plantilla)
+  let celdas: ReturnType<typeof construirGrilla> = []
+  try {
+    celdas = construirGrilla(calle, plantilla)
+  } catch {
+    return []
+  }
+
   const progresivas = [...new Set(celdas.map((c) => c.progresiva))].sort((a, b) => a - b)
 
   const vistos = new Map<string, number>()

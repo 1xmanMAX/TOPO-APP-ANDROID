@@ -64,6 +64,19 @@ describe('PanelEstacion', () => {
     expect(alCambiarEstacion).toHaveBeenCalledWith(2)
   })
 
+  it('trasladar el instrumento no borra las cotas ya calculadas', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelEstacion estacionIndice={1} alCambiarEstacion={vi.fn()} />)
+
+    // La estación 2 del ejemplo ya cerró contra BM-1. Para trasladarse desde ella
+    // hay que soltar ese cierre primero: no se puede cerrar y trasladar a la vez.
+    await usuario.click(screen.getByRole('button', { name: /quitar la vista adelante/i }))
+    await usuario.click(screen.getByRole('button', { name: /trasladar el instrumento/i }))
+
+    const resultado = useAlmacen.getState().calcular()!
+    expect(resultado.cotasPorCelda.has('0|EJE')).toBe(true)
+  })
+
   it('no ofrece cerrar el circuito cuando la estación ya tiene vista adelante', () => {
     render(<PanelEstacion estacionIndice={1} alCambiarEstacion={vi.fn()} />)
 

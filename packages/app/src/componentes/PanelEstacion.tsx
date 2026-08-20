@@ -71,9 +71,9 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
         <span className="text-slate-500">
           CI{' '}
           <span className="numerico">
-            {resultado.cotasInstrumento[estacionIndice] === undefined
-              ? '—'
-              : formatearCota(resultado.cotasInstrumento[estacionIndice]!)}
+            {Number.isFinite(resultado.cotasInstrumento[estacionIndice])
+              ? formatearCota(resultado.cotasInstrumento[estacionIndice]!)
+              : '—'}
           </span>
         </span>
       </div>
@@ -85,6 +85,13 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
           alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAtras.id, v)}
         />
       </div>
+
+      {!Number.isFinite(resultado.cotasInstrumento[estacionIndice]) && (
+        <p className="rounded border border-aviso px-3 py-2 text-xs text-aviso">
+          Falta la lectura de vista atrás de esta estación: hasta que la escribas, sus puntos no
+          tienen cota.
+        </p>
+      )}
 
       <ul className="flex flex-col gap-1">
         {estacion.intermedias.map((lectura) => {

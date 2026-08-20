@@ -1,4 +1,4 @@
-import { construirGrilla, formatearProgresiva } from '@topo/core'
+import { construirGrilla, esLecturaUsable, formatearProgresiva } from '@topo/core'
 import { useEffect, useMemo, useState } from 'react'
 import BarraCierre from '../componentes/BarraCierre'
 import CorteTransversal from '../componentes/CorteTransversal'
@@ -83,6 +83,11 @@ export default function VistaLibreta() {
       },
       valor,
     })
+
+    // Una lectura que no puede ser de una mira deja la celda sin llenar: el
+    // aviso del motor ya explica por qué, así que no hay que avanzar y perder
+    // de vista el texto que hay que corregir.
+    if (!esLecturaUsable(valor)) return
 
     const siguientes = new Set(llenas)
     siguientes.add(celdaActiva.clave)

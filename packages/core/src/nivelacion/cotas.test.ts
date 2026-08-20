@@ -134,4 +134,29 @@ describe('calcularCotas', () => {
     expect(Number.isNaN(resultado!.cotasInstrumento[1])).toBe(true)
     expect(resultado!.puntos.some((p) => p.estacionIndice === 1)).toBe(false)
   })
+
+  it('una vista atrás que apunta a un punto de cambio pendiente de lectura no lanza y conserva las cotas anteriores', () => {
+    // Es justo lo que pasa al trasladar el instrumento: la vista adelante al
+    // punto de cambio queda en 0 (pendiente) hasta que se teclea la lectura.
+    const campania = campaniaEjemplo()
+    campania.estaciones[0]!.vistaAdelante!.valor = 0
+
+    let resultado: ReturnType<typeof calcularCotas> | undefined
+    expect(() => {
+      resultado = calcularCotas(campania, [BM_1])
+    }).not.toThrow()
+
+    expect(Number.isNaN(resultado!.cotasInstrumento[1])).toBe(true)
+    expect(resultado!.cotasInstrumento[0]).toBeCloseTo(3246.605, 6)
+    expect(resultado!.puntos.some((p) => p.claveDestino === '0|EJE')).toBe(true)
+    expect(resultado!.puntos.some((p) => p.claveDestino === '0|BOR-I')).toBe(true)
+  })
+
+  it('una vista atrás que apunta a un punto que nunca fue destino de nadie sí lanza', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[1]!.vistaAtras.destino = { tipo: 'cambio', nombre: 'PC-9' }
+    expect(() => calcularCotas(campania, [BM_1])).toThrow(
+      'La estación 2 arranca en PC-9, que no fue medido antes',
+    )
+  })
 })
