@@ -1178,7 +1178,7 @@ describe('calcularCierre', () => {
 
   it('acepta un error exactamente igual a la tolerancia', () => {
     const campania = campaniaEjemplo()
-    campania.estaciones[1]!.vistaAdelante!.valor = 1.9128
+    campania.estaciones[1]!.vistaAdelante!.valor = 1.9122
     const cotas = calcularCotas(campania, [BM_1])
     const cierre = calcularCierre(campania, [BM_1], cotas, 0.36)
 
