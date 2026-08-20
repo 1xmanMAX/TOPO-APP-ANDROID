@@ -127,4 +127,34 @@ describe('calcularCampania', () => {
     expect(resultado.cotasPorCelda.size).toBe(0)
     expect(resultado.cotasInstrumento).toEqual([])
   })
+
+  it('devuelve el error legible si la longitud K escrita a mano es negativa', () => {
+    const campania = campaniaEjemplo()
+    campania.cierre = { ...campania.cierre, longitudKAuto: false, longitudK: -1 }
+    const resultado = calcularCampania(entrada(campania))
+
+    expect(resultado.error).toBe('La longitud del circuito no puede ser negativa')
+    expect(resultado.cotasPorCelda.size).toBe(0)
+    expect(resultado.cotasInstrumento).toEqual([])
+  })
+
+  it('devuelve el error legible si la calle tiene un intervalo inválido', () => {
+    const resultado = calcularCampania({
+      ...entrada(),
+      calle: { ...CALLE_EJEMPLO, intervalo: 0 },
+    })
+
+    expect(resultado.error).toBe('El intervalo debe ser mayor que cero')
+    expect(resultado.cotasPorCelda.size).toBe(0)
+  })
+
+  it('avisa si el banco de nivel de cierre ya no existe en el proyecto', () => {
+    const campania = campaniaEjemplo()
+    campania.cierre = { ...campania.cierre, bmFinalId: 'bm-borrado' }
+    const resultado = calcularCampania(entrada(campania))
+
+    const aviso = resultado.avisos.find((a) => a.mensaje.includes('ya no existe en el proyecto'))
+    expect(aviso?.nivel).toBe('advertencia')
+    expect(resultado.error).toBeNull()
+  })
 })

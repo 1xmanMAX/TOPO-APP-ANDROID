@@ -1,4 +1,4 @@
-import { construirGrilla } from '../grilla/grilla'
+import { construirGrilla, type CeldaGrilla } from '../grilla/grilla'
 import { formatearProgresiva } from '../grilla/progresivas'
 import type { BM, Calle, Campania, Plantilla } from '../modelo/tipos'
 import { aMilimetros, redondear3 } from '../numero'
@@ -48,78 +48,79 @@ export interface ResultadoCampania {
 
 export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
   const { campania, calle, plantilla, bms } = entrada
-  const grilla = construirGrilla(calle, plantilla)
-  const offsetPorClave = new Map(grilla.map((celda) => [celda.clave, celda.offset]))
 
-  const longitudKKm = campania.cierre.longitudKAuto
-    ? calcularLongitudKAuto(calle, campania.cierre.tipo)
-    : campania.cierre.longitudK
+  let grilla: CeldaGrilla[] = []
+  let longitudKKm = campania.cierre.longitudK
 
-  const cierreVacio: ResultadoCierre = {
-    tipo: campania.cierre.tipo,
-    cotaLlegadaCalculada: null,
-    cotaLlegadaConocida: null,
-    errorMm: null,
-    longitudKKm,
-    toleranciaMm: null,
-    pasa: null,
-  }
-
-  let cotas
   try {
-    cotas = calcularCotas(campania, bms)
+    grilla = construirGrilla(calle, plantilla)
+    longitudKKm = campania.cierre.longitudKAuto
+      ? calcularLongitudKAuto(calle, campania.cierre.tipo)
+      : campania.cierre.longitudK
+
+    const offsetPorClave = new Map(grilla.map((celda) => [celda.clave, celda.offset]))
+
+    const cotas = calcularCotas(campania, bms)
+    const cierre = calcularCierre(campania, bms, cotas, longitudKKm)
+    const acumuladas =
+      cierre.pasa === true && cierre.errorMm !== null
+        ? correccionesAcumuladas(cierre.errorMm, campania.estaciones.length)
+        : []
+    const compensados = compensarPuntos(cotas.puntos, acumuladas)
+
+    const avisos: Aviso[] = []
+    const cotasPorCelda = new Map<string, CotaCelda>()
+
+    for (const punto of compensados) {
+      if (punto.destino.tipo !== 'celda') continue
+
+      const existente = cotasPorCelda.get(punto.claveDestino)
+      const lecturas = existente ? [...existente.lecturas, punto.lectura] : [punto.lectura]
+
+      cotasPorCelda.set(punto.claveDestino, {
+        clave: punto.claveDestino,
+        progresiva: punto.destino.celda.progresiva,
+        elementoClave: punto.destino.celda.elementoClave,
+        offset: offsetPorClave.get(punto.claveDestino) ?? 0,
+        cota: punto.cota,
+        cotaCruda: punto.cotaCruda,
+        correccion: punto.correccion,
+        lecturas,
+      })
+    }
+
+    agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos)
+    agregarAvisosDeApartamiento(cotasPorCelda, avisos)
+    agregarAvisosDeCierre(cierre, campania, bms, avisos)
+
+    return {
+      cotasPorCelda,
+      cotasInstrumento: cotas.cotasInstrumento,
+      cierre,
+      avisos,
+      celdasTotales: grilla.length,
+      celdasLlenas: cotasPorCelda.size,
+      error: null,
+    }
   } catch (fallo) {
+    const mensaje = (fallo as Error).message
     return {
       cotasPorCelda: new Map(),
       cotasInstrumento: [],
-      cierre: cierreVacio,
-      avisos: [{ nivel: 'error', clave: null, mensaje: (fallo as Error).message }],
+      cierre: {
+        tipo: campania.cierre.tipo,
+        cotaLlegadaCalculada: null,
+        cotaLlegadaConocida: null,
+        errorMm: null,
+        longitudKKm,
+        toleranciaMm: null,
+        pasa: null,
+      },
+      avisos: [{ nivel: 'error', clave: null, mensaje }],
       celdasTotales: grilla.length,
       celdasLlenas: 0,
-      error: (fallo as Error).message,
+      error: mensaje,
     }
-  }
-
-  const cierre = calcularCierre(campania, bms, cotas, longitudKKm)
-  const acumuladas =
-    cierre.pasa === true && cierre.errorMm !== null
-      ? correccionesAcumuladas(cierre.errorMm, campania.estaciones.length)
-      : []
-  const compensados = compensarPuntos(cotas.puntos, acumuladas)
-
-  const avisos: Aviso[] = []
-  const cotasPorCelda = new Map<string, CotaCelda>()
-
-  for (const punto of compensados) {
-    if (punto.destino.tipo !== 'celda') continue
-
-    const existente = cotasPorCelda.get(punto.claveDestino)
-    const lecturas = existente ? [...existente.lecturas, punto.lectura] : [punto.lectura]
-
-    cotasPorCelda.set(punto.claveDestino, {
-      clave: punto.claveDestino,
-      progresiva: punto.destino.celda.progresiva,
-      elementoClave: punto.destino.celda.elementoClave,
-      offset: offsetPorClave.get(punto.claveDestino) ?? 0,
-      cota: punto.cota,
-      cotaCruda: punto.cotaCruda,
-      correccion: punto.correccion,
-      lecturas,
-    })
-  }
-
-  agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos)
-  agregarAvisosDeApartamiento(cotasPorCelda, avisos)
-  agregarAvisosDeCierre(cierre, avisos)
-
-  return {
-    cotasPorCelda,
-    cotasInstrumento: cotas.cotasInstrumento,
-    cierre,
-    avisos,
-    celdasTotales: grilla.length,
-    celdasLlenas: cotasPorCelda.size,
-    error: null,
   }
 }
 
@@ -128,18 +129,18 @@ function agregarAvisosDeRepeticion(
   compensados: { claveDestino: string; cota: number; destino: { tipo: string } }[],
   avisos: Aviso[],
 ): void {
-  const cotasCrudasPorClave = new Map<string, number[]>()
+  const cotasFinalesPorClave = new Map<string, number[]>()
   for (const punto of compensados) {
     if (punto.destino.tipo !== 'celda') continue
-    const lista = cotasCrudasPorClave.get(punto.claveDestino) ?? []
+    const lista = cotasFinalesPorClave.get(punto.claveDestino) ?? []
     lista.push(punto.cota)
-    cotasCrudasPorClave.set(punto.claveDestino, lista)
+    cotasFinalesPorClave.set(punto.claveDestino, lista)
   }
 
   for (const [clave, celda] of cotasPorCelda) {
     if (celda.lecturas.length < 2) continue
 
-    const valores = cotasCrudasPorClave.get(clave) ?? []
+    const valores = cotasFinalesPorClave.get(clave) ?? []
     const diferenciaMm = Math.abs(aMilimetros(Math.max(...valores) - Math.min(...valores)))
     const nivel = diferenciaMm > TOLERANCIA_REPETICION_MM ? 'advertencia' : 'informacion'
 
@@ -188,7 +189,23 @@ function agregarAvisosDeApartamiento(
   }
 }
 
-function agregarAvisosDeCierre(cierre: ResultadoCierre, avisos: Aviso[]): void {
+function agregarAvisosDeCierre(
+  cierre: ResultadoCierre,
+  campania: Campania,
+  bms: BM[],
+  avisos: Aviso[],
+): void {
+  const bmFinalId = campania.cierre.bmFinalId
+  if (cierre.tipo !== 'abierto' && bmFinalId && !bms.some((bm) => bm.id === bmFinalId)) {
+    avisos.push({
+      nivel: 'advertencia',
+      clave: null,
+      mensaje:
+        'El banco de nivel de cierre de esta campaña ya no existe en el proyecto. ' +
+        'Elige otro para poder verificar el circuito.',
+    })
+  }
+
   if (cierre.tipo === 'abierto') {
     avisos.push({
       nivel: 'advertencia',
