@@ -156,6 +156,22 @@ comprobar('la progresiva sin pareja en la otra capa sale vacía en el Excel, no 
   filaVeinte !== '' && !/<v>/.test(filaVeinte),
   filaVeinte)
 
+// 7. Tarea F2.4: el corte de la libreta tiene que dibujar siempre la campaña
+// activa, nunca lo que haya quedado marcado en el selector de capas de
+// Resultados. Las dos casillas (TERRENO y SUBRASANTE) siguen marcadas desde
+// el paso 5; si el corte de la libreta las heredara, saldrían dos trazos con
+// su etiqueta en vez de uno solo sin etiqueta.
+await pagina.getByRole('button', { name: 'Libreta' }).click()
+await pagina.waitForTimeout(200)
+
+const trazosLibreta = await pagina.locator('polyline').count()
+comprobar('el corte de la libreta dibuja una sola campaña aunque Resultados tenga dos marcadas',
+  trazosLibreta === 1, `${trazosLibreta} trazos`)
+
+const etiquetaCapaEnLibreta = await pagina.getByText(/^(TERRENO EXISTENTE|SUBRASANTE)$/).count()
+comprobar('el corte de la libreta no rotula la capa (una sola serie, como antes de esta tarea)',
+  etiquetaCapaEnLibreta === 0, `${etiquetaCapaEnLibreta} etiquetas de capa`)
+
 await navegador.close()
 
 const fallos = resultados.filter((r) => !r.ok)
