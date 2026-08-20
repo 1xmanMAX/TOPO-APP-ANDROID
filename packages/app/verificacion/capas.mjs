@@ -51,6 +51,16 @@ const llenas = await pagina.getByText(/llenadas \d+ de \d+/).textContent()
 comprobar('con la vista atrás escrita, la lectura produce cota',
   /llenadas 1 de/.test(llenas), llenas?.trim())
 
+// Una segunda celda de la misma progresiva, también medida por la campaña
+// anterior: hacen falta dos puntos en común para que haya área que rellenar.
+await pagina.getByRole('button', { name: '0+000 BOR-I', exact: true }).first().click()
+await campo.click()
+await campo.type('2.290', { delay: 20 })
+await campo.press('Enter')
+
+const llenasDos = await pagina.getByText(/llenadas \d+ de \d+/).textContent()
+comprobar('la segunda celda también se registra', /llenadas 2 de/.test(llenasDos), llenasDos?.trim())
+
 // 3. Elegir las dos capas a comparar en la pantalla de resultados.
 await pagina.getByRole('button', { name: 'Resultados' }).click()
 await pagina.screenshot({ path: `${SALIDA}/antes-de-comparar.png`, fullPage: true })
@@ -88,6 +98,24 @@ const resumen = await pagina.getByText(/mínimo|comparables/i).first().textConte
 comprobar('el resumen dice cuántas celdas son comparables', resumen !== null, resumen?.trim())
 
 await pagina.screenshot({ path: `${SALIDA}/espesores.png`, fullPage: true })
+
+// 5. Dibujar las dos capas superpuestas en el corte.
+const casillas = pagina.getByRole('checkbox')
+const cuantasCasillas = await casillas.count()
+for (let i = 0; i < cuantasCasillas; i += 1) {
+  const casilla = casillas.nth(i)
+  const nombre = await casilla.getAttribute('aria-label')
+  if (nombre && /TERRENO|SUBRASANTE/.test(nombre)) await casilla.check()
+}
+await pagina.waitForTimeout(200)
+
+const trazos = await pagina.locator('polyline').count()
+comprobar('el corte dibuja un trazo por cada capa visible', trazos >= 2, `${trazos} trazos`)
+
+const rellenos = await pagina.locator('polygon, path[fill]:not([fill="none"])').count()
+comprobar('hay relleno entre las capas', rellenos >= 1, `${rellenos} rellenos`)
+
+await pagina.screenshot({ path: `${SALIDA}/capas-apiladas.png`, fullPage: true })
 
 await navegador.close()
 
