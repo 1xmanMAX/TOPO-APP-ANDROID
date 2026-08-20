@@ -1,5 +1,6 @@
 import { chromium } from 'playwright'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { unzipSync, strFromU8 } from 'fflate'
 
 const BASE = 'http://localhost:4173/'
 const SALIDA = process.argv[2] ?? '.'
@@ -116,6 +117,32 @@ const rellenos = await pagina.locator('polygon, path[fill]:not([fill="none"])').
 comprobar('hay relleno entre las capas', rellenos >= 1, `${rellenos} rellenos`)
 
 await pagina.screenshot({ path: `${SALIDA}/capas-apiladas.png`, fullPage: true })
+
+// 6. Descargar el Excel de espesores y comprobar qué dice de verdad.
+const botonEspesores = pagina.getByRole('button', { name: /espesores a Excel/i })
+const descarga = await Promise.all([
+  pagina.waitForEvent('download'),
+  botonEspesores.click(),
+]).then(([d]) => d)
+
+const ruta = `${SALIDA}/espesores.xlsx`
+await descarga.saveAs(ruta)
+
+const contenido = unzipSync(new Uint8Array(readFileSync(ruta)))
+const hoja = strFromU8(contenido['xl/worksheets/sheet1.xml'])
+
+comprobar('el Excel de espesores nombra las dos capas comparadas',
+  /TERRENO EXISTENTE/.test(hoja) && /SUBRASANTE/.test(hoja))
+
+// La campaña del terreno no cierra contra ningún banco de nivel, así que sus
+// cotas no están comprobadas — y un espesor calculado sobre ellas, tampoco.
+comprobar('el Excel avisa de que los espesores no están comprobados',
+  /NO COMPROBADOS/.test(hoja),
+  (hoja.match(/<t>[^<]*COMPROBAD[^<]*<\/t>/g) ?? []).join(' | ').slice(0, 160))
+
+comprobar('el Excel lleva los espesores como número',
+  /<c r="[A-Z]+\d+"><v>0\.2\d{2}<\/v><\/c>/.test(hoja),
+  (hoja.match(/<v>0\.2\d{2}<\/v>/g) ?? []).join(' '))
 
 await navegador.close()
 
