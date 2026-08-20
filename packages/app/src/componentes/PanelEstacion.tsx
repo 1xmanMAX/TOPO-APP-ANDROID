@@ -1,4 +1,4 @@
-import { formatearProgresiva, type DestinoLectura } from '@topo/core'
+import { claveCelda, formatearProgresiva, type DestinoLectura } from '@topo/core'
 import { formatearCota } from '../formato'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
@@ -18,9 +18,7 @@ function describirDestino(destino: DestinoLectura): string {
 }
 
 function claveDe(destino: DestinoLectura): string | null {
-  return destino.tipo === 'celda'
-    ? `${destino.celda.progresiva}|${destino.celda.elementoClave}`
-    : null
+  return destino.tipo === 'celda' ? claveCelda(destino.celda.progresiva, destino.celda.elementoClave) : null
 }
 
 interface Props {

@@ -1,4 +1,4 @@
-import { formatearProgresiva, type CeldaGrilla } from '@topo/core'
+import { claveCelda, formatearProgresiva, type CeldaGrilla } from '@topo/core'
 import { useMemo } from 'react'
 
 interface Props {
@@ -37,7 +37,7 @@ export default function MapaGrilla({ celdas, llenas, claveActiva, alElegir }: Pr
                 {formatearProgresiva(progresiva)}
               </td>
               {elementos.map((elementoClave) => {
-                const clave = `${progresiva}|${elementoClave}`
+                const clave = claveCelda(progresiva, elementoClave)
                 const llena = llenas.has(clave)
                 const activa = clave === claveActiva
                 return (

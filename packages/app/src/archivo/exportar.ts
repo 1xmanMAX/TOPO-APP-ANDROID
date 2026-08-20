@@ -1,4 +1,5 @@
 import {
+  claveCelda,
   construirGrilla,
   formatearProgresiva,
   type BM,
@@ -36,7 +37,7 @@ export function armarTabla(
     filas.push([
       formatearProgresiva(progresiva),
       ...elementos.map((elementoClave) => {
-        const celda = resultado.cotasPorCelda.get(`${progresiva}|${elementoClave}`)
+        const celda = resultado.cotasPorCelda.get(claveCelda(progresiva, elementoClave))
         return celda ? formatearCota(celda.cota) : ''
       }),
     ])

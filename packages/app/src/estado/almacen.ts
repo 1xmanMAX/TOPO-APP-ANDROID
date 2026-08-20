@@ -1,5 +1,6 @@
 import {
   calcularCampania,
+  partirClaveCelda,
   type BM,
   type Calle,
   type Campania,
@@ -372,10 +373,8 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
   seleccionar: (clave) =>
     set(() => {
       if (!clave) return { seleccion: { clave: null, progresiva: null } }
-      const progresiva = Number(clave.split('|')[0])
-      return {
-        seleccion: { clave, progresiva: Number.isFinite(progresiva) ? progresiva : null },
-      }
+      const partes = partirClaveCelda(clave)
+      return { seleccion: { clave, progresiva: partes?.progresiva ?? null } }
     }),
 
   irAProgresiva: (progresiva) => set((s) => ({ seleccion: { ...s.seleccion, progresiva } })),

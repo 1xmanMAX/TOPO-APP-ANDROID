@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Calle, Plantilla } from '../modelo/tipos'
-import { claveCelda, construirGrilla } from './grilla'
+import { claveCelda, construirGrilla, partirClaveCelda } from './grilla'
 
 const plantilla: Plantilla = {
   id: 'pl-1',
@@ -30,6 +30,35 @@ describe('claveCelda', () => {
   it('normaliza decimales para que la clave sea estable', () => {
     expect(claveCelda(20.0, 'EJE')).toBe(claveCelda(20, 'EJE'))
     expect(claveCelda(47.25, 'EJE')).toBe('47.25|EJE')
+  })
+})
+
+describe('partirClaveCelda', () => {
+  it('devuelve la progresiva y el elemento', () => {
+    expect(partirClaveCelda('20|EJE')).toEqual({ progresiva: 20, elementoClave: 'EJE' })
+  })
+
+  it('admite progresivas con decimales', () => {
+    expect(partirClaveCelda('47.25|BOR-I')).toEqual({ progresiva: 47.25, elementoClave: 'BOR-I' })
+  })
+
+  it('admite una clave de elemento que contiene el separador', () => {
+    expect(partirClaveCelda('20|A|B')).toEqual({ progresiva: 20, elementoClave: 'A|B' })
+  })
+
+  it('devuelve null si no se entiende', () => {
+    expect(partirClaveCelda('sin-separador')).toBeNull()
+    expect(partirClaveCelda('abc|EJE')).toBeNull()
+    expect(partirClaveCelda('')).toBeNull()
+  })
+
+  it('deshace lo que hace claveCelda', () => {
+    for (const [progresiva, elemento] of [[0, 'EJE'], [47.25, 'VER-I'], [1000, 'PA-D']] as const) {
+      expect(partirClaveCelda(claveCelda(progresiva, elemento))).toEqual({
+        progresiva,
+        elementoClave: elemento,
+      })
+    }
   })
 })
 
