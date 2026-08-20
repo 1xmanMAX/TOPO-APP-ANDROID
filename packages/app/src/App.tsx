@@ -2,6 +2,7 @@ import BarraSuperior from './componentes/BarraSuperior'
 import { useAlmacen } from './estado/almacen'
 import VistaProyecto from './vistas/VistaProyecto'
 import VistaPlantilla from './vistas/VistaPlantilla'
+import VistaCalle from './vistas/VistaCalle'
 
 export default function App() {
   const vista = useAlmacen((s) => s.vista)
@@ -12,7 +13,8 @@ export default function App() {
       <div className="flex-1 overflow-auto">
         {vista === 'proyecto' && <VistaProyecto />}
         {vista === 'plantilla' && <VistaPlantilla />}
-        {vista !== 'proyecto' && vista !== 'plantilla' && (
+        {vista === 'calle' && <VistaCalle />}
+        {vista !== 'proyecto' && vista !== 'plantilla' && vista !== 'calle' && (
           <p className="p-6 text-sm text-slate-500">
             Pantalla en construcción. Abre «Proyecto» mientras tanto.
           </p>
