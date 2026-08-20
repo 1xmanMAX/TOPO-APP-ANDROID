@@ -7,7 +7,7 @@ import ListaAvisos from '../componentes/ListaAvisos'
 import MapaGrilla from '../componentes/MapaGrilla'
 import PanelEstacion from '../componentes/PanelEstacion'
 import { useAlmacen } from '../estado/almacen'
-import { useContexto, useResultado } from '../estado/derivados'
+import { useContexto, useProgresivas, useResultado } from '../estado/derivados'
 import { resumenPendientes, siguienteCeldaPendiente } from '../libreta/navegacion'
 
 export default function VistaLibreta() {
@@ -29,7 +29,7 @@ export default function VistaLibreta() {
     [resultado],
   )
 
-  const progresivas = useMemo(() => [...new Set(celdas.map((c) => c.progresiva))].sort((a, b) => a - b), [celdas])
+  const progresivas = useProgresivas()
   const progresivaActiva = useAlmacen((s) => s.seleccion.progresiva) ?? progresivas[0] ?? 0
   const irAProgresiva = useAlmacen((s) => s.irAProgresiva)
 

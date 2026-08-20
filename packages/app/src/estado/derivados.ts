@@ -1,4 +1,12 @@
-import { calcularCampania, type Calle, type Campania, type Capa, type Plantilla, type ResultadoCampania } from '@topo/core'
+import {
+  calcularCampania,
+  construirGrilla,
+  type Calle,
+  type Campania,
+  type Capa,
+  type Plantilla,
+  type ResultadoCampania,
+} from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from './almacen'
 
@@ -38,4 +46,23 @@ export function useResultado(): ResultadoCampania | null {
       bms,
     })
   }, [contexto, bms])
+}
+
+/**
+ * Progresivas de la calle activa, tomadas de la grilla completa y no solo de lo
+ * medido: la tabla deja elegir celdas vacías, y el deslizador tiene que poder
+ * seguir al usuario hasta ellas.
+ */
+export function useProgresivas(): number[] {
+  const contexto = useContexto()
+
+  return useMemo(() => {
+    if (!contexto) return []
+    try {
+      const celdas = construirGrilla(contexto.calle, contexto.plantilla)
+      return [...new Set(celdas.map((celda) => celda.progresiva))].sort((a, b) => a - b)
+    } catch {
+      return []
+    }
+  }, [contexto])
 }
