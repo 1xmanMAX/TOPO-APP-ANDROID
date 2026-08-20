@@ -88,8 +88,11 @@ export default function VistaResultados() {
   const [copiado, setCopiado] = useState(false)
   const [copiadoEspesores, setCopiadoEspesores] = useState(false)
   const nombreArchivo = `${contexto?.calle.nombre ?? 'cotas'} — ${contexto?.capa?.nombre ?? ''}`.trim()
+  // Con un guion en vez de una cadena vacía cuando falta la capa: así nunca
+  // quedan dos espacios seguidos ("Espesores  a SUBRASANTE") si a alguna de
+  // las dos campañas no se le pudo resolver la capa.
   const nombreArchivoEspesores =
-    `${contextoInferior?.calle.nombre ?? 'espesores'} — Espesores ${contextoInferior?.capa?.nombre ?? ''} a ${contextoSuperior?.capa?.nombre ?? ''}`.trim()
+    `${contextoInferior?.calle.nombre ?? 'espesores'} — Espesores ${contextoInferior?.capa?.nombre ?? '—'} a ${contextoSuperior?.capa?.nombre ?? '—'}`.trim()
 
   if (!contexto || !resultado) {
     return <p className="p-6 text-sm text-slate-500">No hay una campaña abierta.</p>
