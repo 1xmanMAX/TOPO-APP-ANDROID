@@ -25,9 +25,9 @@ export default function VistaCampanias() {
         <h2 className="text-lg font-semibold">Campañas de nivelación</h2>
         <button
           type="button"
-          disabled={!calle || !bm}
+          disabled={!calle || !bm || proyecto.capas.length === 0}
           onClick={() => {
-            if (!calle || !bm) return
+            if (!calle || !bm || proyecto.capas.length === 0) return
             agregarCampania({
               fecha: hoyISO(),
               calleId: calle.id,
@@ -56,6 +56,13 @@ export default function VistaCampanias() {
         anteriores; se apilan.
       </p>
 
+      {(!calle || !bm || proyecto.capas.length === 0) && (
+        <p className="rounded border border-aviso px-3 py-2 text-sm text-aviso">
+          Para crear una campaña hace falta al menos una calle, un banco de nivel y una capa.
+          Defínelos en las pantallas de Proyecto y Calle.
+        </p>
+      )}
+
       {proyecto.campanias.length === 0 && (
         <p className="text-sm text-slate-500">Todavía no hay campañas. Crea la primera.</p>
       )}
@@ -66,6 +73,8 @@ export default function VistaCampanias() {
           .map((campania) => {
             const activa = campania.id === campaniaActivaId
             const lecturas = campania.estaciones.reduce((suma, e) => suma + e.intermedias.length, 0)
+            const nombreCalle = nombreDe(proyecto.calles, campania.calleId)
+            const senia = `del ${campania.fecha} en ${nombreCalle}`
 
             return (
               <li
@@ -77,7 +86,7 @@ export default function VistaCampanias() {
                 <button
                   type="button"
                   data-activa={activa}
-                  aria-label={`Abrir campaña del ${campania.fecha}`}
+                  aria-label={`Abrir campaña ${senia}`}
                   onClick={() => {
                     activarCampania(campania.id)
                     irA('libreta')
@@ -87,7 +96,7 @@ export default function VistaCampanias() {
                   <span className="numerico font-medium">{campania.fecha}</span>
                   <span className="text-slate-500">
                     {' '}
-                    · {nombreDe(proyecto.calles, campania.calleId)} ·{' '}
+                    · {nombreCalle} ·{' '}
                     {nombreDe(proyecto.capas, campania.capaId)}
                   </span>
                   <span className="block text-xs text-slate-400">
@@ -98,7 +107,7 @@ export default function VistaCampanias() {
                 <label className="flex flex-col gap-1">
                   <span className="text-xs text-slate-500">Calle</span>
                   <select
-                    aria-label={`Calle de la campaña del ${campania.fecha}`}
+                    aria-label={`Calle de la campaña ${senia}`}
                     value={campania.calleId}
                     onChange={(evento) =>
                       actualizarCampania(campania.id, { calleId: evento.target.value })
@@ -116,7 +125,7 @@ export default function VistaCampanias() {
                 <label className="flex flex-col gap-1">
                   <span className="text-xs text-slate-500">Capa de la campaña</span>
                   <select
-                    aria-label={`Capa de la campaña del ${campania.fecha}`}
+                    aria-label={`Capa de la campaña ${senia}`}
                     value={campania.capaId}
                     onChange={(evento) =>
                       actualizarCampania(campania.id, { capaId: evento.target.value })
@@ -134,7 +143,7 @@ export default function VistaCampanias() {
                 <label className="flex flex-col gap-1">
                   <span className="text-xs text-slate-500">BM de arranque</span>
                   <select
-                    aria-label={`BM de la campaña del ${campania.fecha}`}
+                    aria-label={`BM de la campaña ${senia}`}
                     value={campania.bmInicialId}
                     onChange={(evento) =>
                       actualizarCampania(campania.id, { bmInicialId: evento.target.value })
@@ -151,7 +160,7 @@ export default function VistaCampanias() {
 
                 <input
                   type="date"
-                  aria-label={`Fecha de la campaña ${campania.id}`}
+                  aria-label={`Fecha de la campaña ${senia}`}
                   value={campania.fecha}
                   onChange={(evento) => actualizarCampania(campania.id, { fecha: evento.target.value })}
                   className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
