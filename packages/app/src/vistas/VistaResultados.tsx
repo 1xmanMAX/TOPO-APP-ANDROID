@@ -28,7 +28,18 @@ export default function VistaResultados() {
   const seleccion = useAlmacen((s) => s.seleccion)
   const irAProgresiva = useAlmacen((s) => s.irAProgresiva)
   const proyecto = useAlmacen((s) => s.proyecto)
+  const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
+  const capasVisibles = useAlmacen((s) => s.capasVisibles)
   const [elementoPedido, setElementoPedido] = useState('EJE')
+
+  // Sin ninguna capa marcada en el selector, se dibuja la campaña activa: así
+  // el corte no queda en blanco antes de que el topógrafo abra el panel de
+  // capas. Esta pantalla sí manda `capasVisibles` — es la que tiene el
+  // selector de capas —; la libreta no lo lee en absoluto.
+  const idsVisiblesCorte = useMemo(
+    () => (capasVisibles.length > 0 ? capasVisibles : campaniaActivaId ? [campaniaActivaId] : []),
+    [capasVisibles, campaniaActivaId],
+  )
 
   const progresivas = useProgresivas()
 
@@ -208,7 +219,7 @@ export default function VistaResultados() {
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Corte transversal</h2>
-        <CorteTransversal progresiva={progresivaActiva} />
+        <CorteTransversal progresiva={progresivaActiva} idsVisibles={idsVisiblesCorte} />
         <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
       </section>
 

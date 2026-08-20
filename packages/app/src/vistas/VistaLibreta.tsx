@@ -19,6 +19,7 @@ export default function VistaLibreta() {
 
   const estacionActiva = useAlmacen((s) => s.estacionActiva)
   const activarEstacion = useAlmacen((s) => s.activarEstacion)
+  const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
   const [claveActiva, setClaveActiva] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
 
@@ -38,6 +39,12 @@ export default function VistaLibreta() {
   const progresivas = useProgresivas()
   const progresivaActiva = useAlmacen((s) => s.seleccion.progresiva) ?? progresivas[0] ?? 0
   const irAProgresiva = useAlmacen((s) => s.irAProgresiva)
+
+  // La libreta dibuja siempre la campaña activa: es la que se está midiendo
+  // ahora mismo. Nunca las marcadas en el selector de capas de Resultados —
+  // esa es otra pantalla, con otra pregunta ("¿qué comparo?") distinta de
+  // esta ("¿qué estoy midiendo?").
+  const idsVisibles = useMemo(() => (campaniaActivaId ? [campaniaActivaId] : []), [campaniaActivaId])
 
   useEffect(() => {
     if (claveActiva === null && celdas.length > 0) {
@@ -205,7 +212,7 @@ export default function VistaLibreta() {
 
       <section className="flex flex-col gap-2">
         <h3 className="font-semibold">Corte transversal</h3>
-        <CorteTransversal progresiva={progresivaActiva} />
+        <CorteTransversal progresiva={progresivaActiva} idsVisibles={idsVisibles} />
         <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
       </section>
 

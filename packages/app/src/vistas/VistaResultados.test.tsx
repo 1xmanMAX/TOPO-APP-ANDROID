@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { calcularCampania, compararCapas, type Campania } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -259,5 +259,22 @@ describe('VistaResultados', () => {
 
     expect(textoDeCabecera).toContain('ESPESORES NO COMPROBADOS')
     expect(screen.getByText(textoDeCabecera)).toBeInTheDocument()
+  })
+
+  // Regresión del arreglo que hizo que CorteTransversal reciba `idsVisibles`
+  // por parámetro: Resultados es la única pantalla que debe seguir mandando
+  // `capasVisibles` sobre lo que dibuja el corte.
+  it('con dos capas marcadas en el selector, el corte sigue dibujando las dos con su etiqueta', () => {
+    const proyecto = proyectoEjemplo()
+    proyecto.campanias.push(campaniaTerreno())
+    useAlmacen.getState().cargarProyecto(proyecto)
+    useAlmacen.getState().alternarCapaVisible('camp-1')
+    useAlmacen.getState().alternarCapaVisible('camp-terreno')
+
+    render(<VistaResultados />)
+
+    const corte = screen.getByRole('img', { name: /Corte transversal en 0\+000/ })
+    expect(within(corte).getByText('TERRENO EXISTENTE')).toBeInTheDocument()
+    expect(within(corte).getByText('SUBRASANTE')).toBeInTheDocument()
   })
 })

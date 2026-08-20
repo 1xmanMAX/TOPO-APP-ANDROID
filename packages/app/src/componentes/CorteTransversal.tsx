@@ -7,6 +7,14 @@ import MarcoGrafico from '../grafico/MarcoGrafico'
 
 interface Props {
   progresiva: number
+  /**
+   * Qué campañas dibujar, ya decidido por quien llama: la libreta manda
+   * siempre la campaña activa (es la que se está midiendo); Resultados manda
+   * las marcadas en su selector de capas. El componente no lee `capasVisibles`
+   * ni `campaniaActivaId` del almacén — eso es lo que hacía que el corte de
+   * la libreta mostrara la capa marcada en Resultados en vez de la propia.
+   */
+  idsVisibles: Id[]
 }
 
 interface EstiloCapa {
@@ -72,20 +80,10 @@ function tramosConPareja(id: string, celdas: CeldaComparada[]): Tramo[] {
   return tramos
 }
 
-export default function CorteTransversal({ progresiva }: Props) {
+export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
   const proyecto = useAlmacen((s) => s.proyecto)
-  const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
-  const capasVisibles = useAlmacen((s) => s.capasVisibles)
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
-
-  // Sin ninguna capa marcada en el selector, se dibuja la campaña activa:
-  // así el corte no queda en blanco antes de que el topógrafo abra el panel
-  // de capas, y con una sola campaña se ve igual que antes de esta tarea.
-  const idsVisibles = useMemo(
-    () => (capasVisibles.length > 0 ? capasVisibles : campaniaActivaId ? [campaniaActivaId] : []),
-    [capasVisibles, campaniaActivaId],
-  )
 
   const resultados = useResultadosDe(idsVisibles)
 

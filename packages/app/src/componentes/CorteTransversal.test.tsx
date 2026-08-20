@@ -12,26 +12,31 @@ describe('CorteTransversal', () => {
   })
 
   it('dibuja un punto por cada celda medida de la progresiva', () => {
-    render(<CorteTransversal progresiva={0} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
     expect(screen.getAllByRole('button', { name: /^0\+000 / })).toHaveLength(2)
   })
 
   it('avisa cuando la progresiva no tiene lecturas', () => {
-    render(<CorteTransversal progresiva={60} />)
+    render(<CorteTransversal progresiva={60} idsVisibles={['camp-1']} />)
     expect(screen.getByText(/todavía no tiene lecturas/i)).toBeInTheDocument()
   })
 
   it('selecciona la celda al hacer clic en un punto', async () => {
     const usuario = userEvent.setup()
-    render(<CorteTransversal progresiva={0} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
     await usuario.click(screen.getByRole('button', { name: /0\+000 EJE/ }))
     expect(useAlmacen.getState().seleccion.clave).toBe('0|EJE')
   })
 
   it('marca el punto seleccionado', () => {
     useAlmacen.getState().seleccionar('0|EJE')
-    render(<CorteTransversal progresiva={0} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
     expect(screen.getByRole('button', { name: /0\+000 EJE/ })).toHaveAttribute('data-activo', 'true')
+  })
+
+  it('sin ninguna campaña visible no dibuja nada y avisa que no hay lecturas', () => {
+    render(<CorteTransversal progresiva={0} idsVisibles={[]} />)
+    expect(screen.getByText(/todavía no tiene lecturas/i)).toBeInTheDocument()
   })
 })
 
@@ -122,7 +127,9 @@ describe('CorteTransversal con varias capas', () => {
   })
 
   it('con dos capas visibles dibuja un trazo por cada una', () => {
-    const { container } = render(<CorteTransversal progresiva={0} />)
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />,
+    )
     expect(container.querySelectorAll('polyline')).toHaveLength(2)
   })
 
@@ -136,27 +143,31 @@ describe('CorteTransversal con varias capas', () => {
     useAlmacen.getState().alternarCapaVisible('camp-t')
     expect(useAlmacen.getState().capasVisibles).toEqual(['camp-s', 'camp-t'])
 
-    const { container } = render(<CorteTransversal progresiva={0} />)
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />,
+    )
     const trazos = container.querySelectorAll('polyline')
     expect(trazos[0]).toHaveAttribute('data-capa-id', 'camp-t')
     expect(trazos[1]).toHaveAttribute('data-capa-id', 'camp-s')
   })
 
   it('cada capa lleva su nombre junto al primer punto', () => {
-    render(<CorteTransversal progresiva={0} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />)
     expect(screen.getByText('TERRENO EXISTENTE')).toBeInTheDocument()
     expect(screen.getByText('SUBRASANTE')).toBeInTheDocument()
   })
 
   it('el relleno entre dos capas solo cubre los tramos donde ambas tienen cota', () => {
-    const { container } = render(<CorteTransversal progresiva={0} />)
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />,
+    )
     // VER-I↔SAR-I y EJE↔BOR-D: dos tramos con pareja, separados por BOR-I
     // (solo terreno) y SAR-D (solo subrasante), que no deben unirse.
     expect(container.querySelectorAll('[data-relleno-capas]')).toHaveLength(2)
   })
 
   it('el nombre accesible de un punto dice de qué capa es cuando hay varias visibles', () => {
-    render(<CorteTransversal progresiva={0} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />)
     const botones = screen.getAllByRole('button', { name: /0\+000 EJE/ })
     expect(botones).toHaveLength(2)
     const etiquetas = botones.map((b) => b.getAttribute('aria-label'))
@@ -168,7 +179,7 @@ describe('CorteTransversal con varias capas', () => {
 
   it('con una sola capa marcada explícitamente se ve igual que con una sola capa', () => {
     useAlmacen.getState().alternarCapaVisible('camp-s') // deja solo camp-t visible
-    render(<CorteTransversal progresiva={0} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />)
 
     const botones = screen.getAllByRole('button', { name: /^0\+000 / })
     expect(botones).toHaveLength(5) // VER-I, SAR-I, BOR-I, EJE, BOR-D
