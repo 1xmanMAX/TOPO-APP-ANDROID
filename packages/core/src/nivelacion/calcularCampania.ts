@@ -1,10 +1,10 @@
 import { construirGrilla, type CeldaGrilla } from '../grilla/grilla'
 import { formatearProgresiva } from '../grilla/progresivas'
-import type { BM, Calle, Campania, Plantilla } from '../modelo/tipos'
+import type { BM, Calle, Campania, DestinoLectura, Plantilla } from '../modelo/tipos'
 import { aMilimetros, redondear3 } from '../numero'
 import { calcularCierre, calcularLongitudKAuto, type ResultadoCierre } from './cierre'
 import { compensarPuntos, correccionesAcumuladas } from './compensacion'
-import { calcularCotas } from './cotas'
+import { calcularCotas, esLecturaUsable } from './cotas'
 
 /** Diferencia a partir de la cual dos lecturas de la misma celda merecen advertencia. */
 const TOLERANCIA_REPETICION_MM = 5
@@ -89,6 +89,7 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
       })
     }
 
+    agregarAvisosDeLecturasNoUsables(campania, avisos)
     agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos)
     agregarAvisosDeApartamiento(cotasPorCelda, avisos)
     agregarAvisosDeCierre(cierre, campania, bms, avisos)
@@ -122,6 +123,64 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
       error: mensaje,
     }
   }
+}
+
+function descripcionLectura(destino: DestinoLectura): string {
+  switch (destino.tipo) {
+    case 'celda':
+      return `${formatearProgresiva(destino.celda.progresiva)} ${destino.celda.elementoClave}`
+    case 'bm':
+      return 'BM'
+    case 'cambio':
+      return destino.nombre
+    case 'suelto':
+      return destino.punto.etiqueta
+  }
+}
+
+function mensajeLecturaNoUsable(descripcion: string, valor: number): string {
+  return (
+    `${descripcion}: la lectura ${valor.toFixed(3)} no puede ser de una mira ` +
+    '(tiene que estar entre 0 y 5 m). Queda pendiente hasta que la corrijas.'
+  )
+}
+
+/**
+ * Avisa de cada lectura fuera del rango físico de una mira (§8 del diseño).
+ * Si la vista atrás de una estación no es usable, esa estación entera queda
+ * pendiente: avisar además de sus intermedias sería ruido, así que se omiten.
+ */
+function agregarAvisosDeLecturasNoUsables(campania: Campania, avisos: Aviso[]): void {
+  campania.estaciones.forEach((estacion, indice) => {
+    if (!esLecturaUsable(estacion.vistaAtras.valor)) {
+      avisos.push({
+        nivel: 'advertencia',
+        clave: null,
+        mensaje: mensajeLecturaNoUsable(`Estación ${indice + 1}, vista atrás`, estacion.vistaAtras.valor),
+      })
+      return
+    }
+
+    for (const lectura of estacion.intermedias) {
+      if (esLecturaUsable(lectura.valor)) continue
+      avisos.push({
+        nivel: 'advertencia',
+        clave: null,
+        mensaje: mensajeLecturaNoUsable(descripcionLectura(lectura.destino), lectura.valor),
+      })
+    }
+
+    if (estacion.vistaAdelante && !esLecturaUsable(estacion.vistaAdelante.valor)) {
+      avisos.push({
+        nivel: 'advertencia',
+        clave: null,
+        mensaje: mensajeLecturaNoUsable(
+          `Estación ${indice + 1}, vista adelante`,
+          estacion.vistaAdelante.valor,
+        ),
+      })
+    }
+  })
 }
 
 function agregarAvisosDeRepeticion(

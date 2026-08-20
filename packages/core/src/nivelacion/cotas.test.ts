@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BM_1, campaniaEjemplo } from '../pruebas/libretaEjemplo'
 import { calcularCotas, claveDestino } from './cotas'
+import type { Campania } from '../modelo/tipos'
 
 describe('claveDestino', () => {
   it('distingue cada tipo de destino', () => {
@@ -74,5 +75,63 @@ describe('calcularCotas', () => {
     expect(() => calcularCotas(campania, [BM_1])).toThrow(
       'El punto de cambio PC-1 está repetido: dos estaciones distintas lo usan como punto de llegada. Renombra uno de los dos.',
     )
+  })
+
+  it('una visada intermedia a un BM no fija la cota de llegada', () => {
+    // Circuito de 3 estaciones: la segunda pasa cerca del BM inicial y toma
+    // una visada de control contra él, pero el circuito sigue: la tercera
+    // estación remata en un punto de cambio, no en el BM de cierre.
+    const campania: Campania = {
+      ...campaniaEjemplo(),
+      estaciones: [
+        {
+          id: 'e-1',
+          vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.425 },
+          intermedias: [],
+          vistaAdelante: { id: 'l-2', destino: { tipo: 'cambio', nombre: 'PC-1' }, valor: 1.15 },
+        },
+        {
+          id: 'e-2',
+          vistaAtras: { id: 'l-3', destino: { tipo: 'cambio', nombre: 'PC-1' }, valor: 1.63 },
+          intermedias: [],
+          // Visada de control a mitad de recorrido: no es la última estación.
+          vistaAdelante: { id: 'l-4', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.91 },
+        },
+        {
+          id: 'e-3',
+          vistaAtras: { id: 'l-5', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+          intermedias: [],
+          vistaAdelante: { id: 'l-6', destino: { tipo: 'cambio', nombre: 'PC-2' }, valor: 1.2 },
+        },
+      ],
+    }
+
+    const resultado = calcularCotas(campania, [BM_1])
+    expect(resultado.cotaLlegada).toBeNull()
+  })
+
+  it('una lectura de 0 no produce punto', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[0]!.intermedias[0]!.valor = 0
+    const resultado = calcularCotas(campania, [BM_1])
+    expect(resultado.puntos.find((p) => p.claveDestino === '0|EJE')).toBeUndefined()
+  })
+
+  it('una lectura de 14.230 no produce punto', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[0]!.intermedias[0]!.valor = 14.23
+    const resultado = calcularCotas(campania, [BM_1])
+    expect(resultado.puntos.find((p) => p.claveDestino === '0|EJE')).toBeUndefined()
+  })
+
+  it('una vista atrás no usable deja esa estación sin cotas, sin lanzar', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[1]!.vistaAtras.valor = 0
+    let resultado: ReturnType<typeof calcularCotas> | undefined
+    expect(() => {
+      resultado = calcularCotas(campania, [BM_1])
+    }).not.toThrow()
+    expect(Number.isNaN(resultado!.cotasInstrumento[1])).toBe(true)
+    expect(resultado!.puntos.some((p) => p.estacionIndice === 1)).toBe(false)
   })
 })

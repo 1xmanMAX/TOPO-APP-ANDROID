@@ -148,6 +148,25 @@ describe('calcularCampania', () => {
     expect(resultado.cotasPorCelda.size).toBe(0)
   })
 
+  it('una lectura fuera de rango genera un aviso que menciona la mira, y el cálculo no revienta', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[0]!.intermedias[0]!.valor = 0
+    const resultado = calcularCampania(entrada(campania))
+
+    expect(resultado.error).toBeNull()
+    const aviso = resultado.avisos.find((a) => a.mensaje.includes('mira'))
+    expect(aviso?.nivel).toBe('advertencia')
+  })
+
+  it('poner la vista adelante de cierre en 0 deja el cierre sin veredicto, no en fuera de tolerancia', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[1]!.vistaAdelante!.valor = 0
+    const resultado = calcularCampania(entrada(campania))
+
+    expect(resultado.cierre.pasa).toBeNull()
+    expect(resultado.avisos.some((a) => a.mensaje.includes('fuera de tolerancia'))).toBe(false)
+  })
+
   it('avisa si el banco de nivel de cierre ya no existe en el proyecto', () => {
     const campania = campaniaEjemplo()
     campania.cierre = { ...campania.cierre, bmFinalId: 'bm-borrado' }

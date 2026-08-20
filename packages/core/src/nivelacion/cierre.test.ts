@@ -77,6 +77,19 @@ describe('calcularCierre', () => {
     expect(cierre.pasa).toBe(true)
   })
 
+  it('no da veredicto si la última estación remata en un BM distinto del configurado como final', () => {
+    const bm2 = { ...BM_1, id: 'bm-2', nombre: 'BM-2', cota: 3245.18 }
+    const campania = campaniaEjemplo()
+    // El cierre sigue configurado contra bm-1, pero la última estación remató
+    // en un BM distinto (bm-2): no es el cierre que se pidió verificar.
+    campania.estaciones[1]!.vistaAdelante!.destino = { tipo: 'bm', bmId: 'bm-2' }
+
+    const cotas = calcularCotas(campania, [BM_1, bm2])
+    const cierre = calcularCierre(campania, [BM_1, bm2], cotas, 0.36)
+
+    expect(cierre.pasa).toBeNull()
+  })
+
   it('deja el circuito abierto sin veredicto', () => {
     const campania = campaniaEjemplo()
     campania.cierre = { ...campania.cierre, tipo: 'abierto', bmFinalId: undefined }

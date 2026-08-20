@@ -24,6 +24,7 @@ interface EstadoApp {
   proyecto: Proyecto
   vista: Vista
   campaniaActivaId: Id | null
+  estacionActiva: number
   plantillaEnEdicionId: Id | null
   seleccion: Seleccion
 
@@ -52,6 +53,7 @@ interface EstadoApp {
   agregarCampania(datos: Omit<Campania, 'id' | 'estaciones'>): Id
   actualizarCampania(id: Id, cambios: Partial<Omit<Campania, 'id'>>): void
   activarCampania(id: Id | null): void
+  activarEstacion(indice: number): void
   agregarEstacion(campaniaId: Id, vistaAtras: { destino: DestinoLectura; valor: number }): void
   fijarVistaAdelante(
     campaniaId: Id,
@@ -77,10 +79,19 @@ function marcarModificado(proyecto: Proyecto): Proyecto {
   return { ...proyecto, meta: { ...proyecto.meta, modificado: new Date().toISOString() } }
 }
 
+/**
+ * La estación activa de una campaña recién activada es la última: es donde
+ * se sigue trabajando. 0 si la campaña no existe o no tiene estaciones.
+ */
+function ultimaEstacion(campania: Campania | undefined): number {
+  return Math.max(0, (campania?.estaciones.length ?? 0) - 1)
+}
+
 export const useAlmacen = create<EstadoApp>((set, get) => ({
   proyecto: proyectoEjemplo(),
   vista: 'inicio',
   campaniaActivaId: 'camp-1',
+  estacionActiva: 0,
   plantillaEnEdicionId: null,
   seleccion: { clave: null, progresiva: null },
 
@@ -88,6 +99,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     set({
       proyecto,
       campaniaActivaId: proyecto.campanias[0]?.id ?? null,
+      estacionActiva: ultimaEstacion(proyecto.campanias[0]),
       seleccion: { clave: null, progresiva: null },
     }),
 
@@ -95,6 +107,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     set({
       proyecto: proyectoVacio(),
       campaniaActivaId: null,
+      estacionActiva: 0,
       vista: 'proyecto',
       seleccion: { clave: null, progresiva: null },
     }),
@@ -209,6 +222,8 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         campanias: [...s.proyecto.campanias, { ...datos, id, estaciones: [] }],
       }),
       campaniaActivaId: id,
+      // La campaña recién creada no tiene estaciones todavía.
+      estacionActiva: 0,
     }))
     return id
   },
@@ -221,7 +236,13 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       }),
     })),
 
-  activarCampania: (id) => set({ campaniaActivaId: id }),
+  activarCampania: (id) =>
+    set((s) => ({
+      campaniaActivaId: id,
+      estacionActiva: ultimaEstacion(s.proyecto.campanias.find((c) => c.id === id)),
+    })),
+
+  activarEstacion: (indice) => set({ estacionActiva: indice }),
 
   agregarEstacion: (campaniaId, vistaAtras) =>
     set((s) => ({

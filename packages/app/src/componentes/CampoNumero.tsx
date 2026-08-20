@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 
 interface Props {
   etiqueta?: string
+  /** Texto accesible del campo. Si falta, se usa `etiqueta`. */
+  ariaLabel?: string
   valor: number
   alCambiar: (valor: number) => void
   decimales?: number
@@ -16,6 +18,7 @@ interface Props {
  */
 export default function CampoNumero({
   etiqueta,
+  ariaLabel,
   valor,
   alCambiar,
   decimales = 3,
@@ -45,7 +48,7 @@ export default function CampoNumero({
         <input
           type="text"
           inputMode="decimal"
-          aria-label={etiqueta}
+          aria-label={ariaLabel ?? etiqueta}
           value={texto}
           onFocus={() => setEditando(true)}
           onBlur={() => {

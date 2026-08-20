@@ -94,6 +94,42 @@ describe('almacén', () => {
     expect(campania.estaciones[2]!.vistaAtras.valor).toBe(1.5)
   })
 
+  it('activarEstacion cambia la estación activa y sobrevive a activarCampania de otra campaña', () => {
+    const campaniaId2 = useAlmacen.getState().agregarCampania({
+      fecha: '2026-08-20',
+      calleId: 'c-1',
+      capaId: 'cap-subrasante',
+      bmInicialId: 'bm-1',
+      estado: 'abierta',
+      cierre: {
+        tipo: 'abierto',
+        longitudK: 0,
+        longitudKAuto: true,
+        clase: 'tercerOrden',
+        coeficiente: 12,
+      },
+    })
+    useAlmacen.getState().agregarEstacion(campaniaId2, {
+      destino: { tipo: 'bm', bmId: 'bm-1' },
+      valor: 1,
+    })
+    useAlmacen.getState().agregarEstacion(campaniaId2, {
+      destino: { tipo: 'bm', bmId: 'bm-1' },
+      valor: 1,
+    })
+    useAlmacen.getState().agregarEstacion(campaniaId2, {
+      destino: { tipo: 'bm', bmId: 'bm-1' },
+      valor: 1,
+    })
+
+    useAlmacen.getState().activarCampania('camp-1')
+    useAlmacen.getState().activarEstacion(0)
+    expect(useAlmacen.getState().estacionActiva).toBe(0)
+
+    useAlmacen.getState().activarCampania(campaniaId2)
+    expect(useAlmacen.getState().estacionActiva).toBe(2)
+  })
+
   it('quita la vista adelante de una estación', () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
     useAlmacen.getState().quitarVistaAdelante(campaniaId, 1)

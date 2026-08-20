@@ -43,7 +43,9 @@ export function calcularCierre(
   if (campania.cierre.tipo === 'abierto') return base
 
   const bmFinal = bms.find((bm) => bm.id === campania.cierre.bmFinalId)
-  if (!bmFinal || cotas.cotaLlegada === null) return base
+  // Cerrar contra un BM distinto del configurado no es cerrar: sería comparar
+  // la llegada con la cota de otro punto.
+  if (!bmFinal || cotas.cotaLlegada === null || cotas.bmLlegadaId !== bmFinal.id) return base
 
   const errorMm = aMilimetros(cotas.cotaLlegada - bmFinal.cota)
   const toleranciaMm = calcularToleranciaMm(campania.cierre.coeficiente, longitudKKm)

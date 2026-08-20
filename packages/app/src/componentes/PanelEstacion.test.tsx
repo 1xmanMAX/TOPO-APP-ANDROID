@@ -37,6 +37,17 @@ describe('PanelEstacion', () => {
     expect(resultado.cotasPorCelda.has('0|EJE')).toBe(false)
   })
 
+  it('vaciar el campo de una lectura no guarda un cero', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
+
+    const campo = screen.getByLabelText('Lectura de 0+000 EJE')
+    await usuario.clear(campo)
+
+    const lectura = useAlmacen.getState().proyecto.campanias[0]!.estaciones[0]!.intermedias[0]!
+    expect(lectura.valor).toBe(1.98)
+  })
+
   it('traslada el instrumento creando punto de cambio y estación nueva', async () => {
     const usuario = userEvent.setup()
     const alCambiarEstacion = vi.fn()

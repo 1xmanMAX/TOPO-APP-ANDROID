@@ -100,15 +100,10 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
               >
                 {describirDestino(lectura.destino)}
               </button>
-              <input
-                aria-label={`Lectura de ${describirDestino(lectura.destino)}`}
-                inputMode="decimal"
-                defaultValue={lectura.valor.toFixed(3)}
-                onChange={(evento) => {
-                  const numero = Number(evento.target.value.replace(',', '.'))
-                  if (Number.isFinite(numero)) actualizarLectura(campania.id, lectura.id, numero)
-                }}
-                className="numerico rounded border border-slate-300 px-2 py-1 text-right dark:border-slate-700 dark:bg-slate-900"
+              <CampoNumero
+                ariaLabel={`Lectura de ${describirDestino(lectura.destino)}`}
+                valor={lectura.valor}
+                alCambiar={(v) => actualizarLectura(campania.id, lectura.id, v)}
               />
               <span className="numerico text-right text-slate-500">
                 {cota === undefined ? '—' : formatearCota(cota)}
