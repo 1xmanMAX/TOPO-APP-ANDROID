@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import CampoNumero from '../componentes/CampoNumero'
 import CampoTexto from '../componentes/CampoTexto'
 import { useAlmacen } from '../estado/almacen'
@@ -12,6 +13,21 @@ export default function VistaProyecto() {
   const eliminarBM = useAlmacen((s) => s.eliminarBM)
   const agregarCapa = useAlmacen((s) => s.agregarCapa)
   const eliminarCapa = useAlmacen((s) => s.eliminarCapa)
+  const campanias = useAlmacen((s) => s.proyecto.campanias)
+  const [porEliminar, setPorEliminar] = useState<string | null>(null)
+
+  function bmEnUso(id: string): boolean {
+    return campanias.some((c) => c.bmInicialId === id || c.cierre.bmFinalId === id)
+  }
+
+  function capaEnUso(id: string): boolean {
+    return campanias.some((c) => c.capaId === id)
+  }
+
+  function textoDeBorrado(id: string, enUso: boolean): string {
+    if (porEliminar !== id) return 'Eliminar'
+    return enUso ? '¿Seguro? Hay campañas que lo usan' : '¿Seguro?'
+  }
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8 p-6">
@@ -75,11 +91,23 @@ export default function VistaProyecto() {
               />
               <button
                 type="button"
-                onClick={() => eliminarBM(bm.id)}
-                aria-label={`Eliminar ${bm.nombre}`}
-                className="rounded px-2 py-1.5 text-sm text-falla hover:bg-red-50 dark:hover:bg-red-950"
+                onClick={() => {
+                  if (porEliminar === bm.id) {
+                    eliminarBM(bm.id)
+                    setPorEliminar(null)
+                  } else {
+                    setPorEliminar(bm.id)
+                  }
+                }}
+                onBlur={() => setPorEliminar((actual) => (actual === bm.id ? null : actual))}
+                aria-label={
+                  porEliminar === bm.id
+                    ? `Confirmar eliminación de ${bm.nombre}`
+                    : `Eliminar ${bm.nombre}`
+                }
+                className="rounded px-2 py-1.5 text-xs text-falla hover:bg-red-50 dark:hover:bg-red-950"
               >
-                Eliminar
+                {textoDeBorrado(bm.id, bmEnUso(bm.id))}
               </button>
             </div>
           ))}
@@ -103,11 +131,23 @@ export default function VistaProyecto() {
               <span>{capa.nombre}</span>
               <button
                 type="button"
-                onClick={() => eliminarCapa(capa.id)}
-                aria-label={`Eliminar capa ${capa.nombre}`}
+                onClick={() => {
+                  if (porEliminar === capa.id) {
+                    eliminarCapa(capa.id)
+                    setPorEliminar(null)
+                  } else {
+                    setPorEliminar(capa.id)
+                  }
+                }}
+                onBlur={() => setPorEliminar((actual) => (actual === capa.id ? null : actual))}
+                aria-label={
+                  porEliminar === capa.id
+                    ? `Confirmar eliminación de la capa ${capa.nombre}`
+                    : `Eliminar capa ${capa.nombre}`
+                }
                 className="text-slate-400 hover:text-falla"
               >
-                ×
+                {porEliminar === capa.id ? '¿Seguro?' : '×'}
               </button>
             </li>
           ))}

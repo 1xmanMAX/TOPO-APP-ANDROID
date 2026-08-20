@@ -45,4 +45,38 @@ describe('VistaProyecto', () => {
     render(<VistaProyecto />)
     expect(screen.getByText('SUBRASANTE')).toBeInTheDocument()
   })
+
+  it('pide confirmación antes de eliminar un banco de nivel', async () => {
+    const usuario = userEvent.setup()
+    render(<VistaProyecto />)
+
+    await usuario.click(screen.getByRole('button', { name: 'Eliminar BM-1' }))
+    expect(useAlmacen.getState().proyecto.bms).toHaveLength(1)
+
+    await usuario.click(screen.getByRole('button', { name: 'Confirmar eliminación de BM-1' }))
+    expect(useAlmacen.getState().proyecto.bms).toHaveLength(0)
+  })
+
+  it('advierte que el banco de nivel está en uso por una campaña', async () => {
+    const usuario = userEvent.setup()
+    render(<VistaProyecto />)
+
+    await usuario.click(screen.getByRole('button', { name: 'Eliminar BM-1' }))
+    expect(screen.getByRole('button', { name: 'Confirmar eliminación de BM-1' })).toHaveTextContent(
+      'Hay campañas que lo usan',
+    )
+  })
+
+  it('pide confirmación antes de eliminar una capa', async () => {
+    const usuario = userEvent.setup()
+    render(<VistaProyecto />)
+
+    await usuario.click(screen.getByRole('button', { name: 'Eliminar capa SUBRASANTE' }))
+    expect(useAlmacen.getState().proyecto.capas).toHaveLength(2)
+
+    await usuario.click(
+      screen.getByRole('button', { name: 'Confirmar eliminación de la capa SUBRASANTE' }),
+    )
+    expect(useAlmacen.getState().proyecto.capas).toHaveLength(1)
+  })
 })
