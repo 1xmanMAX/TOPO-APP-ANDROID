@@ -1,6 +1,8 @@
 import { construirGrilla, formatearProgresiva } from '@topo/core'
 import { useEffect, useMemo, useState } from 'react'
 import BarraCierre from '../componentes/BarraCierre'
+import CorteTransversal from '../componentes/CorteTransversal'
+import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import ListaAvisos from '../componentes/ListaAvisos'
 import MapaGrilla from '../componentes/MapaGrilla'
 import PanelEstacion from '../componentes/PanelEstacion'
@@ -27,11 +29,33 @@ export default function VistaLibreta() {
     [resultado],
   )
 
+  const progresivas = useMemo(() => [...new Set(celdas.map((c) => c.progresiva))].sort((a, b) => a - b), [celdas])
+  const progresivaActiva = useAlmacen((s) => s.seleccion.progresiva) ?? progresivas[0] ?? 0
+  const irAProgresiva = useAlmacen((s) => s.irAProgresiva)
+
   useEffect(() => {
     if (claveActiva === null && celdas.length > 0) {
       setClaveActiva(siguienteCeldaPendiente(celdas, llenas, null)?.clave ?? null)
     }
   }, [celdas, llenas, claveActiva])
+
+  useEffect(() => {
+    function alPresionar(evento: KeyboardEvent) {
+      const enCampo = evento.target instanceof HTMLInputElement || evento.target instanceof HTMLSelectElement
+      if (enCampo) return
+
+      const indice = progresivas.indexOf(progresivaActiva)
+      if (evento.key === 'ArrowRight' && indice < progresivas.length - 1) {
+        irAProgresiva(progresivas[indice + 1]!)
+      }
+      if (evento.key === 'ArrowLeft' && indice > 0) {
+        irAProgresiva(progresivas[indice - 1]!)
+      }
+    }
+
+    window.addEventListener('keydown', alPresionar)
+    return () => window.removeEventListener('keydown', alPresionar)
+  }, [progresivas, progresivaActiva, irAProgresiva])
 
   if (!contexto || !resultado) {
     return <p className="p-6 text-sm text-slate-500">Crea una campaña para abrir la libreta.</p>
@@ -133,6 +157,13 @@ export default function VistaLibreta() {
       </div>
 
       <BarraCierre />
+
+      <section className="flex flex-col gap-2">
+        <h3 className="font-semibold">Corte transversal</h3>
+        <CorteTransversal progresiva={progresivaActiva} />
+        <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
+      </section>
+
       <ListaAvisos />
     </div>
   )
