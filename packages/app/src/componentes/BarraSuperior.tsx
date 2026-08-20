@@ -1,5 +1,6 @@
 import { useAlmacen, type Vista } from '../estado/almacen'
 import BarraArchivo from './BarraArchivo'
+import BotonTema from './BotonTema'
 
 const PESTANAS: { vista: Vista; texto: string }[] = [
   { vista: 'proyecto', texto: 'Proyecto' },
@@ -34,7 +35,8 @@ export default function BarraSuperior() {
           </button>
         ))}
       </nav>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        <BotonTema />
         <BarraArchivo />
       </div>
     </header>
