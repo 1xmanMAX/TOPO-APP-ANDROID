@@ -59,4 +59,23 @@ describe('EditorPlantilla', () => {
     expect(plantilla.elementos[0]!.etiqueta).toBe('Cambiado')
     expect(plantilla.elementos[1]!.etiqueta).toBe('Segundo')
   })
+
+  it('mantiene el foco en el campo de distancia aunque la fila salte de posición', async () => {
+    const usuario = userEvent.setup()
+    render(<EditorPlantilla plantillaId="pl-1" />)
+
+    // VER-I está en −5.60, es la primera fila. Llevarlo a +10 lo manda al final
+    // de la lista ordenada: es el reordenamiento en vivo que motivó la corrección.
+    const campos = screen.getAllByDisplayValue('-5.60')
+    const primeraDistancia = campos[0]! as HTMLInputElement
+
+    await usuario.clear(primeraDistancia)
+    await usuario.type(primeraDistancia, '10')
+
+    expect(document.activeElement).toBe(primeraDistancia)
+
+    const plantilla = useAlmacen.getState().proyecto.plantillas.find((p) => p.id === 'pl-1')!
+    expect(plantilla.elementos[0]!.offset).toBe(10)
+    expect(plantilla.elementos[0]!.clave).toBe('VER-I')
+  })
 })
