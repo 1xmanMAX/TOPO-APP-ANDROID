@@ -35,3 +35,6 @@ desktop.ini
 npm-debug.log*
 .cache/
 coverage/
+
+# Vite
+.vite/
