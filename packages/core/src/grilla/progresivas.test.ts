@@ -49,6 +49,18 @@ describe('formatearProgresiva', () => {
     expect(formatearProgresiva(1247.5)).toBe('1+247.50')
     expect(formatearProgresiva(47.25)).toBe('0+047.25')
   })
+
+  it('acarrea correctamente cuando la fracción redondea a un metro completo', () => {
+    expect(formatearProgresiva(999.995)).toBe('1+000')
+    expect(formatearProgresiva(0.995)).toBe('0+001')
+    expect(formatearProgresiva(47.996)).toBe('0+048')
+  })
+
+  it('sobrevive el viaje de ida y vuelta con parsearProgresiva', () => {
+    for (const valor of [0, 20, 180, 1000, 1247.5, 47.25, 2999.99]) {
+      expect(parsearProgresiva(formatearProgresiva(valor))).toBeCloseTo(valor, 6)
+    }
+  })
 })
 
 describe('parsearProgresiva', () => {

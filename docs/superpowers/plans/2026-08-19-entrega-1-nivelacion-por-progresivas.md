@@ -339,6 +339,18 @@ describe('formatearProgresiva', () => {
     expect(formatearProgresiva(1247.5)).toBe('1+247.50')
     expect(formatearProgresiva(47.25)).toBe('0+047.25')
   })
+
+  it('acarrea correctamente cuando la fracción redondea a un metro completo', () => {
+    expect(formatearProgresiva(999.995)).toBe('1+000')
+    expect(formatearProgresiva(0.995)).toBe('0+001')
+    expect(formatearProgresiva(47.996)).toBe('0+048')
+  })
+
+  it('sobrevive el viaje de ida y vuelta con parsearProgresiva', () => {
+    for (const valor of [0, 20, 180, 1000, 1247.5, 47.25, 2999.99]) {
+      expect(parsearProgresiva(formatearProgresiva(valor))).toBeCloseTo(valor, 6)
+    }
+  })
 })
 
 describe('parsearProgresiva', () => {
@@ -394,15 +406,17 @@ export function generarProgresivas(
 
 export function formatearProgresiva(metros: number): string {
   const negativa = metros < 0
-  const absoluto = Math.abs(metros)
-  const kilometro = Math.floor(absoluto / 1000)
-  const resto = absoluto - kilometro * 1000
-  const entero = Math.floor(resto)
-  const decimal = redondear3(resto - entero)
+  // Se redondea una sola vez, sobre el total en centésimas. Repartir después
+  // el resultado entero evita que el acarreo de la fracción se pierda.
+  const centesimas = Math.round(redondear3(Math.abs(metros)) * 100)
+  const kilometro = Math.floor(centesimas / 100000)
+  const restoCentesimas = centesimas - kilometro * 100000
+  const entero = Math.floor(restoCentesimas / 100)
+  const decimal = restoCentesimas - entero * 100
 
   const cuerpo =
     decimal > 0
-      ? `${String(entero).padStart(3, '0')}.${String(Math.round(decimal * 100)).padStart(2, '0')}`
+      ? `${String(entero).padStart(3, '0')}.${String(decimal).padStart(2, '0')}`
       : String(entero).padStart(3, '0')
 
   return `${negativa ? '-' : ''}${kilometro}+${cuerpo}`

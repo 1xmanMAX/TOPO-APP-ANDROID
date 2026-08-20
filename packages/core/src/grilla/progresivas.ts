@@ -23,15 +23,17 @@ export function generarProgresivas(
 
 export function formatearProgresiva(metros: number): string {
   const negativa = metros < 0
-  const absoluto = Math.abs(metros)
-  const kilometro = Math.floor(absoluto / 1000)
-  const resto = absoluto - kilometro * 1000
-  const entero = Math.floor(resto)
-  const decimal = redondear3(resto - entero)
+  // Se redondea una sola vez, sobre el total en centésimas. Repartir después
+  // el resultado entero evita que el acarreo de la fracción se pierda.
+  const centesimas = Math.round(redondear3(Math.abs(metros)) * 100)
+  const kilometro = Math.floor(centesimas / 100000)
+  const restoCentesimas = centesimas - kilometro * 100000
+  const entero = Math.floor(restoCentesimas / 100)
+  const decimal = restoCentesimas - entero * 100
 
   const cuerpo =
     decimal > 0
-      ? `${String(entero).padStart(3, '0')}.${String(Math.round(decimal * 100)).padStart(2, '0')}`
+      ? `${String(entero).padStart(3, '0')}.${String(decimal).padStart(2, '0')}`
       : String(entero).padStart(3, '0')
 
   return `${negativa ? '-' : ''}${kilometro}+${cuerpo}`
