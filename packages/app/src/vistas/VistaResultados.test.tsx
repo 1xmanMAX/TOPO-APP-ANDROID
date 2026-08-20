@@ -128,4 +128,27 @@ describe('VistaResultados', () => {
     expect(cota).not.toBe(espesor)
     expect(cota.getAttribute('aria-label')).not.toBe(espesor.getAttribute('aria-label'))
   })
+
+  it('sin una comparación elegida, no hay botones para exportar espesores', () => {
+    render(<VistaResultados />)
+
+    expect(screen.queryByRole('button', { name: /Exportar espesores/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Exportar cotas a Excel/ })).toBeInTheDocument()
+  })
+
+  it('con una comparación elegida, los botones de exportar dejan claro si bajan cotas o espesores', () => {
+    const proyecto = proyectoEjemplo()
+    proyecto.campanias.push(campaniaTerreno())
+    useAlmacen.getState().cargarProyecto(proyecto)
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+
+    render(<VistaResultados />)
+
+    expect(screen.getByRole('button', { name: /Exportar cotas a Excel/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Exportar espesores a Excel/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Exportar cotas a CSV/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Exportar espesores a CSV/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copiar cotas' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copiar espesores' })).toBeInTheDocument()
+  })
 })

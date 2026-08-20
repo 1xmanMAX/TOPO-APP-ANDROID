@@ -37,6 +37,13 @@ export function useContexto(): ContextoCampania | null {
   return useMemo(() => contextoDe(proyecto, campaniaActivaId), [proyecto, campaniaActivaId])
 }
 
+/** Calle, plantilla y capa de cualquier campaña, no solo la activa — para armar la cabecera de una comparación. */
+export function useContextoDe(campaniaId: Id | null): ContextoCampania | null {
+  const proyecto = useAlmacen((s) => s.proyecto)
+
+  return useMemo(() => contextoDe(proyecto, campaniaId), [proyecto, campaniaId])
+}
+
 /** Calcula la campaña pedida. Recalcula solo cuando cambian el proyecto o el id. */
 export function useResultadoDe(campaniaId: Id | null): ResultadoCampania | null {
   const proyecto = useAlmacen((s) => s.proyecto)
