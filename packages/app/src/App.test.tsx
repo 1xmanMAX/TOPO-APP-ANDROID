@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('App', () => {
-  it('muestra el título de la herramienta', () => {
+  it('muestra la navegación principal', () => {
     render(<App />)
-    expect(screen.getByText(/Nivelación por progresivas/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Libreta' })).toBeInTheDocument()
   })
 })
