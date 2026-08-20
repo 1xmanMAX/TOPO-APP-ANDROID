@@ -21,6 +21,19 @@ export default function BotonTema() {
     else localStorage.setItem(CLAVE, tema)
   }, [tema])
 
+  useEffect(() => {
+    // En modo Sistema hay que seguir escuchando: en obra se pasa del día a la
+    // noche sin cerrar la app, y el equipo cambia de tema solo.
+    if (tema !== 'sistema') return
+
+    const consulta = window.matchMedia?.('(prefers-color-scheme: dark)')
+    if (!consulta) return
+
+    const alCambiarElSistema = () => aplicar('sistema')
+    consulta.addEventListener('change', alCambiarElSistema)
+    return () => consulta.removeEventListener('change', alCambiarElSistema)
+  }, [tema])
+
   return (
     <button
       type="button"

@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import BotonTema from './BotonTema'
 
 describe('BotonTema', () => {
@@ -30,5 +30,29 @@ describe('BotonTema', () => {
     await usuario.click(boton)
     expect(document.documentElement).not.toHaveClass('dark')
     expect(localStorage.getItem('topo:tema')).toBe('claro')
+  })
+
+  it('en modo Sistema sigue el cambio de tema del equipo con la app abierta', () => {
+    const oyentes: Array<() => void> = []
+    let oscuroDelSistema = false
+
+    vi.stubGlobal('matchMedia', () => ({
+      get matches() {
+        return oscuroDelSistema
+      },
+      addEventListener: (_evento: string, oyente: () => void) => oyentes.push(oyente),
+      removeEventListener: () => {},
+    }))
+
+    render(<BotonTema />)
+    expect(document.documentElement).not.toHaveClass('dark')
+
+    oscuroDelSistema = true
+    for (const avisar of oyentes) {
+      act(() => avisar())
+    }
+
+    expect(document.documentElement).toHaveClass('dark')
+    vi.unstubAllGlobals()
   })
 })
