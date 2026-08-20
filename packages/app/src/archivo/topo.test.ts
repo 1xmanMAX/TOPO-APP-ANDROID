@@ -27,4 +27,11 @@ describe('archivo .topo', () => {
       'Este archivo fue creado con una versión más nueva de la app.',
     )
   })
+
+  it('rechaza un archivo sin número de versión', () => {
+    const proyecto = { ...proyectoEjemplo(), version: undefined } as never
+    expect(() => desempaquetarProyecto(empaquetarProyecto(proyecto))).toThrow(
+      'los datos del proyecto no se entienden',
+    )
+  })
 })

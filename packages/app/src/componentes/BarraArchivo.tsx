@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { guardarBorrador } from '../archivo/autoguardado'
+import { useRef, useState } from 'react'
 import { abrirTopo, descargarTopo } from '../archivo/topo'
 import { useAlmacen } from '../estado/almacen'
 
@@ -9,14 +8,6 @@ export default function BarraArchivo() {
   const nuevoProyecto = useAlmacen((s) => s.nuevoProyecto)
   const entradaArchivo = useRef<HTMLInputElement>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
-
-  // Autoguardado: cada cambio del proyecto se guarda, como mucho una vez por segundo.
-  useEffect(() => {
-    const temporizador = window.setTimeout(() => {
-      void guardarBorrador(proyecto)
-    }, 1000)
-    return () => window.clearTimeout(temporizador)
-  }, [proyecto])
 
   async function abrir(archivo: File) {
     try {
@@ -29,7 +20,14 @@ export default function BarraArchivo() {
 
   return (
     <div className="flex items-center gap-2">
-      <button type="button" onClick={nuevoProyecto} className="rounded px-2 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">
+      <button
+        type="button"
+        onClick={() => {
+          setMensaje(null)
+          nuevoProyecto()
+        }}
+        className="rounded px-2 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+      >
         Nuevo
       </button>
       <button
@@ -41,7 +39,10 @@ export default function BarraArchivo() {
       </button>
       <button
         type="button"
-        onClick={() => descargarTopo(proyecto)}
+        onClick={() => {
+          setMensaje(null)
+          descargarTopo(proyecto)
+        }}
         className="rounded px-2 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
       >
         Guardar

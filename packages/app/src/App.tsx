@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { Proyecto } from '@topo/core'
-import { borrarBorrador, contarLecturas, leerBorrador } from './archivo/autoguardado'
+import { borrarBorrador, contarLecturas, leerBorrador, type Borrador } from './archivo/autoguardado'
+import { useAutoguardado } from './archivo/useAutoguardado'
 import BarraSuperior from './componentes/BarraSuperior'
 import { useAlmacen } from './estado/almacen'
 import VistaProyecto from './vistas/VistaProyecto'
@@ -13,17 +13,25 @@ import VistaResultados from './vistas/VistaResultados'
 export default function App() {
   const vista = useAlmacen((s) => s.vista)
   const cargarProyecto = useAlmacen((s) => s.cargarProyecto)
-  const [borrador, setBorrador] = useState<{ proyecto: Proyecto; guardado: string } | null>(null)
+  const [borrador, setBorrador] = useState<Borrador | null>(null)
+  const [revisado, setRevisado] = useState(false)
+  const falloAutoguardado = useAutoguardado(revisado && borrador === null)
 
   useEffect(() => {
-    void leerBorrador()
-      .then(setBorrador)
+    leerBorrador()
+      .then((encontrado) => setBorrador(encontrado))
       .catch(() => setBorrador(null))
+      .finally(() => setRevisado(true))
   }, [])
 
   return (
     <div className="flex h-full flex-col">
       <BarraSuperior />
+      {falloAutoguardado && (
+        <p className="border-b border-aviso bg-aviso/10 px-4 py-2 text-sm text-aviso">
+          {falloAutoguardado}
+        </p>
+      )}
       {borrador && (
         <div className="flex items-center gap-3 border-b border-aviso bg-aviso/10 px-4 py-2 text-sm">
           <span>

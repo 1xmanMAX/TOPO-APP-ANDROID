@@ -3,7 +3,7 @@ import { del, get, set } from 'idb-keyval'
 
 const CLAVE = 'topo:borrador'
 
-interface Borrador {
+export interface Borrador {
   proyecto: Proyecto
   guardado: string
 }

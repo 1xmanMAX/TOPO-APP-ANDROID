@@ -4,7 +4,7 @@ import { unzipSync, zipSync } from 'fflate'
 const NOMBRE_INTERNO = 'proyecto.json'
 const VERSION_SOPORTADA = 1
 
-export function empaquetarProyecto(proyecto: Proyecto): Uint8Array {
+export function empaquetarProyecto(proyecto: Proyecto) {
   const json = new TextEncoder().encode(JSON.stringify(proyecto, null, 2))
   return zipSync({ [NOMBRE_INTERNO]: json }, { level: 6 })
 }
@@ -15,14 +15,16 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
     contenido = unzipSync(datos)
   } catch {
     throw new Error(
-      'No se pudo leer el archivo .topo: parece estar dañado o no ser un archivo de la app.',
+      'No se pudo leer el archivo .topo: parece estar dañado o no ser un archivo de la app.' +
+        ' Comprueba que sea el archivo .topo que guardaste.',
     )
   }
 
   const json = contenido[NOMBRE_INTERNO]
   if (!json) {
     throw new Error(
-      'No se pudo leer el archivo .topo: parece estar dañado o no ser un archivo de la app.',
+      'No se pudo leer el archivo .topo: parece estar dañado o no ser un archivo de la app.' +
+        ' Comprueba que sea el archivo .topo que guardaste.',
     )
   }
 
@@ -33,8 +35,18 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
     throw new Error('El archivo .topo está dañado: los datos del proyecto no se entienden.')
   }
 
+  if (typeof proyecto?.version !== 'number') {
+    throw new Error(
+      'El archivo .topo está dañado: los datos del proyecto no se entienden. ' +
+        'Prueba con otra copia del archivo.',
+    )
+  }
+
   if (proyecto.version > VERSION_SOPORTADA) {
-    throw new Error('Este archivo fue creado con una versión más nueva de la app.')
+    throw new Error(
+      'Este archivo fue creado con una versión más nueva de la app.' +
+        ' Actualiza la aplicación para poder abrirlo.',
+    )
   }
 
   return proyecto
@@ -43,7 +55,7 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
 export function descargarTopo(proyecto: Proyecto): void {
   const datos = empaquetarProyecto(proyecto)
   const enlace = document.createElement('a')
-  const url = URL.createObjectURL(new Blob([datos as BlobPart], { type: 'application/zip' }))
+  const url = URL.createObjectURL(new Blob([datos], { type: 'application/zip' }))
 
   enlace.href = url
   enlace.download = `${proyecto.meta.nombre.replace(/[^\w\s-]/g, '').trim() || 'proyecto'}.topo`
