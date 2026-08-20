@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('App', () => {
-  it('muestra la navegación principal', () => {
+  it('muestra la navegación principal', async () => {
     render(<App />)
-    expect(screen.getByRole('button', { name: 'Libreta' })).toBeInTheDocument()
+
+    expect(await screen.findByRole('button', { name: 'Libreta' })).toBeInTheDocument()
   })
 })
