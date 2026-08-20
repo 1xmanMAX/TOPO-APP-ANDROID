@@ -6485,3 +6485,23 @@ git commit -m "Cierre de la Entrega 1: verificación completa y guía de uso"
 
 Del spec, sin empezar: varias campañas por capa sobre la misma calle, selector de capas, espesor real colocado, cota teórica de proyecto, semáforo de tolerancia, y cortes con capas superpuestas y rellenas. El modelo de datos ya las contempla — `Campania` lleva `capaId` desde la Tarea 3 — así que la Entrega 2 agrega vistas, no reestructura datos.
 
+
+---
+
+## Correcciones aplicadas durante la ejecución
+
+El código de las tareas 1 a 7 quedó actualizado en este mismo documento. De la Tarea 10 en adelante, las correcciones se ordenaron durante la revisión y viven en el código; se registran aquí para que el plan no contradiga lo construido.
+
+| Tarea | Qué traía el plan | Qué se construyó, y por qué |
+|---|---|---|
+| **2** | `formatearProgresiva` repartía kilómetro y metros antes de redondear la fracción | Redondea una sola vez en centésimas y reparte después. El original perdía el acarreo: `999.995` salía como `0+999.100`, y al releerlo daba `999.1` — 90 cm de error silencioso |
+| **4** | `calcularCotas` registraba el punto de cambio sin comprobar repetidos | Lanza un error legible si dos puntos de cambio comparten nombre. Antes, la estación siguiente arrancaba de la cota equivocada sin ningún aviso |
+| **5** | La prueba de cierre exactamente igual a la tolerancia usaba `1.9128` | Usa `1.9122`. Con cota instrumento 3247.085 y BM 3245.180 el error es `(1.905 − X)·1000` mm, así que −7.2 mm exige 1.9122. El implementador detectó la discrepancia y se detuvo en vez de ajustar la prueba |
+| **7** | El `try/catch` envolvía solo `calcularCotas` | Envuelve todo el cuerpo. `construirGrilla` lanza con intervalo no positivo o tramo invertido (alcanzable al abrir un `.topo`), y `calcularCierre` lanza con una longitud K negativa escrita a mano. Se añadió además aviso cuando el BM de cierre ya no existe en el proyecto |
+| **10** | Botones de eliminar que borraban al primer clic | Confirmación en dos pasos: el primer clic arma el botón, el segundo borra, y el botón armado avisa si hay campañas que usan ese banco de nivel o esa capa |
+| **11** | `EditorPlantilla` identificaba cada elemento por su `clave`, editable por el usuario | Identifica por el índice del array original. Con la clave se perdía el foco en cada tecla, y con claves repetidas editar una fila modificaba las dos. El índice de la lista ordenada tampoco sirve: cambiar una distancia reordena las filas en vivo |
+| **12** | `construirGrilla` se llamaba fuera del `try/catch`, y la progresiva extra se guardaba sin validar | Se protege el cálculo completo y se muestra el motivo cuando no hay grilla. La progresiva extra avisa en tres casos: texto que no se entiende, fuera del tramo, o ya presente. El campo de intervalo restaura al salir el valor guardado, para que nunca muestre algo distinto de lo que se está usando |
+
+### Riesgo abierto para la verificación manual (Tarea 21)
+
+En el editor de plantilla, cambiar la distancia de un elemento lo reordena en pantalla. La prueba confirma que el foco se mantiene **en jsdom**, pero jsdom no reproduce fielmente qué ocurre cuando un nodo enfocado se mueve de posición en el DOM real: algunos navegadores disparan pérdida de foco. Hay que comprobarlo en un navegador de verdad. Si el foco salta, la corrección es reordenar al salir del campo en vez de en vivo.
