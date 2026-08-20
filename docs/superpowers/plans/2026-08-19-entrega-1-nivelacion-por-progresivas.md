@@ -4981,7 +4981,7 @@ describe('extension', () => {
 
 describe('marcas', () => {
   it('genera valores redondos dentro del dominio', () => {
-    expect(marcas([0, 10], 5)).toEqual([0, 2.5, 5, 7.5, 10])
+    expect(marcas([0, 10], 5)).toEqual([0, 2, 4, 6, 8, 10])
   })
 
   it('usa pasos legibles con cotas', () => {
