@@ -3,6 +3,7 @@ import { useAlmacen } from './estado/almacen'
 import VistaProyecto from './vistas/VistaProyecto'
 import VistaPlantilla from './vistas/VistaPlantilla'
 import VistaCalle from './vistas/VistaCalle'
+import VistaLibreta from './vistas/VistaLibreta'
 
 export default function App() {
   const vista = useAlmacen((s) => s.vista)
@@ -14,7 +15,8 @@ export default function App() {
         {vista === 'proyecto' && <VistaProyecto />}
         {vista === 'plantilla' && <VistaPlantilla />}
         {vista === 'calle' && <VistaCalle />}
-        {vista !== 'proyecto' && vista !== 'plantilla' && vista !== 'calle' && (
+        {vista === 'libreta' && <VistaLibreta />}
+        {vista !== 'proyecto' && vista !== 'plantilla' && vista !== 'calle' && vista !== 'libreta' && (
           <p className="p-6 text-sm text-slate-500">
             Pantalla en construcción. Abre «Proyecto» mientras tanto.
           </p>
