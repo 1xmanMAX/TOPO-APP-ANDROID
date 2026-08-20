@@ -13,7 +13,7 @@ import {
 import { create } from 'zustand'
 import { nuevoId, proyectoEjemplo, proyectoVacio } from './ejemplo'
 
-export type Vista = 'inicio' | 'proyecto' | 'plantilla' | 'calle' | 'libreta' | 'resultados'
+export type Vista = 'inicio' | 'proyecto' | 'plantilla' | 'calle' | 'campanias' | 'libreta' | 'resultados'
 
 export interface Seleccion {
   clave: string | null
