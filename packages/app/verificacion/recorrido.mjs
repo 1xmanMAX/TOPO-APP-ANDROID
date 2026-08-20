@@ -44,13 +44,13 @@ await pagina.getByRole('button', { name: 'Proyecto' }).click()
 
 // 3. Corregir la cota de un BM recalcula
 await pagina.getByRole('button', { name: 'Resultados' }).click()
-const cotaAntes = await pagina.getByRole('button', { name: '0+000 EJE', exact: true }).textContent()
+const cotaAntes = await pagina.getByRole('button', { name: /^Cota en 0\+000 EJE/ }).textContent()
 await pagina.getByRole('button', { name: 'Proyecto' }).click()
 const campoCota = pagina.getByLabel('Cota').first()
 await campoCota.fill('3245.280')
 await campoCota.blur()
 await pagina.getByRole('button', { name: 'Resultados' }).click()
-const cotaDespues = await pagina.getByRole('button', { name: '0+000 EJE', exact: true }).textContent()
+const cotaDespues = await pagina.getByRole('button', { name: /^Cota en 0\+000 EJE/ }).textContent()
 comprobar('corregir la cota del BM recalcula todo el proyecto',
   cotaAntes !== cotaDespues && cotaDespues.startsWith('3244.7'),
   `${cotaAntes} -> ${cotaDespues}`)
@@ -89,13 +89,13 @@ const corteTras = await pagina.getByRole('img', { name: /Corte transversal/ }).g
 comprobar('el deslizador mueve el corte de progresiva', /0\+0[24]0/.test(corteTras), corteTras)
 
 // 8. Clic en una celda sin medir: lo dice en vez de dibujar un corte vacío
-await pagina.getByRole('button', { name: '0+040 EJE', exact: true }).click()
+await pagina.getByRole('button', { name: /^Cota en 0\+040 EJE/ }).click()
 const avisoVacio = await pagina.getByText(/todavía no tiene lecturas/).textContent()
 comprobar('elegir una celda sin medir avisa en vez de dibujar un corte vacío',
   /0\+040/.test(avisoVacio), avisoVacio?.trim())
 
 // 8b. Volver a una progresiva medida devuelve el corte
-await pagina.getByRole('button', { name: '0+020 EJE', exact: true }).click()
+await pagina.getByRole('button', { name: /^Cota en 0\+020 EJE/ }).click()
 const corteVuelta = await pagina.getByRole('img', { name: /Corte transversal/ }).getAttribute('aria-label')
 comprobar('volver a una progresiva medida devuelve el corte', /0\+020/.test(corteVuelta), corteVuelta)
 

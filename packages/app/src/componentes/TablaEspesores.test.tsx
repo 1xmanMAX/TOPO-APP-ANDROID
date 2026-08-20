@@ -108,7 +108,7 @@ describe('TablaEspesores', () => {
 
     render(<TablaEspesores />)
 
-    expect(screen.getByLabelText('0+000 EJE').textContent).toBe(formatearCota(espesor0))
+    expect(screen.getByLabelText(/Espesor en 0\+000 EJE/).textContent).toBe(formatearCota(espesor0))
   })
 
   it('muestra un guion largo cuando falta una de las dos cotas', () => {
@@ -117,7 +117,27 @@ describe('TablaEspesores', () => {
     render(<TablaEspesores />)
 
     // 0|BOR-I solo se midió en camp-1 (SUBRASANTE): no tiene pareja en TERRENO.
-    expect(screen.getByLabelText('0+000 BOR-I').textContent).toBe('—')
+    expect(screen.getByLabelText(/Espesor en 0\+000 BOR-I/).textContent).toBe('—')
+  })
+
+  it('el nombre accesible de una celda con espesor incluye la cifra', () => {
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+
+    render(<TablaEspesores />)
+
+    const boton = screen.getByLabelText(/Espesor en 0\+000 EJE/)
+    expect(boton.getAttribute('aria-label')).toContain(boton.textContent)
+  })
+
+  it('el nombre accesible de una celda sin comparar dice que no se comparó, y no un cero', () => {
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+
+    render(<TablaEspesores />)
+
+    // 0|BOR-I solo se midió en camp-1 (SUBRASANTE): no tiene pareja en TERRENO.
+    const boton = screen.getByLabelText(/Espesor en 0\+000 BOR-I/)
+    expect(boton.getAttribute('aria-label')).toContain('sin comparar')
+    expect(boton.getAttribute('aria-label')).not.toMatch(/0\.000/)
   })
 
   it('un espesor negativo se distingue a la vista', () => {
@@ -128,8 +148,20 @@ describe('TablaEspesores', () => {
 
     render(<TablaEspesores />)
 
-    const boton = screen.getByLabelText('0+020 EJE')
+    const boton = screen.getByLabelText(/Espesor en 0\+020 EJE/)
     expect(boton.textContent).toBe(formatearCota(celda20.espesor!))
+    expect(boton.className).toMatch(/falla/)
+  })
+
+  it('un espesor negativo conserva la señal de aviso incluso al quedar seleccionado', async () => {
+    useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
+    const usuario = userEvent.setup()
+    render(<TablaEspesores />)
+
+    const boton = screen.getByLabelText(/Espesor en 0\+020 EJE/)
+    await usuario.click(boton)
+
+    expect(useAlmacen.getState().seleccion.clave).toBe('20|EJE')
     expect(boton.className).toMatch(/falla/)
   })
 
@@ -153,7 +185,7 @@ describe('TablaEspesores', () => {
     const usuario = userEvent.setup()
     render(<TablaEspesores />)
 
-    await usuario.click(screen.getByLabelText('0+000 EJE'))
+    await usuario.click(screen.getByLabelText(/Espesor en 0\+000 EJE/))
 
     expect(useAlmacen.getState().seleccion.clave).toBe('0|EJE')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(0)

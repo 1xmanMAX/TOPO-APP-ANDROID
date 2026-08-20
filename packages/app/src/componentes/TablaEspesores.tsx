@@ -86,16 +86,22 @@ export default function TablaEspesores() {
                     <td key={clave} className="p-0.5">
                       <button
                         type="button"
-                        aria-label={`${formatearProgresiva(progresiva)} ${elementoClave}`}
+                        aria-label={
+                          espesor !== null
+                            ? `Espesor en ${formatearProgresiva(progresiva)} ${elementoClave}: ${formatearCota(espesor)}`
+                            : `Espesor en ${formatearProgresiva(progresiva)} ${elementoClave}, sin comparar`
+                        }
                         onClick={() => seleccionar(clave)}
                         className={`numerico w-full rounded px-2 py-1 text-right ${
-                          activa
-                            ? 'bg-marca text-white'
-                            : negativo
-                              ? 'font-semibold text-falla hover:bg-falla/10'
-                              : espesor !== null
-                                ? 'hover:bg-slate-100 dark:hover:bg-slate-800'
-                                : 'text-slate-300 dark:text-slate-700'
+                          activa ? 'bg-marca' : negativo ? 'hover:bg-falla/10' : espesor !== null ? 'hover:bg-slate-100 dark:hover:bg-slate-800' : ''
+                        } ${
+                          negativo
+                            ? 'font-semibold text-falla'
+                            : activa
+                              ? 'text-white'
+                              : espesor === null
+                                ? 'text-slate-300 dark:text-slate-700'
+                                : ''
                         }`}
                       >
                         {espesor !== null ? formatearCota(espesor) : '—'}

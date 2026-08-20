@@ -56,7 +56,11 @@ export default function TablaResultados() {
                   <td key={clave} className="p-0.5">
                     <button
                       type="button"
-                      aria-label={`${formatearProgresiva(progresiva)} ${elementoClave}`}
+                      aria-label={
+                        celda
+                          ? `Cota en ${formatearProgresiva(progresiva)} ${elementoClave}: ${formatearCota(celda.cota)}`
+                          : `Cota en ${formatearProgresiva(progresiva)} ${elementoClave}, sin medir`
+                      }
                       onClick={() => seleccionar(clave)}
                       className={`numerico w-full rounded px-2 py-1 text-right ${
                         activa

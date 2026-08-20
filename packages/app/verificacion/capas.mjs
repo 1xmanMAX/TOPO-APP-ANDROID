@@ -39,7 +39,7 @@ await vistaAtras.fill('1.425')
 await vistaAtras.blur()
 
 // 3. Ahora sí, una lectura en la misma celda que midió la campaña anterior.
-await pagina.getByRole('button', { name: '0+000 EJE', exact: true }).first().click()
+await pagina.getByRole('button', { name: /^Cota en 0\+000 EJE/ }).first().click()
 const campo = pagina.getByLabel('Lectura de mira')
 await campo.click()
 await campo.type('2.230', { delay: 20 })
