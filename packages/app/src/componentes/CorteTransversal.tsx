@@ -2,6 +2,7 @@ import { formatearProgresiva } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useResultado } from '../estado/derivados'
+import { formatearCota } from '../formato'
 import { escalaLineal, extension, marcas } from '../grafico/escala'
 
 const ANCHO = 720
@@ -63,7 +64,7 @@ export default function CorteTransversal({ progresiva }: Props) {
             className="fill-slate-500 text-[10px]"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
-            {cota.toFixed(3)}
+            {formatearCota(cota)}
           </text>
         </g>
       ))}
@@ -117,7 +118,7 @@ export default function CorteTransversal({ progresiva }: Props) {
               role="button"
               tabIndex={0}
               data-activo={activo}
-              aria-label={`${formatearProgresiva(punto.progresiva)} ${punto.elementoClave} · cota ${punto.cota.toFixed(3)}`}
+              aria-label={`${formatearProgresiva(punto.progresiva)} ${punto.elementoClave} · cota ${formatearCota(punto.cota)} m`}
               onClick={() => seleccionar(punto.clave)}
               onKeyDown={(evento) => {
                 if (evento.key === 'Enter' || evento.key === ' ') seleccionar(punto.clave)
@@ -126,7 +127,7 @@ export default function CorteTransversal({ progresiva }: Props) {
             >
               <title>
                 {punto.elementoClave} · offset {punto.offset.toFixed(2)} m · cota{' '}
-                {punto.cota.toFixed(3)} m
+                {formatearCota(punto.cota)} m
               </title>
             </circle>
           </g>

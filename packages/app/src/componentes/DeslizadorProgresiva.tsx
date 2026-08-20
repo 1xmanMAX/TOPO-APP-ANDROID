@@ -13,7 +13,7 @@ export default function DeslizadorProgresiva({ progresivas, valor, alCambiar }: 
   const indice = Math.max(0, progresivas.indexOf(valor))
 
   useEffect(() => {
-    if (!reproduciendo) return
+    if (!reproduciendo || progresivas.length === 0) return
 
     temporizador.current = window.setInterval(() => {
       const siguiente = (progresivas.indexOf(valor) + 1) % progresivas.length
