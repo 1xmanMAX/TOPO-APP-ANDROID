@@ -85,6 +85,7 @@ Espesor colocado: mínimo 0.248 m · medio 0.250 m · máximo 0.253 m · 2 de 3 
 Léelo así:
 
 - **Mínimo** es tu punto flaco. Si el proyecto pide 0.25 y el mínimo sale 0.19, ahí falta material aunque la media cuadre.
+- **Medio** se calcula con el espesor completo de cada celda, antes de redondearlo a milímetro para mostrarlo en la tabla. Si tú promedias a mano las cifras que ves en pantalla, puedes salir con 1 mm de diferencia: es normal, y el medio de la app es el más preciso de los dos.
 - **Celdas comparables** son las que midieron las dos campañas. Si nivelaste el terreno hasta la vereda pero la subrasante solo hasta el borde, esas celdas de vereda no tienen pareja.
 
 ### Lo que la app no hace, y por qué
