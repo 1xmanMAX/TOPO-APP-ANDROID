@@ -14,6 +14,7 @@ export default function VistaLibreta() {
   const contexto = useContexto()
   const resultado = useResultado()
   const agregarIntermedia = useAlmacen((s) => s.agregarIntermedia)
+  const agregarEstacion = useAlmacen((s) => s.agregarEstacion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
 
   const estacionActiva = useAlmacen((s) => s.estacionActiva)
@@ -106,59 +107,82 @@ export default function VistaLibreta() {
 
       <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
         <section className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold">Estación {indiceSeguro + 1}</h3>
-            <div className="ml-auto flex gap-1">
-              {contexto.campania.estaciones.map((_, indice) => (
-                <button
-                  key={indice}
-                  type="button"
-                  onClick={() => activarEstacion(indice)}
-                  className={`h-7 w-7 rounded text-xs ${
-                    indice === indiceSeguro
-                      ? 'bg-marca text-white'
-                      : 'bg-slate-100 dark:bg-slate-800'
-                  }`}
-                >
-                  {indice + 1}
-                </button>
-              ))}
+          {contexto.campania.estaciones.length === 0 ? (
+            <div className="flex flex-col gap-3 rounded border border-aviso p-4">
+              <p className="text-sm">
+                Esta libreta todavía no tiene ninguna estación. Toda nivelación empieza plantando el
+                nivel y leyendo hacia atrás al banco de nivel.
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  agregarEstacion(contexto.campania.id, {
+                    destino: { tipo: 'bm', bmId: contexto.campania.bmInicialId },
+                    valor: 0,
+                  })
+                }
+                className="self-start rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
+              >
+                Empezar la libreta
+              </button>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">Estación {indiceSeguro + 1}</h3>
+                <div className="ml-auto flex gap-1">
+                  {contexto.campania.estaciones.map((_, indice) => (
+                    <button
+                      key={indice}
+                      type="button"
+                      onClick={() => activarEstacion(indice)}
+                      className={`h-7 w-7 rounded text-xs ${
+                        indice === indiceSeguro
+                          ? 'bg-marca text-white'
+                          : 'bg-slate-100 dark:bg-slate-800'
+                      }`}
+                    >
+                      {indice + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <PanelEstacion estacionIndice={indiceSeguro} alCambiarEstacion={activarEstacion} />
+              <PanelEstacion estacionIndice={indiceSeguro} alCambiarEstacion={activarEstacion} />
 
-          {indiceSeguro < contexto.campania.estaciones.length - 1 && (
-            <p className="rounded border border-aviso px-3 py-2 text-xs text-aviso">
-              Estás escribiendo en la estación {indiceSeguro + 1} de{' '}
-              {contexto.campania.estaciones.length}, que no es la última.
-            </p>
+              {indiceSeguro < contexto.campania.estaciones.length - 1 && (
+                <p className="rounded border border-aviso px-3 py-2 text-xs text-aviso">
+                  Estás escribiendo en la estación {indiceSeguro + 1} de{' '}
+                  {contexto.campania.estaciones.length}, que no es la última.
+                </p>
+              )}
+
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-slate-500">
+                  Celda activa:{' '}
+                  <strong>
+                    {celdaActiva
+                      ? `${formatearProgresiva(celdaActiva.progresiva)} ${celdaActiva.elementoClave}`
+                      : 'grilla completa'}
+                  </strong>
+                </span>
+                <input
+                  aria-label="Lectura de mira"
+                  inputMode="decimal"
+                  autoFocus
+                  value={texto}
+                  onChange={(evento) => setTexto(evento.target.value)}
+                  onKeyDown={(evento) => {
+                    if (evento.key === 'Enter') registrarLectura()
+                  }}
+                  placeholder="escribe y Enter"
+                  className="numerico rounded border-2 border-marca px-3 py-2 text-right text-lg dark:bg-slate-900"
+                />
+              </label>
+
+              <p className="text-xs text-slate-500">{resumenPendientes(celdas, llenas)}</p>
+            </>
           )}
-
-          <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-500">
-              Celda activa:{' '}
-              <strong>
-                {celdaActiva
-                  ? `${formatearProgresiva(celdaActiva.progresiva)} ${celdaActiva.elementoClave}`
-                  : 'grilla completa'}
-              </strong>
-            </span>
-            <input
-              aria-label="Lectura de mira"
-              inputMode="decimal"
-              autoFocus
-              value={texto}
-              onChange={(evento) => setTexto(evento.target.value)}
-              onKeyDown={(evento) => {
-                if (evento.key === 'Enter') registrarLectura()
-              }}
-              placeholder="escribe y Enter"
-              className="numerico rounded border-2 border-marca px-3 py-2 text-right text-lg dark:bg-slate-900"
-            />
-          </label>
-
-          <p className="text-xs text-slate-500">{resumenPendientes(celdas, llenas)}</p>
         </section>
 
         <section className="flex flex-col gap-3">

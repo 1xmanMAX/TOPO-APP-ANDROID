@@ -286,10 +286,29 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       return {
         proyecto: marcarModificado({
           ...s.proyecto,
-          campanias: [...s.proyecto.campanias, { ...datos, id, estaciones: [] }],
+          campanias: [
+            ...s.proyecto.campanias,
+            {
+              ...datos,
+              id,
+              // Toda nivelación empieza plantando el nivel y leyendo hacia atrás al
+              // banco de nivel. Sin esa primera estación no hay dónde escribir, y la
+              // campaña nace inutilizable.
+              estaciones: [
+                {
+                  id: nuevoId('e'),
+                  vistaAtras: {
+                    id: nuevoId('l'),
+                    destino: { tipo: 'bm', bmId: datos.bmInicialId },
+                    valor: 0,
+                  },
+                  intermedias: [],
+                },
+              ],
+            },
+          ],
         }),
         campaniaActivaId: id,
-        // La campaña recién creada no tiene estaciones todavía.
         estacionActiva: 0,
         ...seleccionDeCapasTrasCambio(calleAnterior, datos.calleId, s),
       }
@@ -388,23 +407,34 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     })),
 
   agregarIntermedia: (campaniaId, estacionIndice, lectura) =>
-    set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        campanias: s.proyecto.campanias.map((c) =>
-          c.id === campaniaId
-            ? {
-                ...c,
-                estaciones: c.estaciones.map((e, i) =>
-                  i === estacionIndice
-                    ? { ...e, intermedias: [...e.intermedias, { id: nuevoId('l'), ...lectura }] }
-                    : e,
-                ),
-              }
-            : c,
-        ),
-      }),
-    })),
+    set((s) => {
+      const campania = s.proyecto.campanias.find((c) => c.id === campaniaId)
+      if (!campania || !campania.estaciones[estacionIndice]) {
+        // Perder una lectura en silencio es lo peor que puede hacer esta app.
+        console.error(
+          `Se intentó escribir una lectura en la estación ${estacionIndice + 1}, que no existe.`,
+        )
+        return {}
+      }
+
+      return {
+        proyecto: marcarModificado({
+          ...s.proyecto,
+          campanias: s.proyecto.campanias.map((c) =>
+            c.id === campaniaId
+              ? {
+                  ...c,
+                  estaciones: c.estaciones.map((e, i) =>
+                    i === estacionIndice
+                      ? { ...e, intermedias: [...e.intermedias, { id: nuevoId('l'), ...lectura }] }
+                      : e,
+                  ),
+                }
+              : c,
+          ),
+        }),
+      }
+    }),
 
   actualizarLectura: (campaniaId, lecturaId, valor) =>
     set((s) => ({

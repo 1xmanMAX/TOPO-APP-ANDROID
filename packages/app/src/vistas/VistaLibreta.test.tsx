@@ -68,4 +68,23 @@ describe('VistaLibreta', () => {
     render(<VistaLibreta />)
     expect(screen.getByText(/Cierre fuera de tolerancia/i)).toBeInTheDocument()
   })
+
+  it('con una campaña sin estaciones, ofrece empezar la libreta en vez de no mostrar nada', async () => {
+    const usuario = userEvent.setup()
+    const proyecto = proyectoEjemplo()
+    proyecto.campanias[0]!.estaciones = []
+    useAlmacen.getState().cargarProyecto(proyecto)
+
+    render(<VistaLibreta />)
+
+    expect(
+      screen.getByText(/esta libreta todavía no tiene ninguna estación/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/estación 1/i)).not.toBeInTheDocument()
+
+    await usuario.click(screen.getByRole('button', { name: /empezar la libreta/i }))
+
+    expect(screen.getByRole('heading', { name: 'Estación 1' })).toBeInTheDocument()
+    expect(useAlmacen.getState().proyecto.campanias[0]!.estaciones).toHaveLength(1)
+  })
 })

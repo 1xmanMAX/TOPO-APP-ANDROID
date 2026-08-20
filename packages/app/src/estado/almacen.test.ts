@@ -80,6 +80,53 @@ describe('almacén', () => {
     expect(useAlmacen.getState().calcular()).toBeNull()
   })
 
+  it('una campaña nueva nace con una estación, con vista atrás al banco de nivel de arranque', () => {
+    const campaniaId = useAlmacen.getState().agregarCampania({
+      fecha: '2026-08-20',
+      calleId: 'c-1',
+      capaId: 'cap-subrasante',
+      bmInicialId: 'bm-1',
+      estado: 'abierta',
+      cierre: {
+        tipo: 'abierto',
+        longitudK: 0,
+        longitudKAuto: true,
+        clase: 'tercerOrden',
+        coeficiente: 12,
+      },
+    })
+
+    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId)!
+    expect(campania.estaciones).toHaveLength(1)
+    expect(campania.estaciones[0]!.vistaAtras.destino).toEqual({ tipo: 'bm', bmId: 'bm-1' })
+  })
+
+  it('una lectura intermedia escrita en una campaña recién creada sí queda guardada', () => {
+    const campaniaId = useAlmacen.getState().agregarCampania({
+      fecha: '2026-08-20',
+      calleId: 'c-1',
+      capaId: 'cap-subrasante',
+      bmInicialId: 'bm-1',
+      estado: 'abierta',
+      cierre: {
+        tipo: 'abierto',
+        longitudK: 0,
+        longitudKAuto: true,
+        clase: 'tercerOrden',
+        coeficiente: 12,
+      },
+    })
+
+    useAlmacen.getState().agregarIntermedia(campaniaId, 0, {
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+      valor: 1.5,
+    })
+
+    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId)!
+    expect(campania.estaciones[0]!.intermedias).toHaveLength(1)
+    expect(campania.estaciones[0]!.intermedias[0]!.valor).toBe(1.5)
+  })
+
   it('fija la vista adelante de una estación', () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
     useAlmacen.getState().fijarVistaAdelante(campaniaId, 0, {
@@ -134,7 +181,8 @@ describe('almacén', () => {
     expect(useAlmacen.getState().estacionActiva).toBe(0)
 
     useAlmacen.getState().activarCampania(campaniaId2)
-    expect(useAlmacen.getState().estacionActiva).toBe(2)
+    const campania = useAlmacen.getState().proyecto.campanias[1]!
+    expect(useAlmacen.getState().estacionActiva).toBe(campania.estaciones.length - 1)
   })
 
   it('quita la vista adelante de una estación', () => {
