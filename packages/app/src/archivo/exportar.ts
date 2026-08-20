@@ -14,16 +14,26 @@ import {
 import { formatearCota } from '../formato'
 import { armarXlsx } from './xlsx'
 
-export function armarTabla(
-  resultado: ResultadoCampania,
-  calle: Calle,
-  plantilla: Plantilla,
-): string[][] {
+interface EsqueletoTabla {
+  progresivas: number[]
+  elementos: string[]
+}
+
+/**
+ * El armazón que comparten `armarTabla` y `armarTablaEspesores`: qué
+ * progresivas van de filas y en qué orden de columnas van los elementos
+ * (por `offset`, no por como estén escritos en la plantilla). Las dos tablas
+ * de la misma calle tienen que salir con las columnas alineadas — si cada
+ * una decidiera el orden por su cuenta, un empate de `offset` podría
+ * ordenarlas distinto y desalinear cotas y espesores en Excel sin que nada lo
+ * avisara. `null` si la calle o la plantilla no arman una grilla válida.
+ */
+function armarEsqueletoTabla(calle: Calle, plantilla: Plantilla): EsqueletoTabla | null {
   let celdas: ReturnType<typeof construirGrilla> = []
   try {
     celdas = construirGrilla(calle, plantilla)
   } catch {
-    return []
+    return null
   }
 
   const progresivas = [...new Set(celdas.map((c) => c.progresiva))].sort((a, b) => a - b)
@@ -31,6 +41,18 @@ export function armarTabla(
   const vistos = new Map<string, number>()
   for (const celda of celdas) if (!vistos.has(celda.elementoClave)) vistos.set(celda.elementoClave, celda.offset)
   const elementos = [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([clave]) => clave)
+
+  return { progresivas, elementos }
+}
+
+export function armarTabla(
+  resultado: ResultadoCampania,
+  calle: Calle,
+  plantilla: Plantilla,
+): string[][] {
+  const esqueleto = armarEsqueletoTabla(calle, plantilla)
+  if (!esqueleto) return []
+  const { progresivas, elementos } = esqueleto
 
   const filas: string[][] = [['Progresiva', ...elementos]]
 
@@ -51,25 +73,18 @@ export function armarTabla(
  * La tabla de espesores que baja a obra: misma forma que `armarTabla`, pero
  * la celda sin pareja en la otra capa sale vacía y no en cero. Un cero se lee
  * como «aquí no se colocó material», y eso no es lo mismo que «aquí no se
- * comparó porque falta una de las dos cotas».
+ * comparó porque falta una de las dos cotas». Un espesor real de cero (dos
+ * cotas exactamente iguales) sí escribe 0.000: `celda.espesor !== null` es lo
+ * que decide, nunca la verdad del número.
  */
 export function armarTablaEspesores(
   comparacion: ResultadoComparacion,
   calle: Calle,
   plantilla: Plantilla,
 ): string[][] {
-  let celdas: ReturnType<typeof construirGrilla> = []
-  try {
-    celdas = construirGrilla(calle, plantilla)
-  } catch {
-    return []
-  }
-
-  const progresivas = [...new Set(celdas.map((c) => c.progresiva))].sort((a, b) => a - b)
-
-  const vistos = new Map<string, number>()
-  for (const celda of celdas) if (!vistos.has(celda.elementoClave)) vistos.set(celda.elementoClave, celda.offset)
-  const elementos = [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([clave]) => clave)
+  const esqueleto = armarEsqueletoTabla(calle, plantilla)
+  if (!esqueleto) return []
+  const { progresivas, elementos } = esqueleto
 
   const filas: string[][] = [['Progresiva', ...elementos]]
 

@@ -165,6 +165,24 @@ describe('armarTablaEspesores', () => {
     expect(tabla[0]).toEqual(['Progresiva', 'VER-I', 'SAR-I', 'BOR-I', 'EJE', 'BOR-D', 'SAR-D', 'VER-D'])
     expect(tabla).toHaveLength(11)
   })
+
+  // Un tramo que ya estaba a nivel exacto (las dos cotas iguales, no hizo
+  // falta material) tiene un espesor real de cero. Confundirlo con la celda
+  // sin pareja —que también podría leerse como '' si alguien simplifica la
+  // condición a un chequeo de verdad ("truthy")— haría desaparecer del
+  // reporte justo los tramos que ya estaban listos.
+  it('un espesor real de cero sale como 0.000, no vacío', () => {
+    const { calle, plantilla } = resultadoEjemplo()
+    const inferior = resultadoComparable([celda(0, 'EJE', 3244.600)])
+    const superior = resultadoComparable([celda(0, 'EJE', 3244.600)])
+    const comparacion = compararCapas(inferior, superior)
+
+    const tabla = armarTablaEspesores(comparacion, calle, plantilla)
+    const columnaEje = tabla[0]!.indexOf('EJE')
+
+    expect(comparacion.celdas.get('0|EJE')?.espesor).toBe(0)
+    expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('0.000')
+  })
 })
 
 describe('armarCabeceraComparacion', () => {
@@ -286,7 +304,7 @@ describe('armarCabeceraComparacion', () => {
     expect(filaEstado).toContain(capaSuperior.nombre)
   })
 
-  it('sin capa resuelta, muestra un guion en vez de romperse', () => {
+  it('sin capa resuelta, la fila de capa muestra un guion en vez de romperse', () => {
     const { calle, campania } = resultadoEjemplo()
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10' })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19' })
@@ -306,6 +324,35 @@ describe('armarCabeceraComparacion', () => {
     })
 
     expect(cabecera.map((fila) => fila.join(' ')).join('\n')).toContain('—')
+  })
+
+  // La combinación que de verdad puede romperse: una campaña sin capa
+  // resuelta que ADEMÁS no cierra. El mensaje de estado tiene que poder
+  // nombrarla igual, con el guion y la fecha, en vez de tropezar con la
+  // capa ausente al armar el motivo.
+  it('sin capa resuelta y con el cierre fallando, el estado nombra la campaña por su guion y fecha', () => {
+    const { calle, campania } = resultadoEjemplo()
+    const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10' })
+    const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19' })
+    const resultadoInferior = resultadoComparable([celda(0, 'EJE', 3244.600)], false)
+    const resultadoSuperior = resultadoComparable([celda(0, 'EJE', 3244.848)], true)
+    const comparacion = compararCapas(resultadoInferior, resultadoSuperior)
+
+    const cabecera = armarCabeceraComparacion({
+      calle,
+      capaInferior: undefined,
+      capaSuperior: undefined,
+      campaniaInferior,
+      campaniaSuperior,
+      resultadoInferior,
+      resultadoSuperior,
+      comparacion,
+    })
+
+    expect(cabecera.find((fila) => fila[0] === 'Capa de abajo')![1]).toBe('—')
+    const filaEstado = cabecera.find((fila) => fila[0] === 'Estado')!.join(' ')
+    expect(filaEstado).toContain('ESPESORES NO COMPROBADOS')
+    expect(filaEstado).toContain(`— · ${campaniaInferior.fecha}`)
   })
 })
 

@@ -67,18 +67,50 @@ function proyectoConComparacion(): Proyecto {
   return proyecto
 }
 
+/**
+ * Dos campañas con la MISMA estación —mismo BM de arranque, misma vista
+ * atrás, misma lectura intermedia, mismo cierre— así que su cota en 0+040
+ * EJE sale bit a bit idéntica y el espesor entre ellas da cero exacto: el
+ * caso real de un tramo que ya estaba a nivel, no una celda sin medir.
+ */
+function campaniaCero(id: string, fecha: string, capaId: string): Campania {
+  return {
+    id,
+    fecha,
+    calleId: 'c-1',
+    capaId,
+    bmInicialId: 'bm-1',
+    estado: 'cerrada',
+    cierre: CIERRE_CERRADO,
+    estaciones: [
+      {
+        id: `${id}-e1`,
+        vistaAtras: { id: `${id}-va`, destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+        intermedias: [
+          {
+            id: `${id}-int`,
+            destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'EJE' } },
+            valor: 2.68,
+          },
+        ],
+        vistaAdelante: { id: `${id}-vd`, destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+      },
+    ],
+  }
+}
+
 /** Comparación real, calculada con el mismo motor que usa la app. */
-function comparacionEsperada(proyecto: Proyecto) {
+function comparacionEsperada(proyecto: Proyecto, idInferior = 'camp-terreno', idSuperior = 'camp-1') {
   const calle = proyecto.calles[0]!
   const plantilla = proyecto.plantillas[0]!
   const inferior = calcularCampania({
-    campania: proyecto.campanias.find((c) => c.id === 'camp-terreno')!,
+    campania: proyecto.campanias.find((c) => c.id === idInferior)!,
     calle,
     plantilla,
     bms: proyecto.bms,
   })
   const superior = calcularCampania({
-    campania: proyecto.campanias.find((c) => c.id === 'camp-1')!,
+    campania: proyecto.campanias.find((c) => c.id === idSuperior)!,
     calle,
     plantilla,
     bms: proyecto.bms,
@@ -189,5 +221,26 @@ describe('TablaEspesores', () => {
 
     expect(useAlmacen.getState().seleccion.clave).toBe('0|EJE')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(0)
+  })
+
+  // Un tramo que ya estaba a nivel exacto tiene espesor real cero, y eso no
+  // es lo mismo que una celda que nadie comparó: si la pantalla los mezclara
+  // en el guion largo, el topógrafo pensaría que ahí falta una medición
+  // cuando en realidad ya se comprobó que no hacía falta material.
+  it('un espesor real de cero se ve en pantalla como 0.000, no como una celda sin comparar', () => {
+    const proyectoCero = proyectoEjemplo()
+    proyectoCero.campanias.push(campaniaCero('camp-cero-a', '2026-08-05', 'cap-terreno'))
+    proyectoCero.campanias.push(campaniaCero('camp-cero-b', '2026-08-06', 'cap-subrasante'))
+    useAlmacen.getState().cargarProyecto(proyectoCero)
+    useAlmacen.getState().fijarComparacion('camp-cero-a', 'camp-cero-b')
+
+    const comparacion = comparacionEsperada(proyectoCero, 'camp-cero-a', 'camp-cero-b')
+    expect(comparacion.celdas.get('40|EJE')?.espesor).toBe(0)
+
+    render(<TablaEspesores />)
+
+    const boton = screen.getByLabelText(/Espesor en 0\+040 EJE/)
+    expect(boton.textContent).toBe('0.000')
+    expect(boton.getAttribute('aria-label')).not.toContain('sin comparar')
   })
 })
