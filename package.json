@@ -3,10 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "test": "npm run test --workspaces --if-present",
     "dev": "npm run dev --workspace packages/app",
     "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }
