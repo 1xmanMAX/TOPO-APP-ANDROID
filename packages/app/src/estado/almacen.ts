@@ -318,15 +318,34 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
 
   actualizarCampania: (id, cambios) =>
     set((s) => {
-      const calleAnterior = calleDeCampania(s.proyecto, s.campaniaActivaId)
+      const calleActivaAnterior = calleDeCampania(s.proyecto, s.campaniaActivaId)
+      const calleEditadaAnterior = calleDeCampania(s.proyecto, id)
       const proyecto = marcarModificado({
         ...s.proyecto,
         campanias: s.proyecto.campanias.map((c) => (c.id === id ? { ...c, ...cambios } : c)),
       })
       // Solo cambiar la calle de la campaña activa mueve la calle activa: las
       // demás campañas pueden reasignarse sin afectar lo que se está viendo.
-      const calleNueva = id === s.campaniaActivaId ? calleDeCampania(proyecto, id) : calleAnterior
-      return { proyecto, ...seleccionDeCapasTrasCambio(calleAnterior, calleNueva, s) }
+      const calleActivaNueva = id === s.campaniaActivaId ? calleDeCampania(proyecto, id) : calleActivaAnterior
+      const { capasVisibles, comparacion } = seleccionDeCapasTrasCambio(calleActivaAnterior, calleActivaNueva, s)
+
+      // La campaña editada puede no ser la activa (el selector de calle de
+      // VistaCampanias:113 deja tocar cualquiera de la lista). Si de todos
+      // modos cambió de calle y seguía en la comparación o en capasVisibles,
+      // hay que sacarla de ahí: sus claves de celda (`progresiva|elemento`)
+      // coinciden con las de cualquier otra calle, así que dejarla sería
+      // comparar o dibujar cotas de sitios distintos como si fueran uno.
+      const calleEditadaNueva = calleDeCampania(proyecto, id)
+      if (calleEditadaAnterior !== calleEditadaNueva) {
+        return {
+          proyecto,
+          capasVisibles: capasVisibles.filter((campaniaId) => campaniaId !== id),
+          comparacion:
+            comparacion.inferior === id || comparacion.superior === id ? SIN_COMPARACION : comparacion,
+        }
+      }
+
+      return { proyecto, capasVisibles, comparacion }
     }),
 
   activarCampania: (id) =>
@@ -495,10 +514,22 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     })),
 
   fijarComparacion: (inferior, superior) =>
-    set({
+    set((s) => {
       // Una capa no se compara consigo misma: si ambos lados quedarían
       // apuntando a la misma campaña, la de arriba se limpia.
-      comparacion: { inferior, superior: superior !== null && superior === inferior ? null : superior },
+      const mismaCampania = superior !== null && superior === inferior
+
+      // Red de seguridad para si algún camino futuro llega hasta aquí con
+      // una pareja de calles distintas sin que actualizarCampania la haya
+      // limpiado antes: sus claves de celda coinciden entre calles, así que
+      // la resta daría un número sin ningún sentido físico.
+      const calleInferior = calleDeCampania(s.proyecto, inferior)
+      const calleSuperior = calleDeCampania(s.proyecto, superior)
+      const callesDistintas = calleInferior !== null && calleSuperior !== null && calleInferior !== calleSuperior
+
+      return {
+        comparacion: { inferior, superior: mismaCampania || callesDistintas ? null : superior },
+      }
     }),
 
   calcular: () => {

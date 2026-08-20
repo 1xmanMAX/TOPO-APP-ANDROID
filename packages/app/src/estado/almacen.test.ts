@@ -289,5 +289,112 @@ describe('almacén', () => {
       expect(useAlmacen.getState().capasVisibles).toEqual([])
       expect(useAlmacen.getState().comparacion).toEqual({ inferior: null, superior: null })
     })
+
+    // La calle se puede cambiar desde el selector de cualquier campaña de la
+    // lista (VistaCampanias), no solo de la activa. Si una comparación quedaba
+    // apuntando a una campaña que cambió de calle sin ser la activa, las
+    // claves de celda (`progresiva|elemento`) coinciden entre calles y la
+    // resta daba un número sin ningún sentido físico.
+    it('cambiar la calle de una campaña que no es la activa limpia la comparación si esa campaña estaba en ella', () => {
+      const otraId = useAlmacen.getState().agregarCampania({
+        fecha: '2026-08-20',
+        calleId: 'c-1',
+        capaId: 'cap-terreno',
+        bmInicialId: 'bm-1',
+        estado: 'abierta',
+        cierre: CIERRE_ABIERTO,
+      })
+      useAlmacen.getState().agregarCalle({
+        nombre: 'Jr. Otra',
+        plantillaId: 'pl-1',
+        progresivaInicio: 0,
+        progresivaFin: 40,
+        intervalo: 20,
+        progresivasExtra: [],
+      })
+      const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
+      // agregarCampania deja la nueva campaña como activa: se vuelve a
+      // camp-1 para que otraId sea justo la que no es la activa.
+      useAlmacen.getState().activarCampania('camp-1')
+
+      // camp-1 sigue siendo la activa; se compara contra otraId, ambas de c-1.
+      useAlmacen.getState().fijarComparacion('camp-1', otraId)
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: 'camp-1', superior: otraId })
+
+      // Se cambia la calle de otraId (que no es la activa) desde el selector
+      // de la lista de campañas.
+      useAlmacen.getState().actualizarCampania(otraId, { calleId: otraCalleId })
+
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: null, superior: null })
+    })
+
+    it('cambiar la calle de una campaña que no es la activa la saca de capasVisibles', () => {
+      const otraId = useAlmacen.getState().agregarCampania({
+        fecha: '2026-08-20',
+        calleId: 'c-1',
+        capaId: 'cap-terreno',
+        bmInicialId: 'bm-1',
+        estado: 'abierta',
+        cierre: CIERRE_ABIERTO,
+      })
+      useAlmacen.getState().agregarCalle({
+        nombre: 'Jr. Otra',
+        plantillaId: 'pl-1',
+        progresivaInicio: 0,
+        progresivaFin: 40,
+        intervalo: 20,
+        progresivasExtra: [],
+      })
+      const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
+      useAlmacen.getState().activarCampania('camp-1')
+
+      useAlmacen.getState().alternarCapaVisible('camp-1')
+      useAlmacen.getState().alternarCapaVisible(otraId)
+      expect(useAlmacen.getState().capasVisibles).toEqual(['camp-1', otraId])
+
+      useAlmacen.getState().actualizarCampania(otraId, { calleId: otraCalleId })
+
+      expect(useAlmacen.getState().capasVisibles).toEqual(['camp-1'])
+    })
+
+    it('cambiar otro campo de una campaña que no cambia su calle no toca comparación ni capasVisibles', () => {
+      const otraId = useAlmacen.getState().agregarCampania({
+        fecha: '2026-08-20',
+        calleId: 'c-1',
+        capaId: 'cap-terreno',
+        bmInicialId: 'bm-1',
+        estado: 'abierta',
+        cierre: CIERRE_ABIERTO,
+      })
+      useAlmacen.getState().fijarComparacion('camp-1', otraId)
+
+      useAlmacen.getState().actualizarCampania(otraId, { fecha: '2026-08-21' })
+
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: 'camp-1', superior: otraId })
+    })
+
+    it('fijarComparacion no deja en pie una pareja de campañas de calles distintas', () => {
+      useAlmacen.getState().agregarCalle({
+        nombre: 'Jr. Otra',
+        plantillaId: 'pl-1',
+        progresivaInicio: 0,
+        progresivaFin: 40,
+        intervalo: 20,
+        progresivasExtra: [],
+      })
+      const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
+      const campaniaOtraCalleId = useAlmacen.getState().agregarCampania({
+        fecha: '2026-08-20',
+        calleId: otraCalleId,
+        capaId: 'cap-terreno',
+        bmInicialId: 'bm-1',
+        estado: 'abierta',
+        cierre: CIERRE_ABIERTO,
+      })
+
+      useAlmacen.getState().fijarComparacion('camp-1', campaniaOtraCalleId)
+
+      expect(useAlmacen.getState().comparacion).toEqual({ inferior: 'camp-1', superior: null })
+    })
   })
 })
