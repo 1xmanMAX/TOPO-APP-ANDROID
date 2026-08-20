@@ -9,6 +9,10 @@ describe('BotonTema', () => {
     document.documentElement.classList.remove('dark')
   })
 
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('arranca siguiendo al sistema', () => {
     render(<BotonTema />)
     expect(screen.getByRole('button', { name: /tema/i })).toHaveTextContent('Sistema')
@@ -32,8 +36,9 @@ describe('BotonTema', () => {
     expect(localStorage.getItem('topo:tema')).toBe('claro')
   })
 
-  it('en modo Sistema sigue el cambio de tema del equipo con la app abierta', () => {
-    const oyentes: Array<() => void> = []
+  it('en modo Sistema sigue el cambio de tema del equipo, y deja de seguirlo al elegir uno', async () => {
+    const usuario = userEvent.setup()
+    let oyentes: Array<() => void> = []
     let oscuroDelSistema = false
 
     vi.stubGlobal('matchMedia', () => ({
@@ -41,18 +46,36 @@ describe('BotonTema', () => {
         return oscuroDelSistema
       },
       addEventListener: (_evento: string, oyente: () => void) => oyentes.push(oyente),
-      removeEventListener: () => {},
+      removeEventListener: (_evento: string, oyente: () => void) => {
+        oyentes = oyentes.filter((registrado) => registrado !== oyente)
+      },
     }))
 
     render(<BotonTema />)
-    expect(document.documentElement).not.toHaveClass('dark')
 
     oscuroDelSistema = true
     for (const avisar of oyentes) {
       act(() => avisar())
     }
-
     expect(document.documentElement).toHaveClass('dark')
-    vi.unstubAllGlobals()
+
+    // Al elegir un tema explícito, el equipo deja de mandar.
+    await usuario.click(screen.getByRole('button', { name: /tema/i })) // Sistema -> Oscuro
+    await usuario.click(screen.getByRole('button', { name: /tema/i })) // Oscuro -> Claro
+
+    expect(oyentes).toHaveLength(0)
+
+    oscuroDelSistema = true
+    for (const avisar of oyentes) {
+      act(() => avisar())
+    }
+    expect(document.documentElement).not.toHaveClass('dark')
+  })
+
+  it('ignora un valor guardado que no sea un tema conocido', () => {
+    localStorage.setItem('topo:tema', 'lo-que-sea')
+    render(<BotonTema />)
+
+    expect(screen.getByRole('button', { name: /tema/i })).toHaveTextContent('Sistema')
   })
 })

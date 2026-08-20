@@ -3,8 +3,15 @@ import { useEffect, useState } from 'react'
 type Tema = 'sistema' | 'oscuro' | 'claro'
 
 const CLAVE = 'topo:tema'
+const TEMAS: Tema[] = ['sistema', 'oscuro', 'claro']
 const SIGUIENTE: Record<Tema, Tema> = { sistema: 'oscuro', oscuro: 'claro', claro: 'sistema' }
 const TEXTO: Record<Tema, string> = { sistema: 'Sistema', oscuro: 'Oscuro', claro: 'Claro' }
+
+/** Lo guardado puede no ser un tema válido: una versión anterior, o basura. */
+function temaGuardado(): Tema {
+  const guardado = localStorage.getItem(CLAVE)
+  return TEMAS.includes(guardado as Tema) ? (guardado as Tema) : 'sistema'
+}
 
 function aplicar(tema: Tema): void {
   const oscuroDelSistema = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
@@ -13,7 +20,7 @@ function aplicar(tema: Tema): void {
 }
 
 export default function BotonTema() {
-  const [tema, setTema] = useState<Tema>(() => (localStorage.getItem(CLAVE) as Tema) ?? 'sistema')
+  const [tema, setTema] = useState<Tema>(temaGuardado)
 
   useEffect(() => {
     aplicar(tema)
