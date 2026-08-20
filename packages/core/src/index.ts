@@ -1,6 +1,7 @@
 export * from './numero'
 export * from './grilla/progresivas'
 export * from './modelo/tipos'
+export * from './modelo/capas'
 export * from './grilla/grilla'
 export * from './nivelacion/cotas'
 export * from './nivelacion/cierre'

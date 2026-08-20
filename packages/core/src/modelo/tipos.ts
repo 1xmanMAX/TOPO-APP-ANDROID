@@ -54,6 +54,13 @@ export interface Calle {
 export interface Capa {
   id: Id
   nombre: string
+  /**
+   * Posición en el paquete estructural, de abajo hacia arriba: 0 es el
+   * terreno existente, y el número crece capa por capa hasta la carpeta
+   * asfáltica. Consecutivo y sin huecos: se mantiene así con `ordenarCapas`
+   * y `renumerarCapas` (`./capas`), de las que depende el espesor real
+   * colocado entre una capa y la de abajo.
+   */
   orden: number
 }
 

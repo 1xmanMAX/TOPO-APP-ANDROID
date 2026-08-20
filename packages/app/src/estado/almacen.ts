@@ -1,10 +1,12 @@
 import {
   calcularCampania,
+  capaEnUso,
+  moverCapa,
   partirClaveCelda,
+  renumerarCapas,
   type BM,
   type Calle,
   type Campania,
-  type Capa,
   type DestinoLectura,
   type Id,
   type Plantilla,
@@ -41,6 +43,7 @@ interface EstadoApp {
 
   agregarCapa(nombre: string): void
   eliminarCapa(id: Id): void
+  moverCapa(capaId: Id, direccion: -1 | 1): void
 
   agregarPlantilla(nombre: string): Id
   actualizarPlantilla(id: Id, cambios: Partial<Omit<Plantilla, 'id'>>): void
@@ -146,18 +149,31 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     set((s) => ({
       proyecto: marcarModificado({
         ...s.proyecto,
-        capas: [
+        capas: renumerarCapas([
           ...s.proyecto.capas,
-          { id: nuevoId('cap'), nombre, orden: s.proyecto.capas.length } as Capa,
-        ],
+          { id: nuevoId('cap'), nombre, orden: s.proyecto.capas.length },
+        ]),
       }),
     })),
 
   eliminarCapa: (id) =>
+    set((s) => {
+      // Borrar una capa en uso dejaría campañas apuntando a algo inexistente,
+      // y al comparar capas produciría comparaciones fantasma.
+      if (capaEnUso(s.proyecto.campanias, id)) return {}
+      return {
+        proyecto: marcarModificado({
+          ...s.proyecto,
+          capas: renumerarCapas(s.proyecto.capas.filter((capa) => capa.id !== id)),
+        }),
+      }
+    }),
+
+  moverCapa: (capaId, direccion) =>
     set((s) => ({
       proyecto: marcarModificado({
         ...s.proyecto,
-        capas: s.proyecto.capas.filter((capa) => capa.id !== id),
+        capas: moverCapa(s.proyecto.capas, capaId, direccion),
       }),
     })),
 
