@@ -339,6 +339,18 @@ describe('formatearProgresiva', () => {
     expect(formatearProgresiva(1247.5)).toBe('1+247.50')
     expect(formatearProgresiva(47.25)).toBe('0+047.25')
   })
+
+  it('acarrea correctamente cuando la fracción redondea a un metro completo', () => {
+    expect(formatearProgresiva(999.995)).toBe('1+000')
+    expect(formatearProgresiva(0.995)).toBe('0+001')
+    expect(formatearProgresiva(47.996)).toBe('0+048')
+  })
+
+  it('sobrevive el viaje de ida y vuelta con parsearProgresiva', () => {
+    for (const valor of [0, 20, 180, 1000, 1247.5, 47.25, 2999.99]) {
+      expect(parsearProgresiva(formatearProgresiva(valor))).toBeCloseTo(valor, 6)
+    }
+  })
 })
 
 describe('parsearProgresiva', () => {
@@ -394,15 +406,17 @@ export function generarProgresivas(
 
 export function formatearProgresiva(metros: number): string {
   const negativa = metros < 0
-  const absoluto = Math.abs(metros)
-  const kilometro = Math.floor(absoluto / 1000)
-  const resto = absoluto - kilometro * 1000
-  const entero = Math.floor(resto)
-  const decimal = redondear3(resto - entero)
+  // Se redondea una sola vez, sobre el total en centésimas. Repartir después
+  // el resultado entero evita que el acarreo de la fracción se pierda.
+  const centesimas = Math.round(redondear3(Math.abs(metros)) * 100)
+  const kilometro = Math.floor(centesimas / 100000)
+  const restoCentesimas = centesimas - kilometro * 100000
+  const entero = Math.floor(restoCentesimas / 100)
+  const decimal = restoCentesimas - entero * 100
 
   const cuerpo =
     decimal > 0
-      ? `${String(entero).padStart(3, '0')}.${String(Math.round(decimal * 100)).padStart(2, '0')}`
+      ? `${String(entero).padStart(3, '0')}.${String(decimal).padStart(2, '0')}`
       : String(entero).padStart(3, '0')
 
   return `${negativa ? '-' : ''}${kilometro}+${cuerpo}`
@@ -943,6 +957,14 @@ describe('calcularCotas', () => {
       'La estación 2 arranca en PC-9, que no fue medido antes',
     )
   })
+
+  it('avisa si dos puntos de cambio se llaman igual', () => {
+    const campania = campaniaEjemplo()
+    campania.estaciones[1]!.vistaAdelante!.destino = { tipo: 'cambio', nombre: 'PC-1' }
+    expect(() => calcularCotas(campania, [BM_1])).toThrow(
+      'El punto de cambio PC-1 está repetido: dos estaciones distintas lo usan como punto de llegada. Renombra uno de los dos.',
+    )
+  })
 })
 ```
 
@@ -1037,7 +1059,17 @@ export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
         cotaCruda: cota,
       })
 
-      if (estacion.vistaAdelante.destino.tipo === 'cambio') cotasConocidas.set(clave, cota)
+      if (estacion.vistaAdelante.destino.tipo === 'cambio') {
+        // Dos puntos de cambio con el mismo nombre harían que la estación
+        // siguiente arrancara de la cota equivocada, en silencio.
+        if (cotasConocidas.has(clave)) {
+          throw new Error(
+            `El punto de cambio ${estacion.vistaAdelante.destino.nombre} está repetido: ` +
+              'dos estaciones distintas lo usan como punto de llegada. Renombra uno de los dos.',
+          )
+        }
+        cotasConocidas.set(clave, cota)
+      }
       if (estacion.vistaAdelante.destino.tipo === 'bm') cotaLlegada = cota
     }
   })
@@ -1146,7 +1178,7 @@ describe('calcularCierre', () => {
 
   it('acepta un error exactamente igual a la tolerancia', () => {
     const campania = campaniaEjemplo()
-    campania.estaciones[1]!.vistaAdelante!.valor = 1.9128
+    campania.estaciones[1]!.vistaAdelante!.valor = 1.9122
     const cotas = calcularCotas(campania, [BM_1])
     const cierre = calcularCierre(campania, [BM_1], cotas, 0.36)
 
@@ -1638,78 +1670,83 @@ export interface ResultadoCampania {
 
 export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
   const { campania, calle, plantilla, bms } = entrada
-  const grilla = construirGrilla(calle, plantilla)
-  const offsetPorClave = new Map(grilla.map((celda) => [celda.clave, celda.offset]))
 
-  const longitudKKm = campania.cierre.longitudKAuto
-    ? calcularLongitudKAuto(calle, campania.cierre.tipo)
-    : campania.cierre.longitudK
+  // Todo el cuerpo va dentro del try: construirGrilla rechaza intervalos y
+  // tramos inválidos, y calcularCierre rechaza una longitud K negativa. La
+  // interfaz nunca debe reventar por datos malos de un archivo o del teclado.
+  let grilla: CeldaGrilla[] = []
+  let longitudKKm = campania.cierre.longitudK
 
-  const cierreVacio: ResultadoCierre = {
-    tipo: campania.cierre.tipo,
-    cotaLlegadaCalculada: null,
-    cotaLlegadaConocida: null,
-    errorMm: null,
-    longitudKKm,
-    toleranciaMm: null,
-    pasa: null,
-  }
-
-  let cotas
   try {
-    cotas = calcularCotas(campania, bms)
+    grilla = construirGrilla(calle, plantilla)
+    const offsetPorClave = new Map(grilla.map((celda) => [celda.clave, celda.offset]))
+
+    longitudKKm = campania.cierre.longitudKAuto
+      ? calcularLongitudKAuto(calle, campania.cierre.tipo)
+      : campania.cierre.longitudK
+
+    const cotas = calcularCotas(campania, bms)
+    const cierre = calcularCierre(campania, bms, cotas, longitudKKm)
+
+    const acumuladas =
+      cierre.pasa === true && cierre.errorMm !== null
+        ? correccionesAcumuladas(cierre.errorMm, campania.estaciones.length)
+        : []
+    const compensados = compensarPuntos(cotas.puntos, acumuladas)
+
+    const avisos: Aviso[] = []
+    const cotasPorCelda = new Map<string, CotaCelda>()
+
+    for (const punto of compensados) {
+      if (punto.destino.tipo !== 'celda') continue
+
+      const existente = cotasPorCelda.get(punto.claveDestino)
+      const lecturas = existente ? [...existente.lecturas, punto.lectura] : [punto.lectura]
+
+      cotasPorCelda.set(punto.claveDestino, {
+        clave: punto.claveDestino,
+        progresiva: punto.destino.celda.progresiva,
+        elementoClave: punto.destino.celda.elementoClave,
+        offset: offsetPorClave.get(punto.claveDestino) ?? 0,
+        cota: punto.cota,
+        cotaCruda: punto.cotaCruda,
+        correccion: punto.correccion,
+        lecturas,
+      })
+    }
+
+    agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos)
+    agregarAvisosDeApartamiento(cotasPorCelda, avisos)
+    agregarAvisosDeCierre(cierre, campania, bms, avisos)
+
+    return {
+      cotasPorCelda,
+      cotasInstrumento: cotas.cotasInstrumento,
+      cierre,
+      avisos,
+      celdasTotales: grilla.length,
+      celdasLlenas: cotasPorCelda.size,
+      error: null,
+    }
   } catch (fallo) {
+    const mensaje = (fallo as Error).message
     return {
       cotasPorCelda: new Map(),
       cotasInstrumento: [],
-      cierre: cierreVacio,
-      avisos: [{ nivel: 'error', clave: null, mensaje: (fallo as Error).message }],
+      cierre: {
+        tipo: campania.cierre.tipo,
+        cotaLlegadaCalculada: null,
+        cotaLlegadaConocida: null,
+        errorMm: null,
+        longitudKKm,
+        toleranciaMm: null,
+        pasa: null,
+      },
+      avisos: [{ nivel: 'error', clave: null, mensaje }],
       celdasTotales: grilla.length,
       celdasLlenas: 0,
-      error: (fallo as Error).message,
+      error: mensaje,
     }
-  }
-
-  const cierre = calcularCierre(campania, bms, cotas, longitudKKm)
-  const acumuladas =
-    cierre.pasa === true && cierre.errorMm !== null
-      ? correccionesAcumuladas(cierre.errorMm, campania.estaciones.length)
-      : []
-  const compensados = compensarPuntos(cotas.puntos, acumuladas)
-
-  const avisos: Aviso[] = []
-  const cotasPorCelda = new Map<string, CotaCelda>()
-
-  for (const punto of compensados) {
-    if (punto.destino.tipo !== 'celda') continue
-
-    const existente = cotasPorCelda.get(punto.claveDestino)
-    const lecturas = existente ? [...existente.lecturas, punto.lectura] : [punto.lectura]
-
-    cotasPorCelda.set(punto.claveDestino, {
-      clave: punto.claveDestino,
-      progresiva: punto.destino.celda.progresiva,
-      elementoClave: punto.destino.celda.elementoClave,
-      offset: offsetPorClave.get(punto.claveDestino) ?? 0,
-      cota: punto.cota,
-      cotaCruda: punto.cotaCruda,
-      correccion: punto.correccion,
-      lecturas,
-    })
-  }
-
-  agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos)
-  agregarAvisosDeApartamiento(cotasPorCelda, avisos)
-  agregarAvisosDeCierre(cierre, avisos)
-
-  return {
-    cotasPorCelda,
-    cotasInstrumento: cotas.cotasInstrumento,
-    cierre,
-    avisos,
-    celdasTotales: grilla.length,
-    celdasLlenas: cotasPorCelda.size,
-    error: null,
   }
 }
 
@@ -1718,18 +1755,20 @@ function agregarAvisosDeRepeticion(
   compensados: { claveDestino: string; cota: number; destino: { tipo: string } }[],
   avisos: Aviso[],
 ): void {
-  const cotasCrudasPorClave = new Map<string, number[]>()
+  // Guarda las cotas FINALES (compensadas), no las crudas: la diferencia que
+  // le importa al topógrafo es entre los dos resultados, no entre las lecturas.
+  const cotasFinalesPorClave = new Map<string, number[]>()
   for (const punto of compensados) {
     if (punto.destino.tipo !== 'celda') continue
-    const lista = cotasCrudasPorClave.get(punto.claveDestino) ?? []
+    const lista = cotasFinalesPorClave.get(punto.claveDestino) ?? []
     lista.push(punto.cota)
-    cotasCrudasPorClave.set(punto.claveDestino, lista)
+    cotasFinalesPorClave.set(punto.claveDestino, lista)
   }
 
   for (const [clave, celda] of cotasPorCelda) {
     if (celda.lecturas.length < 2) continue
 
-    const valores = cotasCrudasPorClave.get(clave) ?? []
+    const valores = cotasFinalesPorClave.get(clave) ?? []
     const diferenciaMm = Math.abs(aMilimetros(Math.max(...valores) - Math.min(...valores)))
     const nivel = diferenciaMm > TOLERANCIA_REPETICION_MM ? 'advertencia' : 'informacion'
 
@@ -1778,7 +1817,26 @@ function agregarAvisosDeApartamiento(
   }
 }
 
-function agregarAvisosDeCierre(cierre: ResultadoCierre, avisos: Aviso[]): void {
+function agregarAvisosDeCierre(
+  cierre: ResultadoCierre,
+  campania: Campania,
+  bms: BM[],
+  avisos: Aviso[],
+): void {
+  // Un BM de cierre borrado deja el circuito sin veredicto. Sin este aviso, la
+  // barra de cierre quedaría en blanco sin explicar por qué. Ojo: la libreta
+  // que todavía no cerró es estado normal de trabajo y NO genera aviso.
+  const bmFinalId = campania.cierre.bmFinalId
+  if (cierre.tipo !== 'abierto' && bmFinalId && !bms.some((bm) => bm.id === bmFinalId)) {
+    avisos.push({
+      nivel: 'advertencia',
+      clave: null,
+      mensaje:
+        'El banco de nivel de cierre de esta campaña ya no existe en el proyecto. ' +
+        'Elige otro para poder verificar el circuito.',
+    })
+  }
+
   if (cierre.tipo === 'abierto') {
     avisos.push({
       nivel: 'advertencia',
@@ -4923,7 +4981,7 @@ describe('extension', () => {
 
 describe('marcas', () => {
   it('genera valores redondos dentro del dominio', () => {
-    expect(marcas([0, 10], 5)).toEqual([0, 2.5, 5, 7.5, 10])
+    expect(marcas([0, 10], 5)).toEqual([0, 2, 4, 6, 8, 10])
   })
 
   it('usa pasos legibles con cotas', () => {
@@ -6427,3 +6485,23 @@ git commit -m "Cierre de la Entrega 1: verificación completa y guía de uso"
 
 Del spec, sin empezar: varias campañas por capa sobre la misma calle, selector de capas, espesor real colocado, cota teórica de proyecto, semáforo de tolerancia, y cortes con capas superpuestas y rellenas. El modelo de datos ya las contempla — `Campania` lleva `capaId` desde la Tarea 3 — así que la Entrega 2 agrega vistas, no reestructura datos.
 
+
+---
+
+## Correcciones aplicadas durante la ejecución
+
+El código de las tareas 1 a 7 quedó actualizado en este mismo documento. De la Tarea 10 en adelante, las correcciones se ordenaron durante la revisión y viven en el código; se registran aquí para que el plan no contradiga lo construido.
+
+| Tarea | Qué traía el plan | Qué se construyó, y por qué |
+|---|---|---|
+| **2** | `formatearProgresiva` repartía kilómetro y metros antes de redondear la fracción | Redondea una sola vez en centésimas y reparte después. El original perdía el acarreo: `999.995` salía como `0+999.100`, y al releerlo daba `999.1` — 90 cm de error silencioso |
+| **4** | `calcularCotas` registraba el punto de cambio sin comprobar repetidos | Lanza un error legible si dos puntos de cambio comparten nombre. Antes, la estación siguiente arrancaba de la cota equivocada sin ningún aviso |
+| **5** | La prueba de cierre exactamente igual a la tolerancia usaba `1.9128` | Usa `1.9122`. Con cota instrumento 3247.085 y BM 3245.180 el error es `(1.905 − X)·1000` mm, así que −7.2 mm exige 1.9122. El implementador detectó la discrepancia y se detuvo en vez de ajustar la prueba |
+| **7** | El `try/catch` envolvía solo `calcularCotas` | Envuelve todo el cuerpo. `construirGrilla` lanza con intervalo no positivo o tramo invertido (alcanzable al abrir un `.topo`), y `calcularCierre` lanza con una longitud K negativa escrita a mano. Se añadió además aviso cuando el BM de cierre ya no existe en el proyecto |
+| **10** | Botones de eliminar que borraban al primer clic | Confirmación en dos pasos: el primer clic arma el botón, el segundo borra, y el botón armado avisa si hay campañas que usan ese banco de nivel o esa capa |
+| **11** | `EditorPlantilla` identificaba cada elemento por su `clave`, editable por el usuario | Identifica por el índice del array original. Con la clave se perdía el foco en cada tecla, y con claves repetidas editar una fila modificaba las dos. El índice de la lista ordenada tampoco sirve: cambiar una distancia reordena las filas en vivo |
+| **12** | `construirGrilla` se llamaba fuera del `try/catch`, y la progresiva extra se guardaba sin validar | Se protege el cálculo completo y se muestra el motivo cuando no hay grilla. La progresiva extra avisa en tres casos: texto que no se entiende, fuera del tramo, o ya presente. El campo de intervalo restaura al salir el valor guardado, para que nunca muestre algo distinto de lo que se está usando |
+
+### Riesgo abierto para la verificación manual (Tarea 21)
+
+En el editor de plantilla, cambiar la distancia de un elemento lo reordena en pantalla. La prueba confirma que el foco se mantiene **en jsdom**, pero jsdom no reproduce fielmente qué ocurre cuando un nodo enfocado se mueve de posición en el DOM real: algunos navegadores disparan pérdida de foco. Hay que comprobarlo en un navegador de verdad. Si el foco salta, la corrección es reordenar al salir del campo en vez de en vivo.

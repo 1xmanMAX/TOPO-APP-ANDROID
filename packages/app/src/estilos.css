@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-marca: oklch(0.55 0.16 250);
+  --color-pasa: oklch(0.65 0.17 145);
+  --color-falla: oklch(0.6 0.21 25);
+  --color-aviso: oklch(0.75 0.15 80);
+}
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+}
+
+/* Números de cota y lectura: siempre tabulares, para que las columnas cuadren. */
+.numerico {
+  font-variant-numeric: tabular-nums;
+  @apply font-mono;
+}
