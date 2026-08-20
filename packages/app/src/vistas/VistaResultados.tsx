@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { armarTabla, copiarAlPortapapeles, descargarCsv, descargarXlsx } from '../archivo/exportar'
 import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import PerfilLongitudinal from '../componentes/PerfilLongitudinal'
@@ -14,6 +15,13 @@ export default function VistaResultados() {
   const [elementoPedido, setElementoPedido] = useState('EJE')
 
   const progresivas = useProgresivas()
+
+  const tabla = useMemo(
+    () => (resultado && contexto ? armarTabla(resultado, contexto.calle, contexto.plantilla) : []),
+    [resultado, contexto],
+  )
+  const [copiado, setCopiado] = useState(false)
+  const nombreArchivo = `${contexto?.calle.nombre ?? 'cotas'} — ${contexto?.capa?.nombre ?? ''}`.trim()
 
   if (!contexto || !resultado) {
     return <p className="p-6 text-sm text-slate-500">No hay una campaña abierta.</p>
@@ -32,6 +40,34 @@ export default function VistaResultados() {
     <div className="flex flex-col gap-6 p-4">
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Cotas compensadas</h2>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void descargarXlsx(tabla, nombreArchivo)}
+            className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
+          >
+            Exportar a Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => descargarCsv(tabla, nombreArchivo)}
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+          >
+            Exportar a CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void copiarAlPortapapeles(tabla).then(() => {
+                setCopiado(true)
+                window.setTimeout(() => setCopiado(false), 2000)
+              })
+            }}
+            className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+          >
+            {copiado ? 'Copiado ✓' : 'Copiar tabla'}
+          </button>
+        </div>
         <TablaResultados />
       </section>
 
