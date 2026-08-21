@@ -37,6 +37,43 @@ export interface Plantilla {
   elementos: ElementoPlantilla[]
 }
 
+// ---------- Rasante de proyecto ----------
+
+export type TipoTramo = 'pendiente' | 'salto'
+
+/**
+ * Un tramo de la sección transversal, leído desde el eje hacia afuera.
+ *
+ * Convención de signos, y es la que hay que tener clara: un valor **positivo
+ * baja** al alejarse del eje, uno **negativo sube**. Así el bombeo de la
+ * calzada es `+2.0` y la vereda, que cae hacia la calzada, es `-1.5`.
+ *
+ * Un tramo de tipo `salto` aplica su desnivel **entero al alcanzar
+ * `hastaOffset`**, no repartido: es la cara vertical del sardinel, que en la
+ * plantilla ocupa los pocos centímetros que van del borde de calzada al
+ * sardinel.
+ */
+export interface TramoTransversal {
+  nombre: string
+  /** Distancia desde el eje, en metros, donde termina este tramo. Siempre positiva. */
+  hastaOffset: number
+  tipo: TipoTramo
+  /** Porcentaje si es `pendiente`; metros si es `salto`. */
+  valor: number
+}
+
+export interface Rasante {
+  progresivaArranque: number
+  cotaArranque: number
+  /** Porcentaje. Negativo = la calle baja al avanzar de progresiva. */
+  pendienteLongitudinal: number
+  /** Del eje hacia afuera. Vale para el lado derecho, y para el izquierdo si `simetrica`. */
+  tramos: TramoTransversal[]
+  simetrica: boolean
+  /** Solo se usa cuando `simetrica` es false. */
+  tramosIzquierda: TramoTransversal[] | null
+}
+
 // ---------- Calle ----------
 
 export interface Calle {
@@ -47,6 +84,8 @@ export interface Calle {
   progresivaFin: number
   intervalo: number
   progresivasExtra: number[]
+  /** Null mientras la calle no tenga proyecto cargado: la app funciona igual, sin cota teórica. */
+  rasante: Rasante | null
 }
 
 // ---------- Capa ----------
@@ -62,6 +101,10 @@ export interface Capa {
    * colocado entre una capa y la de abajo.
    */
   orden: number
+  /** Metros de material que aporta esta capa. Cero mientras no se defina. */
+  espesor: number
+  /** Milímetros admitidos por encima y por debajo de la cota teórica. */
+  toleranciaMm: number
 }
 
 // ---------- Destinos de lectura ----------

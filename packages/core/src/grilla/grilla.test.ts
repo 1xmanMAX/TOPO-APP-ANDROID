@@ -20,6 +20,7 @@ const calle: Calle = {
   progresivaFin: 40,
   intervalo: 20,
   progresivasExtra: [],
+  rasante: null,
 }
 
 describe('claveCelda', () => {

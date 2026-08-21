@@ -199,7 +199,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         ...s.proyecto,
         capas: renumerarCapas([
           ...s.proyecto.capas,
-          { id: nuevoId('cap'), nombre, orden: s.proyecto.capas.length },
+          { id: nuevoId('cap'), nombre, orden: s.proyecto.capas.length, espesor: 0, toleranciaMm: 20 },
         ]),
       }),
     })),

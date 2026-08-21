@@ -188,8 +188,8 @@ describe('armarTablaEspesores', () => {
 describe('armarCabeceraComparacion', () => {
   it('identifica las dos capas comparadas, con sus fechas, y lleva el resumen de espesores', () => {
     const { calle, campania } = resultadoEjemplo()
-    const capaInferior = { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0 }
-    const capaSuperior = { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1 }
+    const capaInferior = { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0, espesor: 0, toleranciaMm: 20 }
+    const capaSuperior = { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1, espesor: 0.25, toleranciaMm: 20 }
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10', capaId: capaInferior.id })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19', capaId: capaSuperior.id })
 
@@ -222,8 +222,8 @@ describe('armarCabeceraComparacion', () => {
 
   it('si la capa de abajo no cierra, el estado dice ESPESORES NO COMPROBADOS y señala la capa de abajo', () => {
     const { calle, campania } = resultadoEjemplo()
-    const capaInferior = { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0 }
-    const capaSuperior = { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1 }
+    const capaInferior = { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0, espesor: 0, toleranciaMm: 20 }
+    const capaSuperior = { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1, espesor: 0.25, toleranciaMm: 20 }
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10', capaId: capaInferior.id })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19', capaId: capaSuperior.id })
 
@@ -250,8 +250,8 @@ describe('armarCabeceraComparacion', () => {
 
   it('si la capa de arriba no cierra, el estado dice ESPESORES NO COMPROBADOS y señala la capa de arriba', () => {
     const { calle, campania } = resultadoEjemplo()
-    const capaInferior = { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0 }
-    const capaSuperior = { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1 }
+    const capaInferior = { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0, espesor: 0, toleranciaMm: 20 }
+    const capaSuperior = { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1, espesor: 0.25, toleranciaMm: 20 }
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10', capaId: capaInferior.id })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19', capaId: capaSuperior.id })
 
@@ -278,8 +278,8 @@ describe('armarCabeceraComparacion', () => {
 
   it('si ninguna de las dos campañas cierra, el estado señala a las dos', () => {
     const { calle, campania } = resultadoEjemplo()
-    const capaInferior = { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0 }
-    const capaSuperior = { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1 }
+    const capaInferior = { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0, espesor: 0, toleranciaMm: 20 }
+    const capaSuperior = { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1, espesor: 0.25, toleranciaMm: 20 }
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10', capaId: capaInferior.id })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19', capaId: capaSuperior.id })
 

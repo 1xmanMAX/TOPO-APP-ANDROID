@@ -3,9 +3,9 @@ import type { Capa } from './tipos'
 import { moverCapa, ordenarCapas, renumerarCapas } from './capas'
 
 const capas: Capa[] = [
-  { id: 'b', nombre: 'BASE', orden: 2 },
-  { id: 't', nombre: 'TERRENO', orden: 0 },
-  { id: 's', nombre: 'SUBRASANTE', orden: 1 },
+  { id: 'b', nombre: 'BASE', orden: 2, espesor: 0.2, toleranciaMm: 10 },
+  { id: 't', nombre: 'TERRENO', orden: 0, espesor: 0, toleranciaMm: 20 },
+  { id: 's', nombre: 'SUBRASANTE', orden: 1, espesor: 0.25, toleranciaMm: 20 },
 ]
 
 describe('ordenarCapas', () => {
@@ -21,18 +21,27 @@ describe('ordenarCapas', () => {
 
   it('deja las de igual orden en el orden en que venían', () => {
     const empatadas: Capa[] = [
-      { id: 'x', nombre: 'X', orden: 1 },
-      { id: 'y', nombre: 'Y', orden: 1 },
+      { id: 'x', nombre: 'X', orden: 1, espesor: 0.1, toleranciaMm: 10 },
+      { id: 'y', nombre: 'Y', orden: 1, espesor: 0.1, toleranciaMm: 10 },
     ]
     expect(ordenarCapas(empatadas).map((c) => c.id)).toEqual(['x', 'y'])
+  })
+
+  it('una capa con espesor y tolerancia se ordena igual que antes', () => {
+    const capas: Capa[] = [
+      { id: 'c2', nombre: 'BASE', orden: 1, espesor: 0.2, toleranciaMm: 10 },
+      { id: 'c1', nombre: 'SUBRASANTE', orden: 0, espesor: 0.25, toleranciaMm: 20 },
+    ]
+
+    expect(ordenarCapas(capas).map((capa) => capa.nombre)).toEqual(['SUBRASANTE', 'BASE'])
   })
 })
 
 describe('renumerarCapas', () => {
   it('cierra los huecos que deja un borrado', () => {
     const conHuecos: Capa[] = [
-      { id: 't', nombre: 'TERRENO', orden: 0 },
-      { id: 'b', nombre: 'BASE', orden: 7 },
+      { id: 't', nombre: 'TERRENO', orden: 0, espesor: 0, toleranciaMm: 20 },
+      { id: 'b', nombre: 'BASE', orden: 7, espesor: 0.2, toleranciaMm: 10 },
     ]
     expect(renumerarCapas(conHuecos).map((c) => c.orden)).toEqual([0, 1])
   })

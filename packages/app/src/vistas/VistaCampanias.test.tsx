@@ -71,6 +71,7 @@ describe('VistaCampanias', () => {
       progresivaFin: 240,
       intervalo: 20,
       progresivasExtra: [],
+      rasante: null,
     })
     render(<VistaCampanias />)
 
@@ -93,6 +94,7 @@ describe('VistaCampanias', () => {
       progresivaFin: 240,
       intervalo: 20,
       progresivasExtra: [],
+      rasante: null,
     })
     useAlmacen.getState().agregarCampania({
       fecha: '2026-08-19',

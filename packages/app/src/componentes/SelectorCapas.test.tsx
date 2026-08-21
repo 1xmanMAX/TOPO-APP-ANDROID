@@ -41,6 +41,7 @@ function proyectoConDosCalles(): Proyecto {
     progresivaFin: 40,
     intervalo: 20,
     progresivasExtra: [],
+    rasante: null,
   })
   proyecto.campanias.push({
     id: 'camp-otra-calle',

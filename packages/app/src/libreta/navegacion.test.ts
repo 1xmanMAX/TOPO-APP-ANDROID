@@ -19,6 +19,7 @@ const calle = {
   progresivaFin: 40,
   intervalo: 20,
   progresivasExtra: [],
+  rasante: null,
 }
 
 const grilla = construirGrilla(calle, plantilla)
