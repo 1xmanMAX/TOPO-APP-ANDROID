@@ -49,6 +49,19 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
     )
   }
 
+  return migrarProyecto(proyecto)
+}
+
+/**
+ * Todo lo que un proyecto de una versión anterior necesita para quedar
+ * usable hoy. Hay dos caminos por los que un proyecto viejo puede volver a
+ * la app —abrir un archivo `.topo` y recuperar el autoguardado del
+ * navegador—, y los dos tienen que pasar por aquí: si cada uno migrara por
+ * su cuenta, bastaría con que uno de los dos se quedara atrás para que un
+ * proyecto recuperado entrara con campos a medias (por ejemplo `espesor`
+ * indefinido) y las cuentas que dependen de ellos se rompieran en silencio.
+ */
+export function migrarProyecto(proyecto: Proyecto): Proyecto {
   return migrarCamposDe2B(migrarCapasSinOrden(proyecto))
 }
 
@@ -82,8 +95,8 @@ const TOLERANCIA_POR_DEFECTO_MM = 20
  *
  * El espesor arranca en cero **a propósito**: inventar uno sería peor que no
  * tenerlo, porque la cota teórica de todas las capas de debajo saldría movida
- * sin que nadie lo hubiera decidido. La pantalla de Proyecto avisa de las capas
- * que están así.
+ * sin que nadie lo hubiera decidido. La pantalla de Proyecto avisa de las
+ * capas que están así (`VistaProyecto`, aviso bajo la lista de capas).
  */
 function migrarCamposDe2B(proyecto: Proyecto): Proyecto {
   return {
