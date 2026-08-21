@@ -83,4 +83,41 @@ describe('archivo .topo', () => {
 
     expect(recuperado.capas).toEqual(original.capas)
   })
+
+  // `espesor`, `toleranciaMm` (en la capa) y `rasante` (en la calle) son
+  // nuevos en la Entrega 2B: un .topo guardado antes trae las capas y calles
+  // sin ellos, y desempaquetarProyecto tiene que dejarlos usables.
+  it('un proyecto guardado antes de la 2B sale con espesor cero y tolerancia por defecto', () => {
+    const original = proyectoEjemplo()
+    const viejo = {
+      ...original,
+      capas: original.capas.map(({ espesor: _e, toleranciaMm: _t, ...resto }) => resto),
+    } as never
+
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(viejo))
+
+    expect(recuperado.capas.every((capa) => capa.espesor === 0)).toBe(true)
+    expect(recuperado.capas.every((capa) => capa.toleranciaMm > 0)).toBe(true)
+  })
+
+  it('un proyecto guardado antes de la 2B sale con las calles sin rasante', () => {
+    const original = proyectoEjemplo()
+    const viejo = {
+      ...original,
+      calles: original.calles.map(({ rasante: _r, ...resto }) => resto),
+    } as never
+
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(viejo))
+
+    expect(recuperado.calles.every((calle) => calle.rasante === null)).toBe(true)
+  })
+
+  it('un proyecto que ya trae espesores no se toca', () => {
+    const original = proyectoEjemplo()
+    original.capas[1]!.espesor = 0.25
+
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(original))
+
+    expect(recuperado.capas[1]!.espesor).toBe(0.25)
+  })
 })

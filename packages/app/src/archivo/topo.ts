@@ -49,7 +49,7 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
     )
   }
 
-  return migrarCapasSinOrden(proyecto)
+  return migrarCamposDe2B(migrarCapasSinOrden(proyecto))
 }
 
 /**
@@ -70,6 +70,34 @@ function migrarCapasSinOrden(proyecto: Proyecto): Proyecto {
   return {
     ...proyecto,
     capas: proyecto.capas.map((capa, indice) => ({ ...capa, orden: indice })),
+  }
+}
+
+/** Tolerancia de partida para una capa que viene de un archivo anterior a la 2B. */
+const TOLERANCIA_POR_DEFECTO_MM = 20
+
+/**
+ * `espesor` y `toleranciaMm` son nuevos en la Entrega 2B, y `rasante` en la
+ * calle también. Un archivo anterior no los trae.
+ *
+ * El espesor arranca en cero **a propósito**: inventar uno sería peor que no
+ * tenerlo, porque la cota teórica de todas las capas de debajo saldría movida
+ * sin que nadie lo hubiera decidido. La pantalla de Proyecto avisa de las capas
+ * que están así.
+ */
+function migrarCamposDe2B(proyecto: Proyecto): Proyecto {
+  return {
+    ...proyecto,
+    capas: proyecto.capas.map((capa) => ({
+      ...capa,
+      espesor: typeof capa.espesor === 'number' ? capa.espesor : 0,
+      toleranciaMm:
+        typeof capa.toleranciaMm === 'number' ? capa.toleranciaMm : TOLERANCIA_POR_DEFECTO_MM,
+    })),
+    calles: proyecto.calles.map((calle) => ({
+      ...calle,
+      rasante: calle.rasante ?? null,
+    })),
   }
 }
 
