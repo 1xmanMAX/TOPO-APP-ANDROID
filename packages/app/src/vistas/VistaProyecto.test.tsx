@@ -120,6 +120,18 @@ describe('VistaProyecto', () => {
   })
 
   it('avisa de las capas que todavía no tienen espesor, diciendo cuáles', () => {
+    // Escenario propio, no el del ejemplo: lo que importa aquí es que una
+    // capa de orden > 0 con espesor cero dispare el aviso y quede nombrada
+    // en él, no qué capa en concreto trae el proyecto de demostración.
+    const proyecto = useAlmacen.getState().proyecto
+    useAlmacen.getState().cargarProyecto({
+      ...proyecto,
+      capas: [
+        { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0, espesor: 0, toleranciaMm: 20 },
+        { id: 'cap-base', nombre: 'BASE SIN ESPESOR', orden: 1, espesor: 0, toleranciaMm: 20 },
+      ],
+    })
+
     render(<VistaProyecto />)
 
     // El nombre de la capa aparece dos veces en la pantalla —en la lista de
@@ -127,7 +139,7 @@ describe('VistaProyecto', () => {
     // nombra, no que el nombre exista en algún sitio de la página.
     const aviso = screen.getByText(/sin espesor definido/i)
     expect(aviso).toBeInTheDocument()
-    expect(aviso).toHaveTextContent('SUBRASANTE')
+    expect(aviso).toHaveTextContent('BASE SIN ESPESOR')
   })
 
   it('cuando todas las capas tienen espesor, no queda ningún aviso', () => {

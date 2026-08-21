@@ -80,7 +80,7 @@ export function proyectoEjemplo(): Proyecto {
     ],
     capas: [
       { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0, espesor: 0, toleranciaMm: 20 },
-      { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1, espesor: 0, toleranciaMm: 20 },
+      { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1, espesor: 0.25, toleranciaMm: 20 },
     ],
     campanias: [
       {
