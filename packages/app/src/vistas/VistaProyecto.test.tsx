@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
@@ -43,7 +43,7 @@ describe('VistaProyecto', () => {
 
   it('lista las capas del proyecto', () => {
     render(<VistaProyecto />)
-    expect(screen.getByText('SUBRASANTE')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('SUBRASANTE')).toBeInTheDocument()
   })
 
   it('pide confirmación antes de eliminar un banco de nivel', async () => {
@@ -94,17 +94,50 @@ describe('VistaProyecto', () => {
     const usuario = userEvent.setup()
     render(<VistaProyecto />)
 
+    // El nombre ahora vive en un campo editable, no en texto plano: se lee
+    // por su valor, no por el contenido de texto de la fila.
+    const nombreDe = (fila: HTMLElement) => within(fila).getByLabelText('Nombre') as HTMLInputElement
+
     // Orden inicial: TERRENO EXISTENTE, SUBRASANTE.
-    let nombres = screen.getAllByRole('listitem').map((li) => li.textContent)
-    expect(nombres[0]).toMatch(/TERRENO EXISTENTE/)
-    expect(nombres[1]).toMatch(/SUBRASANTE/)
+    let filas = screen.getAllByRole('listitem')
+    expect(nombreDe(filas[0]!).value).toBe('TERRENO EXISTENTE')
+    expect(nombreDe(filas[1]!).value).toBe('SUBRASANTE')
 
     await usuario.click(screen.getByRole('button', { name: 'Subir la capa SUBRASANTE' }))
 
-    nombres = screen.getAllByRole('listitem').map((li) => li.textContent)
-    expect(nombres[0]).toMatch(/SUBRASANTE/)
-    expect(nombres[1]).toMatch(/TERRENO EXISTENTE/)
+    filas = screen.getAllByRole('listitem')
+    expect(nombreDe(filas[0]!).value).toBe('SUBRASANTE')
+    expect(nombreDe(filas[1]!).value).toBe('TERRENO EXISTENTE')
     expect(useAlmacen.getState().proyecto.capas.map((c) => c.orden)).toEqual([0, 1])
+  })
+
+  it('se puede renombrar una capa y el nombre queda guardado', async () => {
+    render(<VistaProyecto />)
+
+    const nombre = screen.getByDisplayValue('SUBRASANTE')
+    await userEvent.clear(nombre)
+    await userEvent.type(nombre, 'BASE GRANULAR')
+
+    const capa = useAlmacen.getState().proyecto.capas.find((c) => c.id === 'cap-subrasante')
+    expect(capa!.nombre).toBe('BASE GRANULAR')
+  })
+
+  it('tras crear dos capas y renombrar una, los campos de espesor de ambas se distinguen por su nombre', async () => {
+    render(<VistaProyecto />)
+
+    await userEvent.click(screen.getByRole('button', { name: /agregar capa/i }))
+    await userEvent.click(screen.getByRole('button', { name: /agregar capa/i }))
+
+    // Las dos nacen con el mismo nombre literal: antes de renombrar, sus
+    // campos de espesor comparten nombre accesible y no se pueden distinguir.
+    const nombres = screen.getAllByDisplayValue('CAPA NUEVA')
+    expect(nombres).toHaveLength(2)
+
+    await userEvent.clear(nombres[1]!)
+    await userEvent.type(nombres[1]!, 'BASE')
+
+    expect(screen.getByLabelText('Espesor de CAPA NUEVA')).toBeInTheDocument()
+    expect(screen.getByLabelText('Espesor de BASE')).toBeInTheDocument()
   })
 
   it('se puede escribir el espesor de una capa y queda guardado', async () => {

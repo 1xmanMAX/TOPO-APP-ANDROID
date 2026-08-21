@@ -144,8 +144,13 @@ export default function VistaProyecto() {
               key={capa.id}
               className="flex flex-wrap items-end gap-3 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-700"
             >
+              <CampoTexto
+                etiqueta="Nombre"
+                valor={capa.nombre}
+                alCambiar={(v) => actualizarCapa(capa.id, { nombre: v })}
+                ancho="w-40"
+              />
               <div className="flex items-center gap-2">
-                <span>{capa.nombre}</span>
                 <button
                   type="button"
                   aria-label={`Subir la capa ${capa.nombre}`}
