@@ -1,8 +1,9 @@
+import type { Rasante } from '@topo/core'
 import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from './almacen'
 import { proyectoEjemplo } from './ejemplo'
-import { useResultadoDe, useResultadosDe } from './derivados'
+import { useEvaluacionRasante, useResultadoDe, useResultadosDe } from './derivados'
 
 describe('useResultadoDe', () => {
   beforeEach(() => {
@@ -61,5 +62,95 @@ describe('useResultadosDe', () => {
     const { result } = renderHook(() => useResultadosDe(['camp-1', 'camp-inventada']))
 
     expect(result.current.size).toBe(1)
+  })
+})
+
+/**
+ * Rasante de prueba para 'c-1': arranca en el eje con la misma cota que el
+ * BM del proyecto de ejemplo (3245.18) y baja 1.25% por progresiva. Los
+ * tramos cubren hasta 5.6 m de offset, el ancho completo de la plantilla del
+ * ejemplo, para que ningún elemento quede fuera de sección sin querer.
+ */
+function rasanteDeEjemplo(): Rasante {
+  return {
+    progresivaArranque: 0,
+    cotaArranque: 3245.18,
+    pendienteLongitudinal: -1.25,
+    tramos: [
+      { nombre: 'Calzada', hastaOffset: 4.2, tipo: 'pendiente', valor: 2 },
+      { nombre: 'Sardinel', hastaOffset: 4.4, tipo: 'salto', valor: 0.15 },
+      { nombre: 'Vereda', hastaOffset: 5.6, tipo: 'pendiente', valor: -2 },
+    ],
+    simetrica: true,
+    tramosIzquierda: null,
+  }
+}
+
+function fijarRasanteDeEjemplo(): void {
+  useAlmacen.getState().fijarRasante('c-1', rasanteDeEjemplo())
+}
+
+describe('useEvaluacionRasante', () => {
+  beforeEach(() => {
+    useAlmacen.getState().cargarProyecto(proyectoEjemplo())
+  })
+
+  it('sin rasante en la calle no hay evaluación, y eso no es un fallo', () => {
+    const { result } = renderHook(() => useEvaluacionRasante())
+
+    expect(result.current).toBeNull()
+  })
+
+  it('con rasante definida, evalúa la campaña activa contra su capa', () => {
+    fijarRasanteDeEjemplo()
+
+    const { result } = renderHook(() => useEvaluacionRasante())
+
+    // La SUBRASANTE del ejemplo es la última capa definida (nada de orden
+    // mayor por encima), así que su cota teórica coincide con la rasante tal
+    // cual, sin restar espesor: 3245.180 en 0+000 EJE. Lo medido ahí es
+    // 3244.6275 (ver 'useResultadoDe' arriba), 552.5 mm por debajo, que
+    // redondeado a milímetros enteros da -553. Estos números reemplazan a los
+    // del brief (cotaTeorica 3244.93, diferenciaMm -302): esos suponían una
+    // capa por encima de la subrasante que este proyecto de ejemplo ya no
+    // tiene, y el motor —revisado y verificado— no se toca para que cuadren.
+    const celda = result.current!.celdas.get('0|EJE')!
+    expect(celda.cotaTeorica).toBe(3245.18)
+    expect(celda.diferenciaMm).toBe(-553)
+    expect(celda.estado).toBe('fuera')
+  })
+
+  it('deja pasar el error de una calle mal configurada, sin tragárselo', () => {
+    fijarRasanteDeEjemplo()
+    useAlmacen.getState().actualizarCalle('c-1', { progresivaInicio: 180, progresivaFin: 0 })
+
+    const { result } = renderHook(() => useEvaluacionRasante())
+
+    expect(result.current?.error).not.toBeNull()
+    expect(result.current?.celdas.size).toBe(0)
+  })
+
+  it('evalúa cualquier campaña que se le pida, sea la activa o no', () => {
+    fijarRasanteDeEjemplo()
+    const otra = useAlmacen.getState().agregarCampania({
+      fecha: '2026-08-20',
+      calleId: 'c-1',
+      capaId: 'cap-terreno',
+      bmInicialId: 'bm-1',
+      estado: 'abierta',
+      cierre: {
+        tipo: 'cerrado',
+        bmFinalId: 'bm-1',
+        longitudK: 0,
+        longitudKAuto: true,
+        clase: 'tercerOrden',
+        coeficiente: 12,
+      },
+    })
+
+    const { result } = renderHook(() => useEvaluacionRasante('camp-1'))
+
+    expect(result.current).not.toBeNull()
+    expect(otra).not.toBe('camp-1')
   })
 })
