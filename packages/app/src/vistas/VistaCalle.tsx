@@ -138,7 +138,7 @@ export default function VistaCalle() {
 
       <section className="flex flex-col gap-2">
         <h3 className="font-semibold">Rasante de proyecto</h3>
-        <EditorRasante calleId={calle.id} />
+        <EditorRasante calleId={calle.id} plantilla={plantilla} />
       </section>
 
       <section className="flex flex-col gap-2">

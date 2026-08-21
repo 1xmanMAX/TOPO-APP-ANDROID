@@ -1,4 +1,13 @@
-import { cotaEjeRasante, desnivelTransversal, formatearProgresiva, type Id, type Rasante, type TramoTransversal } from '@topo/core'
+import {
+  cotaEjeRasante,
+  desnivelTransversal,
+  formatearProgresiva,
+  type ElementoPlantilla,
+  type Id,
+  type Plantilla,
+  type Rasante,
+  type TramoTransversal,
+} from '@topo/core'
 import { useState } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { formatearCota } from '../formato'
@@ -8,6 +17,8 @@ import CorteTipo from './CorteTipo'
 
 interface Props {
   calleId: Id
+  /** La de la calle: sin ella el editor no puede saber qué deja fuera su sección ni fijar una escala estable. */
+  plantilla: Plantilla
 }
 
 type Lado = 'derecha' | 'izquierda'
@@ -58,6 +69,40 @@ function veredaBajoCalzada(rasante: Rasante): boolean {
   return veredaBajoCalzadaEnLado(rasante, 'derecha') || veredaBajoCalzadaEnLado(rasante, 'izquierda')
 }
 
+/** Hasta dónde llega la sección definida en ese lado. 0 si el lado no tiene tramos. */
+function alcanceLado(rasante: Rasante, lado: Lado): number {
+  return Math.max(0, ...tramosDelLado(rasante, lado).map((t) => t.hastaOffset))
+}
+
+/**
+ * El offset más lejano de la plantilla, a cualquier lado. Sirve de ancho fijo
+ * para el corte tipo: así la escala del dibujo no salta con cada tramo que se
+ * edita, y de paso se ve de un vistazo cuánto de la calle cubre la sección.
+ */
+function alcanceMaximoPlantilla(plantilla: Plantilla): number {
+  return Math.max(0, ...plantilla.elementos.map((elemento) => Math.abs(elemento.offset)))
+}
+
+/** Los elementos de la plantilla que la sección deja sin cota, del más cercano al eje al más lejano. */
+function elementosSinCota(rasante: Rasante, plantilla: Plantilla): ElementoPlantilla[] {
+  return plantilla.elementos
+    .filter((elemento) => desnivelTransversal(rasante, elemento.offset) === null)
+    .sort((a, b) => Math.abs(a.offset) - Math.abs(b.offset))
+}
+
+/** Con cuánto alcance describir el aviso: una sola cifra si los dos lados llegan igual de lejos. */
+function mensajeAlcance(rasante: Rasante): string {
+  const derecha = alcanceLado(rasante, 'derecha')
+  const izquierda = alcanceLado(rasante, 'izquierda')
+
+  if (derecha === izquierda) return `La sección definida llega hasta ${derecha.toFixed(2)} m del eje.`
+
+  return (
+    `La sección definida llega hasta ${derecha.toFixed(2)} m del eje a la derecha ` +
+    `y hasta ${izquierda.toFixed(2)} m a la izquierda.`
+  )
+}
+
 interface PropsTabla {
   lado: Lado
   titulo: string
@@ -81,7 +126,7 @@ function TablaTramos({
   onCambiar,
 }: PropsTabla) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold">{titulo}</h4>
         <button
@@ -93,13 +138,16 @@ function TablaTramos({
         </button>
       </div>
 
-      <div className="flex flex-col gap-2">
+      {/* El contenido ancho hace scroll dentro de su caja: la fila no cede por debajo de su
+          contenido (columnas de ancho fijo + Nombre), así que sin esto se desborda sobre el
+          dibujo en vez de apretarse o mostrar su propio scroll. */}
+      <div className="flex min-w-0 flex-col gap-2 overflow-x-auto">
         {tramos.map((tramo, indice) => {
           const numero = indice + 1
           return (
             <div
               key={indice}
-              className="grid grid-cols-[1fr_7rem_8rem_7rem_auto_auto] items-end gap-2 rounded border border-slate-300 p-2 dark:border-slate-700"
+              className="grid w-max min-w-full grid-cols-[minmax(10rem,1fr)_7rem_8rem_7rem_auto_auto] items-end gap-2 rounded border border-slate-300 p-2 dark:border-slate-700"
             >
               <CampoTexto
                 etiqueta={`Nombre del tramo ${numero}${sufijo}`}
@@ -180,7 +228,7 @@ function TablaTramos({
  * longitudinal y la sección transversal, con el corte tipo dibujándose en
  * vivo al lado para comprobar el signo de cada tramo.
  */
-export default function EditorRasante({ calleId }: Props) {
+export default function EditorRasante({ calleId, plantilla }: Props) {
   const calle = useAlmacen((s) => s.proyecto.calles.find((c) => c.id === calleId))
   const fijarRasante = useAlmacen((s) => s.fijarRasante)
   const [errorTramo, setErrorTramo] = useState<string | null>(null)
@@ -267,9 +315,14 @@ export default function EditorRasante({ calleId }: Props) {
 
   const cotaFinal = cotaEjeRasante(rasante, calle.progresivaFin)
   const aviso = veredaBajoCalzada(rasante)
+  const faltantes = elementosSinCota(rasante, plantilla)
+  // Cero no es una cota plausible en ninguna obra: mientras la cota de arranque
+  // siga en ese valor de arranque, se trata como «todavía no escrita» y no se
+  // muestra, para no confundirla con una cota real de tres decimales.
+  const hayCotaEscrita = rasante.cotaArranque !== 0
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
         <CampoNumero
           etiqueta="Progresiva de arranque"
@@ -296,17 +349,26 @@ export default function EditorRasante({ calleId }: Props) {
         />
       </div>
 
-      <p className="text-sm text-slate-600 dark:text-slate-300">
-        Al final del tramo ({formatearProgresiva(calle.progresivaFin)}): {formatearCota(cotaFinal)}
-      </p>
+      {hayCotaEscrita && (
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Al final del tramo ({formatearProgresiva(calle.progresivaFin)}): {formatearCota(cotaFinal)}
+        </p>
+      )}
+
+      {faltantes.length > 0 && (
+        <p className="text-sm text-aviso">
+          {mensajeAlcance(rasante)} Estos puntos de la plantilla quedan sin cota de proyecto:{' '}
+          {faltantes.map((elemento) => elemento.clave).join(', ')}.
+        </p>
+      )}
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={rasante.simetrica} onChange={alternarSimetria} />
         Los dos lados son iguales
       </label>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="flex flex-col gap-4">
+      <div className="grid min-w-0 gap-4 md:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-4">
           <TablaTramos
             lado="derecha"
             titulo={rasante.simetrica ? 'Tramos' : 'Tramos — lado derecho'}
@@ -343,7 +405,7 @@ export default function EditorRasante({ calleId }: Props) {
           )}
         </div>
 
-        <CorteTipo rasante={rasante} />
+        <CorteTipo rasante={rasante} anchoMaximo={alcanceMaximoPlantilla(plantilla) || undefined} />
       </div>
     </div>
   )
