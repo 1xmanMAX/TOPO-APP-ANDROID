@@ -20,13 +20,27 @@ export interface CeldaEvaluada {
 
 export interface ResultadoEvaluacion {
   celdas: Map<string, CeldaEvaluada>
+  /**
+   * Estos cinco contadores son exhaustivos y no se solapan: cada celda de la
+   * grilla cae en exactamente uno, así que su suma es siempre el total de
+   * celdas evaluadas. El criterio de reparto: lo primero que importa de una
+   * celda es si ya se midió. `sinMedir` se lleva toda celda sin medir, tenga
+   * o no rasante definida ahí — que además caiga fuera de la sección es una
+   * segunda noticia, no la primera.
+   */
   conformes: number
   alLimite: number
   fuera: number
   /** Medidas, pero en un punto donde el proyecto no define rasante. */
   fueraDeSeccion: number
-  /** Sin medir todavía. */
+  /** Sin medir todavía, tenga o no rasante definida en ese punto. */
   sinMedir: number
+  /**
+   * Por qué no hay nada que evaluar, cuando la calle está mal configurada
+   * (progresiva final antes que la inicial, intervalo cero). Null si la
+   * grilla se pudo construir, aunque salga vacía.
+   */
+  error: string | null
 }
 
 export interface EntradaEvaluacion {
@@ -50,10 +64,12 @@ export function evaluarContraRasante(entrada: EntradaEvaluacion): ResultadoEvalu
   const { resultado, calle, plantilla, rasante, capas, capaId } = entrada
 
   let grilla: CeldaGrilla[] = []
+  let error: string | null = null
   try {
     grilla = construirGrilla(calle, plantilla)
-  } catch {
+  } catch (fallo) {
     grilla = []
+    error = (fallo as Error).message
   }
 
   const toleranciaMm = capas.find((capa) => capa.id === capaId)?.toleranciaMm ?? 0
@@ -79,10 +95,10 @@ export function evaluarContraRasante(entrada: EntradaEvaluacion): ResultadoEvalu
     let diferenciaMm: number | null = null
     let estado: EstadoTolerancia = 'sinRasante'
 
-    if (cotaTeorica === null) {
-      if (cotaReal !== null) fueraDeSeccion += 1
-    } else if (cotaReal === null) {
+    if (cotaReal === null) {
       sinMedir += 1
+    } else if (cotaTeorica === null) {
+      fueraDeSeccion += 1
     } else {
       // A milímetros enteros: la mira se lee al milímetro, y sin redondear
       // aquí `aMilimetros(-0.302)` devuelve -302.00000000000006, que acabaría
@@ -106,7 +122,7 @@ export function evaluarContraRasante(entrada: EntradaEvaluacion): ResultadoEvalu
     })
   }
 
-  return { celdas, conformes, alLimite, fuera, fueraDeSeccion, sinMedir }
+  return { celdas, conformes, alLimite, fuera, fueraDeSeccion, sinMedir, error }
 }
 
 /**
