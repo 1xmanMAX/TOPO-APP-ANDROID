@@ -7,6 +7,9 @@ export function cotaEjeRasante(rasante: Rasante, progresiva: number): number {
   return redondear3(rasante.cotaArranque + (avance * rasante.pendienteLongitudinal) / 100)
 }
 
+// Si `simetrica` es false y `tramosIzquierda` es null, la rasante está a
+// medio configurar: se degrada en silencio a los tramos del lado derecho,
+// en vez de tronar. Es el criterio elegido para ese estado intermedio.
 function tramosDelLado(rasante: Rasante, offset: number): TramoTransversal[] {
   if (offset < 0 && !rasante.simetrica && rasante.tramosIzquierda !== null) {
     return rasante.tramosIzquierda
@@ -21,6 +24,13 @@ function tramosDelLado(rasante: Rasante, offset: number): TramoTransversal[] {
  * define rasante ahí, y prolongar la última pendiente sería inventarse una
  * cota que nadie proyectó. Quien llame lo trata como «esta celda queda fuera
  * de la sección definida», no como un cero.
+ *
+ * Un offset que cae dentro del ancho de un tramo de salto —por ejemplo 4.3,
+ * entre el borde de calzada a 4.20 y el sardinel a 4.40— devuelve en
+ * silencio la misma cota que el borde de calzada, sin ninguna marca de que
+ * el punto está sobre la cara del salto: esa cara es vertical y no tiene una
+ * única cota horizontal, así que la función se comporta como un escalón,
+ * plana hasta el punto exacto del salto, donde salta de golpe.
  */
 export function desnivelTransversal(rasante: Rasante, offset: number): number | null {
   const tramos = tramosDelLado(rasante, offset)

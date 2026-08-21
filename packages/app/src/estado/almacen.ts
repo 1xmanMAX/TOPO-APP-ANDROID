@@ -199,6 +199,9 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         ...s.proyecto,
         capas: renumerarCapas([
           ...s.proyecto.capas,
+          // Los 20 mm de toleranciaMm son solo un valor de arranque, elegido
+          // para coincidir con las capas del proyecto de ejemplo: no es una
+          // norma. Se ajusta luego desde la pantalla de la capa.
           { id: nuevoId('cap'), nombre, orden: s.proyecto.capas.length, espesor: 0, toleranciaMm: 20 },
         ]),
       }),
