@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { claveCelda } from '../grilla/grilla'
 import type { Calle, Capa, Plantilla, Rasante } from '../modelo/tipos'
 import type { CotaCelda, ResultadoCampania } from '../nivelacion/calcularCampania'
-import { estadoDeDiferencia, evaluarContraRasante } from './evaluar'
+import { estadoDeDiferencia, evaluarContraRasante, type EstadoTolerancia } from './evaluar'
 
 describe('estadoDeDiferencia', () => {
   it('dentro de la tolerancia está conforme', () => {
@@ -211,8 +211,105 @@ describe('evaluarContraRasante', () => {
     const celda = evaluacion.celdas.get(claveCelda(0, 'eje'))
     expect(celda?.cotaReal).toBeNull()
     expect(celda?.diferenciaMm).toBeNull()
+    // Hay rasante en este punto (cotaTeorica no es null), pero el estado no
+    // dice 'sinRasante' — sería falso. Lo que falta es medir.
+    expect(celda?.cotaTeorica).not.toBeNull()
+    expect(celda?.estado).toBe('sinMedir')
     expect(evaluacion.sinMedir).toBe(1)
     expect(evaluacion.conformes).toBe(0)
+  })
+
+  it('una celda sin rasante y sin medir también sale sinMedir, por el mismo criterio', () => {
+    const plantilla = plantillaDe([{ clave: 'borde', offset: 9 }]) // fuera del tramo (hastaOffset 4.2)
+    const calle = calleDe()
+    const resultado = resultadoCon([])
+
+    const evaluacion = evaluarContraRasante({
+      resultado,
+      calle,
+      plantilla,
+      rasante: rasanteBase(),
+      capas: capaUnica(),
+      capaId: 'unica',
+    })
+
+    const celda = evaluacion.celdas.get(claveCelda(0, 'borde'))
+    expect(celda?.cotaTeorica).toBeNull()
+    expect(celda?.estado).toBe('sinMedir')
+    expect(evaluacion.sinMedir).toBe(1)
+    expect(evaluacion.fueraDeSeccion).toBe(0)
+  })
+
+  it('una celda sin rasante pero medida sigue saliendo con sinRasante', () => {
+    const plantilla = plantillaDe([{ clave: 'borde', offset: 9 }])
+    const calle = calleDe()
+    const resultado = resultadoCon([celdaMedida(0, 'borde', 3245.0)])
+
+    const evaluacion = evaluarContraRasante({
+      resultado,
+      calle,
+      plantilla,
+      rasante: rasanteBase(),
+      capas: capaUnica(),
+      capaId: 'unica',
+    })
+
+    const celda = evaluacion.celdas.get(claveCelda(0, 'borde'))
+    expect(celda?.cotaTeorica).toBeNull()
+    expect(celda?.cotaReal).not.toBeNull()
+    expect(celda?.estado).toBe('sinRasante')
+    expect(evaluacion.fueraDeSeccion).toBe(1)
+    expect(evaluacion.sinMedir).toBe(0)
+  })
+
+  it('el estado de cada celda y los contadores del resumen cuentan lo mismo, en un escenario con las cinco categorías', () => {
+    // Ocho celdas: progresivas 0/20/40/60 × elementos «a» (offset 0, dentro
+    // de sección) y «b» (offset 9, fuera del tramo de calzada).
+    const plantilla = plantillaDe([
+      { clave: 'a', offset: 0 },
+      { clave: 'b', offset: 9 },
+    ])
+    const calle = calleDe({ progresivaFin: 60, intervalo: 20 })
+    const rasante = rasanteBase()
+    const capas = capaUnica() // toleranciaMm 10
+
+    const resultado = resultadoCon([
+      celdaMedida(0, 'a', 3245.18), // cotaTeorica 3245.18 → diferencia 0 → conforme
+      celdaMedida(20, 'a', 3244.945), // cotaTeorica 3244.93 → +15 mm → alLimite
+      celdaMedida(40, 'a', 3244.71), // cotaTeorica 3244.68 → +30 mm → fuera
+      // 60|a: dentro de sección, sin medir → sinMedir
+      celdaMedida(0, 'b', 3245.0), // fuera de sección, medida → fueraDeSeccion
+      // 20|b, 40|b, 60|b: fuera de sección, sin medir → sinMedir
+    ])
+
+    const evaluacion = evaluarContraRasante({
+      resultado,
+      calle,
+      plantilla,
+      rasante,
+      capas,
+      capaId: 'unica',
+    })
+
+    expect(evaluacion.celdas.size).toBe(8)
+    expect(evaluacion.conformes).toBe(1)
+    expect(evaluacion.alLimite).toBe(1)
+    expect(evaluacion.fuera).toBe(1)
+    expect(evaluacion.fueraDeSeccion).toBe(1)
+    expect(evaluacion.sinMedir).toBe(4)
+
+    const celdas = [...evaluacion.celdas.values()]
+    const contarPorEstado = (estado: EstadoTolerancia) =>
+      celdas.filter((c) => c.estado === estado).length
+
+    // La prueba que impide que el campo por celda y los contadores del
+    // resumen vuelvan a divergir: cada grupo por estado tiene exactamente
+    // el tamaño que dice su contador.
+    expect(contarPorEstado('conforme')).toBe(evaluacion.conformes)
+    expect(contarPorEstado('alLimite')).toBe(evaluacion.alLimite)
+    expect(contarPorEstado('fuera')).toBe(evaluacion.fuera)
+    expect(contarPorEstado('sinRasante')).toBe(evaluacion.fueraDeSeccion)
+    expect(contarPorEstado('sinMedir')).toBe(evaluacion.sinMedir)
   })
 
   it('la diferencia sale en milímetros enteros, sin el arrastre de coma flotante', () => {

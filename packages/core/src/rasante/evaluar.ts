@@ -4,7 +4,7 @@ import type { ResultadoCampania } from '../nivelacion/calcularCampania'
 import { aMilimetros, redondear3 } from '../numero'
 import { cotaTeoricaDeCapa } from './espesores'
 
-export type EstadoTolerancia = 'conforme' | 'alLimite' | 'fuera' | 'sinRasante'
+export type EstadoTolerancia = 'conforme' | 'alLimite' | 'fuera' | 'sinRasante' | 'sinMedir'
 
 export interface CeldaEvaluada {
   clave: string
@@ -15,6 +15,11 @@ export interface CeldaEvaluada {
   cotaTeorica: number | null
   /** Real menos teórica, en milímetros. Positiva = sobra material, hay que cortar. */
   diferenciaMm: number | null
+  /**
+   * Espejo por celda del reparto de `ResultadoEvaluacion`: mismas cinco
+   * categorías, misma frontera. `'sinRasante'` es solo para una celda medida
+   * en un punto sin rasante — si además no está medida, manda `'sinMedir'`.
+   */
   estado: EstadoTolerancia
 }
 
@@ -93,12 +98,20 @@ export function evaluarContraRasante(entrada: EntradaEvaluacion): ResultadoEvalu
     )
 
     let diferenciaMm: number | null = null
-    let estado: EstadoTolerancia = 'sinRasante'
+    let estado: EstadoTolerancia
 
+    // Mismo criterio que en los contadores: de una celda sin medir, lo
+    // primero que le importa al topógrafo es que no la ha medido. Que
+    // además caiga fuera de la sección es una segunda noticia — por eso
+    // `cotaReal === null` se revisa antes que `cotaTeorica === null`, y una
+    // celda sin medir y sin rasante sale igual que una sin medir con
+    // rasante: las dos son `'sinMedir'`.
     if (cotaReal === null) {
       sinMedir += 1
+      estado = 'sinMedir'
     } else if (cotaTeorica === null) {
       fueraDeSeccion += 1
+      estado = 'sinRasante'
     } else {
       // A milímetros enteros: la mira se lee al milímetro, y sin redondear
       // aquí `aMilimetros(-0.302)` devuelve -302.00000000000006, que acabaría
