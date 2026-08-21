@@ -1,7 +1,14 @@
-import { compararCapas, formatearProgresiva, type CeldaComparada, type CotaCelda, type Id } from '@topo/core'
-import { useMemo } from 'react'
+import {
+  compararCapas,
+  formatearProgresiva,
+  type CeldaComparada,
+  type CeldaEvaluada,
+  type CotaCelda,
+  type Id,
+} from '@topo/core'
+import { useId, useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
-import { useResultadosDe } from '../estado/derivados'
+import { useEvaluacionRasante, useResultadosDe } from '../estado/derivados'
 import { formatearCota } from '../formato'
 import MarcoGrafico from '../grafico/MarcoGrafico'
 
@@ -39,6 +46,20 @@ const ESTILOS_CAPA: EstiloCapa[] = [
 ]
 
 const CLASE_RELLENO = 'fill-slate-400/25 dark:fill-slate-300/20'
+
+type ZonaRasante = 'corte' | 'relleno'
+
+interface PuntoZona {
+  offset: number
+  terreno: number
+  rasante: number
+}
+
+interface SegmentoZona {
+  zona: ZonaRasante
+  desde: PuntoZona
+  hasta: PuntoZona
+}
 
 interface SerieCapa {
   campaniaId: Id
@@ -78,6 +99,71 @@ function tramosConPareja(id: string, celdas: CeldaComparada[]): Tramo[] {
   cerrar()
 
   return tramos
+}
+
+/**
+ * Igual criterio que `tramosConPareja`, pero para terreno contra rasante:
+ * corta el tramo en cuanto una celda no tiene medida o cae fuera de la
+ * sección definida. No sombrear ahí es la misma regla que ya rige el
+ * relleno entre dos capas — solo se compara donde las dos líneas existen.
+ */
+function tramosDeRasante(celdas: CeldaEvaluada[]): PuntoZona[][] {
+  const tramos: PuntoZona[][] = []
+  let actual: PuntoZona[] = []
+
+  const cerrar = () => {
+    if (actual.length >= 2) tramos.push(actual)
+    actual = []
+  }
+
+  for (const celda of celdas) {
+    if (celda.cotaReal !== null && celda.cotaTeorica !== null) {
+      actual.push({ offset: celda.offset, terreno: celda.cotaReal, rasante: celda.cotaTeorica })
+    } else {
+      cerrar()
+    }
+  }
+  cerrar()
+
+  return tramos
+}
+
+/**
+ * Reparte cada tramo en segmentos de corte (terreno por encima de la
+ * rasante) o relleno (por debajo). Cuando el terreno cruza la rasante entre
+ * dos puntos consecutivos, parte el segmento en el punto de cruce —
+ * calculado por interpolación lineal— para no pintar de corte un trozo que
+ * en realidad es de relleno, ni al revés.
+ */
+function segmentosDeZona(tramos: PuntoZona[][]): SegmentoZona[] {
+  const segmentos: SegmentoZona[] = []
+
+  for (const puntos of tramos) {
+    for (let i = 0; i < puntos.length - 1; i++) {
+      const a = puntos[i]!
+      const b = puntos[i + 1]!
+      const diferenciaA = a.terreno - a.rasante
+      const diferenciaB = b.terreno - b.rasante
+      const zonaDe = (diferencia: number): ZonaRasante => (diferencia >= 0 ? 'corte' : 'relleno')
+
+      if ((diferenciaA >= 0) === (diferenciaB >= 0)) {
+        segmentos.push({ zona: zonaDe(diferenciaA), desde: a, hasta: b })
+        continue
+      }
+
+      const t = diferenciaA / (diferenciaA - diferenciaB)
+      const cruce: PuntoZona = {
+        offset: a.offset + t * (b.offset - a.offset),
+        terreno: a.rasante + t * (b.rasante - a.rasante),
+        rasante: a.rasante + t * (b.rasante - a.rasante),
+      }
+
+      segmentos.push({ zona: zonaDe(diferenciaA), desde: a, hasta: cruce })
+      segmentos.push({ zona: zonaDe(diferenciaB), desde: cruce, hasta: b })
+    }
+  }
+
+  return segmentos
 }
 
 export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
@@ -131,6 +217,51 @@ export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
     return salida
   }, [series, resultados, progresiva])
 
+  /**
+   * La rasante se compara contra la capa más alta del paquete visible — la
+   * última en `series`, ya ordenada de abajo hacia arriba —, porque es la
+   * que representa la superficie terminada. Si no hay ninguna serie se pasa
+   * un id vacío en vez de dejar que el hook caiga en la campaña activa del
+   * almacén: sin capas visibles no hay nada que comparar, y este componente
+   * no decide eso mirando el estado global.
+   */
+  const idCapaSuperior = series.length > 0 ? series[series.length - 1]!.campaniaId : ''
+  const evaluacionRasante = useEvaluacionRasante(idCapaSuperior)
+
+  const idPrefijo = useId()
+  const idPatronCorte = `patron-corte-${idPrefijo}`
+  const idPatronRelleno = `patron-relleno-${idPrefijo}`
+
+  const celdasRasante = useMemo(() => {
+    if (!evaluacionRasante) return []
+    return [...evaluacionRasante.celdas.values()]
+      .filter((celda) => celda.progresiva === progresiva)
+      .sort((a, b) => a.offset - b.offset)
+  }, [evaluacionRasante, progresiva])
+
+  // La línea de la rasante se dibuja donde el proyecto define cota, tenga o
+  // no medida todavía: a diferencia del sombreado, aquí no hace falta la
+  // pareja.
+  const tramosLineaRasante = useMemo(() => {
+    const grupos: CeldaEvaluada[][] = []
+    let actual: CeldaEvaluada[] = []
+    const cerrar = () => {
+      if (actual.length > 0) grupos.push(actual)
+      actual = []
+    }
+    for (const celda of celdasRasante) {
+      if (celda.cotaTeorica !== null) actual.push(celda)
+      else cerrar()
+    }
+    cerrar()
+    return grupos
+  }, [celdasRasante])
+
+  const segmentosZona = useMemo(
+    () => segmentosDeZona(tramosDeRasante(celdasRasante)),
+    [celdasRasante],
+  )
+
   const totalPuntos = series.reduce((total, serie) => total + serie.puntos.length, 0)
   const variasCapas = series.length > 1
 
@@ -144,8 +275,14 @@ export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
 
   return (
     <MarcoGrafico
-      valoresX={series.flatMap((serie) => serie.puntos.map((p) => p.offset))}
-      valoresY={series.flatMap((serie) => serie.puntos.map((p) => p.cota))}
+      valoresX={[
+        ...series.flatMap((serie) => serie.puntos.map((p) => p.offset)),
+        ...celdasRasante.map((c) => c.offset),
+      ]}
+      valoresY={[
+        ...series.flatMap((serie) => serie.puntos.map((p) => p.cota)),
+        ...celdasRasante.filter((c) => c.cotaTeorica !== null).map((c) => c.cotaTeorica!),
+      ]}
       margenX={0.08}
       rotuloX="distancia al eje (m)"
       formatearX={(valor) => valor.toFixed(1)}
@@ -170,6 +307,93 @@ export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
               />
             )
           })}
+
+          {evaluacionRasante && (
+            <>
+              <defs>
+                <pattern
+                  id={idPatronCorte}
+                  width={6}
+                  height={6}
+                  patternUnits="userSpaceOnUse"
+                  patternTransform="rotate(45)"
+                >
+                  <rect width={6} height={6} className="fill-amber-500/10 dark:fill-amber-400/10" />
+                  <line
+                    x1={0}
+                    y1={0}
+                    x2={0}
+                    y2={6}
+                    strokeWidth={1.5}
+                    className="stroke-amber-600/70 dark:stroke-amber-400/70"
+                  />
+                </pattern>
+                <pattern
+                  id={idPatronRelleno}
+                  width={6}
+                  height={6}
+                  patternUnits="userSpaceOnUse"
+                  patternTransform="rotate(-45)"
+                >
+                  <rect width={6} height={6} className="fill-sky-500/10 dark:fill-sky-400/10" />
+                  <line
+                    x1={0}
+                    y1={0}
+                    x2={0}
+                    y2={6}
+                    strokeWidth={1.5}
+                    className="stroke-sky-600/70 dark:stroke-sky-400/70"
+                  />
+                </pattern>
+              </defs>
+
+              {segmentosZona.map((segmento) => {
+                const puntos = [
+                  `${x(segmento.desde.offset).toFixed(1)},${y(segmento.desde.terreno).toFixed(1)}`,
+                  `${x(segmento.hasta.offset).toFixed(1)},${y(segmento.hasta.terreno).toFixed(1)}`,
+                  `${x(segmento.hasta.offset).toFixed(1)},${y(segmento.hasta.rasante).toFixed(1)}`,
+                  `${x(segmento.desde.offset).toFixed(1)},${y(segmento.desde.rasante).toFixed(1)}`,
+                ].join(' ')
+                const esCorte = segmento.zona === 'corte'
+
+                return (
+                  <polygon
+                    key={`zona-${segmento.desde.offset}-${segmento.hasta.offset}`}
+                    data-zona={segmento.zona}
+                    data-offset-inicio={segmento.desde.offset}
+                    data-offset-fin={segmento.hasta.offset}
+                    points={puntos}
+                    fill={`url(#${esCorte ? idPatronCorte : idPatronRelleno})`}
+                    strokeWidth={1}
+                    strokeDasharray={esCorte ? undefined : '3 2'}
+                    className={
+                      esCorte
+                        ? 'stroke-amber-600/70 dark:stroke-amber-400/70'
+                        : 'stroke-sky-600/70 dark:stroke-sky-400/70'
+                    }
+                    aria-hidden="true"
+                  />
+                )
+              })}
+
+              {tramosLineaRasante.length > 0 && (
+                <g aria-label="Rasante de proyecto">
+                  {tramosLineaRasante.map((grupo, indice) => (
+                    <polyline
+                      key={`rasante-${indice}`}
+                      points={grupo
+                        .map((c) => `${x(c.offset).toFixed(1)},${y(c.cotaTeorica!).toFixed(1)}`)
+                        .join(' ')}
+                      fill="none"
+                      className="stroke-slate-700 dark:stroke-slate-200"
+                      strokeWidth={2}
+                      strokeDasharray="6 4"
+                    />
+                  ))}
+                </g>
+              )}
+            </>
+          )}
 
           {series.map((serie, indice) => {
             if (serie.puntos.length === 0) return null

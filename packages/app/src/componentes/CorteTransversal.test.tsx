@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Campania, Proyecto } from '@topo/core'
+import type { Campania, Proyecto, Rasante } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
@@ -187,5 +187,72 @@ describe('CorteTransversal con varias capas', () => {
     const eje = screen.getByRole('button', { name: /0\+000 EJE/ })
     expect(eje.getAttribute('aria-label')).not.toContain('TERRENO EXISTENTE')
     expect(eje.getAttribute('aria-label')).toMatch(/^0\+000 EJE · cota [\d.]+ m$/)
+  })
+})
+
+/**
+ * Rasante plana en 3244.600, sin pendiente longitudinal ni transversal, para
+ * el ancho completo de la plantilla del ejemplo (hasta 5.6 m de offset).
+ *
+ * Con esto, en 0+000 de camp-1 (que solo mide EJE y BOR-I): EJE (cota
+ * 3244.6275) queda por encima de la rasante — corte — y BOR-I (cota
+ * 3244.5625) por debajo — relleno. El único tramo con pareja cruza la
+ * rasante, así que sirve para probar el reparto en corte/relleno y el corte
+ * del cruce con una sola campaña. VER-I no lo midió camp-1, así que ningún
+ * sombreado debe llegar a su offset (-5.6).
+ */
+function rasantePlanaDeEjemplo(): Rasante {
+  return {
+    progresivaArranque: 0,
+    cotaArranque: 3244.6,
+    pendienteLongitudinal: 0,
+    tramos: [{ nombre: 'Sección', hastaOffset: 5.6, tipo: 'pendiente', valor: 0 }],
+    simetrica: true,
+    tramosIzquierda: null,
+  }
+}
+
+function fijarRasanteDeEjemplo(): void {
+  useAlmacen.getState().fijarRasante('c-1', rasantePlanaDeEjemplo())
+}
+
+describe('CorteTransversal con rasante', () => {
+  beforeEach(() => {
+    useAlmacen.getState().cargarProyecto(proyectoEjemplo())
+  })
+
+  it('dibuja la rasante además del terreno medido', () => {
+    fijarRasanteDeEjemplo()
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
+
+    expect(screen.getByLabelText(/rasante de proyecto/i)).toBeInTheDocument()
+  })
+
+  it('sombrea corte y relleno por separado, no como una sola mancha', () => {
+    fijarRasanteDeEjemplo()
+    const { container } = render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
+
+    expect(container.querySelectorAll('[data-zona="corte"]').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('[data-zona="relleno"]').length).toBeGreaterThan(0)
+  })
+
+  it('sin rasante definida el corte se dibuja como hasta ahora', () => {
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
+
+    expect(screen.queryByLabelText(/rasante de proyecto/i)).toBeNull()
+    expect(screen.getAllByLabelText(/cota/i).length).toBeGreaterThan(0)
+  })
+
+  it('no sombrea contra la rasante donde no hay medida', () => {
+    // VER-I no se midió en camp-1: el sombreado no debe llegar hasta su offset (-5.6).
+    fijarRasanteDeEjemplo()
+    const { container } = render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
+
+    const zonas = [...container.querySelectorAll('[data-zona]')]
+    const offsets = zonas.flatMap((z) => [
+      Number(z.getAttribute('data-offset-inicio')),
+      Number(z.getAttribute('data-offset-fin')),
+    ])
+    expect(offsets.every((offset) => offset > -5.6)).toBe(true)
   })
 })
