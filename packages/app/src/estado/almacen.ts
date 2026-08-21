@@ -12,6 +12,7 @@ import {
   type Id,
   type Plantilla,
   type Proyecto,
+  type Rasante,
   type ResultadoCampania,
 } from '@topo/core'
 import { create } from 'zustand'
@@ -65,6 +66,7 @@ interface EstadoApp {
   agregarCalle(datos: Omit<Calle, 'id'>): Id
   actualizarCalle(id: Id, cambios: Partial<Omit<Calle, 'id'>>): void
   eliminarCalle(id: Id): void
+  fijarRasante(calleId: Id, rasante: Rasante | null): void
 
   agregarCampania(datos: Omit<Campania, 'id' | 'estaciones'>): Id
   actualizarCampania(id: Id, cambios: Partial<Omit<Campania, 'id'>>): void
@@ -289,6 +291,16 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       proyecto: marcarModificado({
         ...s.proyecto,
         calles: s.proyecto.calles.filter((c) => c.id !== id),
+      }),
+    })),
+
+  fijarRasante: (calleId, rasante) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        calles: s.proyecto.calles.map((calle) =>
+          calle.id === calleId ? { ...calle, rasante } : calle,
+        ),
       }),
     })),
 
