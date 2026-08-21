@@ -7,6 +7,7 @@ import {
   type BM,
   type Calle,
   type Campania,
+  type Capa,
   type DestinoLectura,
   type Id,
   type Plantilla,
@@ -52,6 +53,7 @@ interface EstadoApp {
   eliminarBM(id: Id): void
 
   agregarCapa(nombre: string): void
+  actualizarCapa(id: Id, cambios: Partial<Omit<Capa, 'id'>>): void
   eliminarCapa(id: Id): void
   moverCapa(capaId: Id, direccion: -1 | 1): void
 
@@ -204,6 +206,14 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
           // norma. Se ajusta luego desde la pantalla de la capa.
           { id: nuevoId('cap'), nombre, orden: s.proyecto.capas.length, espesor: 0, toleranciaMm: 20 },
         ]),
+      }),
+    })),
+
+  actualizarCapa: (id, cambios) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        capas: s.proyecto.capas.map((capa) => (capa.id === id ? { ...capa, ...cambios } : capa)),
       }),
     })),
 

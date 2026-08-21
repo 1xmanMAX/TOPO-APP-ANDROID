@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
@@ -105,5 +105,40 @@ describe('VistaProyecto', () => {
     expect(nombres[0]).toMatch(/SUBRASANTE/)
     expect(nombres[1]).toMatch(/TERRENO EXISTENTE/)
     expect(useAlmacen.getState().proyecto.capas.map((c) => c.orden)).toEqual([0, 1])
+  })
+
+  it('se puede escribir el espesor de una capa y queda guardado', async () => {
+    render(<VistaProyecto />)
+
+    const campo = screen.getByLabelText('Espesor de SUBRASANTE')
+    await userEvent.clear(campo)
+    await userEvent.type(campo, '0.25')
+    fireEvent.blur(campo)
+
+    const capa = useAlmacen.getState().proyecto.capas.find((c) => c.nombre === 'SUBRASANTE')
+    expect(capa!.espesor).toBe(0.25)
+  })
+
+  it('avisa de las capas que todavía no tienen espesor, diciendo cuáles', () => {
+    render(<VistaProyecto />)
+
+    // El nombre de la capa aparece dos veces en la pantalla —en la lista de
+    // capas y en el aviso—, así que se comprueba que el propio aviso la
+    // nombra, no que el nombre exista en algún sitio de la página.
+    const aviso = screen.getByText(/sin espesor definido/i)
+    expect(aviso).toBeInTheDocument()
+    expect(aviso).toHaveTextContent('SUBRASANTE')
+  })
+
+  it('cuando todas las capas tienen espesor, no queda ningún aviso', () => {
+    const proyecto = useAlmacen.getState().proyecto
+    useAlmacen.getState().cargarProyecto({
+      ...proyecto,
+      capas: proyecto.capas.map((capa) => ({ ...capa, espesor: capa.orden === 0 ? 0 : 0.2 })),
+    })
+
+    render(<VistaProyecto />)
+
+    expect(screen.queryByText(/sin espesor definido/i)).toBeNull()
   })
 })
