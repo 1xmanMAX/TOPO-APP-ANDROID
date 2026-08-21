@@ -112,12 +112,17 @@ describe('archivo .topo', () => {
     expect(recuperado.calles.every((calle) => calle.rasante === null)).toBe(true)
   })
 
-  it('un proyecto que ya trae espesores no se toca', () => {
+  it('un proyecto que ya trae espesor y tolerancia no se toca', () => {
     const original = proyectoEjemplo()
     original.capas[1]!.espesor = 0.25
+    // 15 y no el valor por defecto de la migración (20): si el código pisara
+    // la tolerancia siempre, esta prueba seguiría en verde con 20 porque
+    // coincidiría por casualidad con el valor por defecto.
+    original.capas[1]!.toleranciaMm = 15
 
     const recuperado = desempaquetarProyecto(empaquetarProyecto(original))
 
     expect(recuperado.capas[1]!.espesor).toBe(0.25)
+    expect(recuperado.capas[1]!.toleranciaMm).toBe(15)
   })
 })
