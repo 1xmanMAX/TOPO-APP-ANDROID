@@ -336,16 +336,26 @@ describe('armarCaras', () => {
     expect(primera.elementoHasta).toBe('EJE')
   })
 
-  it('una cara con una sola esquina sin medir no se forma', () => {
+  it('sin la esquina de la malla cae solo el cuadro que la tocaba', () => {
     const entrada = entradaCompleta()
     const original = entrada.cotaDe
-    // Se borra una esquina que tocan dos cuadros: quedan dos.
-    entrada.cotaDe = (clave) => (clave === '20|EJE' ? null : original(clave))
+    // 0|BOR-I es una esquina del borde: solo pertenece a un cuadro.
+    entrada.cotaDe = (clave) => (clave === '0|BOR-I' ? null : original(clave))
 
     const caras = armarCaras(entrada)
 
-    expect(caras).toHaveLength(1)
+    expect(caras).toHaveLength(3)
     expect(caras.every((c) => c.esquinas.every((e) => Number.isFinite(e.cota)))).toBe(true)
+  })
+
+  it('sin la celda del centro no queda ninguna cara, porque la tocan las cuatro', () => {
+    const entrada = entradaCompleta()
+    const original = entrada.cotaDe
+    // 20|EJE está en la progresiva de en medio y en el elemento de en medio,
+    // así que es esquina de los cuatro cuadros a la vez.
+    entrada.cotaDe = (clave) => (clave === '20|EJE' ? null : original(clave))
+
+    expect(armarCaras(entrada)).toHaveLength(0)
   })
 
   it('sin dos progresivas no hay ninguna cara que formar', () => {
