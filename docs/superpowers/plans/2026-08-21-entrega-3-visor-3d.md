@@ -219,8 +219,8 @@ export interface Camara {
   inclinacion: number
   /**
    * Cuánto se estiran las cotas. Sin esto la calle se ve plana: 180 m de calle
-   * ocupan 103.9 unidades de pantalla y un metro de desnivel ocupa 0.8, que es
-   * el 0.8 %. Con 25 pasa a ser el 20 %, que ya se lee.
+   * ocupan 73.5 unidades de pantalla y un metro de desnivel ocupa 0.8, que es
+   * el 1.1 %. Con 25 pasa a ser el 27.8 %, que ya se lee.
    */
   exageracion: number
 }
