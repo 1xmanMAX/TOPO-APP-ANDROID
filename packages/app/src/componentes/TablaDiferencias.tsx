@@ -3,10 +3,9 @@ import { type ReactNode, useMemo, useState } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useEvaluacionRasante } from '../estado/derivados'
 import {
-  ETIQUETA_ESTADO,
+  etiquetaAccesibleCelda,
   formatearDiferencia,
   SIMBOLO_ESTADO_TOLERANCIA as SIMBOLO_ESTADO,
-  textoAccion,
 } from '../estadoRasante'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { formatearCota } from '../formato'
@@ -48,19 +47,6 @@ function clasesCelda(celda: CeldaEvaluada | undefined, activa: boolean): { fondo
         : 'text-slate-300 dark:text-slate-700'
 
   return { fondo, texto }
-}
-
-/**
- * El nombre accesible completo: nunca depende del interruptor de vista, para
- * que un lector de pantalla siempre diga qué hay que hacer en esa celda,
- * aunque en pantalla se esté mostrando la cota real o la teórica.
- */
-function etiquetaAccesible(etiqueta: string, celda: CeldaEvaluada | undefined): string {
-  if (!celda) return `${etiqueta}, sin datos`
-  if (celda.estado === 'sinMedir') return `${etiqueta}, sin medir`
-  if (celda.estado === 'sinRasante') return `${etiqueta}, fuera de la sección definida por el proyecto`
-  const diferencia = celda.diferenciaMm!
-  return `${etiqueta}: ${formatearDiferencia(diferencia)}, ${textoAccion(diferencia)}, ${ETIQUETA_ESTADO[celda.estado]}`
 }
 
 /**
@@ -181,7 +167,7 @@ export default function TablaDiferencias() {
                     <td key={clave} className="p-0.5">
                       <button
                         type="button"
-                        aria-label={etiquetaAccesible(etiqueta, celda)}
+                        aria-label={etiquetaAccesibleCelda(etiqueta, celda)}
                         onClick={() => seleccionar(clave)}
                         className={`numerico w-full rounded px-2 py-1 text-right ${fondo} ${texto}`}
                       >

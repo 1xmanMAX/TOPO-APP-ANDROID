@@ -1,8 +1,8 @@
-import { formatearProgresiva, type CeldaEvaluada, type EstadoTolerancia, type Id } from '@topo/core'
+import { formatearProgresiva, type EstadoTolerancia, type Id } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useContextoDe, useEvaluacionRasante } from '../estado/derivados'
-import { ETIQUETA_ESTADO, formatearDiferencia, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasante'
+import { etiquetaAccesibleCelda, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasante'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import MapaGrilla, { type CeldaPintada } from './MapaGrilla'
 
@@ -40,16 +40,6 @@ const LEYENDA: { estado: EstadoTolerancia; texto: string }[] = [
   { estado: 'sinMedir', texto: 'Sin medir' },
   { estado: 'sinRasante', texto: 'Sin rasante definida en el proyecto' },
 ]
-
-/**
- * El nombre accesible completo de una celda: progresiva, elemento, diferencia
- * con signo y estado en palabras — nunca solo el color ni solo el símbolo.
- */
-function etiquetaAccesible(etiqueta: string, celda: CeldaEvaluada | undefined): string {
-  if (!celda) return `${etiqueta}, sin datos`
-  if (celda.diferenciaMm === null) return `${etiqueta}, ${ETIQUETA_ESTADO[celda.estado]}`
-  return `${etiqueta}: ${formatearDiferencia(celda.diferenciaMm)}, ${ETIQUETA_ESTADO[celda.estado]}`
-}
 
 interface Props {
   /**
@@ -102,7 +92,7 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
     }
     return {
       simbolo: SIMBOLO_ESTADO[celda.estado],
-      etiqueta: etiquetaAccesible(etiqueta, celda),
+      etiqueta: etiquetaAccesibleCelda(etiqueta, celda),
       clases: CLASES_ESTADO[celda.estado],
     }
   }

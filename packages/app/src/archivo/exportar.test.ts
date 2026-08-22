@@ -1,7 +1,26 @@
-import { calcularCampania, claveCelda, compararCapas, type Campania, type CotaCelda, type ResultadoCampania } from '@topo/core'
+import {
+  calcularCampania,
+  claveCelda,
+  compararCapas,
+  evaluarContraRasante,
+  type Campania,
+  type CotaCelda,
+  type Rasante,
+  type ResultadoCampania,
+  type ResultadoEvaluacion,
+} from '@topo/core'
 import { describe, expect, it } from 'vitest'
 import { proyectoEjemplo } from '../estado/ejemplo'
-import { aTextoSeparado, armarCabecera, armarCabeceraComparacion, armarTabla, armarTablaEspesores } from './exportar'
+import {
+  aTextoSeparado,
+  armarCabecera,
+  armarCabeceraComparacion,
+  armarCabeceraDiferencias,
+  armarTabla,
+  armarTablaDiferencias,
+  armarTablaEspesores,
+  type DatosDeCabeceraDiferencias,
+} from './exportar'
 
 function resultadoEjemplo() {
   const proyecto = proyectoEjemplo()
@@ -55,6 +74,99 @@ function resultadoComparable(celdas: CotaCelda[], pasa: boolean | null = true): 
 /** Campaña de prueba, solo para tener la fecha y la capa que la cabecera necesita. */
 function campaniaEjemplo(campaniaBase: Campania, overrides: Partial<Campania>): Campania {
   return { ...campaniaBase, ...overrides }
+}
+
+function calle() {
+  return proyectoEjemplo().calles[0]!
+}
+
+function plantilla() {
+  return proyectoEjemplo().plantillas[0]!
+}
+
+/**
+ * Rasante plana (sin pendiente longitudinal ni transversal) que cubre todo
+ * el ancho de la plantilla del ejemplo (hasta 5.6 m): ningún elemento queda
+ * fuera de sección sin querer. Cota de arranque elegida para que 0+000 EJE
+ * (cota real 3244.6275, la misma libreta que usan las demás pruebas de esta
+ * calle) dé exactamente −302 mm de diferencia — la misma rasante que usa
+ * `MapaEstado.test.tsx`.
+ */
+function rasantePlana(): Rasante {
+  return {
+    progresivaArranque: 0,
+    cotaArranque: 3244.929,
+    pendienteLongitudinal: 0,
+    tramos: [{ nombre: 'Calzada', hastaOffset: 5.6, tipo: 'pendiente', valor: 0 }],
+    simetrica: true,
+    tramosIzquierda: null,
+  }
+}
+
+/** Lo mínimo para evaluar la calle del ejemplo contra una rasante cualquiera. */
+function evaluacionBase() {
+  const proyecto = proyectoEjemplo()
+  const campania = proyecto.campanias[0]!
+  const calle = proyecto.calles[0]!
+  const plantilla = proyecto.plantillas[0]!
+  const resultado = calcularCampania({ campania, calle, plantilla, bms: proyecto.bms })
+  return { campania, calle, plantilla, resultado, capas: proyecto.capas, capaId: campania.capaId }
+}
+
+function evaluacionEjemplo(): ResultadoEvaluacion {
+  const { calle, plantilla, capas, capaId, resultado } = evaluacionBase()
+  return evaluarContraRasante({ resultado, calle, plantilla, rasante: rasantePlana(), capas, capaId })
+}
+
+/**
+ * Rasante angosta, que no llega hasta la vereda (solo cubre hasta el borde de
+ * calzada, offset 4.4). Para que VER-I quede de verdad "fuera de sección" —
+ * medida pero sin cota teórica que compararle, no simplemente sin medir — se
+ * le agrega a mano una lectura ahí: el proyecto de ejemplo no la mide en
+ * 0+000.
+ */
+function evaluacionEstrecha(): ResultadoEvaluacion {
+  const { calle, plantilla, capas, capaId, resultado } = evaluacionBase()
+  const cotasPorCelda = new Map(resultado.cotasPorCelda)
+  cotasPorCelda.set(claveCelda(0, 'VER-I'), celda(0, 'VER-I', 3244.0))
+  const resultadoConVerI: ResultadoCampania = { ...resultado, cotasPorCelda }
+  const rasanteEstrecha: Rasante = {
+    progresivaArranque: 0,
+    cotaArranque: 3244.929,
+    pendienteLongitudinal: 0,
+    tramos: [{ nombre: 'Calzada', hastaOffset: 4.4, tipo: 'pendiente', valor: 0 }],
+    simetrica: true,
+    tramosIzquierda: null,
+  }
+  return evaluarContraRasante({ resultado: resultadoConVerI, calle, plantilla, rasante: rasanteEstrecha, capas, capaId })
+}
+
+/** La cota real de 0+000 EJE se lleva a mano a la misma cota teórica: diferencia cero exacta. */
+function evaluacionConCeroExacto(): ResultadoEvaluacion {
+  const { calle, plantilla, capas, capaId, resultado } = evaluacionBase()
+  const cotasPorCelda = new Map(resultado.cotasPorCelda)
+  cotasPorCelda.set(claveCelda(0, 'EJE'), celda(0, 'EJE', 3244.929))
+  const resultadoAjustado: ResultadoCampania = { ...resultado, cotasPorCelda }
+  return evaluarContraRasante({ resultado: resultadoAjustado, calle, plantilla, rasante: rasantePlana(), capas, capaId })
+}
+
+/** ResultadoCampania de prueba cuyo circuito no cerró, para la cabecera de diferencias. */
+function resultadoSinCerrar(): ResultadoCampania {
+  return resultadoComparable([celda(0, 'EJE', 3244.6275)], false)
+}
+
+function datosEjemplo(): DatosDeCabeceraDiferencias {
+  const { calle, campania, resultado, capas, capaId } = evaluacionBase()
+  const capa = capas.find((c) => c.id === capaId)
+  const rasante: Rasante = {
+    progresivaArranque: 0,
+    cotaArranque: 3245.18,
+    pendienteLongitudinal: -1.25,
+    tramos: [{ nombre: 'Calzada', hastaOffset: 5.6, tipo: 'pendiente', valor: 0 }],
+    simetrica: true,
+    tramosIzquierda: null,
+  }
+  return { calle, capa, campania, rasante, resultado }
 }
 
 describe('armarTabla', () => {
@@ -353,6 +465,55 @@ describe('armarCabeceraComparacion', () => {
     const filaEstado = cabecera.find((fila) => fila[0] === 'Estado')!.join(' ')
     expect(filaEstado).toContain('ESPESORES NO COMPROBADOS')
     expect(filaEstado).toContain(`— · ${campaniaInferior.fecha}`)
+  })
+})
+
+describe('armarTablaDiferencias', () => {
+  it('pone las progresivas en la primera columna y los elementos en el encabezado, igual que armarTabla', () => {
+    const tabla = armarTablaDiferencias(evaluacionEjemplo(), calle(), plantilla())
+
+    expect(tabla[0]).toEqual(['Progresiva', 'VER-I', 'SAR-I', 'BOR-I', 'EJE', 'BOR-D', 'SAR-D', 'VER-D'])
+  })
+
+  // La prueba que más ha costado en este proyecto: una celda fuera de la
+  // sección definida por el proyecto no es lo mismo que una diferencia de
+  // cero. Confundirlas ya pasó dos veces en la Entrega 2A.
+  it('una celda fuera de la sección definida sale vacía, nunca en cero', () => {
+    const tabla = armarTablaDiferencias(evaluacionEstrecha(), calle(), plantilla())
+    const columnaVerI = tabla[0]!.indexOf('VER-I')
+
+    expect(tabla.find((f) => f[0] === '0+000')![columnaVerI]).toBe('')
+  })
+
+  it('las diferencias van en milímetros con signo', () => {
+    const tabla = armarTablaDiferencias(evaluacionEjemplo(), calle(), plantilla())
+    const columnaEje = tabla[0]!.indexOf('EJE')
+
+    expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('-302')
+  })
+
+  // El cero de una diferencia significa «clavado en la cota del proyecto»,
+  // la mejor noticia posible: nunca puede confundirse con «sin dato».
+  it('un cero real sale como cero, porque significa que está justo en la cota', () => {
+    const tabla = armarTablaDiferencias(evaluacionConCeroExacto(), calle(), plantilla())
+    const columnaEje = tabla[0]!.indexOf('EJE')
+
+    expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('0')
+  })
+})
+
+describe('armarCabeceraDiferencias', () => {
+  it('la cabecera lleva la rasante y la tolerancia con la que se juzgó', () => {
+    const cabecera = armarCabeceraDiferencias(datosEjemplo())
+
+    expect(cabecera).toContainEqual(['Pendiente longitudinal', '-1.250 %'])
+    expect(cabecera).toContainEqual(['Tolerancia de la capa', '±20 mm'])
+  })
+
+  it('si el circuito no cerró, la cabecera dice que el resultado no está comprobado', () => {
+    const cabecera = armarCabeceraDiferencias({ ...datosEjemplo(), resultado: resultadoSinCerrar() })
+
+    expect(cabecera.find((f) => f[0] === 'Estado')![1]).toMatch(/NO COMPROBAD/)
   })
 })
 

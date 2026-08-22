@@ -6,13 +6,15 @@ import {
   type Campania,
   type Capa,
   type Plantilla,
+  type Rasante,
   type ResultadoCampania,
   type ResultadoCierre,
   type ResultadoComparacion,
+  type ResultadoEvaluacion,
 } from '@topo/core'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { formatearCota } from '../formato'
-import { calcularEstadoComparacion } from '../estadoComparacion'
+import { calcularEstadoComparacion, calcularEstadoRasante } from '../estadoComparacion'
 import { armarXlsx } from './xlsx'
 
 export function armarTabla(
@@ -64,6 +66,49 @@ export function armarTablaEspesores(
       ...elementos.map((elementoClave) => {
         const celda = comparacion.celdas.get(claveCelda(progresiva, elementoClave))
         return celda && celda.espesor !== null ? formatearCota(celda.espesor) : ''
+      }),
+    ])
+  }
+
+  return filas
+}
+
+/**
+ * Milímetros con signo para el archivo exportado: sin la unidad pegada al
+ * número (va en la cabecera de columna) y con el guion normal, no el menos
+ * tipográfico que usa la pantalla — así Excel reconoce la celda como número
+ * y no como texto. El cero no lleva signo, igual que en pantalla.
+ */
+function formatearDiferenciaExportada(diferenciaMm: number): string {
+  return diferenciaMm > 0 ? `+${diferenciaMm}` : `${diferenciaMm}`
+}
+
+/**
+ * La tabla de diferencias contra el proyecto que baja a obra: misma forma
+ * que `armarTabla` y `armarTablaEspesores`, con la diferencia de cada celda
+ * en milímetros con signo. Igual que en espesores, `celda.diferenciaMm !==
+ * null` decide si la celda va vacía o en cero — nunca la verdad del número:
+ * una celda sin medir o fuera de la sección definida por el proyecto sale
+ * vacía; un cero real (clavado en la cota del proyecto, la mejor noticia
+ * posible) sí escribe 0.
+ */
+export function armarTablaDiferencias(
+  evaluacion: ResultadoEvaluacion,
+  calle: Calle,
+  plantilla: Plantilla,
+): string[][] {
+  const esqueleto = armarEsqueletoTabla(calle, plantilla)
+  if (!esqueleto) return []
+  const { progresivas, elementos } = esqueleto
+
+  const filas: string[][] = [['Progresiva', ...elementos]]
+
+  for (const progresiva of progresivas) {
+    filas.push([
+      formatearProgresiva(progresiva),
+      ...elementos.map((elementoClave) => {
+        const celda = evaluacion.celdas.get(claveCelda(progresiva, elementoClave))
+        return celda && celda.diferenciaMm !== null ? formatearDiferenciaExportada(celda.diferenciaMm) : ''
       }),
     ])
   }
@@ -138,6 +183,35 @@ export function armarCabeceraComparacion(datos: DatosDeCabeceraComparacion): str
     ['Espesor medio', comparacion.espesorMedio === null ? '—' : formatearCota(comparacion.espesorMedio)],
     ['Celdas comparables', `${comparacion.comparables} de ${totalCeldas}`],
     ['Estado', calcularEstadoComparacion(datos).texto],
+  ]
+}
+
+export interface DatosDeCabeceraDiferencias {
+  calle: Calle
+  capa: Capa | undefined
+  campania: Campania
+  rasante: Rasante
+  resultado: ResultadoCampania
+}
+
+/**
+ * Encabezado del entregable de diferencias contra el proyecto: identifica
+ * calle, capa y campaña, la pendiente longitudinal y la tolerancia de la
+ * capa con las que se juzgó cada celda, y si el resultado está comprobado —
+ * mismo criterio que la pantalla y que el entregable de espesores, vía
+ * `calcularEstadoRasante` sobre el cierre de esta única campaña (aquí no
+ * hay una segunda campaña que comprobar, a diferencia de los espesores).
+ */
+export function armarCabeceraDiferencias(datos: DatosDeCabeceraDiferencias): string[][] {
+  const { calle, capa, campania, rasante, resultado } = datos
+
+  return [
+    ['Calle', calle.nombre],
+    ['Capa', capa?.nombre ?? '—'],
+    ['Fecha', campania.fecha],
+    ['Pendiente longitudinal', `${rasante.pendienteLongitudinal.toFixed(3)} %`],
+    ['Tolerancia de la capa', capa ? `±${capa.toleranciaMm} mm` : '—'],
+    ['Estado', calcularEstadoRasante(resultado.cierre).texto],
   ]
 }
 

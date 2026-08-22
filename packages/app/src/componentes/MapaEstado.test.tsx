@@ -42,11 +42,18 @@ describe('MapaEstado', () => {
     expect(screen.getAllByRole('button', { name: /^0\+\d{3} / }).length).toBe(49)
   })
 
-  it('cada celda dice su estado por escrito, no solo por color', () => {
+  // La celda tiene que decir los milímetros, qué hacer (cortar/rellenar) y
+  // el estado — igual que en TablaDiferencias, sin exigir un orden rígido
+  // entre esos tres datos: el criterio es que un lector de pantalla pueda
+  // enterarse de los tres, no en qué posición vienen.
+  it('cada celda dice sus milímetros, qué hacer y su estado por escrito, no solo por color', () => {
     fijarRasanteDeEjemplo()
     render(<MapaEstado />)
 
-    expect(screen.getByLabelText(/0\+000 EJE: −302 mm, fuera de tolerancia/)).toBeInTheDocument()
+    const etiqueta = screen.getByLabelText(/0\+000 EJE/).getAttribute('aria-label')
+    expect(etiqueta).toMatch(/−302 mm/)
+    expect(etiqueta).toMatch(/rellenar/)
+    expect(etiqueta).toMatch(/fuera de tolerancia/)
   })
 
   it('elegir una celda del mapa la selecciona en el resto de vistas', async () => {

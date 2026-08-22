@@ -301,7 +301,13 @@ describe('VistaResultados', () => {
 
     expect(screen.getByRole('heading', { name: 'Diferencias comprobadas' })).toBeInTheDocument()
     expect(screen.getByText(/DIFERENCIAS VERIFICADAS/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/0\+000 EJE: −553 mm, rellenar/)).toBeInTheDocument()
+    // La misma celda aparece dos veces en pantalla (tabla y mapa), así que se
+    // acota a la tabla de diferencias con `within`, igual que ya se hace más
+    // abajo con la sección del mapa.
+    const encabezado = screen.getByRole('heading', { name: 'Diferencias comprobadas' })
+    const etiqueta = within(encabezado.closest('section')!).getByLabelText(/0\+000 EJE/).getAttribute('aria-label')
+    expect(etiqueta).toMatch(/−553 mm/)
+    expect(etiqueta).toMatch(/rellenar/)
   })
 
   // El mismo defecto que ya se corrigió para los espesores (VistaResultados

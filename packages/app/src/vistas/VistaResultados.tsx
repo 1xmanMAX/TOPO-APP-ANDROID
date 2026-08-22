@@ -3,7 +3,9 @@ import { useMemo, useState } from 'react'
 import {
   armarCabecera,
   armarCabeceraComparacion,
+  armarCabeceraDiferencias,
   armarTabla,
+  armarTablaDiferencias,
   armarTablaEspesores,
   copiarAlPortapapeles,
   descargarCsv,
@@ -132,6 +134,30 @@ export default function VistaResultados() {
     [resultado, evaluacionRasante],
   )
 
+  const tablaDiferencias = useMemo(
+    () => (evaluacionRasante && contexto ? armarTablaDiferencias(evaluacionRasante, contexto.calle, contexto.plantilla) : []),
+    [evaluacionRasante, contexto],
+  )
+
+  // Igual que `tablaEspesoresCompleta`: sin rasante definida no hay nada que
+  // evaluar, así que el archivo tampoco existe todavía (se comprueba con
+  // `contexto.calle.rasante`, no solo con `evaluacionRasante`, para que
+  // TypeScript sepa que no es null al armar la cabecera).
+  const tablaDiferenciasCompleta = useMemo(() => {
+    if (!evaluacionRasante || !contexto || !resultado || !contexto.calle.rasante) return []
+    return [
+      ...armarCabeceraDiferencias({
+        calle: contexto.calle,
+        capa: contexto.capa,
+        campania: contexto.campania,
+        rasante: contexto.calle.rasante,
+        resultado,
+      }),
+      [],
+      ...tablaDiferencias,
+    ]
+  }, [evaluacionRasante, contexto, resultado, tablaDiferencias])
+
   const [copiado, setCopiado] = useState(false)
   const [copiadoEspesores, setCopiadoEspesores] = useState(false)
   const nombreArchivo = `${contexto?.calle.nombre ?? 'cotas'} — ${contexto?.capa?.nombre ?? ''}`.trim()
@@ -140,6 +166,8 @@ export default function VistaResultados() {
   // las dos campañas no se le pudo resolver la capa.
   const nombreArchivoEspesores =
     `${contextoInferior?.calle.nombre ?? 'espesores'} — Espesores ${contextoInferior?.capa?.nombre ?? '—'} a ${contextoSuperior?.capa?.nombre ?? '—'}`.trim()
+  const nombreArchivoDiferencias =
+    `${contexto?.calle.nombre ?? 'diferencias'} — Diferencias ${contexto?.capa?.nombre ?? ''}`.trim()
 
   if (!contexto || !resultado) {
     return <p className="p-6 text-sm text-slate-500">No hay una campaña abierta.</p>
@@ -244,6 +272,24 @@ export default function VistaResultados() {
               ? 'Diferencias comprobadas'
               : 'Diferencias no comprobadas'}
         </h2>
+        {evaluacionRasante && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => descargarXlsx(tablaDiferenciasCompleta, nombreArchivoDiferencias, 'Diferencias')}
+              className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
+            >
+              Exportar diferencias a Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => descargarCsv(tablaDiferenciasCompleta, nombreArchivoDiferencias)}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+            >
+              Exportar diferencias a CSV
+            </button>
+          </div>
+        )}
         {estadoRasante && <AvisoEspesores estado={estadoRasante} />}
         <TablaDiferencias />
       </section>
