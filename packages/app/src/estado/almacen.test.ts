@@ -401,4 +401,52 @@ describe('almacén', () => {
       expect(useAlmacen.getState().comparacion).toEqual({ inferior: 'camp-1', superior: null })
     })
   })
+
+  describe('cámara', () => {
+    it('la cámara arranca en isométrico con la exageración de partida', () => {
+      const { camara } = useAlmacen.getState()
+
+      expect(camara.giro).toBe(45)
+      expect(camara.exageracion).toBe(25)
+    })
+
+    it('girar suma grados y da la vuelta al pasar de 360', () => {
+      useAlmacen.getState().fijarCamara({ giro: 350, inclinacion: 35.264, exageracion: 25 })
+      useAlmacen.getState().girarCamara(20)
+
+      expect(useAlmacen.getState().camara.giro).toBe(10)
+    })
+
+    it('girar hacia atrás también da la vuelta', () => {
+      useAlmacen.getState().fijarCamara({ giro: 10, inclinacion: 35.264, exageracion: 25 })
+      useAlmacen.getState().girarCamara(-20)
+
+      expect(useAlmacen.getState().camara.giro).toBe(350)
+    })
+
+    it('la inclinación no se sale del rango que tiene sentido', () => {
+      useAlmacen.getState().fijarCamara({ giro: 0, inclinacion: 140, exageracion: 25 })
+      expect(useAlmacen.getState().camara.inclinacion).toBe(90)
+
+      useAlmacen.getState().fijarCamara({ giro: 0, inclinacion: -30, exageracion: 25 })
+      expect(useAlmacen.getState().camara.inclinacion).toBe(0)
+    })
+
+    it('la exageración se queda entre 1 y 50', () => {
+      useAlmacen.getState().fijarExageracion(200)
+      expect(useAlmacen.getState().camara.exageracion).toBe(50)
+
+      useAlmacen.getState().fijarExageracion(0)
+      expect(useAlmacen.getState().camara.exageracion).toBe(1)
+    })
+
+    it('la cámara y el modo no viajan en el archivo del proyecto', () => {
+      // Son estado de la sesión, como la celda seleccionada: describen lo que se
+      // está mirando, no el trabajo del topógrafo.
+      const proyecto = useAlmacen.getState().proyecto
+
+      expect('camara' in proyecto).toBe(false)
+      expect('modoVista3D' in proyecto).toBe(false)
+    })
+  })
 })

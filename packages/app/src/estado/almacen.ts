@@ -1,4 +1,5 @@
 import {
+  CAMARA_ISOMETRICA,
   calcularCampania,
   capaEnUso,
   moverCapa,
@@ -6,6 +7,7 @@ import {
   renumerarCapas,
   type BM,
   type Calle,
+  type Camara,
   type Campania,
   type Capa,
   type DestinoLectura,
@@ -19,6 +21,9 @@ import { create } from 'zustand'
 import { nuevoId, proyectoEjemplo, proyectoVacio } from './ejemplo'
 
 export type Vista = 'proyecto' | 'plantilla' | 'calle' | 'campanias' | 'libreta' | 'resultados'
+
+/** Qué manda el color en el visor 3D: el estado de la celda o la capa activa. */
+export type ModoVista3D = 'estado' | 'capas'
 
 export interface Seleccion {
   clave: string | null
@@ -42,6 +47,10 @@ interface EstadoApp {
   capasVisibles: Id[]
   /** Qué dos campañas se comparan para calcular el espesor colocado entre ellas. */
   comparacion: Comparacion
+  /** Cómo se está mirando el modelo 3D: giro, inclinación y exageración vertical. */
+  camara: Camara
+  /** Qué manda el color en el visor 3D. */
+  modoVista3D: ModoVista3D
 
   cargarProyecto(proyecto: Proyecto): void
   nuevoProyecto(): void
@@ -93,6 +102,11 @@ interface EstadoApp {
   alternarCapaVisible(campaniaId: Id): void
   fijarComparacion(inferior: Id | null, superior: Id | null): void
 
+  girarCamara(grados: number): void
+  fijarCamara(camara: Camara): void
+  fijarExageracion(factor: number): void
+  fijarModoVista3D(modo: ModoVista3D): void
+
   calcular(): ResultadoCampania | null
 }
 
@@ -115,6 +129,25 @@ function calleDeCampania(proyecto: Proyecto, campaniaId: Id | null): Id | null {
 }
 
 const SIN_COMPARACION: Comparacion = { inferior: null, superior: null }
+
+/** Recorta un valor al rango [minimo, maximo]: un deslizador que se resiste en el extremo se siente roto. */
+function recortar(valor: number, minimo: number, maximo: number): number {
+  return Math.min(maximo, Math.max(minimo, valor))
+}
+
+/** Normaliza un giro a [0, 360): da la vuelta en vez de crecer sin fin. */
+function normalizarGiro(grados: number): number {
+  return ((grados % 360) + 360) % 360
+}
+
+/** La cámara tal como se guarda: giro normalizado, inclinación y exageración recortadas. */
+function camaraValida(camara: Camara): Camara {
+  return {
+    giro: normalizarGiro(camara.giro),
+    inclinacion: recortar(camara.inclinacion, 0, 90),
+    exageracion: recortar(camara.exageracion, 1, 50),
+  }
+}
 
 /**
  * Qué se dibuja y qué se compara vive por calle: si la calle activa cambia,
@@ -146,6 +179,8 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
   seleccion: { clave: null, progresiva: null },
   capasVisibles: [],
   comparacion: SIN_COMPARACION,
+  camara: CAMARA_ISOMETRICA,
+  modoVista3D: 'estado',
 
   cargarProyecto: (proyecto) =>
     set({
@@ -556,6 +591,16 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         comparacion: { inferior, superior: mismaCampania || callesDistintas ? null : superior },
       }
     }),
+
+  girarCamara: (grados) =>
+    set((s) => ({ camara: camaraValida({ ...s.camara, giro: s.camara.giro + grados }) })),
+
+  fijarCamara: (camara) => set({ camara: camaraValida(camara) }),
+
+  fijarExageracion: (factor) =>
+    set((s) => ({ camara: camaraValida({ ...s.camara, exageracion: factor }) })),
+
+  fijarModoVista3D: (modo) => set({ modoVista3D: modo }),
 
   calcular: () => {
     const { proyecto, campaniaActivaId } = get()
