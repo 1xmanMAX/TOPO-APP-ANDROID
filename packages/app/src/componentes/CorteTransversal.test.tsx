@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Campania, Proyecto } from '@topo/core'
+import type { Campania, Plantilla, Proyecto, Rasante } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
@@ -12,30 +12,30 @@ describe('CorteTransversal', () => {
   })
 
   it('dibuja un punto por cada celda medida de la progresiva', () => {
-    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
     expect(screen.getAllByRole('button', { name: /^0\+000 / })).toHaveLength(2)
   })
 
   it('avisa cuando la progresiva no tiene lecturas', () => {
-    render(<CorteTransversal progresiva={60} idsVisibles={['camp-1']} />)
+    render(<CorteTransversal progresiva={60} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
     expect(screen.getByText(/todavía no tiene lecturas/i)).toBeInTheDocument()
   })
 
   it('selecciona la celda al hacer clic en un punto', async () => {
     const usuario = userEvent.setup()
-    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
     await usuario.click(screen.getByRole('button', { name: /0\+000 EJE/ }))
     expect(useAlmacen.getState().seleccion.clave).toBe('0|EJE')
   })
 
   it('marca el punto seleccionado', () => {
     useAlmacen.getState().seleccionar('0|EJE')
-    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
     expect(screen.getByRole('button', { name: /0\+000 EJE/ })).toHaveAttribute('data-activo', 'true')
   })
 
   it('sin ninguna campaña visible no dibuja nada y avisa que no hay lecturas', () => {
-    render(<CorteTransversal progresiva={0} idsVisibles={[]} />)
+    render(<CorteTransversal progresiva={0} idsVisibles={[]} idCampaniaReferencia="camp-1" />)
     expect(screen.getByText(/todavía no tiene lecturas/i)).toBeInTheDocument()
   })
 })
@@ -128,7 +128,11 @@ describe('CorteTransversal con varias capas', () => {
 
   it('con dos capas visibles dibuja un trazo por cada una', () => {
     const { container } = render(
-      <CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />,
+      <CorteTransversal
+        progresiva={0}
+        idsVisibles={useAlmacen.getState().capasVisibles}
+        idCampaniaReferencia="camp-t"
+      />,
     )
     expect(container.querySelectorAll('polyline')).toHaveLength(2)
   })
@@ -144,7 +148,11 @@ describe('CorteTransversal con varias capas', () => {
     expect(useAlmacen.getState().capasVisibles).toEqual(['camp-s', 'camp-t'])
 
     const { container } = render(
-      <CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />,
+      <CorteTransversal
+        progresiva={0}
+        idsVisibles={useAlmacen.getState().capasVisibles}
+        idCampaniaReferencia="camp-t"
+      />,
     )
     const trazos = container.querySelectorAll('polyline')
     expect(trazos[0]).toHaveAttribute('data-capa-id', 'camp-t')
@@ -152,14 +160,24 @@ describe('CorteTransversal con varias capas', () => {
   })
 
   it('cada capa lleva su nombre junto al primer punto', () => {
-    render(<CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />)
+    render(
+      <CorteTransversal
+        progresiva={0}
+        idsVisibles={useAlmacen.getState().capasVisibles}
+        idCampaniaReferencia="camp-t"
+      />,
+    )
     expect(screen.getByText('TERRENO EXISTENTE')).toBeInTheDocument()
     expect(screen.getByText('SUBRASANTE')).toBeInTheDocument()
   })
 
   it('el relleno entre dos capas solo cubre los tramos donde ambas tienen cota', () => {
     const { container } = render(
-      <CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />,
+      <CorteTransversal
+        progresiva={0}
+        idsVisibles={useAlmacen.getState().capasVisibles}
+        idCampaniaReferencia="camp-t"
+      />,
     )
     // VER-I↔SAR-I y EJE↔BOR-D: dos tramos con pareja, separados por BOR-I
     // (solo terreno) y SAR-D (solo subrasante), que no deben unirse.
@@ -167,7 +185,13 @@ describe('CorteTransversal con varias capas', () => {
   })
 
   it('el nombre accesible de un punto dice de qué capa es cuando hay varias visibles', () => {
-    render(<CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />)
+    render(
+      <CorteTransversal
+        progresiva={0}
+        idsVisibles={useAlmacen.getState().capasVisibles}
+        idCampaniaReferencia="camp-t"
+      />,
+    )
     const botones = screen.getAllByRole('button', { name: /0\+000 EJE/ })
     expect(botones).toHaveLength(2)
     const etiquetas = botones.map((b) => b.getAttribute('aria-label'))
@@ -179,7 +203,13 @@ describe('CorteTransversal con varias capas', () => {
 
   it('con una sola capa marcada explícitamente se ve igual que con una sola capa', () => {
     useAlmacen.getState().alternarCapaVisible('camp-s') // deja solo camp-t visible
-    render(<CorteTransversal progresiva={0} idsVisibles={useAlmacen.getState().capasVisibles} />)
+    render(
+      <CorteTransversal
+        progresiva={0}
+        idsVisibles={useAlmacen.getState().capasVisibles}
+        idCampaniaReferencia="camp-t"
+      />,
+    )
 
     const botones = screen.getAllByRole('button', { name: /^0\+000 / })
     expect(botones).toHaveLength(5) // VER-I, SAR-I, BOR-I, EJE, BOR-D
@@ -187,5 +217,257 @@ describe('CorteTransversal con varias capas', () => {
     const eje = screen.getByRole('button', { name: /0\+000 EJE/ })
     expect(eje.getAttribute('aria-label')).not.toContain('TERRENO EXISTENTE')
     expect(eje.getAttribute('aria-label')).toMatch(/^0\+000 EJE · cota [\d.]+ m$/)
+  })
+})
+
+/**
+ * Rasante plana en 3244.850, sin pendiente longitudinal ni transversal, para
+ * el ancho completo de la plantilla del ejemplo (hasta 5.6 m de offset).
+ * camp-1 mide en SUBRASANTE, y BASE + CARPETA (0.20 + 0.05 = 0.25 m) van
+ * encima de esa capa, así que su cota teórica ahí queda en 3244.600.
+ *
+ * Con esto, en 0+000 de camp-1 (que solo mide EJE y BOR-I): EJE (cota
+ * 3244.6275) queda por encima de la cota teórica de SUBRASANTE — corte — y
+ * BOR-I (cota 3244.5625) por debajo — relleno. El único tramo con pareja
+ * cruza la rasante, así que sirve para probar el reparto en corte/relleno y
+ * el corte del cruce con una sola campaña. VER-I no lo midió camp-1, así que
+ * ningún sombreado debe llegar a su offset (-5.6).
+ */
+function rasantePlanaDeEjemplo(): Rasante {
+  return {
+    progresivaArranque: 0,
+    cotaArranque: 3244.85,
+    pendienteLongitudinal: 0,
+    tramos: [{ nombre: 'Sección', hastaOffset: 5.6, tipo: 'pendiente', valor: 0 }],
+    simetrica: true,
+    tramosIzquierda: null,
+  }
+}
+
+function fijarRasanteDeEjemplo(): void {
+  useAlmacen.getState().fijarRasante('c-1', rasantePlanaDeEjemplo())
+}
+
+describe('CorteTransversal con rasante', () => {
+  beforeEach(() => {
+    useAlmacen.getState().cargarProyecto(proyectoEjemplo())
+  })
+
+  it('dibuja la rasante además del terreno medido', () => {
+    fijarRasanteDeEjemplo()
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
+
+    expect(screen.getByLabelText(/rasante de proyecto/i)).toBeInTheDocument()
+  })
+
+  it('sombrea corte y relleno por separado, no como una sola mancha', () => {
+    fijarRasanteDeEjemplo()
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />,
+    )
+
+    expect(container.querySelectorAll('[data-zona="corte"]').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('[data-zona="relleno"]').length).toBeGreaterThan(0)
+  })
+
+  it('sin rasante definida el corte se dibuja como hasta ahora', () => {
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
+
+    expect(screen.queryByLabelText(/rasante de proyecto/i)).toBeNull()
+    expect(screen.getAllByLabelText(/cota/i).length).toBeGreaterThan(0)
+  })
+
+  it('no sombrea contra la rasante donde no hay medida', () => {
+    // VER-I no se midió en camp-1: el sombreado no debe llegar hasta su offset (-5.6).
+    fijarRasanteDeEjemplo()
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />,
+    )
+
+    const zonas = [...container.querySelectorAll('[data-zona]')]
+    const offsets = zonas.flatMap((z) => [
+      Number(z.getAttribute('data-offset-inicio')),
+      Number(z.getAttribute('data-offset-fin')),
+    ])
+    expect(offsets.every((offset) => offset > -5.6)).toBe(true)
+  })
+
+  it('cada zona de corte o relleno dice qué es y cuánto, para quien use un lector de pantalla', () => {
+    fijarRasanteDeEjemplo()
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />,
+    )
+
+    const zonas = [...container.querySelectorAll('[data-zona]')]
+    expect(zonas.length).toBeGreaterThan(0)
+    for (const zona of zonas) {
+      expect(zona).not.toHaveAttribute('aria-hidden')
+      const nombre = zona.getAttribute('aria-label')
+      expect(nombre).toMatch(
+        /^(Corte|Relleno) de hasta \d+ mm, entre [\d.]+ y [\d.]+ m a la (izquierda|derecha) del eje$/,
+      )
+      expect(zona.querySelector('title')?.textContent).toBe(nombre)
+    }
+  })
+
+  it('junto al dibujo hay una leyenda que explica la trama de corte y de relleno', () => {
+    fijarRasanteDeEjemplo()
+    render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
+
+    expect(screen.getByText(/^Corte:/)).toBeInTheDocument()
+    expect(screen.getByText(/^Relleno:/)).toBeInTheDocument()
+  })
+})
+
+describe('CorteTransversal: contra qué capa se sombrea', () => {
+  beforeEach(() => {
+    useAlmacen.getState().cargarProyecto(proyectoDosCapas())
+    fijarRasanteDeEjemplo()
+  })
+
+  it('el sombreado corresponde a la campaña de referencia y no cambia al marcar o desmarcar la otra capa', () => {
+    const zonasDe = (idsVisibles: string[]) => {
+      const { container, unmount } = render(
+        <CorteTransversal progresiva={0} idsVisibles={idsVisibles} idCampaniaReferencia="camp-t" />,
+      )
+      const zonas = [...container.querySelectorAll('[data-zona]')].map((z) => ({
+        zona: z.getAttribute('data-zona'),
+        inicio: z.getAttribute('data-offset-inicio'),
+        fin: z.getAttribute('data-offset-fin'),
+      }))
+      unmount()
+      return zonas
+    }
+
+    const soloReferencia = zonasDe(['camp-t'])
+    expect(soloReferencia.length).toBeGreaterThan(0)
+
+    // Encender la otra capa en el selector no debe mover ni un milímetro el
+    // sombreado: sigue siendo contra camp-t, la campaña de referencia.
+    expect(zonasDe(['camp-t', 'camp-s'])).toEqual(soloReferencia)
+
+    // Con camp-s de referencia (en vez de camp-t), y visible, el sombreado
+    // usa la cota de camp-s: distinto del anterior.
+    const { container: conS } = render(
+      <CorteTransversal progresiva={0} idsVisibles={['camp-t', 'camp-s']} idCampaniaReferencia="camp-s" />,
+    )
+    const zonasConS = [...conS.querySelectorAll('[data-zona]')].map((z) => ({
+      zona: z.getAttribute('data-zona'),
+      inicio: z.getAttribute('data-offset-inicio'),
+      fin: z.getAttribute('data-offset-fin'),
+    }))
+    expect(zonasConS).not.toEqual(soloReferencia)
+  })
+
+  it('si la campaña de referencia no está entre las capas marcadas, no sombrea nada y dice por qué', () => {
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={['camp-s']} idCampaniaReferencia="camp-t" />,
+    )
+
+    expect(container.querySelectorAll('[data-zona]')).toHaveLength(0)
+    expect(screen.getByText(/corresponde a la capa que estás controlando/i)).toBeInTheDocument()
+  })
+})
+
+/**
+ * Plantilla angosta, sin ningún elemento en el offset 0: IZQ a −3.00 m y DER
+ * a 2.00 m, nada en el eje. Es el escenario del arreglo — sin una celda que
+ * caiga justo en el eje, un tramo con pareja puede unir un punto de cada
+ * lado en una sola zona.
+ */
+function plantillaSinEje(): Plantilla {
+  return {
+    id: 'pl-sin-eje',
+    nombre: 'Sección angosta sin eje',
+    elementos: [
+      { clave: 'IZQ', etiqueta: 'Izquierda', offset: -3.0, tipo: 'otro' },
+      { clave: 'DER', etiqueta: 'Derecha', offset: 2.0, tipo: 'otro' },
+    ],
+  }
+}
+
+/**
+ * IZQ y DER, ambas medidas en la progresiva 0, sobre una rasante plana en
+ * 3245.000: IZQ sale a 3245.032 (32 mm de corte) y DER a 3245.020 (20 mm de
+ * corte). Las dos del mismo lado de la rasante — ningún cruce ahí—, así que
+ * sin el arreglo del eje habría un solo tramo IZQ↔DER, y su zona quedaría
+ * rotulada entera "a la izquierda del eje" (−3.00 pesa más que 2.00) aunque
+ * la mitad de esa zona está a la derecha.
+ */
+function proyectoSinEje(): Proyecto {
+  const proyecto = proyectoEjemplo()
+  proyecto.plantillas = [plantillaSinEje()]
+  proyecto.calles = [
+    {
+      id: 'c-sin-eje',
+      nombre: 'Calle sin eje',
+      plantillaId: 'pl-sin-eje',
+      progresivaInicio: 0,
+      progresivaFin: 20,
+      intervalo: 20,
+      progresivasExtra: [],
+      rasante: {
+        progresivaArranque: 0,
+        cotaArranque: 3245.0,
+        pendienteLongitudinal: 0,
+        tramos: [{ nombre: 'Sección', hastaOffset: 3.0, tipo: 'pendiente', valor: 0 }],
+        simetrica: true,
+        tramosIzquierda: null,
+      },
+    },
+  ]
+  proyecto.campanias = [
+    {
+      id: 'camp-sin-eje',
+      fecha: '2026-08-21',
+      calleId: 'c-sin-eje',
+      capaId: 'cap-subrasante',
+      bmInicialId: 'bm-1',
+      estado: 'cerrada',
+      cierre: CIERRE_CERRADO,
+      estaciones: [
+        {
+          id: 'e-1',
+          vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
+          intermedias: [
+            { id: 'l-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'IZQ' } }, valor: 1.148 },
+            { id: 'l-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'DER' } }, valor: 1.16 },
+          ],
+          vistaAdelante: { id: 'l-4', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
+        },
+      ],
+    },
+  ]
+  return proyecto
+}
+
+describe('CorteTransversal: una zona no puede cruzar el eje', () => {
+  beforeEach(() => {
+    useAlmacen.getState().cargarProyecto(proyectoSinEje())
+  })
+
+  it('en una plantilla sin punto de eje, la zona se reparte en una por lado', () => {
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={['camp-sin-eje']} idCampaniaReferencia="camp-sin-eje" />,
+    )
+
+    const zonas = [...container.querySelectorAll('[data-zona]')]
+    expect(zonas).toHaveLength(2)
+
+    // Ninguna zona cruza el eje: sus dos offsets quedan del mismo lado (o
+    // tocan el 0, que es de los dos a la vez).
+    for (const zona of zonas) {
+      const inicio = Number(zona.getAttribute('data-offset-inicio'))
+      const fin = Number(zona.getAttribute('data-offset-fin'))
+      expect(inicio >= 0 || fin <= 0).toBe(true)
+      expect(inicio <= 0 || fin >= 0).toBe(true)
+    }
+
+    const nombres = zonas.map((z) => z.getAttribute('aria-label'))
+    expect(nombres.some((n) => n?.includes('a la izquierda del eje'))).toBe(true)
+    expect(nombres.some((n) => n?.includes('a la derecha del eje'))).toBe(true)
+    // Y ninguna dice lo contrario de dónde está: nada del lado derecho debe
+    // salir rotulado "a la izquierda", ni al revés.
+    expect(nombres.every((n) => n?.includes('izquierda') || n?.includes('derecha'))).toBe(true)
   })
 })

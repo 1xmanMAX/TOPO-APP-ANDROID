@@ -2,7 +2,7 @@
 
 Nivelación de una calle por progresivas: escribes las lecturas de mira, la app calcula las cotas, verifica si tu circuito cierra, compensa el error y te deja recorrer la calle corte por corte.
 
-Y una vez tienes dos capas niveladas, te dice **cuánto material hay entre ellas**, celda por celda.
+Y una vez tienes dos capas niveladas, te dice **cuánto material hay entre ellas**, celda por celda. Si además defines la rasante de proyecto, te dice **cuánto sobra o falta contra el diseño**, con semáforo de tolerancia.
 
 ## Arrancarla
 
@@ -113,6 +113,85 @@ ESPESORES NO COMPROBADOS — la capa de abajo (TERRENO EXISTENTE · 2026-08-20):
 
 Un espesor calculado sobre una nivelación que no cerró **tampoco está comprobado**. Quien reciba el archivo tiene que poder saberlo sin preguntarte.
 
+## La rasante de proyecto: cuánto sobra o falta
+
+Hasta acá comparaste dos capas medidas entre sí. Esto es distinto: comparas lo que mediste contra **lo que el proyecto pide** — la rasante — y la app te dice, en cada punto, si sobra material, si falta, o si está clavado en la cota.
+
+### Definir la rasante
+
+En la pantalla de **Calle**, el botón **Definir la rasante** abre un editor con dos partes: los datos de la calzada y, al lado, un dibujo en vivo del corte tipo que cambia mientras escribes.
+
+- **Cota de arranque**: la cota del eje en la primera progresiva de la calle.
+- **Pendiente longitudinal**: cuánto sube o baja la calle al avanzar, en porcentaje. Negativo es que baja.
+- **Tramos**, de eje hacia afuera, a cada lado: cada uno dice hasta qué distancia del eje llega y cuánto se desnivela ahí. Un tramo puede ser **pendiente** (un porcentaje, como el bombeo de la calzada) o **salto** (un desnivel de golpe, como la cara vertical de un sardinel).
+
+Si la calle no es simétrica —una vereda solo de un lado, por ejemplo— hay un tramo de tramos para la izquierda y otro para la derecha. Si la dejas simétrica, el mismo juego de tramos vale para los dos lados.
+
+### La convención de signos, con el corte tipo delante
+
+Esto es lo que cuesta agarrarle la mano, así que léelo mirando el dibujo:
+
+```
+            EJE (offset 0)
+    izquierda  |  derecha
+                |
+  VER-I  SAR-I  |  SAR-D  VER-D
+    \      |  BOR-I   BOR-D  |      /
+     \     |____\      /____|     /
+      \___/      \    /      \___/
+   (vereda sube      (bombeo: calzada
+    hacia la           baja al alejarse
+    vereda: -1.5%)      del eje: +2.0%)
+```
+
+**Un valor positivo BAJA al alejarse del eje. Uno negativo SUBE.**
+
+- El **bombeo de la calzada** es `+2.0`: al alejarte del eje hacia el borde, la calzada baja — es el desagüe normal de una pista, el agua corre hacia el sardinel.
+- La **vereda**, que en cambio sube desde el sardinel hacia la fachada (cae hacia la calzada, no hacia la propiedad), lleva `-1.5`.
+- Un **sardinel** (tramo tipo salto) casi siempre sube: por ejemplo un salto de `0.15` levanta 15 cm de golpe entre el borde de calzada y la vereda.
+
+Con la calzada al `+2.0 %` y el borde a 4.20 m del eje, el borde queda **84 mm por debajo del eje** (4.20 × 2.0 % = 0.084 m). Es la cuenta que usa el perfil longitudinal cuando miras un elemento que no es el eje.
+
+### Si la sección no cubre toda la plantilla, la app te lo dice
+
+La plantilla puede tener puntos —un sardinel, una vereda, un punto de amarre— más allá de donde llegan tus tramos. Si eso pasa, el editor avisa:
+
+> La sección definida llega hasta 4.20 m del eje. Estos puntos de la plantilla quedan sin cota de proyecto: SAR-I, SAR-D, VER-I, VER-D.
+
+Esos puntos no van a tener nunca una diferencia contra el proyecto, midas lo que midas ahí: el proyecto simplemente no define nada en ese offset. No es un error tuyo — es información que necesitabas antes de salir a medir esos puntos por gusto.
+
+### Las cuatro vistas, en Resultados
+
+Una vez hay rasante, en Resultados aparecen cuatro formas de ver lo mismo. Todas comparten el mismo semáforo:
+
+| Símbolo | Color | Significa |
+|---|---|---|
+| ✓ | Verde | Conforme: dentro de la tolerancia de la capa |
+| △ | Ámbar | Al límite: pasó la tolerancia, no el doble |
+| ✗ | Rojo | Fuera de tolerancia: pasó el doble |
+| · | Gris | Sin medir todavía |
+| — | Gris con borde punteado | Fuera de la sección: el proyecto no define rasante ahí |
+
+**El color nunca va solo.** Cada celda, en cualquier vista, también lleva el símbolo y el texto: milímetros con signo, si toca cortar o rellenar, y el estado en palabras. Un lector de pantalla se entera igual que alguien mirando la pantalla.
+
+**Tabla de diferencias.** Un interruptor cambia entre **cota real**, **cota teórica** y **diferencia**. La diferencia va en milímetros con signo: positivo es que sobra material (toca **cortar**), negativo es que falta (toca **rellenar**), cero es que está clavado en la cota del proyecto.
+
+**Mapa de la calle.** Toda la calle de un vistazo: una fila por elemento de la plantilla, una columna por progresiva, cada celda con su color y su símbolo. Es la vista para ver de un salto dónde está el problema, sin recorrer la tabla progresiva por progresiva.
+
+**Corte transversal.** Dibuja la rasante junto al terreno medido, y sombrea entre las dos: una trama para **corte** (donde el terreno sobra frente a la rasante) y otra para **relleno** (donde falta), con su leyenda al lado — la trama distingue una de otra incluso en blanco y negro. El sombreado **solo cubre donde mediste**: si tu nivelación no llegó hasta la vereda, ahí no hay sombreado, aunque la rasante sí esté definida.
+
+**Perfil longitudinal.** La rasante y el terreno medido a lo largo de toda la calle, para el elemento que elijas del desplegable (el eje, un borde, una vereda). Sirve para ver de corrido si un tramo entero está sistemáticamente alto o bajo, en vez de mirarlo punto por punto.
+
+### Lo que no está comprobado, tampoco aquí
+
+Igual que con los espesores: un corte y relleno calculado sobre una nivelación que **no cerró** tampoco está comprobado, aunque la resta en sí dé un número. La pantalla y el Excel de diferencias lo dicen igual:
+
+```
+DIFERENCIAS NO COMPROBADAS — el circuito no se verificó
+```
+
+El archivo de diferencias lleva además, en la cabecera, la **pendiente longitudinal** y la **tolerancia de la capa** contra las que se juzgó cada celda — para que quien lo reciba sepa con qué se comparó, no solo el resultado.
+
 ## La barra de cierre: qué significa cada color
 
 Aparece al pie de la libreta y es lo que te dice si tu trabajo sirve, **mientras sigues en la calle**.
@@ -153,7 +232,6 @@ Con sol directo el modo claro se lee mejor; de noche o dentro del vehículo, el 
 
 Todavía no:
 
-- Compara el terreno contra la **rasante de proyecto**, ni calcula corte y relleno (Entrega 2B)
 - Muestra la calle en 3D (Entrega 3)
 - Carga planos de fondo con marcadores (Entrega 4)
 - Se conecta a estación total ni a GNSS (llega con la versión Android)

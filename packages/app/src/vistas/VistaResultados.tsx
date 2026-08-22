@@ -3,7 +3,9 @@ import { useMemo, useState } from 'react'
 import {
   armarCabecera,
   armarCabeceraComparacion,
+  armarCabeceraDiferencias,
   armarTabla,
+  armarTablaDiferencias,
   armarTablaEspesores,
   copiarAlPortapapeles,
   descargarCsv,
@@ -14,13 +16,22 @@ import BarraCierre from '../componentes/BarraCierre'
 import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import ListaAvisos from '../componentes/ListaAvisos'
+import MapaEstado from '../componentes/MapaEstado'
 import PerfilLongitudinal from '../componentes/PerfilLongitudinal'
 import SelectorCapas from '../componentes/SelectorCapas'
+import TablaDiferencias from '../componentes/TablaDiferencias'
 import TablaEspesores from '../componentes/TablaEspesores'
 import TablaResultados from '../componentes/TablaResultados'
-import { calcularEstadoComparacion } from '../estadoComparacion'
+import { calcularEstadoComparacion, calcularEstadoRasante } from '../estadoComparacion'
 import { useAlmacen } from '../estado/almacen'
-import { useContexto, useContextoDe, useProgresivas, useResultado, useResultadoDe } from '../estado/derivados'
+import {
+  useContexto,
+  useContextoDe,
+  useEvaluacionRasante,
+  useProgresivas,
+  useResultado,
+  useResultadoDe,
+} from '../estado/derivados'
 
 export default function VistaResultados() {
   const contexto = useContexto()
@@ -113,6 +124,47 @@ export default function VistaResultados() {
     ]
   }, [comparacion, contextoInferior, contextoSuperior, resultadoInferior, resultadoSuperior, tablaEspesores])
 
+  // Misma idea que `estadoComparacion`, pero para una sola campaña: si su
+  // circuito no cerró, la diferencia contra la rasante tampoco está
+  // comprobada, aunque la resta en sí haya sido posible. `null` mientras no
+  // haya rasante definida — ahí no hay nada que evaluar todavía.
+  //
+  // Se pide con `campaniaActivaId` explícito (igual que `MapaEstado`,
+  // `CorteTransversal` y `PerfilLongitudinal` reciben más abajo) y no con la
+  // llamada sin argumento que caía sola en el almacén: así esta única
+  // evaluación es el origen tanto de la tabla como del Excel, en vez de que
+  // cada uno calculara la suya por su cuenta y coincidieran solo porque hoy
+  // apuntan, por separado, al mismo sitio.
+  const evaluacionRasante = useEvaluacionRasante(campaniaActivaId ?? '')
+  const estadoRasante = useMemo(
+    () => (resultado && evaluacionRasante ? calcularEstadoRasante(resultado.cierre) : null),
+    [resultado, evaluacionRasante],
+  )
+
+  const tablaDiferencias = useMemo(
+    () => (evaluacionRasante && contexto ? armarTablaDiferencias(evaluacionRasante, contexto.calle, contexto.plantilla) : []),
+    [evaluacionRasante, contexto],
+  )
+
+  // Igual que `tablaEspesoresCompleta`: sin rasante definida no hay nada que
+  // evaluar, así que el archivo tampoco existe todavía (se comprueba con
+  // `contexto.calle.rasante`, no solo con `evaluacionRasante`, para que
+  // TypeScript sepa que no es null al armar la cabecera).
+  const tablaDiferenciasCompleta = useMemo(() => {
+    if (!evaluacionRasante || !contexto || !resultado || !contexto.calle.rasante) return []
+    return [
+      ...armarCabeceraDiferencias({
+        calle: contexto.calle,
+        capa: contexto.capa,
+        campania: contexto.campania,
+        rasante: contexto.calle.rasante,
+        resultado,
+      }),
+      [],
+      ...tablaDiferencias,
+    ]
+  }, [evaluacionRasante, contexto, resultado, tablaDiferencias])
+
   const [copiado, setCopiado] = useState(false)
   const [copiadoEspesores, setCopiadoEspesores] = useState(false)
   const nombreArchivo = `${contexto?.calle.nombre ?? 'cotas'} — ${contexto?.capa?.nombre ?? ''}`.trim()
@@ -121,6 +173,8 @@ export default function VistaResultados() {
   // las dos campañas no se le pudo resolver la capa.
   const nombreArchivoEspesores =
     `${contextoInferior?.calle.nombre ?? 'espesores'} — Espesores ${contextoInferior?.capa?.nombre ?? '—'} a ${contextoSuperior?.capa?.nombre ?? '—'}`.trim()
+  const nombreArchivoDiferencias =
+    `${contexto?.calle.nombre ?? 'diferencias'} — Diferencias ${contexto?.capa?.nombre ?? ''}`.trim()
 
   if (!contexto || !resultado) {
     return <p className="p-6 text-sm text-slate-500">No hay una campaña abierta.</p>
@@ -217,30 +271,76 @@ export default function VistaResultados() {
         <TablaEspesores />
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Corte transversal</h2>
-        <CorteTransversal progresiva={progresivaActiva} idsVisibles={idsVisiblesCorte} />
-        <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
-      </section>
+      {/*
+        Las cuatro vistas que controlan lo medido contra el proyecto —
+        diferencias, mapa, corte y perfil— viven bajo un solo grupo con un
+        único aviso arriba (`estadoRasante`, la misma fuente que ya usaba solo
+        la tabla). Antes cada una llevaba su propio veredicto, y a la única
+        que se le olvidó dárselo fue justo a las tres que no son la tabla —el
+        defecto que esto corrige. Con un solo sitio para el aviso, no hay un
+        quinto lugar donde una vista nueva pueda quedar sin él.
+      */}
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Control contra el proyecto</h2>
+        {estadoRasante && <AvisoEspesores estado={estadoRasante} />}
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Perfil longitudinal</h2>
-          <select
-            aria-label="Elemento del perfil"
-            value={elementoPerfil}
-            onChange={(evento) => setElementoPedido(evento.target.value)}
-            className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
-          >
-            {contexto.plantilla.elementos.map((elemento) => (
-              <option key={elemento.clave} value={elemento.clave}>
-                {elemento.etiqueta}
-              </option>
-            ))}
-          </select>
-        </div>
-        <PerfilLongitudinal elementoClave={elementoPerfil} />
-      </section>
+        <section className="flex flex-col gap-2">
+          <h3 className="font-semibold">Diferencias</h3>
+          {evaluacionRasante && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => descargarXlsx(tablaDiferenciasCompleta, nombreArchivoDiferencias, 'Diferencias')}
+                className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
+              >
+                Exportar diferencias a Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => descargarCsv(tablaDiferenciasCompleta, nombreArchivoDiferencias)}
+                className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+              >
+                Exportar diferencias a CSV
+              </button>
+            </div>
+          )}
+          <TablaDiferencias idCampaniaReferencia={campaniaActivaId} />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h3 className="font-semibold">Mapa de la calle</h3>
+          <MapaEstado idCampaniaReferencia={campaniaActivaId} />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h3 className="font-semibold">Corte transversal</h3>
+          <CorteTransversal
+            progresiva={progresivaActiva}
+            idsVisibles={idsVisiblesCorte}
+            idCampaniaReferencia={campaniaActivaId}
+          />
+          <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <h3 className="font-semibold">Perfil longitudinal</h3>
+            <select
+              aria-label="Elemento del perfil"
+              value={elementoPerfil}
+              onChange={(evento) => setElementoPedido(evento.target.value)}
+              className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              {contexto.plantilla.elementos.map((elemento) => (
+                <option key={elemento.clave} value={elemento.clave}>
+                  {elemento.etiqueta}
+                </option>
+              ))}
+            </select>
+          </div>
+          <PerfilLongitudinal elementoClave={elementoPerfil} idCampaniaReferencia={campaniaActivaId} />
+        </section>
+      </div>
     </div>
   )
 }

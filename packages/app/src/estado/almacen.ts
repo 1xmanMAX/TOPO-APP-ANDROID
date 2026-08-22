@@ -7,10 +7,12 @@ import {
   type BM,
   type Calle,
   type Campania,
+  type Capa,
   type DestinoLectura,
   type Id,
   type Plantilla,
   type Proyecto,
+  type Rasante,
   type ResultadoCampania,
 } from '@topo/core'
 import { create } from 'zustand'
@@ -52,6 +54,7 @@ interface EstadoApp {
   eliminarBM(id: Id): void
 
   agregarCapa(nombre: string): void
+  actualizarCapa(id: Id, cambios: Partial<Omit<Capa, 'id'>>): void
   eliminarCapa(id: Id): void
   moverCapa(capaId: Id, direccion: -1 | 1): void
 
@@ -63,6 +66,7 @@ interface EstadoApp {
   agregarCalle(datos: Omit<Calle, 'id'>): Id
   actualizarCalle(id: Id, cambios: Partial<Omit<Calle, 'id'>>): void
   eliminarCalle(id: Id): void
+  fijarRasante(calleId: Id, rasante: Rasante | null): void
 
   agregarCampania(datos: Omit<Campania, 'id' | 'estaciones'>): Id
   actualizarCampania(id: Id, cambios: Partial<Omit<Campania, 'id'>>): void
@@ -199,8 +203,19 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         ...s.proyecto,
         capas: renumerarCapas([
           ...s.proyecto.capas,
-          { id: nuevoId('cap'), nombre, orden: s.proyecto.capas.length },
+          // Los 20 mm de toleranciaMm son solo un valor de arranque, elegido
+          // para coincidir con las capas del proyecto de ejemplo: no es una
+          // norma. Se ajusta luego desde la pantalla de la capa.
+          { id: nuevoId('cap'), nombre, orden: s.proyecto.capas.length, espesor: 0, toleranciaMm: 20 },
         ]),
+      }),
+    })),
+
+  actualizarCapa: (id, cambios) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        capas: s.proyecto.capas.map((capa) => (capa.id === id ? { ...capa, ...cambios } : capa)),
       }),
     })),
 
@@ -276,6 +291,16 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       proyecto: marcarModificado({
         ...s.proyecto,
         calles: s.proyecto.calles.filter((c) => c.id !== id),
+      }),
+    })),
+
+  fijarRasante: (calleId, rasante) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        calles: s.proyecto.calles.map((calle) =>
+          calle.id === calleId ? { ...calle, rasante } : calle,
+        ),
       }),
     })),
 

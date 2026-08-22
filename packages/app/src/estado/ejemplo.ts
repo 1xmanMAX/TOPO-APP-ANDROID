@@ -22,8 +22,8 @@ export function proyectoVacio(): Proyecto {
     plantillas: [],
     calles: [],
     capas: [
-      { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0 },
-      { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1 },
+      { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0, espesor: 0, toleranciaMm: 20 },
+      { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1, espesor: 0, toleranciaMm: 20 },
     ],
     campanias: [],
   }
@@ -75,11 +75,14 @@ export function proyectoEjemplo(): Proyecto {
         progresivaFin: 180,
         intervalo: 20,
         progresivasExtra: [],
+        rasante: null,
       },
     ],
     capas: [
-      { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0 },
-      { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1 },
+      { id: 'cap-terreno', nombre: 'TERRENO EXISTENTE', orden: 0, espesor: 0, toleranciaMm: 20 },
+      { id: 'cap-subrasante', nombre: 'SUBRASANTE', orden: 1, espesor: 0.25, toleranciaMm: 20 },
+      { id: 'cap-base', nombre: 'BASE', orden: 2, espesor: 0.2, toleranciaMm: 10 },
+      { id: 'cap-carpeta', nombre: 'CARPETA', orden: 3, espesor: 0.05, toleranciaMm: 5 },
     ],
     campanias: [
       {

@@ -13,12 +13,17 @@ export default function VistaProyecto() {
   const actualizarBM = useAlmacen((s) => s.actualizarBM)
   const eliminarBM = useAlmacen((s) => s.eliminarBM)
   const agregarCapa = useAlmacen((s) => s.agregarCapa)
+  const actualizarCapa = useAlmacen((s) => s.actualizarCapa)
   const eliminarCapa = useAlmacen((s) => s.eliminarCapa)
   const moverCapa = useAlmacen((s) => s.moverCapa)
   const campanias = useAlmacen((s) => s.proyecto.campanias)
   const [porEliminar, setPorEliminar] = useState<string | null>(null)
   const [avisoCapa, setAvisoCapa] = useState<string | null>(null)
   const capasOrdenadas = ordenarCapas(capas)
+  // El terreno (orden 0) no aporta material: su espesor cero es el punto de
+  // partida, no un dato que falte. Solo las capas que sí deberían traer
+  // espesor propio cuentan para el aviso.
+  const capasSinEspesor = capasOrdenadas.filter((capa) => capa.orden > 0 && capa.espesor === 0)
 
   function bmEnUso(id: string): boolean {
     return campanias.some((c) => c.bmInicialId === id || c.cierre.bmFinalId === id)
@@ -129,28 +134,60 @@ export default function VistaProyecto() {
           El orden va de abajo hacia arriba del paquete: primero el terreno, al final la capa de
           rodadura. De ese orden depende el cálculo del espesor colocado.
         </p>
-        <ul className="flex flex-wrap gap-2">
+        <p className="text-xs text-slate-500">
+          Valores de referencia para la tolerancia: base granular ±10 mm (MTC EG-2013), carpeta de
+          rodadura 5 mm (RNE CE.010). Ajusta cada capa según el material que lleve.
+        </p>
+        <ul className="flex flex-col gap-2">
           {capasOrdenadas.map((capa, indice) => (
-            <li key={capa.id} className="flex items-center gap-2 rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700">
-              <span>{capa.nombre}</span>
-              <button
-                type="button"
-                aria-label={`Subir la capa ${capa.nombre}`}
-                onClick={() => moverCapa(capa.id, -1)}
-                disabled={indice === 0}
-                className="px-1 text-slate-400 hover:text-marca disabled:opacity-30"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                aria-label={`Bajar la capa ${capa.nombre}`}
-                onClick={() => moverCapa(capa.id, 1)}
-                disabled={indice === capasOrdenadas.length - 1}
-                className="px-1 text-slate-400 hover:text-marca disabled:opacity-30"
-              >
-                ↓
-              </button>
+            <li
+              key={capa.id}
+              className="flex flex-wrap items-end gap-3 rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-700"
+            >
+              <CampoTexto
+                etiqueta="Nombre"
+                valor={capa.nombre}
+                alCambiar={(v) => actualizarCapa(capa.id, { nombre: v })}
+                ancho="w-40"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label={`Subir la capa ${capa.nombre}`}
+                  onClick={() => moverCapa(capa.id, -1)}
+                  disabled={indice === 0}
+                  className="px-1 text-slate-400 hover:text-marca disabled:opacity-30"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Bajar la capa ${capa.nombre}`}
+                  onClick={() => moverCapa(capa.id, 1)}
+                  disabled={indice === capasOrdenadas.length - 1}
+                  className="px-1 text-slate-400 hover:text-marca disabled:opacity-30"
+                >
+                  ↓
+                </button>
+              </div>
+              <CampoNumero
+                etiqueta="Espesor"
+                ariaLabel={`Espesor de ${capa.nombre}`}
+                valor={capa.espesor}
+                alCambiar={(v) => actualizarCapa(capa.id, { espesor: v })}
+                decimales={3}
+                sufijo="m"
+                ancho="w-28"
+              />
+              <CampoNumero
+                etiqueta="Tolerancia"
+                ariaLabel={`Tolerancia de ${capa.nombre}`}
+                valor={capa.toleranciaMm}
+                alCambiar={(v) => actualizarCapa(capa.id, { toleranciaMm: v })}
+                decimales={0}
+                sufijo="mm"
+                ancho="w-24"
+              />
               <button
                 type="button"
                 onClick={() => {
@@ -182,6 +219,12 @@ export default function VistaProyecto() {
           ))}
         </ul>
         {avisoCapa && <p className="text-sm text-falla">{avisoCapa}</p>}
+        {capasSinEspesor.length > 0 && (
+          <p className="rounded border border-aviso bg-aviso/10 p-2 text-sm text-aviso">
+            Hay capas sin espesor definido: {capasSinEspesor.map((c) => c.nombre).join(', ')}. Sin su
+            espesor, la cota que el proyecto pide para las capas de debajo sale movida.
+          </p>
+        )}
       </section>
     </div>
   )

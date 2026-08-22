@@ -33,3 +33,15 @@ Deja capturas de pantalla en la carpeta que se le pase como argumento.
 Una sola cosa, pero delicada: en el editor de plantilla, cambiar la distancia de un elemento lo reordena en pantalla. Comprueba que **el campo que estás editando sigue siendo el del mismo elemento** después de que la fila salte de sitio.
 
 No basta con mirar si algo tiene el foco: todos los campos de distancia se llaman igual. Hay que comprobar que el nodo enfocado sea el mismo y que pertenezca al elemento que se empezó a editar. Una comprobación menos precisa da un falso positivo.
+
+## Qué comprueba `rasante.mjs`
+
+El recorrido completo de la Entrega 2B: definir la rasante de una calle desde la interfaz, comprobar que el corte tipo se dibuja mientras se escribe, y que las cuatro vistas de Resultados —tabla, mapa, corte transversal y perfil longitudinal— coinciden en lo que dicen.
+
+Entre otras cosas:
+
+- Que las tres clases de estado (conforme, al límite, fuera de tolerancia) aparecen a la vez con la cota de arranque elegida, y que el mapa las pinta con su color.
+- Que el corte transversal sombrea contra la rasante.
+- **Que el `.xlsx` de diferencias descargado es un archivo válido de verdad**, con la pendiente longitudinal y la tolerancia de la capa en la cabecera, el estado de verificación, y las celdas fuera de sección vacías (nunca en cero).
+
+Deja capturas de pantalla en la carpeta que se le pase como argumento.

@@ -259,6 +259,7 @@ describe('almacén', () => {
         progresivaFin: 40,
         intervalo: 20,
         progresivasExtra: [],
+        rasante: null,
       })
       const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
       const campaniaOtraCalleId = useAlmacen.getState().agregarCampania({
@@ -311,6 +312,7 @@ describe('almacén', () => {
         progresivaFin: 40,
         intervalo: 20,
         progresivasExtra: [],
+        rasante: null,
       })
       const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
       // agregarCampania deja la nueva campaña como activa: se vuelve a
@@ -344,6 +346,7 @@ describe('almacén', () => {
         progresivaFin: 40,
         intervalo: 20,
         progresivasExtra: [],
+        rasante: null,
       })
       const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
       useAlmacen.getState().activarCampania('camp-1')
@@ -381,6 +384,7 @@ describe('almacén', () => {
         progresivaFin: 40,
         intervalo: 20,
         progresivasExtra: [],
+        rasante: null,
       })
       const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
       const campaniaOtraCalleId = useAlmacen.getState().agregarCampania({

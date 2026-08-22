@@ -1,6 +1,7 @@
 import {
   calcularCampania,
   construirGrilla,
+  evaluarContraRasante,
   type Calle,
   type Campania,
   type Capa,
@@ -8,6 +9,7 @@ import {
   type Plantilla,
   type Proyecto,
   type ResultadoCampania,
+  type ResultadoEvaluacion,
 } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from './almacen'
@@ -92,6 +94,35 @@ export function useResultadosDe(campaniaIds: Id[]): Map<Id, ResultadoCampania> {
 export function useResultado(): ResultadoCampania | null {
   const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
   return useResultadoDe(campaniaActivaId)
+}
+
+/**
+ * Compara lo medido en una campaña contra la rasante de su calle, celda por
+ * celda. Null si falta cualquier ingrediente — calle, plantilla, rasante o el
+ * resultado calculado — porque entonces no hay nada que evaluar; eso no es
+ * un fallo, es una calle que todavía no tiene rasante. Si la calle sí está
+ * mal configurada, el error vive dentro de `ResultadoEvaluacion.error` y
+ * llega tal cual a quien consuma esto: este hook no lo esconde ni lo
+ * reinterpreta.
+ */
+export function useEvaluacionRasante(campaniaId?: Id): ResultadoEvaluacion | null {
+  const proyecto = useAlmacen((s) => s.proyecto)
+  const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
+  const idEfectivo = campaniaId ?? campaniaActivaId
+  const resultado = useResultadoDe(idEfectivo)
+
+  return useMemo(() => {
+    const contexto = contextoDe(proyecto, idEfectivo)
+    if (!contexto || !contexto.calle.rasante || !resultado) return null
+    return evaluarContraRasante({
+      resultado,
+      calle: contexto.calle,
+      plantilla: contexto.plantilla,
+      rasante: contexto.calle.rasante,
+      capas: proyecto.capas,
+      capaId: contexto.campania.capaId,
+    })
+  }, [proyecto, idEfectivo, resultado])
 }
 
 /**

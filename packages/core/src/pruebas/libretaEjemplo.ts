@@ -26,9 +26,16 @@ export const CALLE_EJEMPLO: Calle = {
   progresivaFin: 180,
   intervalo: 20,
   progresivasExtra: [],
+  rasante: null,
 }
 
-export const CAPA_EJEMPLO: Capa = { id: 'cap-1', nombre: 'SUBRASANTE', orden: 1 }
+export const CAPA_EJEMPLO: Capa = {
+  id: 'cap-1',
+  nombre: 'SUBRASANTE',
+  orden: 1,
+  espesor: 0.25,
+  toleranciaMm: 20,
+}
 
 /** Libreta verificada a mano. Cierre -5.0 mm, tolerancia ±7.2 mm, PASA. */
 export function campaniaEjemplo(): Campania {

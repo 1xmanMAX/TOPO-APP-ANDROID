@@ -8,6 +8,7 @@ import MapaGrilla from '../componentes/MapaGrilla'
 import PanelEstacion from '../componentes/PanelEstacion'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useProgresivas, useResultado } from '../estado/derivados'
+import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { resumenPendientes, siguienteCeldaPendiente } from '../libreta/navegacion'
 
 export default function VistaLibreta() {
@@ -34,6 +35,13 @@ export default function VistaLibreta() {
   const llenas = useMemo(
     () => new Set(resultado ? [...resultado.cotasPorCelda.keys()] : []),
     [resultado],
+  )
+  // Mismo orden de columnas que las tablas de Resultados y la exportación:
+  // si cada rejilla lo calculara por su cuenta, un empate de offset podría
+  // desalinearlas sin que nada lo avisara.
+  const esqueleto = useMemo(
+    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
+    [contexto],
   )
 
   const progresivas = useProgresivas()
@@ -197,7 +205,8 @@ export default function VistaLibreta() {
             llenadas {resultado.celdasLlenas} de {resultado.celdasTotales}
           </p>
           <MapaGrilla
-            celdas={celdas}
+            progresivas={esqueleto?.progresivas ?? []}
+            elementos={esqueleto?.elementos ?? []}
             llenas={llenas}
             claveActiva={claveActiva}
             alElegir={(clave) => {
@@ -212,7 +221,11 @@ export default function VistaLibreta() {
 
       <section className="flex flex-col gap-2">
         <h3 className="font-semibold">Corte transversal</h3>
-        <CorteTransversal progresiva={progresivaActiva} idsVisibles={idsVisibles} />
+        <CorteTransversal
+          progresiva={progresivaActiva}
+          idsVisibles={idsVisibles}
+          idCampaniaReferencia={campaniaActivaId}
+        />
         <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
       </section>
 

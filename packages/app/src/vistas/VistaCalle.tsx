@@ -2,6 +2,7 @@ import { construirGrilla, formatearProgresiva, generarProgresivas, parsearProgre
 import { useEffect, useMemo, useState } from 'react'
 import CampoNumero from '../componentes/CampoNumero'
 import CampoTexto from '../componentes/CampoTexto'
+import EditorRasante from '../componentes/EditorRasante'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto } from '../estado/derivados'
 
@@ -134,6 +135,11 @@ export default function VistaCalle() {
           />
         </label>
       </div>
+
+      <section className="flex flex-col gap-2">
+        <h3 className="font-semibold">Rasante de proyecto</h3>
+        <EditorRasante calleId={calle.id} plantilla={plantilla} />
+      </section>
 
       <section className="flex flex-col gap-2">
         <h3 className="font-semibold">Progresivas extra</h3>

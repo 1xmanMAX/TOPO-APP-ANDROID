@@ -1,7 +1,8 @@
-import { claveCelda, compararCapas, construirGrilla, formatearProgresiva } from '@topo/core'
+import { claveCelda, compararCapas, formatearProgresiva } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultadoDe } from '../estado/derivados'
+import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { formatearCota } from '../formato'
 
 const MENSAJE_SIN_COMPARACION = 'Elige dos capas arriba para ver el espesor colocado entre ellas.'
@@ -15,22 +16,12 @@ export default function TablaEspesores() {
   const resultadoInferior = useResultadoDe(comparacion.inferior)
   const resultadoSuperior = useResultadoDe(comparacion.superior)
 
-  const celdasGrilla = useMemo(() => {
-    if (!contexto) return []
-    try {
-      return construirGrilla(contexto.calle, contexto.plantilla)
-    } catch {
-      return []
-    }
-  }, [contexto])
-
-  const { progresivas, elementos } = useMemo(() => {
-    const progresivas = [...new Set(celdasGrilla.map((c) => c.progresiva))].sort((a, b) => a - b)
-    const vistos = new Map<string, number>()
-    for (const celda of celdasGrilla) if (!vistos.has(celda.elementoClave)) vistos.set(celda.elementoClave, celda.offset)
-    const elementos = [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([clave]) => clave)
-    return { progresivas, elementos }
-  }, [celdasGrilla])
+  const esqueleto = useMemo(
+    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
+    [contexto],
+  )
+  const progresivas = esqueleto?.progresivas ?? []
+  const elementos = esqueleto?.elementos ?? []
 
   const comparacionResultado = useMemo(() => {
     if (!resultadoInferior || !resultadoSuperior) return null
