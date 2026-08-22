@@ -1,7 +1,7 @@
-import { claveCelda, formatearProgresiva, type CeldaEvaluada } from '@topo/core'
+import { claveCelda, formatearProgresiva, type CeldaEvaluada, type Id } from '@topo/core'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useAlmacen } from '../estado/almacen'
-import { useContexto, useEvaluacionRasante } from '../estado/derivados'
+import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
 import {
   etiquetaAccesibleCelda,
   formatearDiferencia,
@@ -87,9 +87,24 @@ function contenidoCelda(celda: CeldaEvaluada | undefined, modo: Modo): ReactNode
   )
 }
 
-export default function TablaDiferencias() {
-  const contexto = useContexto()
-  const evaluacion = useEvaluacionRasante()
+interface Props {
+  /**
+   * Contra qué campaña se arma la tabla: la decide quien llama, nunca este
+   * componente mirando `campaniaActivaId` en el almacén — mismo criterio que
+   * `idCampaniaReferencia` en `MapaEstado`, `CorteTransversal` y
+   * `PerfilLongitudinal`, y por la misma razón: ese argumento ("solo hay un
+   * llamador hoy") ya costó rondas de arreglo repartidas entre esas tres
+   * vistas cuando apareció un segundo llamador con otra intención. Antes esta
+   * tabla era la única de las cuatro que se saltaba la regla. Obligatoria,
+   * sin valor por defecto que lea el almacén: `null` cuando no hay campaña
+   * activa que ofrecer como referencia.
+   */
+  idCampaniaReferencia: Id | null
+}
+
+export default function TablaDiferencias({ idCampaniaReferencia }: Props) {
+  const contexto = useContextoDe(idCampaniaReferencia)
+  const evaluacion = useEvaluacionRasante(idCampaniaReferencia ?? '')
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
   const [modo, setModo] = useState<Modo>('diferencia')

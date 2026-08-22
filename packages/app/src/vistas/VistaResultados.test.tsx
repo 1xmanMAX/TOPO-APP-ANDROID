@@ -294,28 +294,45 @@ describe('VistaResultados', () => {
     expect(within(corte).getByText('SUBRASANTE')).toBeInTheDocument()
   })
 
-  it('con una rasante definida y el circuito cerrado, las diferencias se muestran como comprobadas', () => {
+  // Las cuatro vistas de control contra el proyecto (Diferencias, Mapa,
+  // Corte, Perfil) viven ahora bajo un solo grupo con un único aviso arriba
+  // — este es el arreglo del defecto que bloqueaba la rama: antes solo la
+  // tabla de Diferencias llevaba veredicto, y el mapa y el corte seguían en
+  // verde con una nivelación que ya no cerraba. Se afirma el texto del
+  // aviso, no solo que exista algún componente.
+  it('con una rasante definida y el circuito cerrado, el aviso único dice que las cuatro vistas están verificadas', () => {
     useAlmacen.getState().fijarRasante('c-1', rasanteDeEjemplo())
 
     render(<VistaResultados />)
 
-    expect(screen.getByRole('heading', { name: 'Diferencias comprobadas' })).toBeInTheDocument()
-    expect(screen.getByText(/DIFERENCIAS VERIFICADAS/)).toBeInTheDocument()
-    // La misma celda aparece dos veces en pantalla (tabla y mapa), así que se
-    // acota a la tabla de diferencias con `within`, igual que ya se hace más
-    // abajo con la sección del mapa.
-    const encabezado = screen.getByRole('heading', { name: 'Diferencias comprobadas' })
-    const etiqueta = within(encabezado.closest('section')!).getByLabelText(/0\+000 EJE/).getAttribute('aria-label')
+    const grupo = screen.getByRole('heading', { name: 'Control contra el proyecto' }).parentElement!
+    expect(
+      within(grupo).getByText('DIFERENCIAS VERIFICADAS — el circuito de la campaña cierra dentro de tolerancia'),
+    ).toBeInTheDocument()
+
+    // Las cuatro vistas están agrupadas bajo el mismo aviso: ninguna quedó
+    // fuera del grupo ni con un veredicto aparte.
+    expect(within(grupo).getByRole('heading', { name: 'Diferencias' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Mapa de la calle' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Corte transversal' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Perfil longitudinal' })).toBeInTheDocument()
+
+    // La misma celda aparece más de una vez en pantalla (tabla y mapa), así
+    // que se acota a la sección de la tabla de diferencias con `within`.
+    const encabezadoTabla = within(grupo).getByRole('heading', { name: 'Diferencias' })
+    const etiqueta = within(encabezadoTabla.closest('section')!)
+      .getByLabelText(/0\+000 EJE/)
+      .getAttribute('aria-label')
     expect(etiqueta).toMatch(/−303 mm/)
     expect(etiqueta).toMatch(/rellenar/)
   })
 
   // El mismo defecto que ya se corrigió para los espesores (VistaResultados
-  // > "si la capa de abajo no cierra..."), aplicado a la tabla de
-  // diferencias: un semáforo verde sobre una nivelación sin comprobar sigue
-  // siendo una cota sin comprobar. `evaluarContraRasante` no mira el cierre
-  // — decirlo es responsabilidad de esta pantalla.
-  it('con una rasante definida pero el circuito sin cerrar, la pantalla avisa que las diferencias no están comprobadas', () => {
+  // > "si la capa de abajo no cierra..."), aplicado ahora a las cuatro
+  // vistas de control contra el proyecto: un semáforo verde sobre una
+  // nivelación sin comprobar sigue siendo una cota sin comprobar, la vea el
+  // topógrafo en la tabla, el mapa, el corte o el perfil.
+  it('con una rasante definida pero el circuito sin cerrar, el aviso único dice que las cuatro vistas no están comprobadas', () => {
     useAlmacen.getState().fijarRasante('c-1', rasanteDeEjemplo())
     const campaniaId = useAlmacen.getState().campaniaActivaId!
     const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id
@@ -323,16 +340,23 @@ describe('VistaResultados', () => {
 
     render(<VistaResultados />)
 
-    expect(screen.getByRole('heading', { name: 'Diferencias no comprobadas' })).toBeInTheDocument()
-    expect(screen.getByText(/DIFERENCIAS NO COMPROBADAS/)).toBeInTheDocument()
+    const grupo = screen.getByRole('heading', { name: 'Control contra el proyecto' }).parentElement!
+    expect(within(grupo).getByText(/DIFERENCIAS NO COMPROBADAS/)).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Diferencias' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Mapa de la calle' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Corte transversal' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Perfil longitudinal' })).toBeInTheDocument()
   })
 
   it('sin rasante en la calle, la sección invita a definirla en vez de mostrar un semáforo vacío', () => {
     render(<VistaResultados />)
 
-    const encabezado = screen.getByRole('heading', { name: 'Diferencias contra el proyecto' })
+    const encabezado = screen.getByRole('heading', { name: 'Diferencias' })
     expect(encabezado).toBeInTheDocument()
     expect(within(encabezado.closest('section')!).getByText(/define la rasante/i)).toBeInTheDocument()
+    // Sin rasante no hay nada que verificar todavía: el aviso de veredicto no
+    // debe aparecer.
+    expect(screen.queryByText(/DIFERENCIAS (VERIFICADAS|NO COMPROBADAS)/)).not.toBeInTheDocument()
   })
 
   // El mapa de la calle mira la misma rasante que la tabla de diferencias:

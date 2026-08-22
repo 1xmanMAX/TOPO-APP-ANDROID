@@ -128,7 +128,14 @@ export default function VistaResultados() {
   // circuito no cerró, la diferencia contra la rasante tampoco está
   // comprobada, aunque la resta en sí haya sido posible. `null` mientras no
   // haya rasante definida — ahí no hay nada que evaluar todavía.
-  const evaluacionRasante = useEvaluacionRasante()
+  //
+  // Se pide con `campaniaActivaId` explícito (igual que `MapaEstado`,
+  // `CorteTransversal` y `PerfilLongitudinal` reciben más abajo) y no con la
+  // llamada sin argumento que caía sola en el almacén: así esta única
+  // evaluación es el origen tanto de la tabla como del Excel, en vez de que
+  // cada uno calculara la suya por su cuenta y coincidieran solo porque hoy
+  // apuntan, por separado, al mismo sitio.
+  const evaluacionRasante = useEvaluacionRasante(campaniaActivaId ?? '')
   const estadoRasante = useMemo(
     () => (resultado && evaluacionRasante ? calcularEstadoRasante(resultado.cierre) : null),
     [resultado, evaluacionRasante],
@@ -264,69 +271,76 @@ export default function VistaResultados() {
         <TablaEspesores />
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">
-          {estadoRasante === null
-            ? 'Diferencias contra el proyecto'
-            : estadoRasante.comprobado
-              ? 'Diferencias comprobadas'
-              : 'Diferencias no comprobadas'}
-        </h2>
-        {evaluacionRasante && (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => descargarXlsx(tablaDiferenciasCompleta, nombreArchivoDiferencias, 'Diferencias')}
-              className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
-            >
-              Exportar diferencias a Excel
-            </button>
-            <button
-              type="button"
-              onClick={() => descargarCsv(tablaDiferenciasCompleta, nombreArchivoDiferencias)}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
-            >
-              Exportar diferencias a CSV
-            </button>
-          </div>
-        )}
+      {/*
+        Las cuatro vistas que controlan lo medido contra el proyecto —
+        diferencias, mapa, corte y perfil— viven bajo un solo grupo con un
+        único aviso arriba (`estadoRasante`, la misma fuente que ya usaba solo
+        la tabla). Antes cada una llevaba su propio veredicto, y a la única
+        que se le olvidó dárselo fue justo a las tres que no son la tabla —el
+        defecto que esto corrige. Con un solo sitio para el aviso, no hay un
+        quinto lugar donde una vista nueva pueda quedar sin él.
+      */}
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Control contra el proyecto</h2>
         {estadoRasante && <AvisoEspesores estado={estadoRasante} />}
-        <TablaDiferencias />
-      </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Mapa de la calle</h2>
-        <MapaEstado idCampaniaReferencia={campaniaActivaId} />
-      </section>
+        <section className="flex flex-col gap-2">
+          <h3 className="font-semibold">Diferencias</h3>
+          {evaluacionRasante && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => descargarXlsx(tablaDiferenciasCompleta, nombreArchivoDiferencias, 'Diferencias')}
+                className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
+              >
+                Exportar diferencias a Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => descargarCsv(tablaDiferenciasCompleta, nombreArchivoDiferencias)}
+                className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+              >
+                Exportar diferencias a CSV
+              </button>
+            </div>
+          )}
+          <TablaDiferencias idCampaniaReferencia={campaniaActivaId} />
+        </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Corte transversal</h2>
-        <CorteTransversal
-          progresiva={progresivaActiva}
-          idsVisibles={idsVisiblesCorte}
-          idCampaniaReferencia={campaniaActivaId}
-        />
-        <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
-      </section>
+        <section className="flex flex-col gap-2">
+          <h3 className="font-semibold">Mapa de la calle</h3>
+          <MapaEstado idCampaniaReferencia={campaniaActivaId} />
+        </section>
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Perfil longitudinal</h2>
-          <select
-            aria-label="Elemento del perfil"
-            value={elementoPerfil}
-            onChange={(evento) => setElementoPedido(evento.target.value)}
-            className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
-          >
-            {contexto.plantilla.elementos.map((elemento) => (
-              <option key={elemento.clave} value={elemento.clave}>
-                {elemento.etiqueta}
-              </option>
-            ))}
-          </select>
-        </div>
-        <PerfilLongitudinal elementoClave={elementoPerfil} idCampaniaReferencia={campaniaActivaId} />
-      </section>
+        <section className="flex flex-col gap-2">
+          <h3 className="font-semibold">Corte transversal</h3>
+          <CorteTransversal
+            progresiva={progresivaActiva}
+            idsVisibles={idsVisiblesCorte}
+            idCampaniaReferencia={campaniaActivaId}
+          />
+          <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <h3 className="font-semibold">Perfil longitudinal</h3>
+            <select
+              aria-label="Elemento del perfil"
+              value={elementoPerfil}
+              onChange={(evento) => setElementoPedido(evento.target.value)}
+              className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              {contexto.plantilla.elementos.map((elemento) => (
+                <option key={elemento.clave} value={elemento.clave}>
+                  {elemento.etiqueta}
+                </option>
+              ))}
+            </select>
+          </div>
+          <PerfilLongitudinal elementoClave={elementoPerfil} idCampaniaReferencia={campaniaActivaId} />
+        </section>
+      </div>
     </div>
   )
 }

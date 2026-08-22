@@ -60,7 +60,7 @@ describe('TablaDiferencias', () => {
   })
 
   it('invita a definir la rasante cuando la calle todavía no tiene una', () => {
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     expect(screen.getByText(/define la rasante/i)).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
@@ -75,7 +75,7 @@ describe('TablaDiferencias', () => {
   // 40 mm: 303 mm de diferencia queda claramente fuera de tolerancia.
   it('muestra la diferencia en milímetros con signo y dice qué hacer', () => {
     fijarRasanteDeEjemplo()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     expect(screen.getByLabelText(/0\+000 EJE: −303 mm, rellenar/)).toBeInTheDocument()
   })
@@ -83,7 +83,7 @@ describe('TablaDiferencias', () => {
   it('el interruptor cambia entre cota real, cota teórica y diferencia', async () => {
     fijarRasanteDeEjemplo()
     const usuario = userEvent.setup()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     await usuario.click(screen.getByRole('button', { name: 'Cota teórica' }))
     expect(screen.getByText('3244.930')).toBeInTheDocument()
@@ -94,7 +94,7 @@ describe('TablaDiferencias', () => {
 
   it('el estado no viaja solo en el color: va en el nombre de la celda', () => {
     fijarRasanteDeEjemplo()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     const celda = screen.getByLabelText(/0\+000 EJE/)
     expect(celda.getAttribute('aria-label')).toMatch(/fuera de tolerancia/)
@@ -102,7 +102,7 @@ describe('TablaDiferencias', () => {
 
   it('una celda fuera de la sección definida sale vacía, no en cero', () => {
     fijarRasanteEstrecha()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     const celda = screen.getByLabelText(/0\+000 VER-I/)
     expect(celda.textContent).toBe('')
@@ -112,7 +112,7 @@ describe('TablaDiferencias', () => {
   it('esa misma celda sí muestra su cota real en el modo Cota real: se midió, solo que el proyecto no dice nada ahí', async () => {
     fijarRasanteEstrecha()
     const usuario = userEvent.setup()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     await usuario.click(screen.getByRole('button', { name: 'Cota real' }))
 
@@ -122,7 +122,7 @@ describe('TablaDiferencias', () => {
 
   it('una celda sin medir dice que no se midió, y no se confunde con la fuera de sección', () => {
     fijarRasanteDeEjemplo()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     // 0+000 VER-I no se mide en el proyecto de ejemplo, pero la rasante
     // ancha sí la cubre: es "sin medir", no "fuera de sección".
@@ -138,7 +138,7 @@ describe('TablaDiferencias', () => {
   // que el resumen las cuenta por separado.
   it('el resumen cuenta las cinco categorías por separado, sin sumar sin medir y fuera de sección', () => {
     fijarRasanteDeEjemplo()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     // 10 progresivas × 7 elementos = 70 celdas; solo 3 están medidas
     // (0|EJE, 0|BOR-I, 20|EJE), y las tres caen fuera de tolerancia con esta
@@ -158,7 +158,7 @@ describe('TablaDiferencias', () => {
   it('el símbolo acompaña a la cifra también en Cota real, no solo en Diferencia', async () => {
     fijarRasanteDeEjemplo()
     const usuario = userEvent.setup()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     await usuario.click(screen.getByRole('button', { name: 'Cota real' }))
 
@@ -172,7 +172,7 @@ describe('TablaDiferencias', () => {
   it('las celdas son clicables y seleccionan la celda, como en las otras tablas', async () => {
     fijarRasanteDeEjemplo()
     const usuario = userEvent.setup()
-    render(<TablaDiferencias />)
+    render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     await usuario.click(screen.getByLabelText(/0\+000 EJE/))
 
