@@ -11,12 +11,12 @@ describe('PerfilLongitudinal', () => {
   })
 
   it('dibuja un punto por progresiva medida del elemento', () => {
-    render(<PerfilLongitudinal elementoClave="EJE" />)
+    render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
     expect(screen.getAllByRole('button', { name: /cota/ })).toHaveLength(2)
   })
 
   it('avisa cuando el elemento no tiene lecturas', () => {
-    render(<PerfilLongitudinal elementoClave="VER-D" />)
+    render(<PerfilLongitudinal elementoClave="VER-D" idCampaniaReferencia="camp-1" />)
     expect(screen.getByText(/no tiene lecturas/i)).toBeInTheDocument()
   })
 })
@@ -52,22 +52,33 @@ describe('PerfilLongitudinal con rasante', () => {
 
   it('dibuja la recta de la rasante junto al terreno medido', () => {
     fijarRasanteDeEjemplo()
-    render(<PerfilLongitudinal elementoClave="EJE" />)
+    render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
 
     expect(screen.getByLabelText(/rasante de proyecto/i)).toBeInTheDocument()
   })
 
   it('la rasante del perfil usa el elemento que se está mirando, no siempre el eje', () => {
     fijarRasanteDeEjemplo()
-    render(<PerfilLongitudinal elementoClave="BOR-D" />)
+    render(<PerfilLongitudinal elementoClave="BOR-D" idCampaniaReferencia="camp-1" />)
 
-    // En BOR-D la rasante va 84 mm por debajo de la del eje en toda la calle.
-    expect(screen.getByLabelText(/rasante de proyecto/i)).toBeInTheDocument()
-    expect(screen.getByText(/3245\.096/)).toBeInTheDocument()
+    // En BOR-D la rasante va 84 mm por debajo de la del eje en toda la calle:
+    // el nombre accesible del grupo lleva la cota inicial, no un rótulo aparte.
+    expect(screen.getByLabelText(/rasante de proyecto, cota inicial 3245\.096 m/i)).toBeInTheDocument()
   })
 
   it('sin rasante definida el perfil se dibuja como hasta ahora', () => {
-    render(<PerfilLongitudinal elementoClave="EJE" />)
+    render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
+
+    expect(screen.queryByLabelText(/rasante de proyecto/i)).toBeNull()
+  })
+
+  it('usa la campaña de referencia que le pasan, no la campaña activa del almacén', () => {
+    fijarRasanteDeEjemplo()
+    // La campaña activa del almacén (camp-1) tiene rasante definida, pero no
+    // se le pasa como referencia: el perfil no puede caer solo en ella, o el
+    // día que otra vista lo monte con una referencia distinta de la activa
+    // dibujaría la rasante equivocada sin que ninguna prueba lo note.
+    render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia={null} />)
 
     expect(screen.queryByLabelText(/rasante de proyecto/i)).toBeNull()
   })

@@ -273,7 +273,7 @@ export default function VistaResultados() {
             ))}
           </select>
         </div>
-        <PerfilLongitudinal elementoClave={elementoPerfil} />
+        <PerfilLongitudinal elementoClave={elementoPerfil} idCampaniaReferencia={campaniaActivaId} />
       </section>
     </div>
   )

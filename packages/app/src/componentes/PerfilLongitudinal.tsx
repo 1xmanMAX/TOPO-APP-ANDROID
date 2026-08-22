@@ -1,4 +1,4 @@
-import { formatearProgresiva, type CeldaEvaluada } from '@topo/core'
+import { formatearProgresiva, type CeldaEvaluada, type Id } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useEvaluacionRasante, useResultado } from '../estado/derivados'
@@ -7,9 +7,21 @@ import MarcoGrafico from '../grafico/MarcoGrafico'
 
 interface Props {
   elementoClave: string
+  /**
+   * Contra qué campaña se dibuja la rasante: la decide quien llama, nunca
+   * este componente mirando `campaniaActivaId` en el almacén — mismo
+   * criterio que `idCampaniaReferencia` en `CorteTransversal`, y por la
+   * misma razón: ese argumento ("solo hay un llamador hoy") ya falló una vez
+   * ahí y costó dos rondas de arreglo cuando apareció un segundo llamador
+   * con otra intención. El terreno (`useResultado`, más abajo) sigue siendo
+   * siempre el de la campaña activa: es lo que este perfil está mostrando,
+   * no una referencia elegible. `null` cuando no hay campaña activa que
+   * ofrecer como referencia.
+   */
+  idCampaniaReferencia: Id | null
 }
 
-export default function PerfilLongitudinal({ elementoClave }: Props) {
+export default function PerfilLongitudinal({ elementoClave, idCampaniaReferencia }: Props) {
   const resultado = useResultado()
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
@@ -21,14 +33,7 @@ export default function PerfilLongitudinal({ elementoClave }: Props) {
       .sort((a, b) => a.progresiva - b.progresiva)
   }, [resultado, elementoClave])
 
-  /**
-   * La rasante de la misma campaña que dibuja el terreno de este perfil
-   * (`useResultado`, sin id: cae en la campaña activa igual que el terreno) —
-   * nunca la del eje sin más. Por el bombeo, la rasante de un elemento fuera
-   * del eje va a otra cota; dibujar la del eje aquí mentiría en toda la
-   * longitud de la calle.
-   */
-  const evaluacionRasante = useEvaluacionRasante()
+  const evaluacionRasante = useEvaluacionRasante(idCampaniaReferencia ?? '')
 
   const celdasRasante = useMemo(() => {
     if (!evaluacionRasante) return []
@@ -84,8 +89,10 @@ export default function PerfilLongitudinal({ elementoClave }: Props) {
           .join(' ')
         return (
           <>
-            {tramosRasante.length > 0 && (
-              <g aria-label="Rasante de proyecto">
+            {primeraCeldaRasante && (
+              <g
+                aria-label={`Rasante de proyecto, cota inicial ${formatearCota(primeraCeldaRasante.cotaTeorica!)} m`}
+              >
                 {tramosRasante.map((grupo, indice) => (
                   <polyline
                     key={`rasante-${indice}`}
@@ -98,16 +105,6 @@ export default function PerfilLongitudinal({ elementoClave }: Props) {
                     strokeDasharray="6 4"
                   />
                 ))}
-                {primeraCeldaRasante && (
-                  <text
-                    x={x(primeraCeldaRasante.progresiva) + 6}
-                    y={y(primeraCeldaRasante.cotaTeorica!) - 6}
-                    aria-hidden="true"
-                    className="fill-slate-500 text-[9px]"
-                  >
-                    rasante {formatearCota(primeraCeldaRasante.cotaTeorica!)} m
-                  </text>
-                )}
               </g>
             )}
 
