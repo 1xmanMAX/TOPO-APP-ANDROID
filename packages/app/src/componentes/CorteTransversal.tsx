@@ -139,38 +139,74 @@ function tramosDeRasante(celdas: CeldaEvaluada[]): PuntoZona[][] {
   return tramos
 }
 
+/** Punto interpolado entre `a` y `b` a fracción `t` (0 = `a`, 1 = `b`), en sus tres magnitudes. */
+function puntoIntermedio(a: PuntoZona, b: PuntoZona, t: number): PuntoZona {
+  return {
+    offset: a.offset + t * (b.offset - a.offset),
+    terreno: a.terreno + t * (b.terreno - a.terreno),
+    rasante: a.rasante + t * (b.rasante - a.rasante),
+  }
+}
+
 /**
- * Reparte cada tramo en segmentos de corte (terreno por encima de la
- * rasante) o relleno (por debajo). Cuando el terreno cruza la rasante entre
- * dos puntos consecutivos, parte el segmento en el punto de cruce —
- * calculado por interpolación lineal— para no pintar de corte un trozo que
- * en realidad es de relleno, ni al revés.
+ * Reparte el tramo entre dos puntos consecutivos en segmentos de corte
+ * (terreno por encima de la rasante) o relleno (por debajo), partiendo en
+ * dos sitios distintos cuando hace falta:
+ *
+ * - Donde el terreno cruza la rasante, para no pintar de corte un trozo que
+ *   en realidad es de relleno, ni al revés.
+ * - Donde el segmento cruza el eje (offset 0), para que ninguna zona abarque
+ *   los dos lados de la calle a la vez. Sin este segundo corte, una zona
+ *   entre por ejemplo −3.00 y 2.00 quedaría entera "a la izquierda del eje"
+ *   aunque la mitad esté a la derecha — el nombre accesible mentiría sobre
+ *   dónde está, y no hay forma de redactarlo bien si la zona en sí cruza el
+ *   eje. Partirla aquí es lo que hace que esa frase no pueda mentir.
+ *
+ * Ambos cortes son independientes entre sí — el terreno puede cruzar la
+ * rasante en un punto distinto de donde cruza el eje — así que se calculan
+ * los dos, se ordenan, y el segmento se reparte en hasta tres trozos.
  */
+function segmentosEntre(a: PuntoZona, b: PuntoZona): SegmentoZona[] {
+  const diferenciaA = a.terreno - a.rasante
+  const diferenciaB = b.terreno - b.rasante
+
+  const cortes: number[] = []
+  if ((diferenciaA >= 0) !== (diferenciaB >= 0)) {
+    cortes.push(diferenciaA / (diferenciaA - diferenciaB))
+  }
+  if ((a.offset < 0 && b.offset > 0) || (a.offset > 0 && b.offset < 0)) {
+    cortes.push(a.offset / (a.offset - b.offset))
+  }
+  cortes.sort((x, y) => x - y)
+
+  const fracciones = [0, ...cortes, 1]
+  const segmentos: SegmentoZona[] = []
+
+  for (let i = 0; i < fracciones.length - 1; i++) {
+    const t0 = fracciones[i]!
+    const t1 = fracciones[i + 1]!
+    // El signo a mitad de camino de este trozo decide su zona: los extremos
+    // pueden caer justo en un cruce (diferencia o offset en cero), donde el
+    // signo es ambiguo.
+    const diferenciaMedia = diferenciaA + ((t0 + t1) / 2) * (diferenciaB - diferenciaA)
+    const zona: ZonaRasante = diferenciaMedia >= 0 ? 'corte' : 'relleno'
+
+    segmentos.push({
+      zona,
+      desde: t0 === 0 ? a : puntoIntermedio(a, b, t0),
+      hasta: t1 === 1 ? b : puntoIntermedio(a, b, t1),
+    })
+  }
+
+  return segmentos
+}
+
 function segmentosDeZona(tramos: PuntoZona[][]): SegmentoZona[] {
   const segmentos: SegmentoZona[] = []
 
   for (const puntos of tramos) {
     for (let i = 0; i < puntos.length - 1; i++) {
-      const a = puntos[i]!
-      const b = puntos[i + 1]!
-      const diferenciaA = a.terreno - a.rasante
-      const diferenciaB = b.terreno - b.rasante
-      const zonaDe = (diferencia: number): ZonaRasante => (diferencia >= 0 ? 'corte' : 'relleno')
-
-      if ((diferenciaA >= 0) === (diferenciaB >= 0)) {
-        segmentos.push({ zona: zonaDe(diferenciaA), desde: a, hasta: b })
-        continue
-      }
-
-      const t = diferenciaA / (diferenciaA - diferenciaB)
-      const cruce: PuntoZona = {
-        offset: a.offset + t * (b.offset - a.offset),
-        terreno: a.rasante + t * (b.rasante - a.rasante),
-        rasante: a.rasante + t * (b.rasante - a.rasante),
-      }
-
-      segmentos.push({ zona: zonaDe(diferenciaA), desde: a, hasta: cruce })
-      segmentos.push({ zona: zonaDe(diferenciaB), desde: cruce, hasta: b })
+      segmentos.push(...segmentosEntre(puntos[i]!, puntos[i + 1]!))
     }
   }
 

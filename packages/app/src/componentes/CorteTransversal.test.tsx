@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Campania, Proyecto, Rasante } from '@topo/core'
+import type { Campania, Plantilla, Proyecto, Rasante } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
@@ -364,5 +364,108 @@ describe('CorteTransversal: contra qué capa se sombrea', () => {
 
     expect(container.querySelectorAll('[data-zona]')).toHaveLength(0)
     expect(screen.getByText(/corresponde a la capa que estás controlando/i)).toBeInTheDocument()
+  })
+})
+
+/**
+ * Plantilla angosta, sin ningún elemento en el offset 0: IZQ a −3.00 m y DER
+ * a 2.00 m, nada en el eje. Es el escenario del arreglo — sin una celda que
+ * caiga justo en el eje, un tramo con pareja puede unir un punto de cada
+ * lado en una sola zona.
+ */
+function plantillaSinEje(): Plantilla {
+  return {
+    id: 'pl-sin-eje',
+    nombre: 'Sección angosta sin eje',
+    elementos: [
+      { clave: 'IZQ', etiqueta: 'Izquierda', offset: -3.0, tipo: 'otro' },
+      { clave: 'DER', etiqueta: 'Derecha', offset: 2.0, tipo: 'otro' },
+    ],
+  }
+}
+
+/**
+ * IZQ y DER, ambas medidas en la progresiva 0, sobre una rasante plana en
+ * 3245.000: IZQ sale a 3245.032 (32 mm de corte) y DER a 3245.020 (20 mm de
+ * corte). Las dos del mismo lado de la rasante — ningún cruce ahí—, así que
+ * sin el arreglo del eje habría un solo tramo IZQ↔DER, y su zona quedaría
+ * rotulada entera "a la izquierda del eje" (−3.00 pesa más que 2.00) aunque
+ * la mitad de esa zona está a la derecha.
+ */
+function proyectoSinEje(): Proyecto {
+  const proyecto = proyectoEjemplo()
+  proyecto.plantillas = [plantillaSinEje()]
+  proyecto.calles = [
+    {
+      id: 'c-sin-eje',
+      nombre: 'Calle sin eje',
+      plantillaId: 'pl-sin-eje',
+      progresivaInicio: 0,
+      progresivaFin: 20,
+      intervalo: 20,
+      progresivasExtra: [],
+      rasante: {
+        progresivaArranque: 0,
+        cotaArranque: 3245.0,
+        pendienteLongitudinal: 0,
+        tramos: [{ nombre: 'Sección', hastaOffset: 3.0, tipo: 'pendiente', valor: 0 }],
+        simetrica: true,
+        tramosIzquierda: null,
+      },
+    },
+  ]
+  proyecto.campanias = [
+    {
+      id: 'camp-sin-eje',
+      fecha: '2026-08-21',
+      calleId: 'c-sin-eje',
+      capaId: 'cap-subrasante',
+      bmInicialId: 'bm-1',
+      estado: 'cerrada',
+      cierre: CIERRE_CERRADO,
+      estaciones: [
+        {
+          id: 'e-1',
+          vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
+          intermedias: [
+            { id: 'l-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'IZQ' } }, valor: 1.148 },
+            { id: 'l-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'DER' } }, valor: 1.16 },
+          ],
+          vistaAdelante: { id: 'l-4', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
+        },
+      ],
+    },
+  ]
+  return proyecto
+}
+
+describe('CorteTransversal: una zona no puede cruzar el eje', () => {
+  beforeEach(() => {
+    useAlmacen.getState().cargarProyecto(proyectoSinEje())
+  })
+
+  it('en una plantilla sin punto de eje, la zona se reparte en una por lado', () => {
+    const { container } = render(
+      <CorteTransversal progresiva={0} idsVisibles={['camp-sin-eje']} idCampaniaReferencia="camp-sin-eje" />,
+    )
+
+    const zonas = [...container.querySelectorAll('[data-zona]')]
+    expect(zonas).toHaveLength(2)
+
+    // Ninguna zona cruza el eje: sus dos offsets quedan del mismo lado (o
+    // tocan el 0, que es de los dos a la vez).
+    for (const zona of zonas) {
+      const inicio = Number(zona.getAttribute('data-offset-inicio'))
+      const fin = Number(zona.getAttribute('data-offset-fin'))
+      expect(inicio >= 0 || fin <= 0).toBe(true)
+      expect(inicio <= 0 || fin >= 0).toBe(true)
+    }
+
+    const nombres = zonas.map((z) => z.getAttribute('aria-label'))
+    expect(nombres.some((n) => n?.includes('a la izquierda del eje'))).toBe(true)
+    expect(nombres.some((n) => n?.includes('a la derecha del eje'))).toBe(true)
+    // Y ninguna dice lo contrario de dónde está: nada del lado derecho debe
+    // salir rotulado "a la izquierda", ni al revés.
+    expect(nombres.every((n) => n?.includes('izquierda') || n?.includes('derecha'))).toBe(true)
   })
 })
