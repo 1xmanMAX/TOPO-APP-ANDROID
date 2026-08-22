@@ -1,7 +1,7 @@
 import { formatearProgresiva, type EstadoTolerancia, type Id } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
-import { useContexto, useContextoDe, useEvaluacionRasante } from '../estado/derivados'
+import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
 import { etiquetaAccesibleCelda, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasante'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import MapaGrilla, { type CeldaPintada } from './MapaGrilla'
@@ -43,24 +43,21 @@ const LEYENDA: { estado: EstadoTolerancia; texto: string }[] = [
 
 interface Props {
   /**
-   * Contra qué campaña se pinta el mapa: la decide quien llama, igual que
-   * `idCampaniaReferencia` en `CorteTransversal` y `PerfilLongitudinal` — ese
-   * argumento ("solo hay un llamador hoy") ya costó dos rondas de arreglo
-   * entre esas dos vistas. Sin indicar nada cae en la campaña activa del
-   * almacén, el mismo valor por defecto que ya trae `useEvaluacionRasante`;
-   * pasar explícitamente `null` (a diferencia de omitirlo) pide en cambio que
-   * no haya ninguna referencia, aunque el almacén sí tenga una activa.
+   * Contra qué campaña se pinta el mapa: la decide quien llama, nunca este
+   * componente mirando `campaniaActivaId` en el almacén — mismo criterio que
+   * `idCampaniaReferencia` en `CorteTransversal` y `PerfilLongitudinal`, y
+   * por la misma razón: ese argumento ("solo hay un llamador hoy") ya costó
+   * tres rondas de arreglo repartidas entre esas dos vistas cuando apareció
+   * un segundo llamador con otra intención. Obligatoria, sin valor por
+   * defecto que lea el almacén: `null` cuando no hay campaña activa que
+   * ofrecer como referencia.
    */
-  idCampaniaReferencia?: Id | null
+  idCampaniaReferencia: Id | null
 }
 
 export default function MapaEstado({ idCampaniaReferencia }: Props) {
-  const contextoActivo = useContexto()
-  const contextoReferencia = useContextoDe(idCampaniaReferencia ?? null)
-  const contexto = idCampaniaReferencia === undefined ? contextoActivo : contextoReferencia
-
-  const idEvaluacion = idCampaniaReferencia === undefined ? undefined : (idCampaniaReferencia ?? '')
-  const evaluacion = useEvaluacionRasante(idEvaluacion)
+  const contexto = useContextoDe(idCampaniaReferencia)
+  const evaluacion = useEvaluacionRasante(idCampaniaReferencia ?? '')
 
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
@@ -83,13 +80,18 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
   }
 
   function pintarCelda(clave: string): CeldaPintada {
-    const celda = evaluacion!.celdas.get(clave)
+    // `clave` sale de `progresivas`/`elementos`, que a su vez salen de
+    // `armarEsqueletoTabla(contexto.calle, contexto.plantilla)` — el mismo
+    // par calle/plantilla que `useEvaluacionRasante` usó para construir
+    // `evaluacion.celdas` (ambos cuelgan ahora del mismo `idCampaniaReferencia`,
+    // sin un segundo camino que pudiera desalinearlos). Por eso el motor
+    // garantiza una celda en el mapa por cada progresiva × elemento y esta
+    // búsqueda nunca falla: `construirGrilla` genera ese producto completo y
+    // `evaluarContraRasante` evalúa cada una, sin huecos.
+    const celda = evaluacion!.celdas.get(clave)!
     const separador = clave.indexOf('|')
     const etiqueta = `${formatearProgresiva(Number(clave.slice(0, separador)))} ${clave.slice(separador + 1)}`
 
-    if (!celda) {
-      return { simbolo: '·', etiqueta: `${etiqueta}, sin datos`, clases: CLASES_ESTADO.sinMedir }
-    }
     return {
       simbolo: SIMBOLO_ESTADO[celda.estado],
       etiqueta: etiquetaAccesibleCelda(etiqueta, celda),

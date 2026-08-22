@@ -39,7 +39,7 @@ describe('MapaEstado', () => {
 
   it('pinta la calle entera, una celda por progresiva y elemento', () => {
     fijarRasanteDeEjemplo()
-    render(<MapaEstado />)
+    render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
     expect(screen.getAllByRole('button', { name: /^0\+\d{3} / }).length).toBe(49)
   })
@@ -50,7 +50,7 @@ describe('MapaEstado', () => {
   // enterarse de los tres, no en qué posición vienen.
   it('cada celda dice sus milímetros, qué hacer y su estado por escrito, no solo por color', () => {
     fijarRasanteDeEjemplo()
-    render(<MapaEstado />)
+    render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
     const etiqueta = screen.getByLabelText(/0\+000 EJE/).getAttribute('aria-label')
     expect(etiqueta).toMatch(/−302 mm/)
@@ -60,7 +60,7 @@ describe('MapaEstado', () => {
 
   it('elegir una celda del mapa la selecciona en el resto de vistas', async () => {
     fijarRasanteDeEjemplo()
-    render(<MapaEstado />)
+    render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
     await userEvent.click(screen.getByLabelText(/0\+020 EJE/))
 
@@ -69,7 +69,7 @@ describe('MapaEstado', () => {
 
   it('la leyenda explica qué es cada símbolo', () => {
     fijarRasanteDeEjemplo()
-    render(<MapaEstado />)
+    render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
     expect(screen.getByText(/dentro de tolerancia/i)).toBeInTheDocument()
     expect(screen.getByText(/al límite/i)).toBeInTheDocument()
@@ -77,7 +77,7 @@ describe('MapaEstado', () => {
   })
 
   it('sin rasante definida invita a definirla, en vez de un mapa vacío', () => {
-    render(<MapaEstado />)
+    render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
     expect(screen.getByText(/define la rasante/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^0\+\d{3} / })).not.toBeInTheDocument()
@@ -85,7 +85,7 @@ describe('MapaEstado', () => {
 
   it('una celda sin medir se distingue de una fuera de la sección, también por escrito', () => {
     fijarRasanteDeEjemplo()
-    render(<MapaEstado />)
+    render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
     // 0+000 VER-I no se midió en el proyecto de ejemplo, pero la rasante
     // plana sí cubre todo el ancho de la plantilla (hasta 5.6 m): es "sin
