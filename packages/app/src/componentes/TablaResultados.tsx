@@ -1,7 +1,8 @@
-import { claveCelda, construirGrilla, formatearProgresiva } from '@topo/core'
+import { claveCelda, formatearProgresiva } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
+import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { formatearCota } from '../formato'
 
 export default function TablaResultados() {
@@ -10,22 +11,12 @@ export default function TablaResultados() {
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
 
-  const celdas = useMemo(() => {
-    if (!contexto) return []
-    try {
-      return construirGrilla(contexto.calle, contexto.plantilla)
-    } catch {
-      return []
-    }
-  }, [contexto])
-
-  const { progresivas, elementos } = useMemo(() => {
-    const progresivas = [...new Set(celdas.map((c) => c.progresiva))].sort((a, b) => a - b)
-    const vistos = new Map<string, number>()
-    for (const celda of celdas) if (!vistos.has(celda.elementoClave)) vistos.set(celda.elementoClave, celda.offset)
-    const elementos = [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([clave]) => clave)
-    return { progresivas, elementos }
-  }, [celdas])
+  const esqueleto = useMemo(
+    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
+    [contexto],
+  )
+  const progresivas = esqueleto?.progresivas ?? []
+  const elementos = esqueleto?.elementos ?? []
 
   if (!resultado || !contexto) return null
 

@@ -1,13 +1,8 @@
-import {
-  claveCelda,
-  construirGrilla,
-  formatearProgresiva,
-  type CeldaEvaluada,
-  type EstadoTolerancia,
-} from '@topo/core'
-import { useMemo, useState } from 'react'
+import { claveCelda, formatearProgresiva, type CeldaEvaluada, type EstadoTolerancia } from '@topo/core'
+import { type ReactNode, useMemo, useState } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useEvaluacionRasante } from '../estado/derivados'
+import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { formatearCota } from '../formato'
 
 const MENSAJE_SIN_RASANTE = 'Define la rasante del proyecto para ver cuánto sobra o falta en cada punto.'
@@ -98,20 +93,41 @@ function etiquetaAccesible(etiqueta: string, celda: CeldaEvaluada | undefined): 
 }
 
 /**
- * Lo que se ve en la celda según el interruptor. Una celda vacía es siempre
- * un campo sin dato (cota real, cota teórica o diferencia, según el modo) —
+ * El valor de la celda según el interruptor. Una celda vacía es siempre un
+ * campo sin dato (cota real, cota teórica o diferencia, según el modo) —
  * nunca un cero disfrazado: por eso decide el valor exacto de ese campo, y no
  * la categoría del estado. Así, por ejemplo, un punto medido pero fuera de la
  * sección sí muestra su cota real (se midió), aunque no tenga diferencia que
  * mostrar (el proyecto no define una teórica ahí).
  */
-function contenidoVisible(celda: CeldaEvaluada | undefined, modo: Modo): string {
-  if (!celda) return ''
+function valorVisible(celda: CeldaEvaluada, modo: Modo): string {
   if (modo === 'real') return celda.cotaReal !== null ? formatearCota(celda.cotaReal) : ''
   if (modo === 'teorica') return celda.cotaTeorica !== null ? formatearCota(celda.cotaTeorica) : ''
-  if (celda.diferenciaMm === null) return ''
+  return celda.diferenciaMm !== null ? formatearDiferencia(celda.diferenciaMm) : ''
+}
+
+/**
+ * El símbolo tiene que acompañar a la cifra en los tres modos, no solo en
+ * Diferencia: es el segundo canal de estado, junto con el color, y un
+ * topógrafo que cambia a «Cota real» para copiar un número de campo sigue
+ * necesitando distinguir «al límite» de «fuera de tolerancia» sin depender
+ * del rojo o el ámbar. Va en su propio elemento (no pegado al texto de la
+ * cifra) para que copiar o leer el valor no arrastre el símbolo.
+ */
+function contenidoCelda(celda: CeldaEvaluada | undefined, modo: Modo): ReactNode {
+  if (!celda) return null
+  const valor = valorVisible(celda, modo)
+  if (valor === '') return null
+
   const simbolo = SIMBOLO_ESTADO[celda.estado]
-  return simbolo ? `${simbolo} ${formatearDiferencia(celda.diferenciaMm)}` : formatearDiferencia(celda.diferenciaMm)
+  if (!simbolo) return valor
+
+  return (
+    <>
+      <span aria-hidden="true">{simbolo} </span>
+      <span>{valor}</span>
+    </>
+  )
 }
 
 export default function TablaDiferencias() {
@@ -121,22 +137,12 @@ export default function TablaDiferencias() {
   const seleccionar = useAlmacen((s) => s.seleccionar)
   const [modo, setModo] = useState<Modo>('diferencia')
 
-  const celdasGrilla = useMemo(() => {
-    if (!contexto) return []
-    try {
-      return construirGrilla(contexto.calle, contexto.plantilla)
-    } catch {
-      return []
-    }
-  }, [contexto])
-
-  const { progresivas, elementos } = useMemo(() => {
-    const progresivas = [...new Set(celdasGrilla.map((c) => c.progresiva))].sort((a, b) => a - b)
-    const vistos = new Map<string, number>()
-    for (const celda of celdasGrilla) if (!vistos.has(celda.elementoClave)) vistos.set(celda.elementoClave, celda.offset)
-    const elementos = [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([clave]) => clave)
-    return { progresivas, elementos }
-  }, [celdasGrilla])
+  const esqueleto = useMemo(
+    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
+    [contexto],
+  )
+  const progresivas = esqueleto?.progresivas ?? []
+  const elementos = esqueleto?.elementos ?? []
 
   if (!contexto) return null
 
@@ -148,9 +154,13 @@ export default function TablaDiferencias() {
     )
   }
 
+  // Sin medir y fuera de sección son dos cosas distintas para quien trabaja
+  // — una se resuelve saliendo a medir, la otra nunca será comparable por
+  // mucho que se mida — así que van separadas: sumarlas escondería cuántas
+  // de esas celdas todavía tienen arreglo.
   const resumen =
-    `Conformes ${evaluacion.conformes} · Al límite ${evaluacion.alLimite} · ` +
-    `Fuera ${evaluacion.fuera} · Sin medir ${evaluacion.sinMedir + evaluacion.fueraDeSeccion}`
+    `Conformes ${evaluacion.conformes} · Al límite ${evaluacion.alLimite} · Fuera ${evaluacion.fuera} — ` +
+    `Sin medir ${evaluacion.sinMedir} · Fuera de sección ${evaluacion.fueraDeSeccion}`
 
   return (
     <div className="flex flex-col gap-2">
@@ -204,7 +214,7 @@ export default function TablaDiferencias() {
                         onClick={() => seleccionar(clave)}
                         className={`numerico w-full rounded px-2 py-1 text-right ${fondo} ${texto}`}
                       >
-                        {contenidoVisible(celda, modo)}
+                        {contenidoCelda(celda, modo)}
                       </button>
                     </td>
                   )

@@ -131,14 +131,41 @@ describe('TablaDiferencias', () => {
     expect(celda.getAttribute('aria-label')).not.toMatch(/fuera de la sección/)
   })
 
-  it('el resumen cuenta conformes, al límite, fuera y sin medir', () => {
+  // Sin medir y fuera de sección son cosas distintas para quien trabaja: una
+  // se resuelve saliendo a medir, la otra nunca será comparable. Sumarlas en
+  // el resumen escondería cuántas de esas celdas todavía tienen arreglo, así
+  // que el resumen las cuenta por separado.
+  it('el resumen cuenta las cinco categorías por separado, sin sumar sin medir y fuera de sección', () => {
     fijarRasanteDeEjemplo()
     render(<TablaDiferencias />)
 
     // 10 progresivas × 7 elementos = 70 celdas; solo 3 están medidas
     // (0|EJE, 0|BOR-I, 20|EJE), y las tres caen fuera de tolerancia con esta
-    // rasante y esta libreta.
-    expect(screen.getByText('Conformes 0 · Al límite 0 · Fuera 3 · Sin medir 67')).toBeInTheDocument()
+    // rasante y esta libreta. La rasante de ejemplo cubre todo el ancho de
+    // la plantilla, así que ninguna celda medida queda fuera de sección.
+    expect(
+      screen.getByText('Conformes 0 · Al límite 0 · Fuera 3 — Sin medir 67 · Fuera de sección 0'),
+    ).toBeInTheDocument()
+  })
+
+  // Encontrado en la revisión: el símbolo solo se calculaba en el modo
+  // Diferencia. En «Cota real» y «Cota teórica», «al límite» y «fuera de
+  // tolerancia» compartían la misma negrita y solo el color los distinguía
+  // — justo lo que la regla del color como único portador de significado
+  // prohíbe. Ninguna prueba anterior lo detectaba porque todas corrían en
+  // el modo por defecto.
+  it('el símbolo acompaña a la cifra también en Cota real, no solo en Diferencia', async () => {
+    fijarRasanteDeEjemplo()
+    const usuario = userEvent.setup()
+    render(<TablaDiferencias />)
+
+    await usuario.click(screen.getByRole('button', { name: 'Cota real' }))
+
+    // 0+000 EJE está fuera de tolerancia con esta rasante y esta libreta.
+    const celda = screen.getByLabelText(/0\+000 EJE/)
+    expect(celda.textContent).toBe('✗ 3244.628')
+    // La cifra sigue siendo buscable sola: el símbolo no la contamina.
+    expect(screen.getByText('3244.628')).toBeInTheDocument()
   })
 
   it('las celdas son clicables y seleccionan la celda, como en las otras tablas', async () => {
