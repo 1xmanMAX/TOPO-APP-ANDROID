@@ -301,7 +301,9 @@ describe('CorteTransversal con rasante', () => {
     for (const zona of zonas) {
       expect(zona).not.toHaveAttribute('aria-hidden')
       const nombre = zona.getAttribute('aria-label')
-      expect(nombre).toMatch(/^(Corte|Relleno) de [\d.]+ m a -?[\d.]+ m del eje$/)
+      expect(nombre).toMatch(
+        /^(Corte|Relleno) de hasta \d+ mm, entre [\d.]+ y [\d.]+ m a la (izquierda|derecha) del eje$/,
+      )
       expect(zona.querySelector('title')?.textContent).toBe(nombre)
     }
   })

@@ -1,6 +1,8 @@
 import {
+  aMilimetros,
   compararCapas,
   formatearProgresiva,
+  redondear3,
   type CeldaComparada,
   type CeldaEvaluada,
   type CotaCelda,
@@ -176,19 +178,35 @@ function segmentosDeZona(tramos: PuntoZona[][]): SegmentoZona[] {
 }
 
 /**
- * Nombre accesible de una zona de corte o relleno: qué es y cuánto, en el
- * punto donde más se nota (el extremo del segmento con mayor diferencia
- * contra la rasante) — mismo criterio de "qué y cuánto" que ya usa el
- * `<title>` de los puntos medidos.
+ * Nombre accesible de una zona de corte o relleno: qué es, cuánto y dónde,
+ * en una frase que se entiende leída en voz alta y sin ver el dibujo.
+ *
+ * Antes decía «Corte de 0.046 m a -4.20 m del eje», que se oye como un rango
+ * entre 0.046 y -4.20 cuando en realidad son dos magnitudes distintas —
+ * cuánto sobra o falta, y en qué tramo de la sección pasa— y además la
+ * diferencia iba en metros. La regla del proyecto es milímetros con signo;
+ * aquí el signo lo lleva la palabra («corte» o «relleno», ya inequívocas por
+ * sí solas) y no un número negativo, que en voz alta no se oye. El "cuánto"
+ * es el mayor de los dos extremos del segmento — mismo criterio que antes—,
+ * y el lado ("a la izquierda"/"a la derecha del eje") lo decide el extremo
+ * más alejado del eje, en palabras, no con un signo menos.
  */
 function tituloDeZona(segmento: SegmentoZona): string {
-  const diferenciaDesde = Math.abs(segmento.desde.terreno - segmento.desde.rasante)
-  const diferenciaHasta = Math.abs(segmento.hasta.terreno - segmento.hasta.rasante)
-  const puntoMayor = diferenciaDesde >= diferenciaHasta ? segmento.desde : segmento.hasta
-  const diferenciaMayor = Math.max(diferenciaDesde, diferenciaHasta)
+  const diferenciaMm = (punto: PuntoZona) =>
+    Math.abs(Math.round(aMilimetros(redondear3(punto.terreno - punto.rasante))))
+  const diferenciaMayorMm = Math.max(diferenciaMm(segmento.desde), diferenciaMm(segmento.hasta))
   const tipo = segmento.zona === 'corte' ? 'Corte' : 'Relleno'
 
-  return `${tipo} de ${formatearCota(diferenciaMayor)} m a ${puntoMayor.offset.toFixed(2)} m del eje`
+  const offsetDesde = segmento.desde.offset
+  const offsetHasta = segmento.hasta.offset
+  const lejano = Math.abs(offsetDesde) >= Math.abs(offsetHasta) ? offsetDesde : offsetHasta
+  const cercano = lejano === offsetDesde ? offsetHasta : offsetDesde
+  const lado = lejano < 0 ? 'a la izquierda del eje' : lejano > 0 ? 'a la derecha del eje' : 'en el eje'
+
+  return (
+    `${tipo} de hasta ${diferenciaMayorMm} mm, ` +
+    `entre ${Math.abs(lejano).toFixed(2)} y ${Math.abs(cercano).toFixed(2)} m ${lado}`
+  )
 }
 
 /** Leyenda de las tramas de corte y relleno, para no depender solo del color. */
