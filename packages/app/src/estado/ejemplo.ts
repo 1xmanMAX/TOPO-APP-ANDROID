@@ -115,6 +115,14 @@ export function proyectoEjemplo(): Proyecto {
                 destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } },
                 valor: 2.045,
               },
+              // Completa la esquina que faltaba en 0+000: con BOR-I, BOR-D y
+              // EJE medidos en las dos progresivas iniciales queda el primer
+              // cuadro cerrado, con qué levantar el modelo 3D.
+              {
+                id: 'l-8',
+                destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } },
+                valor: 2.035,
+              },
             ],
             vistaAdelante: { id: 'l-4', destino: { tipo: 'cambio', nombre: 'PC-1' }, valor: 1.15 },
           },
@@ -126,6 +134,36 @@ export function proyectoEjemplo(): Proyecto {
                 id: 'l-6',
                 destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } },
                 valor: 2.47,
+              },
+              // Estas cinco, junto con la de arriba, dejan tres progresivas
+              // (0+000, 0+020, 0+040) por tres elementos (BOR-I, EJE, BOR-D)
+              // medidas: suficiente para armar cuatro cuadros contiguos y que
+              // el visor 3D tenga con qué dibujar un modelo, no solo el
+              // aviso de que faltan esquinas.
+              {
+                id: 'l-9',
+                destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } },
+                valor: 2.535,
+              },
+              {
+                id: 'l-10',
+                destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-D' } },
+                valor: 2.525,
+              },
+              {
+                id: 'l-11',
+                destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'BOR-I' } },
+                valor: 2.555,
+              },
+              {
+                id: 'l-12',
+                destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'EJE' } },
+                valor: 2.49,
+              },
+              {
+                id: 'l-13',
+                destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'BOR-D' } },
+                valor: 2.545,
               },
             ],
             vistaAdelante: { id: 'l-7', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.91 },

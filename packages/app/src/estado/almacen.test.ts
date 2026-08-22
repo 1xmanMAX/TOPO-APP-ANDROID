@@ -191,7 +191,10 @@ describe('almacén', () => {
 
     const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!
     expect(estacion.vistaAdelante).toBeUndefined()
-    expect(estacion.intermedias).toHaveLength(1)
+    // La segunda estación del ejemplo lleva 6 intermedias desde la Entrega 3
+    // (antes 1 sola), para que el visor 3D tenga con qué dibujar un modelo.
+    // Quitar la vista adelante no toca las intermedias.
+    expect(estacion.intermedias).toHaveLength(6)
   })
 
   describe('selector de capas', () => {

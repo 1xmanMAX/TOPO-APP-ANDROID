@@ -13,7 +13,9 @@ describe('CorteTransversal', () => {
 
   it('dibuja un punto por cada celda medida de la progresiva', () => {
     render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
-    expect(screen.getAllByRole('button', { name: /^0\+000 / })).toHaveLength(2)
+    // Entrega 3: el ejemplo mide EJE, BOR-I y BOR-D en 0+000 (antes solo las
+    // dos primeras), para que el visor 3D tenga con qué dibujar un modelo.
+    expect(screen.getAllByRole('button', { name: /^0\+000 / })).toHaveLength(3)
   })
 
   it('avisa cuando la progresiva no tiene lecturas', () => {

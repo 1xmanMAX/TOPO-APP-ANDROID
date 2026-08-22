@@ -140,12 +140,15 @@ describe('TablaDiferencias', () => {
     fijarRasanteDeEjemplo()
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
-    // 10 progresivas × 7 elementos = 70 celdas; solo 3 están medidas
-    // (0|EJE, 0|BOR-I, 20|EJE), y las tres caen fuera de tolerancia con esta
-    // rasante y esta libreta. La rasante de ejemplo cubre todo el ancho de
-    // la plantilla, así que ninguna celda medida queda fuera de sección.
+    // 10 progresivas × 7 elementos = 70 celdas. Entrega 3 amplió el ejemplo
+    // para que el visor 3D tenga con qué dibujar un modelo: ahora hay 9
+    // celdas medidas (EJE, BOR-I y BOR-D en 0+000, 0+020 y 0+040, antes solo
+    // 0|EJE, 0|BOR-I y 20|EJE). Con esta rasante y esta libreta, 8 quedan
+    // fuera de tolerancia y una al límite (0+020 BOR-D, a −31 mm). La
+    // rasante de ejemplo cubre todo el ancho de la plantilla, así que
+    // ninguna celda medida queda fuera de sección.
     expect(
-      screen.getByText('Conformes 0 · Al límite 0 · Fuera 3 — Sin medir 67 · Fuera de sección 0'),
+      screen.getByText('Conformes 0 · Al límite 1 · Fuera 8 — Sin medir 61 · Fuera de sección 0'),
     ).toBeInTheDocument()
   })
 

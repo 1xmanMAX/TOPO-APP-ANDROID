@@ -54,7 +54,9 @@ describe('useResultadosDe', () => {
     const { result } = renderHook(() => useResultadosDe(['camp-1', otra]))
 
     expect(result.current.size).toBe(2)
-    expect(result.current.get('camp-1')?.celdasLlenas).toBe(3)
+    // La campaña de ejemplo mide 9 celdas desde la Entrega 3 (antes 3), para
+    // que el visor 3D tenga con qué dibujar un modelo.
+    expect(result.current.get('camp-1')?.celdasLlenas).toBe(9)
     expect(result.current.get(otra)?.celdasLlenas).toBe(0)
   })
 

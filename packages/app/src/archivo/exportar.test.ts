@@ -190,7 +190,10 @@ describe('armarTabla', () => {
   it('deja vacías las celdas sin medir', () => {
     const { resultado, calle, plantilla } = resultadoEjemplo()
     const tabla = armarTabla(resultado, calle, plantilla)
-    const fila = tabla.find((f) => f[0] === '0+040')!
+    // 0+040 EJE pasó a estar medida (Entrega 3, ampliación del ejemplo para
+    // que el visor 3D tenga con qué dibujar un modelo): la calle sigue sin
+    // medir nada en 0+060, así que la comprobación se muda ahí.
+    const fila = tabla.find((f) => f[0] === '0+060')!
     expect(fila[4]).toBe('')
   })
 

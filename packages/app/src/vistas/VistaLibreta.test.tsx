@@ -109,13 +109,18 @@ describe('VistaLibreta', () => {
     await usuario.type(campo, '2.100{Enter}')
 
     const resultado = useAlmacen.getState().calcular()!
-    expect(resultado.celdasLlenas).toBe(4)
+    // La campaña de ejemplo mide 9 celdas desde la Entrega 3 (antes 3), para
+    // que el visor 3D tenga con qué dibujar un modelo; con la lectura
+    // recién escrita quedan 10.
+    expect(resultado.celdasLlenas).toBe(10)
     expect(screen.getByText(/celda activa/i).textContent).not.toContain('0+000 VER-I')
   })
 
   it('muestra cuántas celdas faltan', () => {
     render(<VistaLibreta />)
-    expect(screen.getByText(/llenadas 3 de 70/i)).toBeInTheDocument()
+    // La campaña de ejemplo mide 9 celdas desde la Entrega 3 (antes 3), para
+    // que el visor 3D tenga con qué dibujar un modelo.
+    expect(screen.getByText(/llenadas 9 de 70/i)).toBeInTheDocument()
   })
 
   it('con una calle de progresiva final menor que la inicial, se dibuja sin lanzar', () => {

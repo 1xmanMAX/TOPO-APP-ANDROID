@@ -12,7 +12,9 @@ describe('PerfilLongitudinal', () => {
 
   it('dibuja un punto por progresiva medida del elemento', () => {
     render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
-    expect(screen.getAllByRole('button', { name: /cota/ })).toHaveLength(2)
+    // Entrega 3: el ejemplo mide EJE en 0+000, 0+020 y 0+040 (antes solo en
+    // las dos primeras), para que el visor 3D tenga con qué dibujar un modelo.
+    expect(screen.getAllByRole('button', { name: /cota/ })).toHaveLength(3)
   })
 
   it('avisa cuando el elemento no tiene lecturas', () => {

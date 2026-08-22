@@ -18,7 +18,10 @@ describe('TablaResultados', () => {
 
   it('deja vacías las celdas sin medir', () => {
     render(<TablaResultados />)
-    expect(screen.getByLabelText(/Cota en 0\+040 EJE/).textContent).toBe('—')
+    // 0+040 EJE pasó a estar medida (Entrega 3, ampliación del ejemplo para
+    // que el visor 3D tenga con qué dibujar un modelo): la calle sigue sin
+    // medir nada en 0+060, así que la comprobación se muda ahí.
+    expect(screen.getByLabelText(/Cota en 0\+060 EJE/).textContent).toBe('—')
   })
 
   it('selecciona la celda al hacer clic', async () => {
