@@ -8,7 +8,7 @@ import {
   type Id,
   type PuntoProyectado,
 } from '@topo/core'
-import { useMemo } from 'react'
+import { useMemo, useRef, type PointerEvent as EventoPuntero } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
@@ -17,6 +17,9 @@ import { etiquetaAccesibleCelda, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasa
 const MENSAJE_SIN_RASANTE = 'Define la rasante del proyecto para levantar el modelo en volumen.'
 const MENSAJE_POCAS_PROGRESIVAS = 'Hacen falta al menos dos progresivas medidas para levantar el modelo.'
 const MENSAJE_SIN_MODELO = 'Ninguna zona tiene sus cuatro esquinas medidas todavía: no hay cuadro que dibujar.'
+
+/** Cuántos grados gira la cámara por cada pixel que se arrastra: un gesto entero de lado a lado da una vuelta completa cómoda, ni brusca ni perezosa. */
+const GRADOS_POR_PIXEL = 0.5
 
 /**
  * Símbolo por estado, igual criterio que en `MapaEstado`: los tres de
@@ -95,6 +98,31 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
   const contexto = useContextoDe(idCampaniaReferencia)
   const evaluacion = useEvaluacionRasante(idCampaniaReferencia ?? '')
   const camara = useAlmacen((s) => s.camara)
+  const girarCamara = useAlmacen((s) => s.girarCamara)
+
+  /**
+   * Última posición horizontal del puntero mientras se arrastra, en un `ref`
+   * y no en estado: cada movimiento gira la cámara, y no hace falta que ese
+   * seguimiento en sí mismo dispare un renderizado aparte.
+   */
+  const arrastreX = useRef<number | null>(null)
+
+  function alBajarPuntero(evento: EventoPuntero<SVGSVGElement>) {
+    evento.currentTarget.setPointerCapture(evento.pointerId)
+    arrastreX.current = evento.clientX
+  }
+
+  function alMoverPuntero(evento: EventoPuntero<SVGSVGElement>) {
+    if (arrastreX.current === null) return
+    const diferencia = evento.clientX - arrastreX.current
+    arrastreX.current = evento.clientX
+    girarCamara(diferencia * GRADOS_POR_PIXEL)
+  }
+
+  function alSoltarPuntero(evento: EventoPuntero<SVGSVGElement>) {
+    evento.currentTarget.releasePointerCapture(evento.pointerId)
+    arrastreX.current = null
+  }
 
   const esqueleto = useMemo(
     () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
@@ -167,8 +195,18 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
       <svg
         viewBox={`${caja.minX.toFixed(2)} ${caja.minY.toFixed(2)} ${caja.ancho.toFixed(2)} ${caja.alto.toFixed(2)}`}
         role="img"
-        aria-label="Modelo en volumen de la calle, coloreado por el estado de cada tramo"
-        className="w-full rounded border border-slate-200 dark:border-slate-800"
+        aria-label="Modelo en volumen de la calle, coloreado por el estado de cada tramo. Arrastra para girarlo."
+        // Eventos de puntero, no de ratón: cubren ratón y dedo con el mismo
+        // código. `touch-action: none` para que en el móvil arrastrar gire la
+        // cámara en vez de competir con el desplazamiento de la página, y
+        // `select-none` para que arrastrar sobre el dibujo no seleccione texto
+        // de alrededor por accidente.
+        onPointerDown={alBajarPuntero}
+        onPointerMove={alMoverPuntero}
+        onPointerUp={alSoltarPuntero}
+        onPointerCancel={alSoltarPuntero}
+        style={{ touchAction: 'none' }}
+        className="w-full touch-none cursor-grab select-none rounded border border-slate-200 active:cursor-grabbing dark:border-slate-800"
       >
         {proyectadas.map(({ cara, puntos }: CaraProyectada) => {
           const claveInicial = claveCelda(cara.progresivaDesde, cara.elementoDesde)
