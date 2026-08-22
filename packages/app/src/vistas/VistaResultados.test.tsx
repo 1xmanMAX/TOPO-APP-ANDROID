@@ -310,8 +310,9 @@ describe('VistaResultados', () => {
       within(grupo).getByText('DIFERENCIAS VERIFICADAS — el circuito de la campaña cierra dentro de tolerancia'),
     ).toBeInTheDocument()
 
-    // Las cuatro vistas están agrupadas bajo el mismo aviso: ninguna quedó
+    // Las cinco vistas están agrupadas bajo el mismo aviso: ninguna quedó
     // fuera del grupo ni con un veredicto aparte.
+    expect(within(grupo).getByRole('heading', { name: 'Modelo 3D' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Diferencias' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Mapa de la calle' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Corte transversal' })).toBeInTheDocument()
@@ -342,6 +343,7 @@ describe('VistaResultados', () => {
 
     const grupo = screen.getByRole('heading', { name: 'Control contra el proyecto' }).parentElement!
     expect(within(grupo).getByText(/DIFERENCIAS NO COMPROBADAS/)).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Modelo 3D' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Diferencias' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Mapa de la calle' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Corte transversal' })).toBeInTheDocument()
