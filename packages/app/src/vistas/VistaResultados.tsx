@@ -219,7 +219,11 @@ export default function VistaResultados() {
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Corte transversal</h2>
-        <CorteTransversal progresiva={progresivaActiva} idsVisibles={idsVisiblesCorte} />
+        <CorteTransversal
+          progresiva={progresivaActiva}
+          idsVisibles={idsVisiblesCorte}
+          idCampaniaReferencia={campaniaActivaId}
+        />
         <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
       </section>
 

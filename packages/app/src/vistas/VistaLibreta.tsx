@@ -212,7 +212,11 @@ export default function VistaLibreta() {
 
       <section className="flex flex-col gap-2">
         <h3 className="font-semibold">Corte transversal</h3>
-        <CorteTransversal progresiva={progresivaActiva} idsVisibles={idsVisibles} />
+        <CorteTransversal
+          progresiva={progresivaActiva}
+          idsVisibles={idsVisibles}
+          idCampaniaReferencia={campaniaActivaId}
+        />
         <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={irAProgresiva} />
       </section>
 

@@ -22,6 +22,15 @@ interface Props {
    * la libreta mostrara la capa marcada en Resultados en vez de la propia.
    */
   idsVisibles: Id[]
+  /**
+   * Contra qué campaña se sombrea el corte y el relleno: la que el topógrafo
+   * está controlando, no "la capa más alta que se vea en pantalla". Igual que
+   * `idsVisibles`, la decide quien llama — la libreta manda la campaña activa,
+   * Resultados también — y por la misma razón: este componente no lee
+   * `campaniaActivaId` del almacén. `null` cuando no hay campaña activa que
+   * ofrecer como referencia.
+   */
+  idCampaniaReferencia: Id | null
 }
 
 interface EstiloCapa {
@@ -166,7 +175,62 @@ function segmentosDeZona(tramos: PuntoZona[][]): SegmentoZona[] {
   return segmentos
 }
 
-export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
+/**
+ * Nombre accesible de una zona de corte o relleno: qué es y cuánto, en el
+ * punto donde más se nota (el extremo del segmento con mayor diferencia
+ * contra la rasante) — mismo criterio de "qué y cuánto" que ya usa el
+ * `<title>` de los puntos medidos.
+ */
+function tituloDeZona(segmento: SegmentoZona): string {
+  const diferenciaDesde = Math.abs(segmento.desde.terreno - segmento.desde.rasante)
+  const diferenciaHasta = Math.abs(segmento.hasta.terreno - segmento.hasta.rasante)
+  const puntoMayor = diferenciaDesde >= diferenciaHasta ? segmento.desde : segmento.hasta
+  const diferenciaMayor = Math.max(diferenciaDesde, diferenciaHasta)
+  const tipo = segmento.zona === 'corte' ? 'Corte' : 'Relleno'
+
+  return `${tipo} de ${formatearCota(diferenciaMayor)} m a ${puntoMayor.offset.toFixed(2)} m del eje`
+}
+
+/** Leyenda de las tramas de corte y relleno, para no depender solo del color. */
+function LeyendaZonas({
+  idPatronCorte,
+  idPatronRelleno,
+}: {
+  idPatronCorte: string
+  idPatronRelleno: string
+}) {
+  return (
+    <ul className="flex flex-wrap gap-4 text-xs text-slate-600 dark:text-slate-300">
+      <li className="flex items-center gap-1.5">
+        <svg width={20} height={14} aria-hidden="true" className="shrink-0">
+          <rect
+            width={20}
+            height={14}
+            fill={`url(#${idPatronCorte})`}
+            strokeWidth={1}
+            className="stroke-amber-600/70 dark:stroke-amber-400/70"
+          />
+        </svg>
+        Corte: donde el terreno sobra frente a la rasante
+      </li>
+      <li className="flex items-center gap-1.5">
+        <svg width={20} height={14} aria-hidden="true" className="shrink-0">
+          <rect
+            width={20}
+            height={14}
+            fill={`url(#${idPatronRelleno})`}
+            strokeWidth={1}
+            strokeDasharray="3 2"
+            className="stroke-sky-600/70 dark:stroke-sky-400/70"
+          />
+        </svg>
+        Relleno: donde el terreno falta frente a la rasante
+      </li>
+    </ul>
+  )
+}
+
+export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaReferencia }: Props) {
   const proyecto = useAlmacen((s) => s.proyecto)
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
@@ -218,15 +282,24 @@ export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
   }, [series, resultados, progresiva])
 
   /**
-   * La rasante se compara contra la capa más alta del paquete visible — la
-   * última en `series`, ya ordenada de abajo hacia arriba —, porque es la
-   * que representa la superficie terminada. Si no hay ninguna serie se pasa
-   * un id vacío en vez de dejar que el hook caiga en la campaña activa del
-   * almacén: sin capas visibles no hay nada que comparar, y este componente
-   * no decide eso mirando el estado global.
+   * La rasante se compara contra la campaña de referencia que decide quien
+   * llama (la que el topógrafo está controlando), nunca contra "la capa más
+   * alta visible": cada capa tiene su propio objetivo de proyecto bien
+   * definido, y preferir la de mayor orden hacía que marcar o desmarcar otra
+   * capa en el selector de Resultados cambiara, sin que nadie tocara la
+   * campaña de referencia, contra qué se sombreaba. Con `null` se pasa un id
+   * vacío en vez de dejar que el hook caiga en la campaña activa del
+   * almacén: este componente no decide eso mirando el estado global.
    */
-  const idCapaSuperior = series.length > 0 ? series[series.length - 1]!.campaniaId : ''
-  const evaluacionRasante = useEvaluacionRasante(idCapaSuperior)
+  const idReferenciaEfectivo = idCampaniaReferencia ?? ''
+  const evaluacionRasante = useEvaluacionRasante(idReferenciaEfectivo)
+
+  /**
+   * Si la campaña de referencia no está entre las capas marcadas, no se
+   * sombrea nada: un sombreado sin la línea de terreno que lo sostiene sería
+   * más confuso que no tenerlo. En su lugar se explica por qué (ver más abajo).
+   */
+  const referenciaVisible = idCampaniaReferencia !== null && idsVisibles.includes(idCampaniaReferencia)
 
   const idPrefijo = useId()
   const idPatronCorte = `patron-corte-${idPrefijo}`
@@ -258,8 +331,8 @@ export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
   }, [celdasRasante])
 
   const segmentosZona = useMemo(
-    () => segmentosDeZona(tramosDeRasante(celdasRasante)),
-    [celdasRasante],
+    () => (referenciaVisible ? segmentosDeZona(tramosDeRasante(celdasRasante)) : []),
+    [celdasRasante, referenciaVisible],
   )
 
   const totalPuntos = series.reduce((total, serie) => total + serie.puntos.length, 0)
@@ -274,8 +347,9 @@ export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
   }
 
   return (
-    <MarcoGrafico
-      valoresX={[
+    <div className="flex flex-col gap-2">
+      <MarcoGrafico
+        valoresX={[
         ...series.flatMap((serie) => serie.puntos.map((p) => p.offset)),
         ...celdasRasante.map((c) => c.offset),
       ]}
@@ -310,71 +384,78 @@ export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
 
           {evaluacionRasante && (
             <>
-              <defs>
-                <pattern
-                  id={idPatronCorte}
-                  width={6}
-                  height={6}
-                  patternUnits="userSpaceOnUse"
-                  patternTransform="rotate(45)"
-                >
-                  <rect width={6} height={6} className="fill-amber-500/10 dark:fill-amber-400/10" />
-                  <line
-                    x1={0}
-                    y1={0}
-                    x2={0}
-                    y2={6}
-                    strokeWidth={1.5}
-                    className="stroke-amber-600/70 dark:stroke-amber-400/70"
-                  />
-                </pattern>
-                <pattern
-                  id={idPatronRelleno}
-                  width={6}
-                  height={6}
-                  patternUnits="userSpaceOnUse"
-                  patternTransform="rotate(-45)"
-                >
-                  <rect width={6} height={6} className="fill-sky-500/10 dark:fill-sky-400/10" />
-                  <line
-                    x1={0}
-                    y1={0}
-                    x2={0}
-                    y2={6}
-                    strokeWidth={1.5}
-                    className="stroke-sky-600/70 dark:stroke-sky-400/70"
-                  />
-                </pattern>
-              </defs>
+              {segmentosZona.length > 0 && (
+                <>
+                  <defs>
+                    <pattern
+                      id={idPatronCorte}
+                      width={6}
+                      height={6}
+                      patternUnits="userSpaceOnUse"
+                      patternTransform="rotate(45)"
+                    >
+                      <rect width={6} height={6} className="fill-amber-500/10 dark:fill-amber-400/10" />
+                      <line
+                        x1={0}
+                        y1={0}
+                        x2={0}
+                        y2={6}
+                        strokeWidth={1.5}
+                        className="stroke-amber-600/70 dark:stroke-amber-400/70"
+                      />
+                    </pattern>
+                    <pattern
+                      id={idPatronRelleno}
+                      width={6}
+                      height={6}
+                      patternUnits="userSpaceOnUse"
+                      patternTransform="rotate(-45)"
+                    >
+                      <rect width={6} height={6} className="fill-sky-500/10 dark:fill-sky-400/10" />
+                      <line
+                        x1={0}
+                        y1={0}
+                        x2={0}
+                        y2={6}
+                        strokeWidth={1.5}
+                        className="stroke-sky-600/70 dark:stroke-sky-400/70"
+                      />
+                    </pattern>
+                  </defs>
 
-              {segmentosZona.map((segmento) => {
-                const puntos = [
-                  `${x(segmento.desde.offset).toFixed(1)},${y(segmento.desde.terreno).toFixed(1)}`,
-                  `${x(segmento.hasta.offset).toFixed(1)},${y(segmento.hasta.terreno).toFixed(1)}`,
-                  `${x(segmento.hasta.offset).toFixed(1)},${y(segmento.hasta.rasante).toFixed(1)}`,
-                  `${x(segmento.desde.offset).toFixed(1)},${y(segmento.desde.rasante).toFixed(1)}`,
-                ].join(' ')
-                const esCorte = segmento.zona === 'corte'
+                  {segmentosZona.map((segmento) => {
+                    const puntos = [
+                      `${x(segmento.desde.offset).toFixed(1)},${y(segmento.desde.terreno).toFixed(1)}`,
+                      `${x(segmento.hasta.offset).toFixed(1)},${y(segmento.hasta.terreno).toFixed(1)}`,
+                      `${x(segmento.hasta.offset).toFixed(1)},${y(segmento.hasta.rasante).toFixed(1)}`,
+                      `${x(segmento.desde.offset).toFixed(1)},${y(segmento.desde.rasante).toFixed(1)}`,
+                    ].join(' ')
+                    const esCorte = segmento.zona === 'corte'
 
-                return (
-                  <polygon
-                    key={`zona-${segmento.desde.offset}-${segmento.hasta.offset}`}
-                    data-zona={segmento.zona}
-                    data-offset-inicio={segmento.desde.offset}
-                    data-offset-fin={segmento.hasta.offset}
-                    points={puntos}
-                    fill={`url(#${esCorte ? idPatronCorte : idPatronRelleno})`}
-                    strokeWidth={1}
-                    strokeDasharray={esCorte ? undefined : '3 2'}
-                    className={
-                      esCorte
-                        ? 'stroke-amber-600/70 dark:stroke-amber-400/70'
-                        : 'stroke-sky-600/70 dark:stroke-sky-400/70'
-                    }
-                    aria-hidden="true"
-                  />
-                )
-              })}
+                    return (
+                      <polygon
+                        key={`zona-${segmento.desde.offset}-${segmento.hasta.offset}`}
+                        data-zona={segmento.zona}
+                        data-offset-inicio={segmento.desde.offset}
+                        data-offset-fin={segmento.hasta.offset}
+                        points={puntos}
+                        fill={`url(#${esCorte ? idPatronCorte : idPatronRelleno})`}
+                        strokeWidth={1}
+                        strokeDasharray={esCorte ? undefined : '3 2'}
+                        className={
+                          esCorte
+                            ? 'stroke-amber-600/70 dark:stroke-amber-400/70'
+                            : 'stroke-sky-600/70 dark:stroke-sky-400/70'
+                        }
+                        role="img"
+                        aria-label={tituloDeZona(segmento)}
+                      >
+                        <title>{tituloDeZona(segmento)}</title>
+                      </polygon>
+                    )
+                  })}
+                </>
+              )}
 
               {tramosLineaRasante.length > 0 && (
                 <g aria-label="Rasante de proyecto">
@@ -476,6 +557,18 @@ export default function CorteTransversal({ progresiva, idsVisibles }: Props) {
           })}
         </>
       )}
-    </MarcoGrafico>
+      </MarcoGrafico>
+
+      {evaluacionRasante && segmentosZona.length > 0 && (
+        <LeyendaZonas idPatronCorte={idPatronCorte} idPatronRelleno={idPatronRelleno} />
+      )}
+
+      {evaluacionRasante && !referenciaVisible && (
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          El sombreado corresponde a la capa que estás controlando: márcala en el selector de capas para
+          verlo.
+        </p>
+      )}
+    </div>
   )
 }
