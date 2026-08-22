@@ -50,14 +50,16 @@ e inclinación 35.264° —el isométrico clásico— y exageración 1:
 
 Los ejes X e Y caen a **30° exactos** de la horizontal; Z queda vertical.
 
-Y la exageración vertical, sobre una calle de 180 m que ocupa 103.9 unidades:
+Y la exageración vertical, sobre una calle de 180 m que **con la cámara
+isométrica ocupa 73.5 unidades** — el giro de 45° la acorta en pantalla, y ese
+giro forma parte de la cámara:
 
 | exageración | 1 m de desnivel | del largo |
 |---|---|---|
-| 1× | 0.8 | 0.8 % |
-| 10× | 8.2 | 7.9 % |
-| **25×** | **20.4** | **19.6 %** |
-| 50× | 40.8 | 39.3 % |
+| 1× | 0.8 | 1.1 % |
+| 10× | 8.2 | 11.1 % |
+| **25×** | **20.4** | **27.8 %** |
+| 50× | 40.8 | 55.6 % |
 
 Por eso el valor de partida es 25×.
 
@@ -166,14 +168,15 @@ describe('proyectarPunto', () => {
   })
 
   it('una exageración de 1 deja un metro de desnivel casi invisible frente a la calle', () => {
-    // Una calle de 180 m ocupa 103.9 unidades; 1 m de desnivel, 0.8.
+    // Con la cámara isométrica, el giro de 45° acorta la calle en pantalla:
+    // 180 m ocupan 73.5 unidades, y 1 m de desnivel ocupa 0.8.
     const inicio = proyectarPunto(0, 0, 0, ISO)
     const fin = proyectarPunto(0, 180, 0, ISO)
     const largo = Math.abs(fin.y - inicio.y)
     const desnivel = Math.abs(proyectarPunto(0, 0, 1, ISO).y)
 
-    expect(largo).toBeCloseTo(103.9, 1)
-    expect(desnivel / largo).toBeLessThan(0.01)
+    expect(largo).toBeCloseTo(73.5, 1)
+    expect(desnivel / largo).toBeLessThan(0.02)
   })
 
   it('con la exageración de partida, ese mismo metro sí se ve', () => {
@@ -181,7 +184,8 @@ describe('proyectarPunto', () => {
     const largo = Math.abs(proyectarPunto(0, 180, 0, camara).y)
     const desnivel = Math.abs(proyectarPunto(0, 0, 1, camara).y)
 
-    expect(desnivel / largo).toBeCloseTo(0.196, 2)
+    // Pasa del 1.1 % al 27.8 % del largo de la calle.
+    expect(desnivel / largo).toBeCloseTo(0.278, 2)
   })
 
   it('las cámaras guardadas son las que dicen ser', () => {

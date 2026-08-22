@@ -88,16 +88,17 @@ pantalla (planta pura) y con φ = 0° desaparece la progresiva (alzado puro).
 
 ### 3.2 Por qué la exageración vertical no es un adorno
 
-Una calle de 180 m ocupa 103.9 unidades de pantalla en isométrico. Un metro de
-desnivel, sin exagerar, ocupa 0.8:
+Una calle de 180 m ocupa 73.5 unidades de pantalla con la cámara isométrica
+—giro 45°, que acorta la calle en pantalla—. Un metro de desnivel, sin exagerar,
+ocupa 0.8:
 
 | exageración | 1 m de desnivel | respecto al largo |
 |---|---|---|
-| 1× | 0.8 | 0.8 % |
-| 5× | 4.1 | 3.9 % |
-| 10× | 8.2 | 7.9 % |
-| **25×** | **20.4** | **19.6 %** |
-| 50× | 40.8 | 39.3 % |
+| 1× | 0.8 | 1.1 % |
+| 5× | 4.1 | 5.6 % |
+| 10× | 8.2 | 11.1 % |
+| **25×** | **20.4** | **27.8 %** |
+| 50× | 40.8 | 55.6 % |
 
 Sin exagerar, la calle se ve **plana** y el visor no sirve para nada. El valor de
 partida es **25×**, ajustable de 1 a 50 con un deslizador.
