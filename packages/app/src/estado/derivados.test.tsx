@@ -106,17 +106,16 @@ describe('useEvaluacionRasante', () => {
 
     const { result } = renderHook(() => useEvaluacionRasante())
 
-    // La SUBRASANTE del ejemplo es la última capa definida (nada de orden
-    // mayor por encima), así que su cota teórica coincide con la rasante tal
-    // cual, sin restar espesor: 3245.180 en 0+000 EJE. Lo medido ahí es
-    // 3244.6275 (ver 'useResultadoDe' arriba), 552.5 mm por debajo, que
-    // redondeado a milímetros enteros da -553. Estos números reemplazan a los
-    // del brief (cotaTeorica 3244.93, diferenciaMm -302): esos suponían una
-    // capa por encima de la subrasante que este proyecto de ejemplo ya no
-    // tiene, y el motor —revisado y verificado— no se toca para que cuadren.
+    // El paquete de capas del ejemplo lleva BASE (0.20 m) y CARPETA (0.05 m)
+    // por encima de SUBRASANTE, así que su cota teórica resta ese espesor a
+    // la rasante: 3245.18 − 0.25 = 3244.93 en 0+000 EJE. Lo medido ahí es
+    // 3244.6275 (ver 'useResultadoDe' arriba), 302.5 mm por debajo, que
+    // redondeado a milímetros enteros da -303 (no -302: la resta exacta usa
+    // la cota real sin redondear a milímetros, 3244.6275, no la cifra ya
+    // redondeada a tres decimales que se muestra en pantalla).
     const celda = result.current!.celdas.get('0|EJE')!
-    expect(celda.cotaTeorica).toBe(3245.18)
-    expect(celda.diferenciaMm).toBe(-553)
+    expect(celda.cotaTeorica).toBe(3244.93)
+    expect(celda.diferenciaMm).toBe(-303)
     expect(celda.estado).toBe('fuera')
   })
 

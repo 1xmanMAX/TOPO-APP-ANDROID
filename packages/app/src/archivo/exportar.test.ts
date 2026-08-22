@@ -87,15 +87,17 @@ function plantilla() {
 /**
  * Rasante plana (sin pendiente longitudinal ni transversal) que cubre todo
  * el ancho de la plantilla del ejemplo (hasta 5.6 m): ningún elemento queda
- * fuera de sección sin querer. Cota de arranque elegida para que 0+000 EJE
- * (cota real 3244.6275, la misma libreta que usan las demás pruebas de esta
- * calle) dé exactamente −302 mm de diferencia — la misma rasante que usa
+ * fuera de sección sin querer. La campaña de referencia mide en SUBRASANTE,
+ * y BASE + CARPETA (0.25 m) van encima de esa capa: la cota de arranque
+ * está elegida para que, ya restado ese espesor, 0+000 EJE (cota real
+ * 3244.6275, la misma libreta que usan las demás pruebas de esta calle) dé
+ * exactamente −302 mm de diferencia — la misma rasante que usa
  * `MapaEstado.test.tsx`.
  */
 function rasantePlana(): Rasante {
   return {
     progresivaArranque: 0,
-    cotaArranque: 3244.929,
+    cotaArranque: 3245.179,
     pendienteLongitudinal: 0,
     tramos: [{ nombre: 'Calzada', hastaOffset: 5.6, tipo: 'pendiente', valor: 0 }],
     simetrica: true,

@@ -72,12 +72,12 @@ describe('VistaProyecto', () => {
     render(<VistaProyecto />)
 
     await usuario.click(screen.getByRole('button', { name: 'Eliminar capa TERRENO EXISTENTE' }))
-    expect(useAlmacen.getState().proyecto.capas).toHaveLength(2)
+    expect(useAlmacen.getState().proyecto.capas).toHaveLength(4)
 
     await usuario.click(
       screen.getByRole('button', { name: 'Confirmar eliminación de la capa TERRENO EXISTENTE' }),
     )
-    expect(useAlmacen.getState().proyecto.capas).toHaveLength(1)
+    expect(useAlmacen.getState().proyecto.capas).toHaveLength(3)
   })
 
   it('no deja borrar una capa que alguna campaña está usando', async () => {
@@ -87,7 +87,7 @@ describe('VistaProyecto', () => {
     await usuario.click(screen.getByRole('button', { name: 'Eliminar capa SUBRASANTE' }))
 
     expect(screen.getByText(/la usa una campaña/i)).toBeInTheDocument()
-    expect(useAlmacen.getState().proyecto.capas).toHaveLength(2)
+    expect(useAlmacen.getState().proyecto.capas).toHaveLength(4)
   })
 
   it('sube una capa y cambia su posición en la lista dibujada', async () => {
@@ -108,7 +108,7 @@ describe('VistaProyecto', () => {
     filas = screen.getAllByRole('listitem')
     expect(nombreDe(filas[0]!).value).toBe('SUBRASANTE')
     expect(nombreDe(filas[1]!).value).toBe('TERRENO EXISTENTE')
-    expect(useAlmacen.getState().proyecto.capas.map((c) => c.orden)).toEqual([0, 1])
+    expect(useAlmacen.getState().proyecto.capas.map((c) => c.orden)).toEqual([0, 1, 2, 3])
   })
 
   it('se puede renombrar una capa y el nombre queda guardado', async () => {
@@ -134,10 +134,10 @@ describe('VistaProyecto', () => {
     expect(nombres).toHaveLength(2)
 
     await userEvent.clear(nombres[1]!)
-    await userEvent.type(nombres[1]!, 'BASE')
+    await userEvent.type(nombres[1]!, 'RODADURA')
 
     expect(screen.getByLabelText('Espesor de CAPA NUEVA')).toBeInTheDocument()
-    expect(screen.getByLabelText('Espesor de BASE')).toBeInTheDocument()
+    expect(screen.getByLabelText('Espesor de RODADURA')).toBeInTheDocument()
   })
 
   it('se puede escribir el espesor de una capa y queda guardado', async () => {

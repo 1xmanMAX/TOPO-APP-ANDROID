@@ -221,20 +221,22 @@ describe('CorteTransversal con varias capas', () => {
 })
 
 /**
- * Rasante plana en 3244.600, sin pendiente longitudinal ni transversal, para
+ * Rasante plana en 3244.850, sin pendiente longitudinal ni transversal, para
  * el ancho completo de la plantilla del ejemplo (hasta 5.6 m de offset).
+ * camp-1 mide en SUBRASANTE, y BASE + CARPETA (0.20 + 0.05 = 0.25 m) van
+ * encima de esa capa, así que su cota teórica ahí queda en 3244.600.
  *
  * Con esto, en 0+000 de camp-1 (que solo mide EJE y BOR-I): EJE (cota
- * 3244.6275) queda por encima de la rasante — corte — y BOR-I (cota
- * 3244.5625) por debajo — relleno. El único tramo con pareja cruza la
- * rasante, así que sirve para probar el reparto en corte/relleno y el corte
- * del cruce con una sola campaña. VER-I no lo midió camp-1, así que ningún
- * sombreado debe llegar a su offset (-5.6).
+ * 3244.6275) queda por encima de la cota teórica de SUBRASANTE — corte — y
+ * BOR-I (cota 3244.5625) por debajo — relleno. El único tramo con pareja
+ * cruza la rasante, así que sirve para probar el reparto en corte/relleno y
+ * el corte del cruce con una sola campaña. VER-I no lo midió camp-1, así que
+ * ningún sombreado debe llegar a su offset (-5.6).
  */
 function rasantePlanaDeEjemplo(): Rasante {
   return {
     progresivaArranque: 0,
-    cotaArranque: 3244.6,
+    cotaArranque: 3244.85,
     pendienteLongitudinal: 0,
     tramos: [{ nombre: 'Sección', hastaOffset: 5.6, tipo: 'pendiente', valor: 0 }],
     simetrica: true,

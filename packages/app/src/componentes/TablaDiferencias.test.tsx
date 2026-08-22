@@ -67,16 +67,17 @@ describe('TablaDiferencias', () => {
   })
 
   // La cota real en 0+000 EJE es 3244.6275 (misma libreta que
-  // `estado/derivados.test.tsx`), y la rasante de ejemplo pone la cota
-  // teórica ahí en 3245.180: 552.5 mm por debajo, que redondeado a
-  // milímetros enteros da -553. Está por debajo del proyecto → falta
+  // `estado/derivados.test.tsx`), y la rasante de ejemplo pone la rasante ahí
+  // en 3245.180. BASE + CARPETA (0.25 m) van encima de SUBRASANTE, así que
+  // su cota teórica queda en 3244.930: 302.5 mm por debajo, que redondeado a
+  // milímetros enteros da -303. Está por debajo del proyecto → falta
   // material → rellenar. Con tolerancia de 20 mm en SUBRASANTE, el doble es
-  // 40 mm: 553 mm de diferencia queda claramente fuera de tolerancia.
+  // 40 mm: 303 mm de diferencia queda claramente fuera de tolerancia.
   it('muestra la diferencia en milímetros con signo y dice qué hacer', () => {
     fijarRasanteDeEjemplo()
     render(<TablaDiferencias />)
 
-    expect(screen.getByLabelText(/0\+000 EJE: −553 mm, rellenar/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/0\+000 EJE: −303 mm, rellenar/)).toBeInTheDocument()
   })
 
   it('el interruptor cambia entre cota real, cota teórica y diferencia', async () => {
@@ -85,7 +86,7 @@ describe('TablaDiferencias', () => {
     render(<TablaDiferencias />)
 
     await usuario.click(screen.getByRole('button', { name: 'Cota teórica' }))
-    expect(screen.getByText('3245.180')).toBeInTheDocument()
+    expect(screen.getByText('3244.930')).toBeInTheDocument()
 
     await usuario.click(screen.getByRole('button', { name: 'Cota real' }))
     expect(screen.getByText('3244.628')).toBeInTheDocument()

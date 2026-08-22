@@ -13,16 +13,18 @@ import MapaEstado from './MapaEstado'
  * "todas las celdas" sin depender de cuántas progresivas tenga el proyecto
  * de ejemplo completo.
  *
- * La rasante arranca en 3244.929 (plana, sin pendiente longitudinal ni
- * transversal): contra la cota real de 0+000 EJE (3244.6275, la misma
- * libreta que usan las demás pruebas de esta calle) da una diferencia de
- * −302 mm, bien fuera de los 20 mm de tolerancia de SUBRASANTE.
+ * La rasante arranca en 3245.179 (plana, sin pendiente longitudinal ni
+ * transversal). La campaña activa mide en SUBRASANTE, y BASE + CARPETA
+ * (0.25 m) van encima de esa capa, así que su cota teórica queda en
+ * 3244.929: contra la cota real de 0+000 EJE (3244.6275, la misma libreta
+ * que usan las demás pruebas de esta calle) da una diferencia de −302 mm,
+ * bien fuera de los 20 mm de tolerancia de SUBRASANTE.
  */
 function fijarRasanteDeEjemplo(): void {
   useAlmacen.getState().actualizarCalle('c-1', { progresivaFin: 120 })
   useAlmacen.getState().fijarRasante('c-1', {
     progresivaArranque: 0,
-    cotaArranque: 3244.929,
+    cotaArranque: 3245.179,
     pendienteLongitudinal: 0,
     tramos: [{ nombre: 'Calzada', hastaOffset: 5.6, tipo: 'pendiente', valor: 0 }],
     simetrica: true,

@@ -306,7 +306,7 @@ describe('VistaResultados', () => {
     // abajo con la sección del mapa.
     const encabezado = screen.getByRole('heading', { name: 'Diferencias comprobadas' })
     const etiqueta = within(encabezado.closest('section')!).getByLabelText(/0\+000 EJE/).getAttribute('aria-label')
-    expect(etiqueta).toMatch(/−553 mm/)
+    expect(etiqueta).toMatch(/−303 mm/)
     expect(etiqueta).toMatch(/rellenar/)
   })
 

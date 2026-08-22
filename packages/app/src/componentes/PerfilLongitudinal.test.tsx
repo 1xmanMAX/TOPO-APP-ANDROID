@@ -26,9 +26,11 @@ describe('PerfilLongitudinal', () => {
  * arranque igual a la del BM del ejemplo (3245.18) y sin pendiente
  * longitudinal: así la rasante del eje vale 3245.180 en toda la calle, y la
  * de BOR-D (offset 4.20) baja 84 mm — 4.20 × 2.0 % — a 3245.096, también
- * constante en toda la calle. La calle del ejemplo (c-1) llega hasta el
- * borde de calzada por ambos lados, así que EJE y BOR-D tienen rasante en
- * toda su longitud.
+ * constante en toda la calle. La campaña de referencia mide en SUBRASANTE, y
+ * BASE + CARPETA (0.25 m) van encima de esa capa: su cota teórica en BOR-D
+ * queda en 3244.846 (3245.096 − 0.25), que es lo que dibuja el perfil. La
+ * calle del ejemplo (c-1) llega hasta el borde de calzada por ambos lados,
+ * así que EJE y BOR-D tienen rasante en toda su longitud.
  */
 function rasanteDeEjemplo(): Rasante {
   return {
@@ -61,9 +63,11 @@ describe('PerfilLongitudinal con rasante', () => {
     fijarRasanteDeEjemplo()
     render(<PerfilLongitudinal elementoClave="BOR-D" idCampaniaReferencia="camp-1" />)
 
-    // En BOR-D la rasante va 84 mm por debajo de la del eje en toda la calle:
-    // el nombre accesible del grupo lleva la cota inicial, no un rótulo aparte.
-    expect(screen.getByLabelText(/rasante de proyecto, cota inicial 3245\.096 m/i)).toBeInTheDocument()
+    // En BOR-D la rasante va 84 mm por debajo de la del eje en toda la calle,
+    // y la cota teórica de SUBRASANTE resta además los 0.25 m de BASE +
+    // CARPETA: el nombre accesible del grupo lleva esa cota inicial, no un
+    // rótulo aparte.
+    expect(screen.getByLabelText(/rasante de proyecto, cota inicial 3244\.846 m/i)).toBeInTheDocument()
   })
 
   it('sin rasante definida el perfil se dibuja como hasta ahora', () => {
