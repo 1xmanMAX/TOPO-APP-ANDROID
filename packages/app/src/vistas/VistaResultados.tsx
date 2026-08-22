@@ -14,6 +14,7 @@ import BarraCierre from '../componentes/BarraCierre'
 import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import ListaAvisos from '../componentes/ListaAvisos'
+import MapaEstado from '../componentes/MapaEstado'
 import PerfilLongitudinal from '../componentes/PerfilLongitudinal'
 import SelectorCapas from '../componentes/SelectorCapas'
 import TablaDiferencias from '../componentes/TablaDiferencias'
@@ -245,6 +246,11 @@ export default function VistaResultados() {
         </h2>
         {estadoRasante && <AvisoEspesores estado={estadoRasante} />}
         <TablaDiferencias />
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold">Mapa de la calle</h2>
+        <MapaEstado idCampaniaReferencia={campaniaActivaId} />
       </section>
 
       <section className="flex flex-col gap-2">

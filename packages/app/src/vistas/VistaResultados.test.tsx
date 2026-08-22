@@ -324,7 +324,18 @@ describe('VistaResultados', () => {
   it('sin rasante en la calle, la sección invita a definirla en vez de mostrar un semáforo vacío', () => {
     render(<VistaResultados />)
 
-    expect(screen.getByRole('heading', { name: 'Diferencias contra el proyecto' })).toBeInTheDocument()
-    expect(screen.getByText(/define la rasante/i)).toBeInTheDocument()
+    const encabezado = screen.getByRole('heading', { name: 'Diferencias contra el proyecto' })
+    expect(encabezado).toBeInTheDocument()
+    expect(within(encabezado.closest('section')!).getByText(/define la rasante/i)).toBeInTheDocument()
+  })
+
+  // El mapa de la calle mira la misma rasante que la tabla de diferencias:
+  // sin una definida, invita a definirla en vez de dibujar una rejilla vacía.
+  it('sin rasante en la calle, el mapa también invita a definirla', () => {
+    render(<VistaResultados />)
+
+    const encabezado = screen.getByRole('heading', { name: 'Mapa de la calle' })
+    expect(encabezado).toBeInTheDocument()
+    expect(within(encabezado.closest('section')!).getByText(/define la rasante/i)).toBeInTheDocument()
   })
 })

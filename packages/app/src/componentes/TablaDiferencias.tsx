@@ -1,7 +1,13 @@
-import { claveCelda, formatearProgresiva, type CeldaEvaluada, type EstadoTolerancia } from '@topo/core'
+import { claveCelda, formatearProgresiva, type CeldaEvaluada } from '@topo/core'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useEvaluacionRasante } from '../estado/derivados'
+import {
+  ETIQUETA_ESTADO,
+  formatearDiferencia,
+  SIMBOLO_ESTADO_TOLERANCIA as SIMBOLO_ESTADO,
+  textoAccion,
+} from '../estadoRasante'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { formatearCota } from '../formato'
 
@@ -15,27 +21,7 @@ const ETIQUETA_MODO: Record<Modo, string> = {
   teorica: 'Cota teórica',
 }
 
-/** Mismo texto en la celda y en el resumen: nunca dos formas de decir lo mismo. */
-const ETIQUETA_ESTADO: Record<EstadoTolerancia, string> = {
-  conforme: 'conforme',
-  alLimite: 'al límite de tolerancia',
-  fuera: 'fuera de tolerancia',
-  sinRasante: 'fuera de la sección definida por el proyecto',
-  sinMedir: 'sin medir',
-}
-
-/**
- * El símbolo es el segundo canal, además del color: solo lo llevan los tres
- * estados de tolerancia, que son los que de verdad tienen algo que decir. Una
- * celda sin medir o fuera de sección no tiene un semáforo que mostrar.
- */
-const SIMBOLO_ESTADO: Partial<Record<EstadoTolerancia, string>> = {
-  conforme: '✓',
-  alLimite: '△',
-  fuera: '✗',
-}
-
-const FONDO_HOVER_ESTADO: Partial<Record<EstadoTolerancia, string>> = {
+const FONDO_HOVER_ESTADO: Partial<Record<CeldaEvaluada['estado'], string>> = {
   fuera: 'hover:bg-falla/10',
   alLimite: 'hover:bg-aviso/10',
 }
@@ -62,21 +48,6 @@ function clasesCelda(celda: CeldaEvaluada | undefined, activa: boolean): { fondo
         : 'text-slate-300 dark:text-slate-700'
 
   return { fondo, texto }
-}
-
-/**
- * Milímetros con signo, tal como se leen en obra: "+18 mm" sobra material,
- * "−7 mm" falta. El cero no lleva signo.
- */
-function formatearDiferencia(diferenciaMm: number): string {
-  const signo = diferenciaMm > 0 ? '+' : diferenciaMm < 0 ? '−' : ''
-  return `${signo}${Math.abs(diferenciaMm)} mm`
-}
-
-function textoAccion(diferenciaMm: number): string {
-  if (diferenciaMm > 0) return 'cortar'
-  if (diferenciaMm < 0) return 'rellenar'
-  return 'clavado en la cota del proyecto'
 }
 
 /**
