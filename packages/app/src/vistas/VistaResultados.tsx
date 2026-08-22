@@ -16,11 +16,19 @@ import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import ListaAvisos from '../componentes/ListaAvisos'
 import PerfilLongitudinal from '../componentes/PerfilLongitudinal'
 import SelectorCapas from '../componentes/SelectorCapas'
+import TablaDiferencias from '../componentes/TablaDiferencias'
 import TablaEspesores from '../componentes/TablaEspesores'
 import TablaResultados from '../componentes/TablaResultados'
-import { calcularEstadoComparacion } from '../estadoComparacion'
+import { calcularEstadoComparacion, calcularEstadoRasante } from '../estadoComparacion'
 import { useAlmacen } from '../estado/almacen'
-import { useContexto, useContextoDe, useProgresivas, useResultado, useResultadoDe } from '../estado/derivados'
+import {
+  useContexto,
+  useContextoDe,
+  useEvaluacionRasante,
+  useProgresivas,
+  useResultado,
+  useResultadoDe,
+} from '../estado/derivados'
 
 export default function VistaResultados() {
   const contexto = useContexto()
@@ -112,6 +120,16 @@ export default function VistaResultados() {
       ...tablaEspesores,
     ]
   }, [comparacion, contextoInferior, contextoSuperior, resultadoInferior, resultadoSuperior, tablaEspesores])
+
+  // Misma idea que `estadoComparacion`, pero para una sola campaña: si su
+  // circuito no cerró, la diferencia contra la rasante tampoco está
+  // comprobada, aunque la resta en sí haya sido posible. `null` mientras no
+  // haya rasante definida — ahí no hay nada que evaluar todavía.
+  const evaluacionRasante = useEvaluacionRasante()
+  const estadoRasante = useMemo(
+    () => (resultado && evaluacionRasante ? calcularEstadoRasante(resultado.cierre) : null),
+    [resultado, evaluacionRasante],
+  )
 
   const [copiado, setCopiado] = useState(false)
   const [copiadoEspesores, setCopiadoEspesores] = useState(false)
@@ -215,6 +233,18 @@ export default function VistaResultados() {
         )}
         {estadoComparacion && <AvisoEspesores estado={estadoComparacion} />}
         <TablaEspesores />
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold">
+          {estadoRasante === null
+            ? 'Diferencias contra el proyecto'
+            : estadoRasante.comprobado
+              ? 'Diferencias comprobadas'
+              : 'Diferencias no comprobadas'}
+        </h2>
+        {estadoRasante && <AvisoEspesores estado={estadoRasante} />}
+        <TablaDiferencias />
       </section>
 
       <section className="flex flex-col gap-2">

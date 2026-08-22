@@ -1,11 +1,27 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { calcularCampania, compararCapas, type Campania } from '@topo/core'
+import { calcularCampania, compararCapas, type Campania, type Rasante } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { armarCabeceraComparacion } from '../archivo/exportar'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
 import VistaResultados from './VistaResultados'
+
+/** Misma rasante de ejemplo que usa `TablaDiferencias.test.tsx`. */
+function rasanteDeEjemplo(): Rasante {
+  return {
+    progresivaArranque: 0,
+    cotaArranque: 3245.18,
+    pendienteLongitudinal: -1.25,
+    tramos: [
+      { nombre: 'Calzada', hastaOffset: 4.2, tipo: 'pendiente', valor: 2 },
+      { nombre: 'Sardinel', hastaOffset: 4.4, tipo: 'salto', valor: 0.15 },
+      { nombre: 'Vereda', hastaOffset: 5.6, tipo: 'pendiente', valor: -2 },
+    ],
+    simetrica: true,
+    tramosIzquierda: null,
+  }
+}
 
 const CIERRE_CERRADO = {
   tipo: 'cerrado' as const,
@@ -276,5 +292,39 @@ describe('VistaResultados', () => {
     const corte = screen.getByRole('img', { name: /Corte transversal en 0\+000/ })
     expect(within(corte).getByText('TERRENO EXISTENTE')).toBeInTheDocument()
     expect(within(corte).getByText('SUBRASANTE')).toBeInTheDocument()
+  })
+
+  it('con una rasante definida y el circuito cerrado, las diferencias se muestran como comprobadas', () => {
+    useAlmacen.getState().fijarRasante('c-1', rasanteDeEjemplo())
+
+    render(<VistaResultados />)
+
+    expect(screen.getByRole('heading', { name: 'Diferencias comprobadas' })).toBeInTheDocument()
+    expect(screen.getByText(/DIFERENCIAS VERIFICADAS/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/0\+000 EJE: −553 mm, rellenar/)).toBeInTheDocument()
+  })
+
+  // El mismo defecto que ya se corrigió para los espesores (VistaResultados
+  // > "si la capa de abajo no cierra..."), aplicado a la tabla de
+  // diferencias: un semáforo verde sobre una nivelación sin comprobar sigue
+  // siendo una cota sin comprobar. `evaluarContraRasante` no mira el cierre
+  // — decirlo es responsabilidad de esta pantalla.
+  it('con una rasante definida pero el circuito sin cerrar, la pantalla avisa que las diferencias no están comprobadas', () => {
+    useAlmacen.getState().fijarRasante('c-1', rasanteDeEjemplo())
+    const campaniaId = useAlmacen.getState().campaniaActivaId!
+    const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id
+    useAlmacen.getState().actualizarLectura(campaniaId, lecturaId, 1.887)
+
+    render(<VistaResultados />)
+
+    expect(screen.getByRole('heading', { name: 'Diferencias no comprobadas' })).toBeInTheDocument()
+    expect(screen.getByText(/DIFERENCIAS NO COMPROBADAS/)).toBeInTheDocument()
+  })
+
+  it('sin rasante en la calle, la sección invita a definirla en vez de mostrar un semáforo vacío', () => {
+    render(<VistaResultados />)
+
+    expect(screen.getByRole('heading', { name: 'Diferencias contra el proyecto' })).toBeInTheDocument()
+    expect(screen.getByText(/define la rasante/i)).toBeInTheDocument()
   })
 })

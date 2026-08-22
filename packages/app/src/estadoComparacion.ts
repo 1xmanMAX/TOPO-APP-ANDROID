@@ -64,3 +64,20 @@ export function calcularEstadoComparacion(datos: DatosEstadoComparacion): Estado
 
   return { comprobado: false, texto: `ESPESORES NO COMPROBADOS — ${motivos.join('; ')}` }
 }
+
+/**
+ * Mismo veredicto que `calcularEstadoComparacion`, pero para una sola
+ * campaña: la tabla de diferencias contra la rasante compara lo medido en
+ * una única nivelación, así que le basta con su propio cierre. Comparte
+ * forma con `EstadoComparacion` para mostrarse con el mismo `AvisoEspesores`
+ * — nada de inventar un segundo aviso que diga lo mismo con otras palabras.
+ */
+export function calcularEstadoRasante(cierre: ResultadoCierre): EstadoComparacion {
+  if (cierre.pasa === true) {
+    return {
+      comprobado: true,
+      texto: 'DIFERENCIAS VERIFICADAS — el circuito de la campaña cierra dentro de tolerancia',
+    }
+  }
+  return { comprobado: false, texto: `DIFERENCIAS NO COMPROBADAS — ${motivoNoComprobado(cierre)}` }
+}
