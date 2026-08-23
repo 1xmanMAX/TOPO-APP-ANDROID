@@ -31,8 +31,8 @@ describe('almacén', () => {
     useAlmacen.getState().actualizarBM(bmId, { cota: 3245.28 })
     const despues = useAlmacen.getState().calcular()!
 
-    expect(antes.cotasPorCelda.get('0|EJE')!.cota).toBeCloseTo(3244.6275, 6)
-    expect(despues.cotasPorCelda.get('0|EJE')!.cota).toBeCloseTo(3244.7275, 6)
+    expect(antes.cotasPorCelda.get('0|EJE')!.cota).toBeCloseTo(3244.5965, 6)
+    expect(despues.cotasPorCelda.get('0|EJE')!.cota).toBeCloseTo(3244.6965, 6)
   })
 
   it('agrega una lectura intermedia a la estación indicada', () => {
@@ -45,9 +45,18 @@ describe('almacén', () => {
     expect(resultado.cotasPorCelda.has('40|EJE')).toBe(true)
   })
 
+  /** La lectura de 0+000 EJE en la primera estación de la campaña de ejemplo. */
+  function lecturaDeEjeEnCero(): string {
+    return useAlmacen
+      .getState()
+      .proyecto.campanias[0]!.estaciones[0]!.intermedias.find(
+        (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'EJE',
+      )!.id
+  }
+
   it('cambiar una lectura recalcula sin tocar el resto', () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
-    const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[0]!.intermedias[0]!.id
+    const lecturaId = lecturaDeEjeEnCero()
     useAlmacen.getState().actualizarLectura(campaniaId, lecturaId, 1.88)
     const resultado = useAlmacen.getState().calcular()!
     expect(resultado.cotasPorCelda.get('0|EJE')!.cotaCruda).toBeCloseTo(3244.725, 6)
@@ -55,7 +64,7 @@ describe('almacén', () => {
 
   it('elimina una lectura', () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
-    const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[0]!.intermedias[0]!.id
+    const lecturaId = lecturaDeEjeEnCero()
     useAlmacen.getState().eliminarLectura(campaniaId, lecturaId)
     const resultado = useAlmacen.getState().calcular()!
     expect(resultado.cotasPorCelda.has('0|EJE')).toBe(false)
@@ -181,7 +190,7 @@ describe('almacén', () => {
     expect(useAlmacen.getState().estacionActiva).toBe(0)
 
     useAlmacen.getState().activarCampania(campaniaId2)
-    const campania = useAlmacen.getState().proyecto.campanias[1]!
+    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId2)!
     expect(useAlmacen.getState().estacionActiva).toBe(campania.estaciones.length - 1)
   })
 
@@ -191,10 +200,10 @@ describe('almacén', () => {
 
     const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!
     expect(estacion.vistaAdelante).toBeUndefined()
-    // La segunda estación del ejemplo lleva 6 intermedias desde la Entrega 3
-    // (antes 1 sola), para que el visor 3D tenga con qué dibujar un modelo.
-    // Quitar la vista adelante no toca las intermedias.
-    expect(estacion.intermedias).toHaveLength(6)
+    // La segunda estación del ejemplo mide 10 celdas desde la Entrega 3
+    // (dos progresivas por cinco puntos). Quitar la vista adelante no toca
+    // las intermedias.
+    expect(estacion.intermedias).toHaveLength(10)
   })
 
   describe('selector de capas', () => {

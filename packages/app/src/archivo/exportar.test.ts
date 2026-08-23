@@ -90,8 +90,8 @@ function plantilla() {
  * fuera de sección sin querer. La campaña de referencia mide en SUBRASANTE,
  * y BASE + CARPETA (0.25 m) van encima de esa capa: la cota de arranque
  * está elegida para que, ya restado ese espesor, 0+000 EJE (cota real
- * 3244.6275, la misma libreta que usan las demás pruebas de esta calle) dé
- * exactamente −302 mm de diferencia — la misma rasante que usa
+ * 3244.5965, la misma libreta que usan las demás pruebas de esta calle) dé
+ * exactamente −333 mm de diferencia — la misma rasante que usa
  * `MapaEstado.test.tsx`.
  */
 function rasantePlana(): Rasante {
@@ -184,16 +184,16 @@ describe('armarTabla', () => {
     const { resultado, calle, plantilla } = resultadoEjemplo()
     const tabla = armarTabla(resultado, calle, plantilla)
     const fila = tabla.find((f) => f[0] === '0+000')!
-    expect(fila[4]).toBe('3244.628')
+    expect(fila[4]).toBe('3244.597')
   })
 
   it('deja vacías las celdas sin medir', () => {
     const { resultado, calle, plantilla } = resultadoEjemplo()
     const tabla = armarTabla(resultado, calle, plantilla)
-    // 0+040 EJE pasó a estar medida (Entrega 3, ampliación del ejemplo para
-    // que el visor 3D tenga con qué dibujar un modelo): la calle sigue sin
-    // medir nada en 0+060, así que la comprobación se muda ahí.
-    const fila = tabla.find((f) => f[0] === '0+060')!
+    // La campaña de SUBRASANTE del ejemplo mide una grilla completa de
+    // 0+000 a 0+080 (Entrega 3): la calle sigue sin medir nada de 0+100 en
+    // adelante, así que la comprobación se muda ahí.
+    const fila = tabla.find((f) => f[0] === '0+100')!
     expect(fila[4]).toBe('')
   })
 
@@ -494,7 +494,7 @@ describe('armarTablaDiferencias', () => {
     const tabla = armarTablaDiferencias(evaluacionEjemplo(), calle(), plantilla())
     const columnaEje = tabla[0]!.indexOf('EJE')
 
-    expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('-302')
+    expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('-333')
   })
 
   // El cero de una diferencia significa «clavado en la cota del proyecto»,

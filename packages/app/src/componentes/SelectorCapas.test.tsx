@@ -15,9 +15,10 @@ const CIERRE_ABIERTO = {
 }
 
 /**
- * Dos calles: la activa (c-1, ya con camp-1 sobre la subrasante) recibe otra
- * campaña sobre el terreno, más vieja, para probar el orden. La otra calle
- * (c-2) tiene su propia campaña que nunca debe aparecer en el selector.
+ * Dos calles: la activa (c-1, ya con camp-1 sobre la subrasante y camp-2
+ * sobre la base) recibe otra campaña sobre el terreno, más vieja, para
+ * probar el orden. La otra calle (c-2) tiene su propia campaña que nunca
+ * debe aparecer en el selector.
  */
 function proyectoConDosCalles(): Proyecto {
   const proyecto = proyectoEjemplo()
@@ -67,10 +68,11 @@ describe('SelectorCapas', () => {
     render(<SelectorCapas />)
 
     const casillas = screen.getAllByRole('checkbox')
-    expect(casillas).toHaveLength(2)
+    expect(casillas).toHaveLength(3)
     expect(casillas.map((c) => c.getAttribute('aria-label'))).toEqual([
       expect.stringMatching(/TERRENO EXISTENTE/),
       expect.stringMatching(/SUBRASANTE/),
+      expect.stringMatching(/BASE/),
     ])
   })
 

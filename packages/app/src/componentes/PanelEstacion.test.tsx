@@ -12,8 +12,8 @@ describe('PanelEstacion', () => {
 
   it('lista las lecturas intermedias de la estación con su cota', () => {
     render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
-    expect(screen.getByLabelText('Lectura de 0+000 EJE')).toHaveValue('1.980')
-    expect(screen.getByText('3244.628')).toBeInTheDocument()
+    expect(screen.getByLabelText('Lectura de 0+000 EJE')).toHaveValue('2.011')
+    expect(screen.getByText('3244.597')).toBeInTheDocument()
   })
 
   it('corregir una lectura recalcula la cota al instante', async () => {
@@ -44,8 +44,12 @@ describe('PanelEstacion', () => {
     const campo = screen.getByLabelText('Lectura de 0+000 EJE')
     await usuario.clear(campo)
 
-    const lectura = useAlmacen.getState().proyecto.campanias[0]!.estaciones[0]!.intermedias[0]!
-    expect(lectura.valor).toBe(1.98)
+    const lectura = useAlmacen
+      .getState()
+      .proyecto.campanias[0]!.estaciones[0]!.intermedias.find(
+        (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'EJE',
+      )!
+    expect(lectura.valor).toBe(2.011)
   })
 
   it('traslada el instrumento creando punto de cambio y estación nueva', async () => {

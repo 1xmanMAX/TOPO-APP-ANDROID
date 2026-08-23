@@ -34,17 +34,24 @@ function conRasanteYMedidas(): void {
 }
 
 /**
- * Misma libreta de ejemplo, pero con la segunda estación remedida en
- * 0+000 en vez de 0+020: toda la campaña queda con una sola progresiva con
- * algo medido, así que no hay dos progresivas entre las que cerrar un cuadro.
+ * Misma libreta de ejemplo, pero con las dos estaciones remedidas en
+ * 0+000: toda la campaña queda con una sola progresiva con algo medido, así
+ * que no hay dos progresivas entre las que cerrar un cuadro.
  */
 function conUnaSolaProgresivaMedida(): void {
   const proyecto = proyectoEjemplo()
+  proyecto.campanias[0]!.estaciones[0]!.intermedias = [
+    {
+      id: 'l-14b',
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } },
+      valor: 1.931,
+    },
+  ]
   proyecto.campanias[0]!.estaciones[1]!.intermedias = [
     {
-      id: 'l-6b',
-      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } },
-      valor: 2.5,
+      id: 'l-29b',
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } },
+      valor: 1.943,
     },
   ]
   useAlmacen.getState().cargarProyecto(proyecto)
@@ -53,6 +60,7 @@ function conUnaSolaProgresivaMedida(): void {
 
 function sinRasante(): void {
   useAlmacen.getState().cargarProyecto(proyectoEjemplo())
+  useAlmacen.getState().fijarRasante('c-1', null)
 }
 
 /**

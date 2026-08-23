@@ -33,8 +33,8 @@ describe('VistaCampanias', () => {
     await usuario.click(screen.getByRole('button', { name: /nueva campaña/i }))
 
     const { proyecto, campaniaActivaId } = useAlmacen.getState()
-    expect(proyecto.campanias).toHaveLength(2)
-    expect(campaniaActivaId).toBe(proyecto.campanias[1]!.id)
+    expect(proyecto.campanias).toHaveLength(3)
+    expect(campaniaActivaId).toBe(proyecto.campanias[2]!.id)
   })
 
   it('la campaña nueva arranca vacía, sin pisar la anterior', async () => {

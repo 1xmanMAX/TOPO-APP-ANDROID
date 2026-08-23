@@ -119,7 +119,10 @@ describe('VistaResultados', () => {
 
     expect(screen.getByText('Cotas sin compensar')).toBeInTheDocument()
     expect(screen.queryByText('Cotas compensadas')).not.toBeInTheDocument()
-    expect(screen.getByText(/NO COMPROBADAS/)).toBeInTheDocument()
+    // La rasante por defecto del ejemplo hace que el grupo de "Diferencias"
+    // muestre su propio "NO COMPROBADAS" a la vez que el veredicto de
+    // cierre: basta con que aparezca al menos una vez.
+    expect(screen.getAllByText(/NO COMPROBADAS/).length).toBeGreaterThan(0)
   })
 
   it('el perfil cae a otro elemento si el elegido ya no está en la plantilla', async () => {
@@ -324,7 +327,7 @@ describe('VistaResultados', () => {
     const etiqueta = within(encabezadoTabla.closest('section')!)
       .getByLabelText(/0\+000 EJE/)
       .getAttribute('aria-label')
-    expect(etiqueta).toMatch(/−303 mm/)
+    expect(etiqueta).toMatch(/−334 mm/)
     expect(etiqueta).toMatch(/rellenar/)
   })
 
@@ -351,6 +354,7 @@ describe('VistaResultados', () => {
   })
 
   it('sin rasante en la calle, la sección invita a definirla en vez de mostrar un semáforo vacío', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<VistaResultados />)
 
     const encabezado = screen.getByRole('heading', { name: 'Diferencias' })
@@ -364,6 +368,7 @@ describe('VistaResultados', () => {
   // El mapa de la calle mira la misma rasante que la tabla de diferencias:
   // sin una definida, invita a definirla en vez de dibujar una rejilla vacía.
   it('sin rasante en la calle, el mapa también invita a definirla', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<VistaResultados />)
 
     const encabezado = screen.getByRole('heading', { name: 'Mapa de la calle' })
