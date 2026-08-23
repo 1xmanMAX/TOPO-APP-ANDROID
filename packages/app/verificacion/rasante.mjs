@@ -21,34 +21,37 @@ pagina.on('pageerror', (e) => erroresConsola.push('pageerror: ' + e.message))
 
 await pagina.goto(BASE, { waitUntil: 'networkidle' })
 
-// 1. Definir la rasante de la calle desde la interfaz, con el flujo real.
+// 1. La rasante ya viene definida en el proyecto de ejemplo: el editor no
+// ofrece el botón de definirla, sino la rasante puesta. Se comprueba que está
+// y que el corte tipo la dibuja.
 //
-// Cota de arranque 3244.85. Con el paquete de capas del proyecto de ejemplo
-// completo (SUBRASANTE, con BASE 0.20 m y CARPETA 0.05 m encima — 0.25 m en
-// total), esta cota hace que las tres celdas que mide la campaña activa
-// (0+000 BOR-I, 0+000 EJE, 0+020 EJE) caigan una en cada clase de estado
-// —conforme, al límite y fuera—, que es lo que hace útil la comprobación.
-// (Antes de completar el paquete de capas, este mismo efecto salía con
-// 3244.60; con las capas completas la cota teórica de SUBRASANTE resta
-// 0.25 m más, así que la cota de arranque sube esos mismos 0.25 m.)
-await pagina.getByRole('button', { name: 'Calle' }).click()
-await pagina.getByRole('button', { name: /definir la rasante/i }).first().click()
-const cota = pagina.getByLabel('Cota de arranque')
-await cota.click()
-await cota.fill('3244.85')
-await cota.blur()
-await pagina.waitForTimeout(200)
+// Antes este guion la definía a mano, escribiendo 3244.85 en la cota de
+// arranque. Al cargar el ejemplo completo esa cota ya viene puesta, con los
+// tres tramos de la sección —calzada, sardinel y vereda— cubriendo la plantilla
+// entera hasta ±5.60 m, que es más de lo que el guion conseguía a mano.
+await pagina.getByRole('button', { name: 'Calle', exact: true }).click()
+await pagina.waitForTimeout(300)
+
+const textoCalle = await pagina.locator('body').innerText()
+const cotaArranque = await pagina.getByLabel('Cota de arranque').inputValue()
+const pendiente = await pagina.getByLabel('Pendiente longitudinal').inputValue()
+comprobar('la calle del ejemplo trae su rasante ya definida',
+  cotaArranque.startsWith('3244.85') && pendiente.startsWith('-0.30'),
+  'cota ' + cotaArranque + ', pendiente ' + pendiente + ' %')
 
 await pagina.screenshot({ path: `${SALIDA}/rasante-definida.png`, fullPage: true })
 
-// 2. Comprobar que el corte tipo se dibuja mientras se define: un quiebre
-// por cada tramo, con su nombre accesible ("Quiebre a X m del eje: ...").
+// 2. Comprobar que el corte tipo se dibuja: un quiebre por cada tramo, con su
+// nombre accesible ("Quiebre a X m del eje: ...").
 const quiebres = await pagina.getByLabel(/^Quiebre a [\d.]+ m del eje/i).count()
-comprobar('el corte tipo dibuja los quiebres de la sección al escribir la cota de arranque',
+comprobar('el corte tipo dibuja los quiebres de la sección definida',
   quiebres > 0, `${quiebres} quiebres`)
 
+comprobar('la sección cubre toda la plantilla, sin puntos sin cota de proyecto',
+  !/quedan sin cota de proyecto/i.test(textoCalle))
+
 // 3. Ir a Resultados.
-await pagina.getByRole('button', { name: 'Resultados' }).click()
+await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
 await pagina.waitForTimeout(200)
 
 // 4. La tabla de diferencias muestra milímetros con signo, qué hacer y el
