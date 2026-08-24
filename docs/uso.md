@@ -182,6 +182,28 @@ Una vez hay rasante, en Resultados aparecen cuatro formas de ver lo mismo. Todas
 
 **Perfil longitudinal.** La rasante y el terreno medido a lo largo de toda la calle, para el elemento que elijas del desplegable (el eje, un borde, una vereda). Sirve para ver de corrido si un tramo entero está sistemáticamente alto o bajo, en vez de mirarlo punto por punto.
 
+### El modelo en volumen (3D)
+
+Encima de las cuatro vistas anteriores hay una quinta: el mismo tramo, pero levantado en volumen en vez de aplanado en una tabla o un corte. Sirve para ver de un vistazo la forma que tiene la calle — un lomo, una hondonada, un tramo torcido — que a veces cuesta más de leer en una tabla de números que de ver en un dibujo.
+
+**Dos modos, con el interruptor Estado / Capas:**
+
+- **Estado** colorea cada tramo con el mismo semáforo de las otras vistas: verde conforme, ámbar al límite, rojo fuera, gris sin medir o fuera de sección. Es la calle de hoy, comparada contra el proyecto.
+- **Capas** apila una superficie por cada campaña que marques en el selector de capas — SUBRASANTE, BASE, CARPETA, la que sea — para ver cómo se van montando unas sobre otras. Aquí el color no es un semáforo (no hay tolerancia que comparar entre capas): cada capa lleva un tono neutro propio y su nombre rotulado junto a la superficie, para no confundir "de qué capa es esto" con "está bien o mal".
+
+En los dos modos, debajo del dibujo hay un párrafo que dice con palabras lo mismo que el color enseña con formas: cuántos tramos se dibujan y dónde está la mayor diferencia contra el proyecto, con su progresiva y sus milímetros. Sirve si no distingues los colores en pantalla, o si prefieres leerlo antes de mirar el dibujo.
+
+**Cómo moverlo:**
+
+- **Arrastra sobre el dibujo** (con el dedo o el ratón) para girarlo alrededor de la calle.
+- Los botones **Planta**, **Alzado** e **Isométrico** saltan a tres encuadres fijos, los mismos que usan los planos de obra.
+- El deslizador de **inclinación** sube o baja la cámara de forma continua, desde arriba del todo (planta) hasta de costado (alzado).
+- El **deslizador de progresiva** — el mismo de siempre, el que también mueve el corte transversal — secciona el modelo: solo se dibuja hasta la progresiva donde lo dejes, como si cortaras la calle ahí mismo.
+
+**La exageración vertical, y por qué importa.** Un metro de desnivel en una calle real ocupa, en pantalla, una fracción diminuta de lo que ocupan sus 180 metros de largo — la calle se vería aplastada, como una regla. Por eso el modelo estira las cotas con un deslizador de **exageración**, de 1× a 50×, y arranca en 25×.
+
+**Esto quiere decir que el relieve que ves en el modelo no es el relieve real de la calle: está exagerado, y con la exageración por defecto, veinticinco veces.** Un lomo que en el dibujo se ve como una loma real, en el terreno puede ser un desnivel de pocos centímetros. El número de la exageración va siempre escrito junto al dibujo («Alturas exageradas 25×») para que no se te olvide mientras lo miras — pero solo lo escrito. Si vas a decidir algo con esto (dónde escurre el agua, qué tan fuerte es una pendiente), no lo decidas mirando el modelo: **usa las cotas de la tabla o el perfil longitudinal**, que sí están a escala real.
+
 ### Lo que no está comprobado, tampoco aquí
 
 Igual que con los espesores: un corte y relleno calculado sobre una nivelación que **no cerró** tampoco está comprobado, aunque la resta en sí dé un número. La pantalla y el Excel de diferencias lo dicen igual:
@@ -232,7 +254,6 @@ Con sol directo el modo claro se lee mejor; de noche o dentro del vehículo, el 
 
 Todavía no:
 
-- Muestra la calle en 3D (Entrega 3)
 - Carga planos de fondo con marcadores (Entrega 4)
 - Se conecta a estación total ni a GNSS (llega con la versión Android)
 

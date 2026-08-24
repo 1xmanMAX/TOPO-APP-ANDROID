@@ -13,6 +13,7 @@ import {
 } from '../archivo/exportar'
 import AvisoEspesores from '../componentes/AvisoEspesores'
 import BarraCierre from '../componentes/BarraCierre'
+import ControlesVista3D from '../componentes/ControlesVista3D'
 import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import ListaAvisos from '../componentes/ListaAvisos'
@@ -287,6 +288,7 @@ export default function VistaResultados() {
 
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">Modelo 3D</h3>
+          <ControlesVista3D />
           <Vista3D idCampaniaReferencia={campaniaActivaId} />
         </section>
 

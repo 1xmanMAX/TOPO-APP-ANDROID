@@ -2,7 +2,7 @@
 
 Aplicación de topografía para **campo y gabinete**, con núcleo en el **control de niveles por capas** en pavimentación urbana y veredas.
 
-**Estado:** Entregas 1, 2A y 2B funcionando — nivelación de una calle por progresivas con verificación de cierre, comparación de capas con el espesor realmente colocado, y comparación contra la rasante de proyecto con semáforo de tolerancia.
+**Estado:** Entregas 1, 2A, 2B y 3 funcionando — nivelación de una calle por progresivas con verificación de cierre, comparación de capas con el espesor realmente colocado, comparación contra la rasante de proyecto con semáforo de tolerancia, y un visor 3D de la calle con las capas apiladas y el corte en vivo.
 
 ## Cómo usarla
 
@@ -28,15 +28,16 @@ Funciona **sin internet**. Guía completa: [docs/uso.md](docs/uso.md).
 - **Corte con las capas superpuestas** y el área sombreada solo donde las dos tienen medida.
 - **Rasante de proyecto**, por calle: cota de arranque, pendiente longitudinal y tramos transversales (pendiente o salto), con un dibujo en vivo del corte tipo mientras se define.
 - **Comparación contra la rasante**, celda por celda: cuánto sobra o falta, en milímetros con signo, con semáforo de tolerancia (conforme, al límite, fuera) en cuatro vistas — tabla, mapa de la calle, corte transversal con corte y relleno sombreados, y perfil longitudinal.
+- **Visor 3D** de la calle, dibujado a mano en SVG: gírala arrastrando o con las vistas Planta, Alzado e Isométrico, inclínala y exagera su relieve con deslizadores, y sécciónala con el mismo deslizador de progresiva del corte transversal. En modo Estado colorea por el semáforo de tolerancia; en modo Capas apila una superficie por cada campaña marcada. Un párrafo debajo dice con palabras lo que el color enseña con formas.
 - **Exportación** a Excel, CSV y portapapeles — de cotas, de espesores o de diferencias contra el proyecto, y siempre con el estado de verificación en la cabecera.
 - Modo claro, oscuro y automático.
 
 ## Verificación
 
 ```
-npm test                                   # 420 pruebas: 138 del motor + 282 de la interfaz
+npm test                                   # 468 pruebas: 157 del motor + 311 de la interfaz
 npm run typecheck --workspaces             # tipos
-npm run build --workspace packages/app     # 316 kB, 97 kB comprimido
+npm run build --workspace packages/app     # 332 kB, 101 kB comprimido
 npm audit --omit=dev                       # sin vulnerabilidades
 ```
 
@@ -48,9 +49,11 @@ npx vite preview --port 4173                 # desde packages/app, en otra venta
 node packages/app/verificacion/recorrido.mjs <carpeta-de-salida>   # 14 comprobaciones
 node packages/app/verificacion/capas.mjs <carpeta-de-salida>       # 17 comprobaciones
 node packages/app/verificacion/rasante.mjs <carpeta-de-salida>     # 17 comprobaciones
+node packages/app/verificacion/visor3d.mjs <carpeta-de-salida>     # el visor en modo Capas: capas apiladas y corte vivo
+node packages/app/verificacion/vista3d.mjs <carpeta-de-salida>     # el visor en modo Estado: se dibuja, gira arrastrando, secciona y resume la peor zona
 ```
 
-El de capas descarga el Excel de espesores de verdad, y el de rasante el de diferencias: los dos lo descomprimen y comprueban lo que solo se ve dentro del archivo.
+El de capas descarga el Excel de espesores de verdad, y el de rasante el de diferencias: los dos lo descomprimen y comprueban lo que solo se ve dentro del archivo. Los dos del visor 3D comprueban con un arrastre real de ratón que girar cambia el dibujo — eso no se puede simular fuera de un navegador de verdad.
 
 ## Estructura
 
@@ -70,16 +73,18 @@ El motor no sabe que existe una pantalla: recibe números y devuelve números. L
 - [Plan de implementación de la Entrega 1](docs/superpowers/plans/2026-08-19-entrega-1-nivelacion-por-progresivas.md)
 - [Plan de implementación de la Entrega 2A](docs/superpowers/plans/2026-08-20-entrega-2a-capas-y-espesores.md)
 - [Plan de implementación de la Entrega 2B](docs/superpowers/plans/2026-08-20-entrega-2b-rasante-de-proyecto.md)
+- [Diseño del visor 3D](docs/superpowers/specs/2026-08-21-visor-3d-design.md)
+- [Plan de implementación de la Entrega 3](docs/superpowers/plans/2026-08-21-entrega-3-visor-3d.md)
 - [Guía de uso](docs/uso.md)
 - [Decisiones tomadas durante la Entrega 1](docs/decisiones-entrega-1.md)
 - [Decisiones tomadas durante la Entrega 2A](docs/decisiones-entrega-2a.md)
 - [Decisiones tomadas durante la Entrega 2B](docs/decisiones-entrega-2b.md)
+- [Decisiones tomadas durante la Entrega 3](docs/decisiones-entrega-3.md)
 
 ## Lo que viene
 
 | | |
 |---|---|
-| **Entrega 3** | Visor 3D con las capas apiladas y el plano de corte ligado al mismo deslizador |
 | **Entrega 4** | Planos de fondo con marcadores anclados, para ubicar y encadenar calles |
 
 ## Stack

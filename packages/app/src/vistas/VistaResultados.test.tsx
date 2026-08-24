@@ -375,4 +375,23 @@ describe('VistaResultados', () => {
     expect(encabezado).toBeInTheDocument()
     expect(within(encabezado.closest('section')!).getByText(/define la rasante/i)).toBeInTheDocument()
   })
+
+  // ControlesVista3D existía, estaba probado y no estaba montado en ninguna
+  // pantalla: en Resultados no había botón de Planta, ni de Alzado, ni de
+  // Isométrico, ni deslizador de inclinación, ni de exageración — cero de
+  // cinco. Esta prueba fija que desde Resultados se llega a los cinco.
+  it('desde Resultados se llega a los controles del visor 3D: modo, vistas guardadas, giro, inclinación y exageración', () => {
+    useAlmacen.getState().fijarRasante('c-1', rasanteDeEjemplo())
+    render(<VistaResultados />)
+
+    const grupo = screen.getByRole('heading', { name: 'Modelo 3D' }).closest('section')!
+
+    expect(within(grupo).getByRole('button', { name: 'Estado' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'Capas' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'Planta' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'Alzado' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'Isométrico' })).toBeInTheDocument()
+    expect(within(grupo).getByLabelText('Inclinación')).toBeInTheDocument()
+    expect(within(grupo).getByLabelText('Exageración')).toBeInTheDocument()
+  })
 })
