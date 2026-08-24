@@ -2,7 +2,6 @@ import {
   armarCaras,
   calcularCampania,
   claveCelda,
-  evaluarContraRasante,
   formatearProgresiva,
   proyectarCaras,
   type CaraMalla,
@@ -16,11 +15,20 @@ import { useAlmacen } from '../estado/almacen'
 import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { etiquetaAccesibleCelda, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasante'
-import ResumenVista3D from './ResumenVista3D'
+import ResumenVista3D, { type CapaResumen } from './ResumenVista3D'
 
-const MENSAJE_SIN_RASANTE = 'Define la rasante del proyecto para levantar el modelo en volumen.'
+const MENSAJE_SIN_RASANTE = 'Define la rasante del proyecto para ver el modelo por estado de tolerancia.'
 const MENSAJE_POCAS_PROGRESIVAS = 'Hacen falta al menos dos progresivas medidas para levantar el modelo.'
 const MENSAJE_SIN_MODELO = 'Ninguna zona tiene sus cuatro esquinas medidas todavía: no hay cuadro que dibujar.'
+/**
+ * Mismo cuadro vacío que `MENSAJE_SIN_MODELO`, pero por una causa distinta:
+ * sí hay caras con sus cuatro esquinas medidas, y el corte vivo las tapa
+ * todas. Decir que falta medir mandaría a campo a alguien que en realidad
+ * solo tiene que mover el deslizador.
+ */
+function mensajeCorteTapaTodo(progresivaCorte: number): string {
+  return `El corte en ${formatearProgresiva(progresivaCorte)} deja fuera todo lo medido: mueve el deslizador de progresiva para verlo.`
+}
 
 /** Cuántos grados gira la cámara por cada pixel que se arrastra: un gesto entero de lado a lado da una vuelta completa cómoda, ni brusca ni perezosa. */
 const GRADOS_POR_PIXEL = 0.5
@@ -207,15 +215,17 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
   )
 
   /**
-   * Una entrada por capa marcada, con sus propias caras (sus propias cotas
-   * medidas, evaluadas contra la misma rasante de la calle). `calcularCampania`
-   * y `evaluarContraRasante` son funciones normales, no hooks: un bucle
-   * adentro de un único `useMemo` no viola las reglas de hooks, a diferencia
-   * de llamar un hook por campaña con una lista de tamaño variable.
+   * Una entrada por capa marcada, con sus propias caras. Modo capas dibuja
+   * la superficie medida tal cual —no una diferencia contra la rasante—, así
+   * que solo necesita la cota real de `calcularCampania`, nunca pasa por
+   * `evaluarContraRasante` y no exige que la calle tenga rasante definida:
+   * eso es del modo estado. `calcularCampania` es una función normal, no un
+   * hook: un bucle adentro de un único `useMemo` no viola las reglas de
+   * hooks, a diferencia de llamar un hook por campaña con una lista de
+   * tamaño variable.
    */
   const entradasCapas = useMemo((): EntradaCapa[] => {
-    if (modoVista3D !== 'capas' || !esqueleto || !contexto || !contexto.calle.rasante) return []
-    const rasante = contexto.calle.rasante
+    if (modoVista3D !== 'capas' || !esqueleto || !contexto) return []
     const capasPorId = new Map(proyecto.capas.map((capa) => [capa.id, capa]))
     const salida: EntradaCapa[] = []
 
@@ -233,19 +243,11 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
         plantilla: contexto.plantilla,
         bms: proyecto.bms,
       })
-      const evaluacionCapa = evaluarContraRasante({
-        resultado,
-        calle: contexto.calle,
-        plantilla: contexto.plantilla,
-        rasante,
-        capas: proyecto.capas,
-        capaId: campania.capaId,
-      })
       const caras = armarCaras({
         progresivas: esqueleto.progresivas,
         elementos: esqueleto.elementos,
         offsets,
-        cotaDe: (clave) => evaluacionCapa.celdas.get(clave)?.cotaReal ?? null,
+        cotaDe: (clave) => resultado.cotasPorCelda.get(clave)?.cota ?? null,
       })
       if (caras.length === 0) continue
 
@@ -300,6 +302,33 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
     return { caraObjs: objs, infoPorCara: info }
   }, [modoVista3D, entradasCapas, carasEstado, progresivaCorte])
 
+  /**
+   * Las mismas caras que `caraObjs` dibujaría en este modo si no hubiera
+   * corte vivo: sirve para distinguir, cuando no queda nada que dibujar, si
+   * es porque no hay nada medido o porque el corte lo está tapando todo.
+   */
+  const carasSinCorte = modoVista3D === 'capas' ? entradasCapas.flatMap((entrada) => entrada.caras) : carasEstado
+
+  /**
+   * Cuántos tramos le tocaron a cada capa tras el corte vivo, en el mismo
+   * orden en que se marcaron: lo que `ResumenVista3D` narra en modo capas.
+   * Se cuenta sobre `caraObjs`, el mismo montón que recorre el `<svg>` más
+   * abajo — no una copia recalculada aparte, para que el párrafo nunca hable
+   * de una capa que el corte ya dejó fuera.
+   */
+  const resumenCapas = useMemo((): CapaResumen[] => {
+    if (modoVista3D !== 'capas') return []
+    const conteoPorCapa = new Map<Id, number>()
+    for (const cara of caraObjs) {
+      const dato = infoPorCara.get(cara)
+      if (!dato) continue
+      conteoPorCapa.set(dato.campaniaId, (conteoPorCapa.get(dato.campaniaId) ?? 0) + 1)
+    }
+    return entradasCapas
+      .filter((entrada) => conteoPorCapa.has(entrada.campaniaId))
+      .map((entrada) => ({ nombreCapa: entrada.nombreCapa, cantidad: conteoPorCapa.get(entrada.campaniaId)! }))
+  }, [modoVista3D, caraObjs, infoPorCara, entradasCapas])
+
   const proyectadas = useMemo(() => proyectarCaras(caraObjs, camara), [caraObjs, camara])
 
   const caja = useMemo(() => calcularCaja(proyectadas.flatMap((c) => c.puntos)), [proyectadas])
@@ -333,7 +362,12 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
 
   if (!contexto) return null
 
-  if (!evaluacion) {
+  // Sin rasante no hay tolerancia que colorear, y eso es solo del modo
+  // estado: el modo capas dibuja la superficie medida tal cual, sin comparar
+  // contra nada, así que sí se puede ver sin haber cargado la rasante de
+  // proyecto todavía — justo cuando alguien que acaba de levantar el terreno
+  // más querría verlo.
+  if (modoVista3D === 'estado' && !evaluacion) {
     return (
       <p className="rounded border border-dashed border-slate-300 p-3 text-sm text-slate-500 dark:border-slate-700">
         {MENSAJE_SIN_RASANTE}
@@ -350,9 +384,16 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
   }
 
   if (proyectadas.length === 0) {
+    // Dos causas muy distintas para el mismo cuadro vacío: si sin el corte
+    // sí habría caras, el problema no es que falte medir, es que el corte
+    // las está tapando — y hay que decir cuál mover, no mandar a campo.
+    const mensaje =
+      progresivaCorte !== null && carasSinCorte.length > 0
+        ? mensajeCorteTapaTodo(progresivaCorte)
+        : MENSAJE_SIN_MODELO
     return (
       <p className="rounded border border-dashed border-slate-300 p-3 text-sm text-slate-500 dark:border-slate-700">
-        {MENSAJE_SIN_MODELO}
+        {mensaje}
       </p>
     )
   }
@@ -407,8 +448,11 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
           // Misma garantía que en `MapaEstado`: `esqueleto` y `evaluacion`
           // salen del mismo par calle/plantilla (el mismo `contexto`), así
           // que el producto progresiva × elemento que arma
-          // `armarEsqueletoTabla` siempre tiene su celda evaluada.
-          const celdaInicial = evaluacion.celdas.get(claveInicial)!
+          // `armarEsqueletoTabla` siempre tiene su celda evaluada. `evaluacion`
+          // ya no se descarta sin mirar el modo (fix del bloqueo sin rasante
+          // en modo capas): este bloque solo se alcanza fuera de modo capas,
+          // y ahí el guardián de arriba ya garantizó que no es null.
+          const celdaInicial = evaluacion!.celdas.get(claveInicial)!
           const etiqueta = etiquetaAccesibleCelda(etiquetaBase, celdaInicial)
 
           return (
@@ -470,7 +514,12 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
        * (o no distinga sus colores) tiene que poder enterarse igual de qué
        * cuenta el dibujo.
        */}
-      <ResumenVista3D idCampaniaReferencia={idCampaniaReferencia} />
+      <ResumenVista3D
+        idCampaniaReferencia={idCampaniaReferencia}
+        modoVista3D={modoVista3D}
+        caras={modoVista3D === 'estado' ? caraObjs : []}
+        capas={modoVista3D === 'capas' ? resumenCapas : []}
+      />
     </div>
   )
 }

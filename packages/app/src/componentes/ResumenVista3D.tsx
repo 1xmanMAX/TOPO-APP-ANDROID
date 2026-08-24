@@ -1,8 +1,7 @@
-import { armarCaras, claveCelda, formatearProgresiva, type EstadoTolerancia, type Id } from '@topo/core'
-import { useMemo } from 'react'
-import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
+import { claveCelda, formatearProgresiva, type CaraMalla, type EstadoTolerancia, type Id } from '@topo/core'
+import type { ModoVista3D } from '../estado/almacen'
+import { useEvaluacionRasante } from '../estado/derivados'
 import { ETIQUETA_ESTADO, formatearDiferencia } from '../estadoRasante'
-import { armarEsqueletoTabla } from '../esqueletoTabla'
 
 /**
  * Mismo orden que la leyenda de `Vista3D`: primero los tres estados de
@@ -11,6 +10,12 @@ import { armarEsqueletoTabla } from '../esqueletoTabla'
  * esquinas medidas—, pero queda listado por si algún día deja de ser cierto.
  */
 const ORDEN_ESTADOS: EstadoTolerancia[] = ['conforme', 'alLimite', 'fuera', 'sinRasante', 'sinMedir']
+
+/** Una capa que `Vista3D` está dibujando, con cuántos tramos le tocaron tras el corte vivo. */
+export interface CapaResumen {
+  nombreCapa: string
+  cantidad: number
+}
 
 interface Props {
   /**
@@ -24,44 +29,52 @@ interface Props {
    * referencia.
    */
   idCampaniaReferencia: Id | null
+  /** En qué modo está `Vista3D`: decide qué narra este párrafo, ver más abajo. */
+  modoVista3D: ModoVista3D
+  /**
+   * Exactamente las caras que `Vista3D` dibuja en modo estado, con el corte
+   * vivo ya aplicado — el mismo arreglo que recorre para pintar los
+   * polígonos, no una copia recalculada aquí. Vacío en modo capas.
+   */
+  caras: CaraMalla[]
+  /**
+   * Una entrada por capa que `Vista3D` está dibujando en modo capas, ya
+   * contada sobre las caras con el corte vivo aplicado. Vacío en modo estado.
+   */
+  capas: CapaResumen[]
 }
 
 /**
  * El párrafo que dice con palabras lo que `Vista3D` enseña con formas: para
  * quien no ve el modelo en volumen (o no puede distinguir sus colores), esta
- * es la única manera de enterarse de que hay un problema y de dónde está.
+ * es la única manera de enterarse de qué hay dibujado y, en modo estado, de
+ * que hay un problema y dónde está.
  *
- * Cuenta exactamente los mismos tramos que dibuja `Vista3D` — mismas caras,
- * mismo criterio de color (la esquina "desde" de cada cara) — para que el
- * párrafo nunca hable de un tramo que el dibujo no pinta, ni calle uno que sí
- * pinta.
+ * No recalcula qué se dibuja: recibe de `Vista3D` las caras (modo estado) o
+ * el recuento por capa (modo capas) ya resueltos con el mismo corte vivo que
+ * aplica el dibujo, para que este párrafo nunca hable de un tramo que el
+ * dibujo no pinta, ni calle uno que sí pinta.
  */
-export default function ResumenVista3D({ idCampaniaReferencia }: Props) {
-  const contexto = useContextoDe(idCampaniaReferencia)
+export default function ResumenVista3D({ idCampaniaReferencia, modoVista3D, caras, capas }: Props) {
   const evaluacion = useEvaluacionRasante(idCampaniaReferencia ?? '')
 
-  const esqueleto = useMemo(
-    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
-    [contexto],
-  )
+  if (modoVista3D === 'capas') {
+    if (capas.length === 0) return null
 
-  const offsets = useMemo(() => {
-    const mapa = new Map<string, number>()
-    if (contexto) for (const elemento of contexto.plantilla.elementos) mapa.set(elemento.clave, elemento.offset)
-    return mapa
-  }, [contexto])
+    // En modo capas los colores no significan tolerancia (lo dice el propio
+    // comentario de `Vista3D`): aquí no hay conforme, al límite ni fuera que
+    // narrar. Lo que hay es el avance de la obra — qué capas se están
+    // dibujando y cuántos tramos tiene cada una.
+    const detalleCapas = capas.map((capa) => `${capa.nombreCapa} (${capa.cantidad} tramos)`).join(', ')
 
-  const caras = useMemo(() => {
-    if (!esqueleto || !evaluacion) return []
-    return armarCaras({
-      progresivas: esqueleto.progresivas,
-      elementos: esqueleto.elementos,
-      offsets,
-      cotaDe: (clave) => evaluacion.celdas.get(clave)?.cotaReal ?? null,
-    })
-  }, [esqueleto, evaluacion, offsets])
+    return (
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        El modelo dibuja {capas.length} capas: {detalleCapas}.
+      </p>
+    )
+  }
 
-  if (!contexto || !evaluacion || caras.length === 0) return null
+  if (!evaluacion || caras.length === 0) return null
 
   const conteos: Partial<Record<EstadoTolerancia, number>> = {}
   let peor: { etiqueta: string; diferenciaMm: number } | null = null
