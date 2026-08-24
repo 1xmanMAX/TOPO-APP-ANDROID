@@ -13,6 +13,7 @@ import { useAlmacen } from '../estado/almacen'
 import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import { etiquetaAccesibleCelda, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasante'
+import ResumenVista3D from './ResumenVista3D'
 
 const MENSAJE_SIN_RASANTE = 'Define la rasante del proyecto para levantar el modelo en volumen.'
 const MENSAJE_POCAS_PROGRESIVAS = 'Hacen falta al menos dos progresivas medidas para levantar el modelo.'
@@ -254,6 +255,13 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
           </li>
         ))}
       </ul>
+
+      {/*
+       * Siempre visible, nunca detrás de un botón: quien no vea el modelo
+       * (o no distinga sus colores) tiene que poder enterarse igual de qué
+       * cuenta el dibujo.
+       */}
+      <ResumenVista3D idCampaniaReferencia={idCampaniaReferencia} />
     </div>
   )
 }
