@@ -48,7 +48,7 @@ npm run build --workspace packages/app
 npx vite preview --port 4173                 # desde packages/app, en otra ventana
 node packages/app/verificacion/recorrido.mjs <carpeta-de-salida>   # 14 comprobaciones
 node packages/app/verificacion/capas.mjs <carpeta-de-salida>       # 17 comprobaciones
-node packages/app/verificacion/rasante.mjs <carpeta-de-salida>     # 17 comprobaciones
+node packages/app/verificacion/rasante.mjs <carpeta-de-salida>     # 19 comprobaciones
 node packages/app/verificacion/visor3d.mjs <carpeta-de-salida>     # el visor en modo Capas: capas apiladas y corte vivo
 node packages/app/verificacion/vista3d.mjs <carpeta-de-salida>     # el visor en modo Estado: se dibuja, gira arrastrando, secciona y resume la peor zona
 ```
