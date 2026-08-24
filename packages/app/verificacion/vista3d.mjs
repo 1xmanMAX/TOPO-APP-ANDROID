@@ -117,6 +117,16 @@ await seccionModelo.getByLabel('Exageración').fill('25')
 // 8. El resumen en texto nombra la peor zona: es la única forma de
 // enterarse de dónde está el problema para quien no ve el modelo o no
 // distingue sus colores.
+//
+// Antes de comprobarlo se quita el recorte, y hay una razón: desde que el
+// resumen respeta el corte vivo, cuenta SOLO las caras que el dibujo pinta.
+// Con el recorte puesto en la primera progresiva, los tramos visibles del
+// proyecto de ejemplo están todos dentro de tolerancia, así que el resumen
+// dice —con razón— "todo dentro de tolerancia" y no nombra ninguna zona.
+// El lomo de 0+040 BOR-I queda fuera del recorte.
+await deslizador.focus()
+for (let i = 0; i < 10; i += 1) await deslizador.press('ArrowRight')
+await pagina.waitForTimeout(300)
 const resumen = seccionModelo.getByText(/^El modelo dibuja \d+ tramos/)
 comprobar('el resumen en texto del modelo aparece', (await resumen.count()) > 0)
 
