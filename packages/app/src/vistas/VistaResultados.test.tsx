@@ -119,7 +119,10 @@ describe('VistaResultados', () => {
 
     expect(screen.getByText('Cotas sin compensar')).toBeInTheDocument()
     expect(screen.queryByText('Cotas compensadas')).not.toBeInTheDocument()
-    expect(screen.getByText(/NO COMPROBADAS/)).toBeInTheDocument()
+    // La rasante por defecto del ejemplo hace que el grupo de "Diferencias"
+    // muestre su propio "NO COMPROBADAS" a la vez que el veredicto de
+    // cierre: basta con que aparezca al menos una vez.
+    expect(screen.getAllByText(/NO COMPROBADAS/).length).toBeGreaterThan(0)
   })
 
   it('el perfil cae a otro elemento si el elegido ya no está en la plantilla', async () => {
@@ -310,8 +313,9 @@ describe('VistaResultados', () => {
       within(grupo).getByText('DIFERENCIAS VERIFICADAS — el circuito de la campaña cierra dentro de tolerancia'),
     ).toBeInTheDocument()
 
-    // Las cuatro vistas están agrupadas bajo el mismo aviso: ninguna quedó
+    // Las cinco vistas están agrupadas bajo el mismo aviso: ninguna quedó
     // fuera del grupo ni con un veredicto aparte.
+    expect(within(grupo).getByRole('heading', { name: 'Modelo 3D' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Diferencias' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Mapa de la calle' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Corte transversal' })).toBeInTheDocument()
@@ -323,7 +327,7 @@ describe('VistaResultados', () => {
     const etiqueta = within(encabezadoTabla.closest('section')!)
       .getByLabelText(/0\+000 EJE/)
       .getAttribute('aria-label')
-    expect(etiqueta).toMatch(/−303 mm/)
+    expect(etiqueta).toMatch(/−334 mm/)
     expect(etiqueta).toMatch(/rellenar/)
   })
 
@@ -342,6 +346,7 @@ describe('VistaResultados', () => {
 
     const grupo = screen.getByRole('heading', { name: 'Control contra el proyecto' }).parentElement!
     expect(within(grupo).getByText(/DIFERENCIAS NO COMPROBADAS/)).toBeInTheDocument()
+    expect(within(grupo).getByRole('heading', { name: 'Modelo 3D' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Diferencias' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Mapa de la calle' })).toBeInTheDocument()
     expect(within(grupo).getByRole('heading', { name: 'Corte transversal' })).toBeInTheDocument()
@@ -349,6 +354,7 @@ describe('VistaResultados', () => {
   })
 
   it('sin rasante en la calle, la sección invita a definirla en vez de mostrar un semáforo vacío', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<VistaResultados />)
 
     const encabezado = screen.getByRole('heading', { name: 'Diferencias' })
@@ -362,10 +368,30 @@ describe('VistaResultados', () => {
   // El mapa de la calle mira la misma rasante que la tabla de diferencias:
   // sin una definida, invita a definirla en vez de dibujar una rejilla vacía.
   it('sin rasante en la calle, el mapa también invita a definirla', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<VistaResultados />)
 
     const encabezado = screen.getByRole('heading', { name: 'Mapa de la calle' })
     expect(encabezado).toBeInTheDocument()
     expect(within(encabezado.closest('section')!).getByText(/define la rasante/i)).toBeInTheDocument()
+  })
+
+  // ControlesVista3D existía, estaba probado y no estaba montado en ninguna
+  // pantalla: en Resultados no había botón de Planta, ni de Alzado, ni de
+  // Isométrico, ni deslizador de inclinación, ni de exageración — cero de
+  // cinco. Esta prueba fija que desde Resultados se llega a los cinco.
+  it('desde Resultados se llega a los controles del visor 3D: modo, vistas guardadas, giro, inclinación y exageración', () => {
+    useAlmacen.getState().fijarRasante('c-1', rasanteDeEjemplo())
+    render(<VistaResultados />)
+
+    const grupo = screen.getByRole('heading', { name: 'Modelo 3D' }).closest('section')!
+
+    expect(within(grupo).getByRole('button', { name: 'Estado' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'Capas' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'Planta' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'Alzado' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'Isométrico' })).toBeInTheDocument()
+    expect(within(grupo).getByLabelText('Inclinación')).toBeInTheDocument()
+    expect(within(grupo).getByLabelText('Exageración')).toBeInTheDocument()
   })
 })

@@ -12,13 +12,16 @@ describe('TablaResultados', () => {
 
   it('muestra las cotas compensadas con tres decimales', () => {
     render(<TablaResultados />)
-    expect(screen.getByText('3244.628')).toBeInTheDocument()
-    expect(screen.getByText('3244.620')).toBeInTheDocument()
+    expect(screen.getByText('3244.597')).toBeInTheDocument()
+    expect(screen.getByText('3244.677')).toBeInTheDocument()
   })
 
   it('deja vacías las celdas sin medir', () => {
     render(<TablaResultados />)
-    expect(screen.getByLabelText(/Cota en 0\+040 EJE/).textContent).toBe('—')
+    // La campaña de SUBRASANTE del ejemplo (Entrega 3) mide una grilla
+    // completa de 0+000 a 0+080: la calle sigue sin medir nada de 0+100 en
+    // adelante, así que la comprobación se muda ahí.
+    expect(screen.getByLabelText(/Cota en 0\+100 EJE/).textContent).toBe('—')
   })
 
   it('selecciona la celda al hacer clic', async () => {

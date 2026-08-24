@@ -50,14 +50,16 @@ e inclinación 35.264° —el isométrico clásico— y exageración 1:
 
 Los ejes X e Y caen a **30° exactos** de la horizontal; Z queda vertical.
 
-Y la exageración vertical, sobre una calle de 180 m que ocupa 103.9 unidades:
+Y la exageración vertical, sobre una calle de 180 m que **con la cámara
+isométrica ocupa 73.5 unidades** — el giro de 45° la acorta en pantalla, y ese
+giro forma parte de la cámara:
 
 | exageración | 1 m de desnivel | del largo |
 |---|---|---|
-| 1× | 0.8 | 0.8 % |
-| 10× | 8.2 | 7.9 % |
-| **25×** | **20.4** | **19.6 %** |
-| 50× | 40.8 | 39.3 % |
+| 1× | 0.8 | 1.1 % |
+| 10× | 8.2 | 11.1 % |
+| **25×** | **20.4** | **27.8 %** |
+| 50× | 40.8 | 55.6 % |
 
 Por eso el valor de partida es 25×.
 
@@ -166,14 +168,15 @@ describe('proyectarPunto', () => {
   })
 
   it('una exageración de 1 deja un metro de desnivel casi invisible frente a la calle', () => {
-    // Una calle de 180 m ocupa 103.9 unidades; 1 m de desnivel, 0.8.
+    // Con la cámara isométrica, el giro de 45° acorta la calle en pantalla:
+    // 180 m ocupan 73.5 unidades, y 1 m de desnivel ocupa 0.8.
     const inicio = proyectarPunto(0, 0, 0, ISO)
     const fin = proyectarPunto(0, 180, 0, ISO)
     const largo = Math.abs(fin.y - inicio.y)
     const desnivel = Math.abs(proyectarPunto(0, 0, 1, ISO).y)
 
-    expect(largo).toBeCloseTo(103.9, 1)
-    expect(desnivel / largo).toBeLessThan(0.01)
+    expect(largo).toBeCloseTo(73.5, 1)
+    expect(desnivel / largo).toBeLessThan(0.02)
   })
 
   it('con la exageración de partida, ese mismo metro sí se ve', () => {
@@ -181,7 +184,8 @@ describe('proyectarPunto', () => {
     const largo = Math.abs(proyectarPunto(0, 180, 0, camara).y)
     const desnivel = Math.abs(proyectarPunto(0, 0, 1, camara).y)
 
-    expect(desnivel / largo).toBeCloseTo(0.196, 2)
+    // Pasa del 1.1 % al 27.8 % del largo de la calle.
+    expect(desnivel / largo).toBeCloseTo(0.278, 2)
   })
 
   it('las cámaras guardadas son las que dicen ser', () => {
@@ -215,8 +219,8 @@ export interface Camara {
   inclinacion: number
   /**
    * Cuánto se estiran las cotas. Sin esto la calle se ve plana: 180 m de calle
-   * ocupan 103.9 unidades de pantalla y un metro de desnivel ocupa 0.8, que es
-   * el 0.8 %. Con 25 pasa a ser el 20 %, que ya se lee.
+   * ocupan 73.5 unidades de pantalla y un metro de desnivel ocupa 0.8, que es
+   * el 1.1 %. Con 25 pasa a ser el 27.8 %, que ya se lee.
    */
   exageracion: number
 }
@@ -336,16 +340,26 @@ describe('armarCaras', () => {
     expect(primera.elementoHasta).toBe('EJE')
   })
 
-  it('una cara con una sola esquina sin medir no se forma', () => {
+  it('sin la esquina de la malla cae solo el cuadro que la tocaba', () => {
     const entrada = entradaCompleta()
     const original = entrada.cotaDe
-    // Se borra una esquina que tocan dos cuadros: quedan dos.
-    entrada.cotaDe = (clave) => (clave === '20|EJE' ? null : original(clave))
+    // 0|BOR-I es una esquina del borde: solo pertenece a un cuadro.
+    entrada.cotaDe = (clave) => (clave === '0|BOR-I' ? null : original(clave))
 
     const caras = armarCaras(entrada)
 
-    expect(caras).toHaveLength(1)
+    expect(caras).toHaveLength(3)
     expect(caras.every((c) => c.esquinas.every((e) => Number.isFinite(e.cota)))).toBe(true)
+  })
+
+  it('sin la celda del centro no queda ninguna cara, porque la tocan las cuatro', () => {
+    const entrada = entradaCompleta()
+    const original = entrada.cotaDe
+    // 20|EJE está en la progresiva de en medio y en el elemento de en medio,
+    // así que es esquina de los cuatro cuadros a la vez.
+    entrada.cotaDe = (clave) => (clave === '20|EJE' ? null : original(clave))
+
+    expect(armarCaras(entrada)).toHaveLength(0)
   })
 
   it('sin dos progresivas no hay ninguna cara que formar', () => {

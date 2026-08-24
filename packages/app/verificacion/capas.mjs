@@ -23,15 +23,15 @@ await pagina.goto(BASE, { waitUntil: 'networkidle' })
 
 // 1. Registrar una segunda campaña sobre la misma calle, en la capa de abajo.
 // Al crearla, la app salta sola a la libreta, así que se vuelve para contar.
-await pagina.getByRole('button', { name: 'Campañas' }).click()
+await pagina.getByRole('button', { name: 'Campañas', exact: true }).click()
 await pagina.getByRole('button', { name: /nueva campaña/i }).click()
-await pagina.getByRole('button', { name: 'Campañas' }).click()
+await pagina.getByRole('button', { name: 'Campañas', exact: true }).click()
 comprobar('se puede registrar una segunda campaña sobre la misma calle',
   (await pagina.getByRole('button', { name: /Abrir campaña del/ }).count()) >= 2)
 
 // 2. La libreta nueva nace con su estación, pero sin la visada al banco de
 // nivel no hay altura de aparato y por tanto ninguna cota. Se escribe primero.
-await pagina.getByRole('button', { name: 'Libreta' }).click()
+await pagina.getByRole('button', { name: 'Libreta', exact: true }).click()
 comprobar('la libreta nueva avisa de que falta la vista atrás',
   await pagina.getByText(/Falta la lectura de vista atrás/).isVisible())
 
@@ -63,7 +63,7 @@ const llenasDos = await pagina.getByText(/llenadas \d+ de \d+/).textContent()
 comprobar('la segunda celda también se registra', /llenadas 2 de/.test(llenasDos), llenasDos?.trim())
 
 // 3. Elegir las dos capas a comparar en la pantalla de resultados.
-await pagina.getByRole('button', { name: 'Resultados' }).click()
+await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
 await pagina.screenshot({ path: `${SALIDA}/antes-de-comparar.png`, fullPage: true })
 
 const desplegables = pagina.locator('select')
@@ -161,10 +161,12 @@ comprobar('la progresiva sin pareja en la otra capa sale vacía en el Excel, no 
 // Resultados. Las dos casillas (TERRENO y SUBRASANTE) siguen marcadas desde
 // el paso 5; si el corte de la libreta las heredara, saldrían dos trazos con
 // su etiqueta en vez de uno solo sin etiqueta.
-await pagina.getByRole('button', { name: 'Libreta' }).click()
+await pagina.getByRole('button', { name: 'Libreta', exact: true }).click()
 await pagina.waitForTimeout(200)
 
-const trazosLibreta = await pagina.locator('polyline').count()
+// Solo los trazos de campaña: la rasante de proyecto tambien se dibuja como
+// polilinea, y desde que el ejemplo la trae definida contaria como uno mas.
+const trazosLibreta = await pagina.locator('polyline[data-capa-id]').count()
 comprobar('el corte de la libreta dibuja una sola campaña aunque Resultados tenga dos marcadas',
   trazosLibreta === 1, `${trazosLibreta} trazos`)
 

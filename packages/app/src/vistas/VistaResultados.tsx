@@ -13,6 +13,7 @@ import {
 } from '../archivo/exportar'
 import AvisoEspesores from '../componentes/AvisoEspesores'
 import BarraCierre from '../componentes/BarraCierre'
+import ControlesVista3D from '../componentes/ControlesVista3D'
 import CorteTransversal from '../componentes/CorteTransversal'
 import DeslizadorProgresiva from '../componentes/DeslizadorProgresiva'
 import ListaAvisos from '../componentes/ListaAvisos'
@@ -22,6 +23,7 @@ import SelectorCapas from '../componentes/SelectorCapas'
 import TablaDiferencias from '../componentes/TablaDiferencias'
 import TablaEspesores from '../componentes/TablaEspesores'
 import TablaResultados from '../componentes/TablaResultados'
+import Vista3D from '../componentes/Vista3D'
 import { calcularEstadoComparacion, calcularEstadoRasante } from '../estadoComparacion'
 import { useAlmacen } from '../estado/almacen'
 import {
@@ -283,6 +285,12 @@ export default function VistaResultados() {
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold">Control contra el proyecto</h2>
         {estadoRasante && <AvisoEspesores estado={estadoRasante} />}
+
+        <section className="flex flex-col gap-2">
+          <h3 className="font-semibold">Modelo 3D</h3>
+          <ControlesVista3D />
+          <Vista3D idCampaniaReferencia={campaniaActivaId} />
+        </section>
 
         <section className="flex flex-col gap-2">
           <h3 className="font-semibold">Diferencias</h3>

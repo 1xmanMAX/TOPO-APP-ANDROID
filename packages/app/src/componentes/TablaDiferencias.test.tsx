@@ -60,24 +60,25 @@ describe('TablaDiferencias', () => {
   })
 
   it('invita a definir la rasante cuando la calle todavía no tiene una', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
     expect(screen.getByText(/define la rasante/i)).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
-  // La cota real en 0+000 EJE es 3244.6275 (misma libreta que
+  // La cota real en 0+000 EJE es 3244.5965 (misma libreta que
   // `estado/derivados.test.tsx`), y la rasante de ejemplo pone la rasante ahí
   // en 3245.180. BASE + CARPETA (0.25 m) van encima de SUBRASANTE, así que
-  // su cota teórica queda en 3244.930: 302.5 mm por debajo, que redondeado a
-  // milímetros enteros da -303. Está por debajo del proyecto → falta
+  // su cota teórica queda en 3244.930: 333.5 mm por debajo, que redondeado a
+  // milímetros enteros da -334. Está por debajo del proyecto → falta
   // material → rellenar. Con tolerancia de 20 mm en SUBRASANTE, el doble es
-  // 40 mm: 303 mm de diferencia queda claramente fuera de tolerancia.
+  // 40 mm: 334 mm de diferencia queda claramente fuera de tolerancia.
   it('muestra la diferencia en milímetros con signo y dice qué hacer', () => {
     fijarRasanteDeEjemplo()
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
-    expect(screen.getByLabelText(/0\+000 EJE: −303 mm, rellenar/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/0\+000 EJE: −334 mm, rellenar/)).toBeInTheDocument()
   })
 
   it('el interruptor cambia entre cota real, cota teórica y diferencia', async () => {
@@ -89,7 +90,7 @@ describe('TablaDiferencias', () => {
     expect(screen.getByText('3244.930')).toBeInTheDocument()
 
     await usuario.click(screen.getByRole('button', { name: 'Cota real' }))
-    expect(screen.getByText('3244.628')).toBeInTheDocument()
+    expect(screen.getByText('3244.597')).toBeInTheDocument()
   })
 
   it('el estado no viaja solo en el color: va en el nombre de la celda', () => {
@@ -140,12 +141,16 @@ describe('TablaDiferencias', () => {
     fijarRasanteDeEjemplo()
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
-    // 10 progresivas × 7 elementos = 70 celdas; solo 3 están medidas
-    // (0|EJE, 0|BOR-I, 20|EJE), y las tres caen fuera de tolerancia con esta
-    // rasante y esta libreta. La rasante de ejemplo cubre todo el ancho de
-    // la plantilla, así que ninguna celda medida queda fuera de sección.
+    // 10 progresivas × 7 elementos = 70 celdas. La campaña de SUBRASANTE del
+    // ejemplo (Entrega 3) mide una grilla completa de 25 celdas, de 0+000 a
+    // 0+080. Esta rasante de prueba tiene una pendiente longitudinal mucho
+    // más fuerte (-1.25 %) que la del proyecto (-0.30 %), así que se aparta
+    // cada vez más de lo medido según avanza la progresiva: con esta rasante
+    // y esta libreta, 23 celdas quedan fuera de tolerancia y una al límite
+    // (0+000 SAR-D). La rasante de ejemplo cubre todo el ancho de la
+    // plantilla, así que ninguna celda medida queda fuera de sección.
     expect(
-      screen.getByText('Conformes 0 · Al límite 0 · Fuera 3 — Sin medir 67 · Fuera de sección 0'),
+      screen.getByText('Conformes 1 · Al límite 1 · Fuera 23 — Sin medir 45 · Fuera de sección 0'),
     ).toBeInTheDocument()
   })
 
@@ -164,9 +169,9 @@ describe('TablaDiferencias', () => {
 
     // 0+000 EJE está fuera de tolerancia con esta rasante y esta libreta.
     const celda = screen.getByLabelText(/0\+000 EJE/)
-    expect(celda.textContent).toBe('✗ 3244.628')
+    expect(celda.textContent).toBe('✗ 3244.597')
     // La cifra sigue siendo buscable sola: el símbolo no la contamina.
-    expect(screen.getByText('3244.628')).toBeInTheDocument()
+    expect(screen.getByText('3244.597')).toBeInTheDocument()
   })
 
   it('las celdas son clicables y seleccionan la celda, como en las otras tablas', async () => {

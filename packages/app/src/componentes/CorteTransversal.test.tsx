@@ -13,11 +13,14 @@ describe('CorteTransversal', () => {
 
   it('dibuja un punto por cada celda medida de la progresiva', () => {
     render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
-    expect(screen.getAllByRole('button', { name: /^0\+000 / })).toHaveLength(2)
+    // Entrega 3: el ejemplo mide los cinco puntos de la calzada (SAR-I,
+    // BOR-I, EJE, BOR-D, SAR-D) en 0+000, para que el visor 3D tenga con qué
+    // dibujar un modelo.
+    expect(screen.getAllByRole('button', { name: /^0\+000 / })).toHaveLength(5)
   })
 
   it('avisa cuando la progresiva no tiene lecturas', () => {
-    render(<CorteTransversal progresiva={60} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
+    render(<CorteTransversal progresiva={100} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
     expect(screen.getByText(/todavía no tiene lecturas/i)).toBeInTheDocument()
   })
 
@@ -116,6 +119,9 @@ function campaniaSubrasante(): Campania {
 function proyectoDosCapas(): Proyecto {
   const proyecto = proyectoEjemplo()
   proyecto.campanias = [campaniaTerreno(), campaniaSubrasante()]
+  // Estas pruebas comparan capas, no rasante: sin esto, la rasante por
+  // defecto del ejemplo agregaría su propia polilínea y correría los índices.
+  proyecto.calles[0]!.rasante = null
   return proyecto
 }
 
@@ -271,6 +277,7 @@ describe('CorteTransversal con rasante', () => {
   })
 
   it('sin rasante definida el corte se dibuja como hasta ahora', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
 
     expect(screen.queryByLabelText(/rasante de proyecto/i)).toBeNull()

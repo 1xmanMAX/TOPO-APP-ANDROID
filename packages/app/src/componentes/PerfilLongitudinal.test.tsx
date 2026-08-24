@@ -12,10 +12,15 @@ describe('PerfilLongitudinal', () => {
 
   it('dibuja un punto por progresiva medida del elemento', () => {
     render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
-    expect(screen.getAllByRole('button', { name: /cota/ })).toHaveLength(2)
+    // Entrega 3: el ejemplo mide EJE en las cinco progresivas de 0+000 a
+    // 0+080, para que el visor 3D tenga con qué dibujar un modelo.
+    expect(screen.getAllByRole('button', { name: /cota/ })).toHaveLength(5)
   })
 
   it('avisa cuando el elemento no tiene lecturas', () => {
+    // Sin rasante: con la del ejemplo, VER-D queda dentro de la sección
+    // definida y el perfil dibujaría su recta aunque nadie lo haya medido.
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<PerfilLongitudinal elementoClave="VER-D" idCampaniaReferencia="camp-1" />)
     expect(screen.getByText(/no tiene lecturas/i)).toBeInTheDocument()
   })
@@ -71,6 +76,7 @@ describe('PerfilLongitudinal con rasante', () => {
   })
 
   it('sin rasante definida el perfil se dibuja como hasta ahora', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
 
     expect(screen.queryByLabelText(/rasante de proyecto/i)).toBeNull()

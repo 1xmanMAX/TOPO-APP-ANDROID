@@ -16,8 +16,8 @@ import MapaEstado from './MapaEstado'
  * La rasante arranca en 3245.179 (plana, sin pendiente longitudinal ni
  * transversal). La campaña activa mide en SUBRASANTE, y BASE + CARPETA
  * (0.25 m) van encima de esa capa, así que su cota teórica queda en
- * 3244.929: contra la cota real de 0+000 EJE (3244.6275, la misma libreta
- * que usan las demás pruebas de esta calle) da una diferencia de −302 mm,
+ * 3244.929: contra la cota real de 0+000 EJE (3244.5965, la misma libreta
+ * que usan las demás pruebas de esta calle) da una diferencia de −333 mm,
  * bien fuera de los 20 mm de tolerancia de SUBRASANTE.
  */
 function fijarRasanteDeEjemplo(): void {
@@ -53,7 +53,7 @@ describe('MapaEstado', () => {
     render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
     const etiqueta = screen.getByLabelText(/0\+000 EJE/).getAttribute('aria-label')
-    expect(etiqueta).toMatch(/−302 mm/)
+    expect(etiqueta).toMatch(/−333 mm/)
     expect(etiqueta).toMatch(/rellenar/)
     expect(etiqueta).toMatch(/fuera de tolerancia/)
   })
@@ -77,6 +77,7 @@ describe('MapaEstado', () => {
   })
 
   it('sin rasante definida invita a definirla, en vez de un mapa vacío', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
     expect(screen.getByText(/define la rasante/i)).toBeInTheDocument()

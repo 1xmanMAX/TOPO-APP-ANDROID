@@ -13,7 +13,7 @@ describe('useResultadoDe', () => {
   it('calcula la campaña que se le pida, sea la activa o no', () => {
     const { result } = renderHook(() => useResultadoDe('camp-1'))
 
-    expect(result.current?.cotasPorCelda.get('0|EJE')?.cota).toBeCloseTo(3244.6275, 6)
+    expect(result.current?.cotasPorCelda.get('0|EJE')?.cota).toBeCloseTo(3244.5965, 6)
   })
 
   it('devuelve null si esa campaña no existe', () => {
@@ -54,7 +54,9 @@ describe('useResultadosDe', () => {
     const { result } = renderHook(() => useResultadosDe(['camp-1', otra]))
 
     expect(result.current.size).toBe(2)
-    expect(result.current.get('camp-1')?.celdasLlenas).toBe(3)
+    // La campaña de SUBRASANTE del ejemplo mide una grilla completa de 25
+    // celdas desde la Entrega 3 (cinco progresivas por cinco puntos).
+    expect(result.current.get('camp-1')?.celdasLlenas).toBe(25)
     expect(result.current.get(otra)?.celdasLlenas).toBe(0)
   })
 
@@ -96,6 +98,7 @@ describe('useEvaluacionRasante', () => {
   })
 
   it('sin rasante en la calle no hay evaluación, y eso no es un fallo', () => {
+    useAlmacen.getState().fijarRasante('c-1', null)
     const { result } = renderHook(() => useEvaluacionRasante())
 
     expect(result.current).toBeNull()
@@ -109,13 +112,13 @@ describe('useEvaluacionRasante', () => {
     // El paquete de capas del ejemplo lleva BASE (0.20 m) y CARPETA (0.05 m)
     // por encima de SUBRASANTE, así que su cota teórica resta ese espesor a
     // la rasante: 3245.18 − 0.25 = 3244.93 en 0+000 EJE. Lo medido ahí es
-    // 3244.6275 (ver 'useResultadoDe' arriba), 302.5 mm por debajo, que
-    // redondeado a milímetros enteros da -303 (no -302: la resta exacta usa
-    // la cota real sin redondear a milímetros, 3244.6275, no la cifra ya
+    // 3244.5965 (ver 'useResultadoDe' arriba), 333.5 mm por debajo, que
+    // redondeado a milímetros enteros da -334 (no -333: la resta exacta usa
+    // la cota real sin redondear a milímetros, 3244.5965, no la cifra ya
     // redondeada a tres decimales que se muestra en pantalla).
     const celda = result.current!.celdas.get('0|EJE')!
     expect(celda.cotaTeorica).toBe(3244.93)
-    expect(celda.diferenciaMm).toBe(-303)
+    expect(celda.diferenciaMm).toBe(-334)
     expect(celda.estado).toBe('fuera')
   })
 

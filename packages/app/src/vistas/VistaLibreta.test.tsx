@@ -109,13 +109,18 @@ describe('VistaLibreta', () => {
     await usuario.type(campo, '2.100{Enter}')
 
     const resultado = useAlmacen.getState().calcular()!
-    expect(resultado.celdasLlenas).toBe(4)
+    // La campaña de SUBRASANTE del ejemplo mide 25 celdas desde la Entrega 3
+    // (una grilla completa de 0+000 a 0+080); con la lectura recién escrita
+    // quedan 26.
+    expect(resultado.celdasLlenas).toBe(26)
     expect(screen.getByText(/celda activa/i).textContent).not.toContain('0+000 VER-I')
   })
 
   it('muestra cuántas celdas faltan', () => {
     render(<VistaLibreta />)
-    expect(screen.getByText(/llenadas 3 de 70/i)).toBeInTheDocument()
+    // La campaña de SUBRASANTE del ejemplo mide 25 celdas desde la Entrega 3
+    // (una grilla completa de 0+000 a 0+080).
+    expect(screen.getByText(/llenadas 25 de 70/i)).toBeInTheDocument()
   })
 
   it('con una calle de progresiva final menor que la inicial, se dibuja sin lanzar', () => {
