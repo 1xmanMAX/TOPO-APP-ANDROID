@@ -84,7 +84,9 @@ await pagina.screenshot({ path: `${SALIDA}/modelo-girado.png`, fullPage: true })
 // página el deslizador arranca sin recorte (`seleccion.progresiva` en
 // `null`, todas las caras se dibujan); un paso a la derecha fija la primera
 // progresiva y activa el recorte.
-const deslizador = seccionModelo.getByLabel('Progresiva')
+// El deslizador de progresiva es COMPARTIDO: vive en el corte transversal y
+// secciona tambien el modelo. No esta dentro de la seccion del modelo.
+const deslizador = pagina.getByLabel('Progresiva').first()
 await deslizador.focus()
 await deslizador.press('ArrowRight')
 await pagina.waitForTimeout(200)
