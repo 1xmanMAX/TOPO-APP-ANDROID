@@ -108,6 +108,74 @@ function conDosCampanias(): void {
   useAlmacen.getState().fijarRasante('c-1', rasanteEjemplo())
 }
 
+/**
+ * El proyecto de ejemplo ya trae dos campañas completas sobre la misma
+ * calle — camp-1 (SUBRASANTE) y camp-base (BASE), cada una con su grilla
+ * entera de 0+000 a 0+080 — así que apilarlas en modo capas tiene algo real
+ * que dibujar sin fabricar datos nuevos. Se marcan las dos en el selector
+ * que ya usa el corte transversal.
+ */
+function conDosCapasMedidas(): void {
+  useAlmacen.getState().cargarProyecto(proyectoEjemplo())
+  useAlmacen.getState().fijarRasante('c-1', rasanteEjemplo())
+  useAlmacen.getState().alternarCapaVisible('camp-1')
+  useAlmacen.getState().alternarCapaVisible('camp-base')
+}
+
+/**
+ * Segunda campaña (camp-2) que solo mide su grilla completa en 0+000 y
+ * 0+020 — nunca en 0+040, 0+060 ni 0+080, que sí mide camp-1 — para
+ * comprobar que un tramo sin medir en una capa deja el hueco en esa capa en
+ * vez de rellenarlo con algo que nadie midió. Se marcan ambas capas en el
+ * selector.
+ */
+function campaniaSoloAlPrincipio(): Campania {
+  return {
+    id: 'camp-2',
+    fecha: '2026-08-21',
+    calleId: 'c-1',
+    capaId: 'cap-base',
+    bmInicialId: 'bm-1',
+    estado: 'abierta',
+    cierre: {
+      tipo: 'cerrado',
+      bmFinalId: 'bm-1',
+      longitudK: 0.36,
+      longitudKAuto: true,
+      clase: 'tercerOrden',
+      coeficiente: 12,
+    },
+    estaciones: [
+      {
+        id: 'f-2',
+        vistaAtras: { id: 'm-10', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.4 },
+        intermedias: [
+          { id: 'm-11', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } }, valor: 1.7 },
+          { id: 'm-12', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } }, valor: 1.85 },
+          { id: 'm-13', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.78 },
+          { id: 'm-14', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } }, valor: 1.86 },
+          { id: 'm-15', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } }, valor: 1.72 },
+          { id: 'm-16', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'SAR-I' } }, valor: 1.76 },
+          { id: 'm-17', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } }, valor: 1.94 },
+          { id: 'm-18', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } }, valor: 1.85 },
+          { id: 'm-19', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-D' } }, valor: 1.93 },
+          { id: 'm-20', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'SAR-D' } }, valor: 1.79 },
+        ],
+        vistaAdelante: { id: 'm-21', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.4 },
+      },
+    ],
+  }
+}
+
+function conCapaMedidaSoloAlPrincipio(): void {
+  const proyecto = proyectoEjemplo()
+  proyecto.campanias.push(campaniaSoloAlPrincipio())
+  useAlmacen.getState().cargarProyecto(proyecto)
+  useAlmacen.getState().fijarRasante('c-1', rasanteEjemplo())
+  useAlmacen.getState().alternarCapaVisible('camp-1')
+  useAlmacen.getState().alternarCapaVisible('camp-2')
+}
+
 describe('Vista3D', () => {
   beforeEach(() => {
     useAlmacen.getState().cargarProyecto(proyectoEjemplo())
@@ -157,5 +225,53 @@ describe('Vista3D', () => {
     // camp-2 midió una celda que camp-1 no tiene: su cara solo puede salir
     // si el componente usó de verdad la campaña que se le pasó.
     expect(screen.getByLabelText(/Entre 0\+020 y 0\+040/)).toBeInTheDocument()
+  })
+
+  it('en modo capas dibuja una superficie por cada campaña marcada', () => {
+    conDosCapasMedidas()
+    useAlmacen.getState().fijarModoVista3D('capas')
+    const { container } = render(<Vista3D idCampaniaReferencia="camp-1" />)
+
+    const capas = new Set(
+      [...container.querySelectorAll('[data-capa-id]')].map((n) => n.getAttribute('data-capa-id')),
+    )
+    expect(capas.size).toBe(2)
+  })
+
+  it('en modo capas cada superficie dice de qué capa es', () => {
+    conDosCapasMedidas()
+    useAlmacen.getState().fijarModoVista3D('capas')
+    render(<Vista3D idCampaniaReferencia="camp-1" />)
+
+    expect(screen.getByText('SUBRASANTE')).toBeInTheDocument()
+    expect(screen.getByText('BASE')).toBeInTheDocument()
+  })
+
+  it('una capa sin medidas en un tramo deja el hueco, no lo rellena', () => {
+    conCapaMedidaSoloAlPrincipio()
+    useAlmacen.getState().fijarModoVista3D('capas')
+    const { container } = render(<Vista3D idCampaniaReferencia="camp-1" />)
+
+    const caras = [...container.querySelectorAll('[data-capa-id="camp-2"]')]
+    expect(caras.length).toBeGreaterThan(0)
+    expect(caras.every((c) => Number(c.getAttribute('data-progresiva-hasta')) <= 20)).toBe(true)
+  })
+
+  it('el deslizador de progresiva secciona el modelo', () => {
+    conRasanteYMedidas()
+    useAlmacen.getState().irAProgresiva(20)
+    const { container } = render(<Vista3D idCampaniaReferencia="camp-1" />)
+
+    const caras = [...container.querySelectorAll('[data-cara]')]
+    expect(caras.length).toBeGreaterThan(0)
+    expect(caras.every((c) => Number(c.getAttribute('data-progresiva-desde')) <= 20)).toBe(true)
+  })
+
+  it('con el deslizador al final del tramo se ve la calle entera', () => {
+    conRasanteYMedidas()
+    useAlmacen.getState().irAProgresiva(180)
+    const { container } = render(<Vista3D idCampaniaReferencia="camp-1" />)
+
+    expect(container.querySelectorAll('[data-cara]').length).toBeGreaterThan(0)
   })
 })

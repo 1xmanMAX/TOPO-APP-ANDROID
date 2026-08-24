@@ -45,3 +45,13 @@ Entre otras cosas:
 - **Que el `.xlsx` de diferencias descargado es un archivo válido de verdad**, con la pendiente longitudinal y la tolerancia de la capa en la cabecera, el estado de verificación, y las celdas fuera de sección vacías (nunca en cero).
 
 Deja capturas de pantalla en la carpeta que se le pase como argumento.
+
+## Qué comprueba `visor3d.mjs`
+
+La Tarea V7: capas apiladas y corte vivo en el modelo 3D.
+
+- Que marcar SUBRASANTE y BASE en el selector de capas y cambiar el modelo 3D a modo Capas dibuja una superficie por cada una (dos `data-capa-id` distintos).
+- Que cada superficie lleva el nombre de su capa rotulado junto al dibujo, no solo el color.
+- Que mover el deslizador de progresiva secciona el modelo de verdad (menos caras dibujadas, ninguna con `data-progresiva-desde` más allá del corte) en vez de dibujarlo entero y tapar unas con otras.
+
+Deja capturas de pantalla en la carpeta que se le pase como argumento.

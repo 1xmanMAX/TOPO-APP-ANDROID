@@ -1,8 +1,11 @@
 import {
   armarCaras,
+  calcularCampania,
   claveCelda,
+  evaluarContraRasante,
   formatearProgresiva,
   proyectarCaras,
+  type CaraMalla,
   type CaraProyectada,
   type EstadoTolerancia,
   type Id,
@@ -45,6 +48,25 @@ const CLASE_RELLENO: Record<EstadoTolerancia, string> = {
   sinRasante: 'fill-slate-200 dark:fill-slate-800',
 }
 
+/**
+ * En modo capas los tres colores de semáforo no significan nada (no hay
+ * tolerancia que evaluar entre capas): una paleta neutra propia, por
+ * posición en el paquete y no por cuántas capas haya marcadas. Mismo criterio
+ * que ya usa `CorteTransversal` para no pisar el significado de pasa/al
+ * límite/fuera. El color nunca es la única pista: cada capa además lleva su
+ * nombre rotulado junto a la superficie y en el texto accesible de cada cara.
+ */
+const CLASE_RELLENO_CAPA = [
+  'fill-marca/70',
+  'fill-slate-500/70 dark:fill-slate-400/70',
+  'fill-slate-800/70 dark:fill-slate-200/70',
+  'fill-slate-400/60 dark:fill-slate-600/60',
+]
+
+function claseRellenoCapa(indice: number): string {
+  return CLASE_RELLENO_CAPA[indice % CLASE_RELLENO_CAPA.length]!
+}
+
 const CLASE_BORDE = 'stroke-slate-900/25 dark:stroke-slate-100/25'
 
 const LEYENDA: { estado: EstadoTolerancia; texto: string }[] = [
@@ -67,6 +89,19 @@ interface Props {
    * referencia.
    */
   idCampaniaReferencia: Id | null
+}
+
+/** Una capa marcada, ya con sus propias caras (sus propias cotas medidas). */
+interface EntradaCapa {
+  campaniaId: Id
+  nombreCapa: string
+  caras: CaraMalla[]
+}
+
+/** Qué capa dibujó una cara y con qué nombre rotularla: se pierde al pasar por `armarCaras`, así que se lleva aparte. */
+interface InfoCapaDeCara {
+  campaniaId: Id
+  nombreCapa: string
 }
 
 /**
@@ -98,6 +133,13 @@ function calcularCaja(puntos: PuntoProyectado[]): { minX: number; minY: number; 
 export default function Vista3D({ idCampaniaReferencia }: Props) {
   const contexto = useContextoDe(idCampaniaReferencia)
   const evaluacion = useEvaluacionRasante(idCampaniaReferencia ?? '')
+  const proyecto = useAlmacen((s) => s.proyecto)
+  const capasVisibles = useAlmacen((s) => s.capasVisibles)
+  const modoVista3D = useAlmacen((s) => s.modoVista3D)
+  // El mismo deslizador de progresiva que ya usa el corte transversal: no es
+  // un prop propio de este componente, es el valor compartido del almacén.
+  // `null` (nadie lo movió todavía) no recorta nada.
+  const progresivaCorte = useAlmacen((s) => s.seleccion.progresiva)
   const camara = useAlmacen((s) => s.camara)
   const girarCamara = useAlmacen((s) => s.girarCamara)
 
@@ -139,7 +181,9 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
   /**
    * Progresivas con al menos una celda medida, no todas las de la grilla —
    * una calle larga puede tener decenas sin ninguna lectura todavía. Sin dos
-   * de estas no hay ni un solo cuadro que se pueda llegar a cerrar.
+   * de estas no hay ni un solo cuadro que se pueda llegar a cerrar. Solo
+   * gobierna el modo estado: en modo capas cada capa marcada puede tener sus
+   * propias progresivas medidas, y basta con que alguna cierre un cuadro.
    */
   const progresivasMedidas = useMemo(() => {
     const conjunto = new Set<number>()
@@ -151,19 +195,141 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
     return conjunto
   }, [evaluacion])
 
-  const caras = useMemo(() => {
-    if (!esqueleto || !evaluacion || progresivasMedidas.size < 2) return []
+  /**
+   * Qué campañas se apilan en modo capas: las marcadas en el selector que ya
+   * usa el corte transversal (`capasVisibles`), o si no hay ninguna marcada,
+   * la campaña de referencia — mismo criterio que ya usa `VistaResultados`
+   * para el corte transversal, para que las vistas no se contradigan.
+   */
+  const idsCapas = useMemo(
+    () => (capasVisibles.length > 0 ? capasVisibles : idCampaniaReferencia ? [idCampaniaReferencia] : []),
+    [capasVisibles, idCampaniaReferencia],
+  )
+
+  /**
+   * Una entrada por capa marcada, con sus propias caras (sus propias cotas
+   * medidas, evaluadas contra la misma rasante de la calle). `calcularCampania`
+   * y `evaluarContraRasante` son funciones normales, no hooks: un bucle
+   * adentro de un único `useMemo` no viola las reglas de hooks, a diferencia
+   * de llamar un hook por campaña con una lista de tamaño variable.
+   */
+  const entradasCapas = useMemo((): EntradaCapa[] => {
+    if (modoVista3D !== 'capas' || !esqueleto || !contexto || !contexto.calle.rasante) return []
+    const rasante = contexto.calle.rasante
+    const capasPorId = new Map(proyecto.capas.map((capa) => [capa.id, capa]))
+    const salida: EntradaCapa[] = []
+
+    for (const id of idsCapas) {
+      const campania = proyecto.campanias.find((c) => c.id === id)
+      // Solo campañas de la misma calle que la de referencia: sus claves de
+      // celda (`progresiva|elemento`) coinciden con las de cualquier otra
+      // calle, así que mezclar cotas de calles distintas dibujaría una
+      // superficie sin sentido físico.
+      if (!campania || campania.calleId !== contexto.calle.id) continue
+
+      const resultado = calcularCampania({
+        campania,
+        calle: contexto.calle,
+        plantilla: contexto.plantilla,
+        bms: proyecto.bms,
+      })
+      const evaluacionCapa = evaluarContraRasante({
+        resultado,
+        calle: contexto.calle,
+        plantilla: contexto.plantilla,
+        rasante,
+        capas: proyecto.capas,
+        capaId: campania.capaId,
+      })
+      const caras = armarCaras({
+        progresivas: esqueleto.progresivas,
+        elementos: esqueleto.elementos,
+        offsets,
+        cotaDe: (clave) => evaluacionCapa.celdas.get(clave)?.cotaReal ?? null,
+      })
+      if (caras.length === 0) continue
+
+      salida.push({ campaniaId: id, nombreCapa: capasPorId.get(campania.capaId)?.nombre ?? '—', caras })
+    }
+
+    return salida
+  }, [modoVista3D, esqueleto, contexto, offsets, idsCapas, proyecto])
+
+  const carasEstado = useMemo(() => {
+    if (modoVista3D !== 'estado' || !esqueleto || !evaluacion || progresivasMedidas.size < 2) return []
     return armarCaras({
       progresivas: esqueleto.progresivas,
       elementos: esqueleto.elementos,
       offsets,
       cotaDe: (clave) => evaluacion.celdas.get(clave)?.cotaReal ?? null,
     })
-  }, [esqueleto, evaluacion, offsets, progresivasMedidas])
+  }, [modoVista3D, esqueleto, evaluacion, offsets, progresivasMedidas])
 
-  const proyectadas = useMemo(() => proyectarCaras(caras, camara), [caras, camara])
+  /**
+   * Todas las caras de todas las capas visibles, juntas en un solo montón
+   * antes de proyectar: `proyectarCaras` las ordena a todas juntas por
+   * profundidad, vengan de la capa que vengan. Dibujar una capa entera y
+   * luego la otra dejaría a la de abajo tapando a la de arriba en los tramos
+   * donde va por delante.
+   *
+   * El corte vivo (el deslizador de progresiva) se aplica aquí, antes de
+   * proyectar: una cara cuya `progresivaDesde` quede más allá del corte ni
+   * siquiera se arma como candidata a dibujarse, no se dibuja y se tapa con
+   * otra encima.
+   */
+  const { caraObjs, infoPorCara } = useMemo(() => {
+    const objs: CaraMalla[] = []
+    const info = new Map<CaraMalla, InfoCapaDeCara>()
+
+    function agregar(caras: CaraMalla[], etiqueta: InfoCapaDeCara | null) {
+      for (const cara of caras) {
+        if (progresivaCorte !== null && cara.progresivaDesde > progresivaCorte) continue
+        objs.push(cara)
+        if (etiqueta) info.set(cara, etiqueta)
+      }
+    }
+
+    if (modoVista3D === 'capas') {
+      for (const entrada of entradasCapas) {
+        agregar(entrada.caras, { campaniaId: entrada.campaniaId, nombreCapa: entrada.nombreCapa })
+      }
+    } else {
+      agregar(carasEstado, null)
+    }
+
+    return { caraObjs: objs, infoPorCara: info }
+  }, [modoVista3D, entradasCapas, carasEstado, progresivaCorte])
+
+  const proyectadas = useMemo(() => proyectarCaras(caraObjs, camara), [caraObjs, camara])
 
   const caja = useMemo(() => calcularCaja(proyectadas.flatMap((c) => c.puntos)), [proyectadas])
+
+  /** Orden estable de las capas marcadas, para repartir la paleta neutra siempre igual mientras no cambie la marcación. */
+  const indicePorCapa = useMemo(() => {
+    const mapa = new Map<Id, number>()
+    entradasCapas.forEach((entrada, indice) => mapa.set(entrada.campaniaId, indice))
+    return mapa
+  }, [entradasCapas])
+
+  /**
+   * Un rótulo por capa, junto a su superficie: el punto más alto en pantalla
+   * entre todas sus caras, para que el nombre quede por encima del dibujo y
+   * no se pierda debajo de otra capa que pase por delante.
+   */
+  const rotulosCapas = useMemo(() => {
+    if (modoVista3D !== 'capas') return []
+    const porCapa = new Map<Id, { nombreCapa: string; punto: PuntoProyectado }>()
+    for (const { cara, puntos } of proyectadas) {
+      const dato = infoPorCara.get(cara)
+      if (!dato) continue
+      const puntoAlto = puntos.reduce((a, b) => (b.y < a.y ? b : a))
+      const actual = porCapa.get(dato.campaniaId)
+      if (!actual || puntoAlto.y < actual.punto.y) {
+        porCapa.set(dato.campaniaId, { nombreCapa: dato.nombreCapa, punto: puntoAlto })
+      }
+    }
+    return [...porCapa.entries()].map(([campaniaId, valor]) => ({ campaniaId, ...valor }))
+  }, [modoVista3D, proyectadas, infoPorCara])
 
   if (!contexto) return null
 
@@ -175,7 +341,7 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
     )
   }
 
-  if (progresivasMedidas.size < 2) {
+  if (modoVista3D === 'estado' && progresivasMedidas.size < 2) {
     return (
       <p className="rounded border border-dashed border-slate-300 p-3 text-sm text-slate-500 dark:border-slate-700">
         {MENSAJE_POCAS_PROGRESIVAS}
@@ -210,20 +376,47 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
         className="w-full touch-none cursor-grab select-none rounded border border-slate-200 active:cursor-grabbing dark:border-slate-800"
       >
         {proyectadas.map(({ cara, puntos }: CaraProyectada) => {
+          const puntosSvg = puntos.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ')
+          const etiquetaBase = `Entre ${formatearProgresiva(cara.progresivaDesde)} y ${formatearProgresiva(cara.progresivaHasta)}, de ${cara.elementoDesde} a ${cara.elementoHasta}`
+
+          if (modoVista3D === 'capas') {
+            const dato = infoPorCara.get(cara)
+            const indice = dato ? (indicePorCapa.get(dato.campaniaId) ?? 0) : 0
+            const etiqueta = dato ? `${dato.nombreCapa}: ${etiquetaBase}` : etiquetaBase
+
+            return (
+              <polygon
+                key={`${dato?.campaniaId ?? ''}-${cara.clave}`}
+                data-cara={cara.clave}
+                data-capa-id={dato?.campaniaId}
+                data-progresiva-desde={cara.progresivaDesde}
+                data-progresiva-hasta={cara.progresivaHasta}
+                points={puntosSvg}
+                strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
+                className={`${claseRellenoCapa(indice)} ${CLASE_BORDE}`}
+                role="img"
+                aria-label={etiqueta}
+              >
+                <title>{etiqueta}</title>
+              </polygon>
+            )
+          }
+
           const claveInicial = claveCelda(cara.progresivaDesde, cara.elementoDesde)
           // Misma garantía que en `MapaEstado`: `esqueleto` y `evaluacion`
           // salen del mismo par calle/plantilla (el mismo `contexto`), así
           // que el producto progresiva × elemento que arma
           // `armarEsqueletoTabla` siempre tiene su celda evaluada.
           const celdaInicial = evaluacion.celdas.get(claveInicial)!
-          const etiquetaBase = `Entre ${formatearProgresiva(cara.progresivaDesde)} y ${formatearProgresiva(cara.progresivaHasta)}, de ${cara.elementoDesde} a ${cara.elementoHasta}`
           const etiqueta = etiquetaAccesibleCelda(etiquetaBase, celdaInicial)
-          const puntosSvg = puntos.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ')
 
           return (
             <polygon
               key={cara.clave}
               data-cara={cara.clave}
+              data-progresiva-desde={cara.progresivaDesde}
+              data-progresiva-hasta={cara.progresivaHasta}
               points={puntosSvg}
               strokeWidth={1}
               vectorEffect="non-scaling-stroke"
@@ -235,26 +428,42 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
             </polygon>
           )
         })}
+
+        {modoVista3D === 'capas' &&
+          rotulosCapas.map(({ campaniaId, nombreCapa, punto }) => (
+            <text
+              key={campaniaId}
+              x={punto.x}
+              y={punto.y - 6}
+              textAnchor="middle"
+              aria-hidden="true"
+              className="fill-slate-700 text-[10px] font-semibold dark:fill-slate-200"
+            >
+              {nombreCapa}
+            </text>
+          ))}
       </svg>
 
       <p className="text-xs text-slate-500 dark:text-slate-400">Alturas exageradas {camara.exageracion}×</p>
 
-      <ul
-        className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300"
-        aria-label="Qué significa cada color del modelo"
-      >
-        {LEYENDA.map(({ estado, texto }) => (
-          <li key={estado} className="flex items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className={`flex h-5 w-5 items-center justify-center rounded text-[11px] ${CLASE_RELLENO[estado]}`}
-            >
-              {SIMBOLO_ESTADO[estado]}
-            </span>
-            <span>{texto}</span>
-          </li>
-        ))}
-      </ul>
+      {modoVista3D === 'estado' && (
+        <ul
+          className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300"
+          aria-label="Qué significa cada color del modelo"
+        >
+          {LEYENDA.map(({ estado, texto }) => (
+            <li key={estado} className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className={`flex h-5 w-5 items-center justify-center rounded text-[11px] ${CLASE_RELLENO[estado]}`}
+              >
+                {SIMBOLO_ESTADO[estado]}
+              </span>
+              <span>{texto}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/*
        * Siempre visible, nunca detrás de un botón: quien no vea el modelo

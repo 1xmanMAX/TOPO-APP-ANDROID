@@ -67,4 +67,23 @@ describe('ControlesVista3D', () => {
     fireEvent.change(control, { target: { value: '0' } })
     expect(useAlmacen.getState().camara.inclinacion).toBe(0)
   })
+
+  it('el interruptor cambia qué manda el color del modelo, estado o capas', async () => {
+    useAlmacen.getState().fijarModoVista3D('estado')
+    render(<ControlesVista3D />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Capas' }))
+    expect(useAlmacen.getState().modoVista3D).toBe('capas')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Estado' }))
+    expect(useAlmacen.getState().modoVista3D).toBe('estado')
+  })
+
+  it('el interruptor dice cuál de los dos modos está activo, no solo con el color', () => {
+    useAlmacen.getState().fijarModoVista3D('capas')
+    render(<ControlesVista3D />)
+
+    expect(screen.getByRole('button', { name: 'Capas' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Estado' })).toHaveAttribute('aria-pressed', 'false')
+  })
 })

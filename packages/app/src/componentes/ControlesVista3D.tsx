@@ -1,5 +1,5 @@
 import { CAMARA_ALZADO, CAMARA_ISOMETRICA, CAMARA_PLANTA, type Camara } from '@topo/core'
-import { useAlmacen } from '../estado/almacen'
+import { useAlmacen, type ModoVista3D } from '../estado/almacen'
 
 /** Grados que gira cada pulsación de los botones de girar: un paso cómodo para el ojo, ni brusco ni lento. */
 const PASO_GIRO = 15
@@ -15,18 +15,26 @@ const VISTAS_GUARDADAS: VistaGuardada[] = [
   { etiqueta: 'Isométrico', camara: CAMARA_ISOMETRICA },
 ]
 
+const MODOS_VISTA3D: { modo: ModoVista3D; etiqueta: string }[] = [
+  { modo: 'estado', etiqueta: 'Estado' },
+  { modo: 'capas', etiqueta: 'Capas' },
+]
+
 /**
- * Mandos del visor 3D: tres vistas guardadas, girar a izquierda y derecha, e
- * inclinación y exageración continuas. Todo pasa por las acciones del
- * almacén (`girarCamara`, `fijarCamara`, `fijarExageracion`), que ya recortan
- * los rangos de la cámara — este componente no vuelve a recortar nada, el
- * estado es el que manda.
+ * Mandos del visor 3D: qué manda el color (estado contra la rasante o el
+ * paquete de capas apiladas), tres vistas guardadas, girar a izquierda y
+ * derecha, e inclinación y exageración continuas. Todo pasa por las acciones
+ * del almacén (`girarCamara`, `fijarCamara`, `fijarExageracion`,
+ * `fijarModoVista3D`), que ya recortan los rangos de la cámara — este
+ * componente no vuelve a recortar nada, el estado es el que manda.
  */
 export default function ControlesVista3D() {
   const camara = useAlmacen((s) => s.camara)
   const girarCamara = useAlmacen((s) => s.girarCamara)
   const fijarCamara = useAlmacen((s) => s.fijarCamara)
   const fijarExageracion = useAlmacen((s) => s.fijarExageracion)
+  const modoVista3D = useAlmacen((s) => s.modoVista3D)
+  const fijarModoVista3D = useAlmacen((s) => s.fijarModoVista3D)
 
   /**
    * Aplica una vista guardada conservando la exageración que hubiera puesta:
@@ -39,6 +47,24 @@ export default function ControlesVista3D() {
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Qué manda el color del modelo">
+        {MODOS_VISTA3D.map(({ modo, etiqueta }) => (
+          <button
+            key={modo}
+            type="button"
+            aria-pressed={modoVista3D === modo}
+            onClick={() => fijarModoVista3D(modo)}
+            className={`rounded border px-3 py-1.5 text-sm ${
+              modoVista3D === modo
+                ? 'border-marca bg-marca text-white'
+                : 'border-slate-300 dark:border-slate-700'
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap gap-2" role="group" aria-label="Vistas guardadas">
         {VISTAS_GUARDADAS.map(({ etiqueta, camara: vista }) => (
           <button
