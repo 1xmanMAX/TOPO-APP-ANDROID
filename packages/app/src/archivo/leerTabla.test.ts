@@ -3,9 +3,15 @@ import { describe, expect, it } from 'vitest'
 import { armarXlsx } from './xlsx'
 import { leerCsv, leerPegado, leerXlsx } from './leerTabla'
 
+/** Una hoja armada a mano para `armarXlsxCrudo`: su nombre y el XML de sus celdas, fila por fila. */
+interface HojaCruda {
+  nombre: string
+  filas: string[]
+}
+
 /**
- * Arma un .xlsx a partir del XML crudo de una sola fila de la hoja, sin pasar
- * por `armarXlsx`.
+ * Arma un .xlsx a partir del XML crudo de una o más hojas, sin pasar por
+ * `armarXlsx`.
  *
  * `armarXlsx` nunca sirve para probar el salto de celdas: escribe **todas**
  * las columnas de cada fila, hasta las vacías (como `inlineStr` sin texto), así
@@ -17,30 +23,59 @@ import { leerCsv, leerPegado, leerXlsx } from './leerTabla'
  * `<c>` de una celda vacía, así que aquí se arma esa fila a mano, con huecos
  * reales en el XML, para que una lectura que apile en vez de posicionar por
  * referencia falle de verdad.
+ *
+ * Tampoco sirve para probar `sharedStrings.xml`: `armarXlsx` nunca lo usa,
+ * escribe los textos como `inlineStr`. Un archivo guardado por el propio
+ * Excel casi siempre sí lo usa —una celda `t="s"` trae un índice, no el
+ * texto—, así que ese camino de lectura solo queda probado si el archivo de
+ * prueba también lo trae. Por eso `cadenasCompartidas` es un parámetro
+ * aparte: para poder armar ese archivo también a mano.
  */
-function armarXlsxCrudo(filaXml: string): Uint8Array {
+function armarXlsxCrudo(hojas: HojaCruda[], cadenasCompartidas?: string[]): Uint8Array {
   const tipos = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`
 
   const relacionesRaiz = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`
 
-  const relacionesLibro = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`
-
+  const sheetsXml = hojas
+    .map((hoja, indice) => `<sheet name="${hoja.nombre}" sheetId="${indice + 1}" r:id="rId${indice + 1}"/>`)
+    .join('')
   const libro = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="x" sheetId="1" r:id="rId1"/></sheets></workbook>`
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheetsXml}</sheets></workbook>`
 
-  const hoja = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1">${filaXml}</row></sheetData></worksheet>`
+  const relacionesLibroXml = hojas
+    .map(
+      (_, indice) =>
+        `<Relationship Id="rId${indice + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${indice + 1}.xml"/>`,
+    )
+    .join('')
+  const relacionesLibro = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relacionesLibroXml}</Relationships>`
 
-  return zipSync({
+  const archivos: Record<string, Uint8Array> = {
     '[Content_Types].xml': strToU8(tipos),
     '_rels/.rels': strToU8(relacionesRaiz),
     'xl/workbook.xml': strToU8(libro),
     'xl/_rels/workbook.xml.rels': strToU8(relacionesLibro),
-    'xl/worksheets/sheet1.xml': strToU8(hoja),
+  }
+
+  hojas.forEach((hoja, indiceHoja) => {
+    const filasXml = hoja.filas
+      .map((celdasXml, indiceFila) => `<row r="${indiceFila + 1}">${celdasXml}</row>`)
+      .join('')
+    archivos[`xl/worksheets/sheet${indiceHoja + 1}.xml`] =
+      strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${filasXml}</sheetData></worksheet>`)
   })
+
+  if (cadenasCompartidas) {
+    const siXml = cadenasCompartidas.map((texto) => `<si><t>${texto}</t></si>`).join('')
+    archivos['xl/sharedStrings.xml'] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${cadenasCompartidas.length}" uniqueCount="${cadenasCompartidas.length}">${siXml}</sst>`)
+  }
+
+  return zipSync(archivos)
 }
 
 describe('leerXlsx', () => {
@@ -76,7 +111,7 @@ describe('leerXlsx', () => {
       '<c r="B1" t="inlineStr"><is><t>b</t></is></c>' +
       '<c r="D1" t="inlineStr"><is><t>d</t></is></c>'
 
-    const hojas = leerXlsx(armarXlsxCrudo(fila))
+    const hojas = leerXlsx(armarXlsxCrudo([{ nombre: 'x', filas: [fila] }]))
 
     expect(hojas[0]!.celdas[0]).toEqual(['a', 'b', '', 'd'])
   })
@@ -88,9 +123,51 @@ describe('leerXlsx', () => {
       '<c r="C1" t="inlineStr"><is><t>c</t></is></c>' +
       '<c r="D1" t="inlineStr"><is><t>d</t></is></c>'
 
-    const hojas = leerXlsx(armarXlsxCrudo(fila))
+    const hojas = leerXlsx(armarXlsxCrudo([{ nombre: 'x', filas: [fila] }]))
 
     expect(hojas[0]!.celdas[0]).toEqual(['', '', 'c', 'd'])
+  })
+
+  it('lee los textos de sharedStrings.xml, mezclados con números sin tipo', () => {
+    // Un .xlsx guardado por el propio Excel casi siempre trae los textos así:
+    // la celda no lleva el texto, lleva un índice a esta lista aparte.
+    const cadenas = ['Progresiva', 'Este']
+    const fila =
+      '<c r="A1" t="s"><v>0</v></c>' +
+      '<c r="B1"><v>1234.567</v></c>' +
+      '<c r="C1" t="s"><v>1</v></c>'
+
+    const hojas = leerXlsx(armarXlsxCrudo([{ nombre: 'x', filas: [fila] }], cadenas))
+
+    expect(hojas[0]!.celdas[0]).toEqual(['Progresiva', '1234.567', 'Este'])
+  })
+
+  it('un índice de sharedStrings que no existe no revienta: la celda queda vacía', () => {
+    // Un archivo dañado o armado por otra herramienta puede traer un índice
+    // que no está en la lista de textos. No es motivo para reventar: esa
+    // celda en particular se queda vacía, y la fila conserva su forma.
+    const cadenas = ['Progresiva']
+    const fila = '<c r="A1" t="s"><v>0</v></c>' + '<c r="B1" t="s"><v>7</v></c>' + '<c r="C1"><v>5</v></c>'
+
+    const hojas = leerXlsx(armarXlsxCrudo([{ nombre: 'x', filas: [fila] }], cadenas))
+
+    expect(hojas[0]!.celdas[0]).toEqual(['Progresiva', '', '5'])
+  })
+
+  it('un libro con dos hojas lee las dos, con su nombre, en el orden del libro', () => {
+    const filaUno = '<c r="A1" t="inlineStr"><is><t>uno</t></is></c>'
+    const filaDos = '<c r="A1" t="inlineStr"><is><t>dos</t></is></c>'
+
+    const hojas = leerXlsx(
+      armarXlsxCrudo([
+        { nombre: 'Primera', filas: [filaUno] },
+        { nombre: 'Segunda', filas: [filaDos] },
+      ]),
+    )
+
+    expect(hojas.map((hoja) => hoja.nombre)).toEqual(['Primera', 'Segunda'])
+    expect(hojas[0]!.celdas[0]).toEqual(['uno'])
+    expect(hojas[1]!.celdas[0]).toEqual(['dos'])
   })
 })
 
