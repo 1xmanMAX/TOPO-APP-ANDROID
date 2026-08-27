@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
+import { buscarToma } from '../estado/proyectoTomas'
 import PanelEstacion from './PanelEstacion'
 
 describe('PanelEstacion', () => {
@@ -62,7 +63,7 @@ describe('PanelEstacion', () => {
     await usuario.click(screen.getByRole('button', { name: /quitar la vista adelante/i }))
     await usuario.click(screen.getByRole('button', { name: /trasladar el instrumento/i }))
 
-    const campania = useAlmacen.getState().proyecto.campanias[0]!
+    const campania = buscarToma(useAlmacen.getState().proyecto, 'camp-1')!.toma
     expect(campania.estaciones).toHaveLength(3)
     expect(campania.estaciones[2]!.vistaAtras.destino).toEqual({ tipo: 'cambio', nombre: 'PC-2' })
     expect(alCambiarEstacion).toHaveBeenCalledWith(2)
@@ -97,7 +98,7 @@ describe('PanelEstacion', () => {
 
     const resultado = useAlmacen.getState().calcular()!
     expect(resultado.cierre.pasa).toBeNull()
-    expect(useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante).toBeUndefined()
+    expect(buscarToma(useAlmacen.getState().proyecto, 'camp-1')!.toma.estaciones[1]!.vistaAdelante).toBeUndefined()
   })
 
   it('cierra el circuito contra el banco de nivel de la campaña', async () => {
@@ -107,7 +108,7 @@ describe('PanelEstacion', () => {
     await usuario.click(screen.getByRole('button', { name: /quitar la vista adelante/i }))
     await usuario.click(screen.getByRole('button', { name: /cerrar el circuito/i }))
 
-    const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!
+    const estacion = buscarToma(useAlmacen.getState().proyecto, 'camp-1')!.toma.estaciones[1]!
     expect(estacion.vistaAdelante?.destino).toEqual({ tipo: 'bm', bmId: 'bm-1' })
   })
 
@@ -121,7 +122,7 @@ describe('PanelEstacion', () => {
     await usuario.clear(atras)
     await usuario.type(atras, '1.500')
 
-    const campania = useAlmacen.getState().proyecto.campanias[0]!
+    const campania = buscarToma(useAlmacen.getState().proyecto, 'camp-1')!.toma
     expect(campania.estaciones[0]!.vistaAtras.valor).toBeCloseTo(1.5, 9)
   })
 

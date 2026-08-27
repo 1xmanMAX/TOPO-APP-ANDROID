@@ -2,34 +2,32 @@ import {
   calcularCampania,
   construirGrilla,
   evaluarContraRasante,
+  progresivasMedidas,
   type Calle,
-  type Campania,
   type Capa,
   type Id,
-  type Plantilla,
   type Proyecto,
   type ResultadoCampania,
   type ResultadoEvaluacion,
+  type Toma,
 } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from './almacen'
+import { buscarToma } from './proyectoTomas'
 
 export interface ContextoCampania {
-  campania: Campania
+  campania: Toma
   calle: Calle
-  plantilla: Plantilla
   capa: Capa | undefined
 }
 
 /** Datos que una campaña necesita para calcularse. */
 function contextoDe(proyecto: Proyecto, campaniaId: Id | null): ContextoCampania | null {
-  const campania = proyecto.campanias.find((c) => c.id === campaniaId)
-  if (!campania) return null
-  const calle = proyecto.calles.find((c) => c.id === campania.calleId)
+  const hallado = buscarToma(proyecto, campaniaId)
+  if (!hallado) return null
+  const calle = proyecto.calles.find((c) => c.id === hallado.calleId)
   if (!calle) return null
-  const plantilla = proyecto.plantillas.find((p) => p.id === calle.plantillaId)
-  if (!plantilla) return null
-  return { campania, calle, plantilla, capa: proyecto.capas.find((c) => c.id === campania.capaId) }
+  return { campania: hallado.toma, calle, capa: proyecto.capas.find((c) => c.id === hallado.toma.capaId) }
 }
 
 export function useContexto(): ContextoCampania | null {
@@ -39,7 +37,7 @@ export function useContexto(): ContextoCampania | null {
   return useMemo(() => contextoDe(proyecto, campaniaActivaId), [proyecto, campaniaActivaId])
 }
 
-/** Calle, plantilla y capa de cualquier campaña, no solo la activa — para armar la cabecera de una comparación. */
+/** Calle y capa de cualquier campaña, no solo la activa — para armar la cabecera de una comparación. */
 export function useContextoDe(campaniaId: Id | null): ContextoCampania | null {
   const proyecto = useAlmacen((s) => s.proyecto)
 
@@ -56,7 +54,6 @@ export function useResultadoDe(campaniaId: Id | null): ResultadoCampania | null 
     return calcularCampania({
       campania: contexto.campania,
       calle: contexto.calle,
-      plantilla: contexto.plantilla,
       bms: proyecto.bms,
     })
   }, [proyecto, campaniaId])
@@ -81,7 +78,6 @@ export function useResultadosDe(campaniaIds: Id[]): Map<Id, ResultadoCampania> {
         calcularCampania({
           campania: contexto.campania,
           calle: contexto.calle,
-          plantilla: contexto.plantilla,
           bms: proyecto.bms,
         }),
       )
@@ -98,12 +94,11 @@ export function useResultado(): ResultadoCampania | null {
 
 /**
  * Compara lo medido en una campaña contra la rasante de su calle, celda por
- * celda. Null si falta cualquier ingrediente — calle, plantilla, rasante o el
- * resultado calculado — porque entonces no hay nada que evaluar; eso no es
- * un fallo, es una calle que todavía no tiene rasante. Si la calle sí está
- * mal configurada, el error vive dentro de `ResultadoEvaluacion.error` y
- * llega tal cual a quien consuma esto: este hook no lo esconde ni lo
- * reinterpreta.
+ * celda. Null si falta cualquier ingrediente — calle, rasante o el resultado
+ * calculado — porque entonces no hay nada que evaluar; eso no es un fallo, es
+ * una calle que todavía no tiene rasante. Si algo más falla, el error vive
+ * dentro de `ResultadoEvaluacion.error` y llega tal cual a quien consuma
+ * esto: este hook no lo esconde ni lo reinterpreta.
  */
 export function useEvaluacionRasante(campaniaId?: Id): ResultadoEvaluacion | null {
   const proyecto = useAlmacen((s) => s.proyecto)
@@ -117,7 +112,7 @@ export function useEvaluacionRasante(campaniaId?: Id): ResultadoEvaluacion | nul
     return evaluarContraRasante({
       resultado,
       calle: contexto.calle,
-      plantilla: contexto.plantilla,
+      toma: contexto.campania,
       rasante: contexto.calle.rasante,
       capas: proyecto.capas,
       capaId: contexto.campania.capaId,
@@ -126,20 +121,17 @@ export function useEvaluacionRasante(campaniaId?: Id): ResultadoEvaluacion | nul
 }
 
 /**
- * Progresivas de la calle activa, tomadas de la grilla completa y no solo de lo
- * medido: la tabla deja elegir celdas vacías, y el deslizador tiene que poder
- * seguir al usuario hasta ellas.
+ * Progresivas de la campaña activa, las que de verdad se midieron: ya no
+ * salen de un rango configurado en la calle (que no existe), así que no hay
+ * «progresivas pendientes» que enseñar antes de haber tomado la primera
+ * lectura ahí. Es el mismo criterio que `construirGrilla` en todo lo demás.
  */
 export function useProgresivas(): number[] {
   const contexto = useContexto()
 
   return useMemo(() => {
     if (!contexto) return []
-    try {
-      const celdas = construirGrilla(contexto.calle, contexto.plantilla)
-      return [...new Set(celdas.map((celda) => celda.progresiva))].sort((a, b) => a - b)
-    } catch {
-      return []
-    }
+    const celdas = construirGrilla(contexto.calle, progresivasMedidas(contexto.campania.estaciones))
+    return [...new Set(celdas.map((celda) => celda.progresiva))].sort((a, b) => a - b)
   }, [contexto])
 }

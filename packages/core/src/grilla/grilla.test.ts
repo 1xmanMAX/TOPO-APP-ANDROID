@@ -1,27 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Calle, Plantilla } from '../modelo/tipos'
+import type { Calle, ConfiguracionCierre, Estacion, Nivelacion, Toma } from '../modelo/tipos'
 import { claveCelda, construirGrilla, partirClaveCelda } from './grilla'
-
-const plantilla: Plantilla = {
-  id: 'pl-1',
-  nombre: 'Calle con vereda',
-  elementos: [
-    { clave: 'BOR-I', etiqueta: 'Borde izquierdo', offset: -4.2, tipo: 'calzada' },
-    { clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' },
-    { clave: 'BOR-D', etiqueta: 'Borde derecho', offset: 4.2, tipo: 'calzada' },
-  ],
-}
-
-const calle: Calle = {
-  id: 'c-1',
-  nombre: 'Av. Sol',
-  plantillaId: 'pl-1',
-  progresivaInicio: 0,
-  progresivaFin: 40,
-  intervalo: 20,
-  progresivasExtra: [],
-  rasante: null,
-}
 
 describe('claveCelda', () => {
   it('combina progresiva y elemento', () => {
@@ -63,31 +42,115 @@ describe('partirClaveCelda', () => {
   })
 })
 
+/** Calle mínima: borde izquierdo a -4.2 y eje a 0, sin nivelaciones todavía. */
+function calleDeEjemplo(): Calle {
+  return {
+    id: 'c-1',
+    nombre: 'Av. Sol',
+    puntos: [
+      { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -4.2 },
+      { concepto: 'eje', codigo: 'EJE', distancia: 0 },
+    ],
+    nivelaciones: [],
+    rasante: null,
+  }
+}
+
+function cierreDeEjemplo(): ConfiguracionCierre {
+  return {
+    tipo: 'abierto',
+    longitudK: 0,
+    longitudKAuto: true,
+    clase: 'tercerOrden',
+    coeficiente: 12,
+  }
+}
+
+function estacionDeEjemplo(id: string, progresiva: number): Estacion {
+  return {
+    id,
+    vistaAtras: { id: `${id}-va`, destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+    intermedias: [
+      {
+        id: `${id}-i1`,
+        destino: { tipo: 'celda', celda: { progresiva, elementoClave: 'EJE' } },
+        valor: 1.2,
+      },
+    ],
+  }
+}
+
+function tomaDel20(): Toma {
+  return {
+    id: 'toma-20',
+    fecha: '2026-08-20',
+    capaId: 'cap-1',
+    bmInicialId: 'bm-1',
+    estaciones: [estacionDeEjemplo('e-20', 0)],
+    cierre: cierreDeEjemplo(),
+  }
+}
+
+function tomaDel21(): Toma {
+  return {
+    id: 'toma-21',
+    fecha: '2026-08-21',
+    capaId: 'cap-1',
+    bmInicialId: 'pc-1',
+    estaciones: [estacionDeEjemplo('e-21', 100)],
+    cierre: cierreDeEjemplo(),
+  }
+}
+
 describe('construirGrilla', () => {
-  it('genera una celda por progresiva y elemento', () => {
-    const grilla = construirGrilla(calle, plantilla)
-    expect(grilla).toHaveLength(9)
+  it('la grilla sale de las progresivas medidas, no de un intervalo inventado', () => {
+    const calle = calleDeEjemplo() // puntos: bordeIzq a -4.2, eje a 0
+
+    // Progresivas irregulares, como salen de una obra: un buzón a los 47 m.
+    const celdas = construirGrilla(calle, [0, 20, 47])
+
+    expect(celdas).toHaveLength(6)
+    expect(celdas.map((c) => c.progresiva)).toEqual([0, 0, 20, 20, 47, 47])
   })
 
-  it('recorre primero las progresivas y dentro de ellas los elementos', () => {
-    const grilla = construirGrilla(calle, plantilla)
-    expect(grilla.slice(0, 4).map((c) => c.clave)).toEqual([
-      '0|BOR-I',
-      '0|EJE',
-      '0|BOR-D',
-      '20|BOR-I',
-    ])
+  it('cada celda lleva la distancia real del punto en esa calle', () => {
+    const celdas = construirGrilla(calleDeEjemplo(), [0])
+
+    expect(celdas.find((c) => c.elementoClave === 'BOR-I')!.offset).toBe(-4.2)
   })
 
-  it('lleva el offset y la etiqueta del elemento', () => {
-    const grilla = construirGrilla(calle, plantilla)
-    const celda = grilla.find((c) => c.clave === '20|BOR-D')
-    expect(celda?.offset).toBe(4.2)
-    expect(celda?.etiqueta).toBe('Borde derecho')
+  it('las columnas salen ordenadas por distancia, no por como se escribieron', () => {
+    const calle = {
+      ...calleDeEjemplo(),
+      puntos: [
+        { concepto: 'eje' as const, codigo: 'EJE', distancia: 0 },
+        { concepto: 'bordeIzq' as const, codigo: 'BOR-I', distancia: -4.2 },
+        { concepto: 'bordeDer' as const, codigo: 'BOR-D', distancia: 4.2 },
+      ],
+    }
+
+    expect(construirGrilla(calle, [0]).map((c) => c.elementoClave)).toEqual(['BOR-I', 'EJE', 'BOR-D'])
   })
 
-  it('devuelve grilla vacía si la plantilla no tiene elementos', () => {
-    const vacia: Plantilla = { ...plantilla, elementos: [] }
-    expect(construirGrilla(calle, vacia)).toEqual([])
+  it('una calle sin puntos no arma ninguna celda, y no revienta', () => {
+    expect(construirGrilla({ ...calleDeEjemplo(), puntos: [] }, [0, 20])).toEqual([])
+  })
+
+  it('sin progresivas medidas tampoco hay celdas', () => {
+    expect(construirGrilla(calleDeEjemplo(), [])).toEqual([])
+  })
+})
+
+describe('Nivelacion', () => {
+  it('una nivelación agrupa varias tomas y conserva sus lecturas', () => {
+    const n: Nivelacion = {
+      id: 'niv-1',
+      nombre: 'Terreno existente',
+      color: '#2563eb',
+      tomas: [tomaDel20(), tomaDel21()],
+    }
+
+    expect(n.tomas).toHaveLength(2)
+    expect(n.tomas[0]!.estaciones).toEqual(tomaDel20().estaciones)
   })
 })

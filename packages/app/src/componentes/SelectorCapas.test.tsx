@@ -23,36 +23,44 @@ const CIERRE_ABIERTO = {
 function proyectoConDosCalles(): Proyecto {
   const proyecto = proyectoEjemplo()
 
-  proyecto.campanias.push({
-    id: 'camp-terreno',
-    fecha: '2026-08-10',
-    calleId: 'c-1',
-    capaId: 'cap-terreno',
-    bmInicialId: 'bm-1',
-    estado: 'cerrada',
-    cierre: CIERRE_ABIERTO,
-    estaciones: [],
+  proyecto.calles[0]!.nivelaciones.push({
+    id: 'niv-terreno',
+    nombre: 'Terreno',
+    color: '#16a34a',
+    tomas: [
+      {
+        id: 'camp-terreno',
+        fecha: '2026-08-10',
+        capaId: 'cap-terreno',
+        bmInicialId: 'bm-1',
+        cierre: CIERRE_ABIERTO,
+        estaciones: [],
+      },
+    ],
   })
 
   proyecto.calles.push({
     id: 'c-2',
     nombre: 'Jr. Otra',
-    plantillaId: 'pl-1',
-    progresivaInicio: 0,
-    progresivaFin: 40,
-    intervalo: 20,
-    progresivasExtra: [],
+    puntos: [],
     rasante: null,
-  })
-  proyecto.campanias.push({
-    id: 'camp-otra-calle',
-    fecha: '2026-08-19',
-    calleId: 'c-2',
-    capaId: 'cap-terreno',
-    bmInicialId: 'bm-1',
-    estado: 'abierta',
-    cierre: CIERRE_ABIERTO,
-    estaciones: [],
+    nivelaciones: [
+      {
+        id: 'niv-otra-calle',
+        nombre: 'Otra calle',
+        color: '#d97706',
+        tomas: [
+          {
+            id: 'camp-otra-calle',
+            fecha: '2026-08-19',
+            capaId: 'cap-terreno',
+            bmInicialId: 'bm-1',
+            cierre: CIERRE_ABIERTO,
+            estaciones: [],
+          },
+        ],
+      },
+    ],
   })
 
   return proyecto

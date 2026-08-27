@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BM_1, campaniaEjemplo } from '../pruebas/libretaEjemplo'
+import { BM_1, tomaEjemplo } from '../pruebas/libretaEjemplo'
 import { calcularCotas } from './cotas'
 import { compensarPuntos, correccionesAcumuladas } from './compensacion'
 
@@ -28,7 +28,7 @@ describe('correccionesAcumuladas', () => {
 
 describe('compensarPuntos', () => {
   it('aplica a cada punto la corrección de su estación', () => {
-    const cotas = calcularCotas(campaniaEjemplo(), [BM_1])
+    const cotas = calcularCotas(tomaEjemplo(), [BM_1])
     const compensados = compensarPuntos(cotas.puntos, correccionesAcumuladas(-5, 2))
     const porClave = new Map(compensados.map((p) => [p.claveDestino, p.cota]))
 
@@ -37,7 +37,7 @@ describe('compensarPuntos', () => {
   })
 
   it('conserva la cota cruda intacta', () => {
-    const cotas = calcularCotas(campaniaEjemplo(), [BM_1])
+    const cotas = calcularCotas(tomaEjemplo(), [BM_1])
     const compensados = compensarPuntos(cotas.puntos, correccionesAcumuladas(-5, 2))
     const punto = compensados.find((p) => p.claveDestino === '0|EJE')
 
@@ -46,7 +46,7 @@ describe('compensarPuntos', () => {
   })
 
   it('deja las cotas sin tocar cuando no hay correcciones', () => {
-    const cotas = calcularCotas(campaniaEjemplo(), [BM_1])
+    const cotas = calcularCotas(tomaEjemplo(), [BM_1])
     const compensados = compensarPuntos(cotas.puntos, [])
     const punto = compensados.find((p) => p.claveDestino === '0|EJE')
 

@@ -4,7 +4,6 @@ import BotonTema from './BotonTema'
 
 const PESTANAS: { vista: Vista; texto: string }[] = [
   { vista: 'proyecto', texto: 'Proyecto' },
-  { vista: 'plantilla', texto: 'Plantilla' },
   { vista: 'calle', texto: 'Calle' },
   { vista: 'campanias', texto: 'Campañas' },
   { vista: 'libreta', texto: 'Libreta' },

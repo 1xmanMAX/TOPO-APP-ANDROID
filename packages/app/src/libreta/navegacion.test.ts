@@ -1,28 +1,19 @@
-import { construirGrilla } from '@topo/core'
+import { construirGrilla, type Calle } from '@topo/core'
 import { describe, expect, it } from 'vitest'
 import { progresivasPendientes, resumenPendientes, siguienteCeldaPendiente } from './navegacion'
 
-const plantilla = {
-  id: 'pl-1',
-  nombre: 'P',
-  elementos: [
-    { clave: 'BOR-I', etiqueta: 'Borde izq', offset: -4.2, tipo: 'calzada' as const },
-    { clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' as const },
-  ],
-}
-
-const calle = {
+const calle: Calle = {
   id: 'c-1',
   nombre: 'Av. Sol',
-  plantillaId: 'pl-1',
-  progresivaInicio: 0,
-  progresivaFin: 40,
-  intervalo: 20,
-  progresivasExtra: [],
+  puntos: [
+    { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -4.2 },
+    { concepto: 'eje', codigo: 'EJE', distancia: 0 },
+  ],
+  nivelaciones: [],
   rasante: null,
 }
 
-const grilla = construirGrilla(calle, plantilla)
+const grilla = construirGrilla(calle, [0, 20, 40])
 
 describe('siguienteCeldaPendiente', () => {
   it('empieza por la primera celda cuando no hay nada llenado', () => {

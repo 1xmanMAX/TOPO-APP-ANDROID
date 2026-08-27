@@ -11,7 +11,9 @@ describe('archivo .topo', () => {
 
   it('conserva las lecturas crudas exactas', () => {
     const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoEjemplo()))
-    expect(recuperado.campanias[0]!.estaciones[0]!.intermedias[0]!.valor).toBe(1.931)
+    expect(
+      recuperado.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones[0]!.intermedias[0]!.valor,
+    ).toBe(1.931)
   })
 
   it('avisa en cristiano si el archivo está dañado', () => {

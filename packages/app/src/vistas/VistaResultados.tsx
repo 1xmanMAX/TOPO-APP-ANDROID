@@ -1,4 +1,4 @@
-import { compararCapas } from '@topo/core'
+import { compararCapas, progresivasMedidas } from '@topo/core'
 import { useMemo, useState } from 'react'
 import {
   armarCabecera,
@@ -57,7 +57,10 @@ export default function VistaResultados() {
   const progresivas = useProgresivas()
 
   const tabla = useMemo(
-    () => (resultado && contexto ? armarTabla(resultado, contexto.calle, contexto.plantilla) : []),
+    () =>
+      resultado && contexto
+        ? armarTabla(resultado, contexto.calle, progresivasMedidas(contexto.campania.estaciones))
+        : [],
     [resultado, contexto],
   )
 
@@ -90,7 +93,11 @@ export default function VistaResultados() {
 
   const tablaEspesores = useMemo(() => {
     if (!comparacion || !contextoInferior) return []
-    return armarTablaEspesores(comparacion, contextoInferior.calle, contextoInferior.plantilla)
+    return armarTablaEspesores(
+      comparacion,
+      contextoInferior.calle,
+      progresivasMedidas(contextoInferior.campania.estaciones),
+    )
   }, [comparacion, contextoInferior])
 
   // Misma fuente que la cabecera del archivo exportado: si una de las dos
@@ -144,7 +151,10 @@ export default function VistaResultados() {
   )
 
   const tablaDiferencias = useMemo(
-    () => (evaluacionRasante && contexto ? armarTablaDiferencias(evaluacionRasante, contexto.calle, contexto.plantilla) : []),
+    () =>
+      evaluacionRasante && contexto
+        ? armarTablaDiferencias(evaluacionRasante, contexto.calle, progresivasMedidas(contexto.campania.estaciones))
+        : [],
     [evaluacionRasante, contexto],
   )
 
@@ -184,9 +194,10 @@ export default function VistaResultados() {
 
   const progresivaActiva = seleccion.progresiva ?? progresivas[0] ?? 0
 
-  // Si la plantilla cambió y el elemento elegido ya no está, se cae al primero
-  // disponible en vez de dejar el desplegable apuntando a algo inexistente.
-  const clavesDisponibles = contexto.plantilla.elementos.map((elemento) => elemento.clave)
+  // Si los puntos de la calle cambiaron y el elegido ya no está, se cae al
+  // primero disponible en vez de dejar el desplegable apuntando a algo
+  // inexistente.
+  const clavesDisponibles = contexto.calle.puntos.map((punto) => punto.codigo)
   const elementoPerfil = clavesDisponibles.includes(elementoPedido)
     ? elementoPedido
     : (clavesDisponibles[0] ?? '')
@@ -339,9 +350,9 @@ export default function VistaResultados() {
               onChange={(evento) => setElementoPedido(evento.target.value)}
               className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
             >
-              {contexto.plantilla.elementos.map((elemento) => (
-                <option key={elemento.clave} value={elemento.clave}>
-                  {elemento.etiqueta}
+              {contexto.calle.puntos.map((punto) => (
+                <option key={punto.codigo} value={punto.codigo}>
+                  {punto.codigo}
                 </option>
               ))}
             </select>

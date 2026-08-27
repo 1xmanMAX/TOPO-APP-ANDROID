@@ -1,12 +1,13 @@
-import type { Campania, Id } from '@topo/core'
+import type { Id, Toma } from '@topo/core'
 import { useEffect, useMemo, useState } from 'react'
 import { useAlmacen } from '../estado/almacen'
+import { calleDeToma } from '../estado/proyectoTomas'
 
 const MENSAJE_MISMA_CAPA = 'Una capa no se compara consigo misma'
 
 /** Campaña con la capa ya resuelta, para no repetir la búsqueda en cada celda. */
 interface CampaniaConCapa {
-  campania: Campania
+  campania: Toma
   nombreCapa: string
   orden: number
 }
@@ -18,17 +19,17 @@ interface CampaniaConCapa {
  * distinguen por su fecha y quedan una junto a la otra, ordenadas por fecha.
  */
 function campaniasDeLaCalle(
-  campanias: Campania[],
+  campanias: { toma: Toma; calleId: Id }[],
   capas: { id: Id; nombre: string; orden: number }[],
   calleActivaId: Id | null,
 ): CampaniaConCapa[] {
   const capasPorId = new Map(capas.map((capa) => [capa.id, capa]))
 
   return campanias
-    .filter((campania) => campania.calleId === calleActivaId)
-    .map((campania) => {
-      const capa = capasPorId.get(campania.capaId)
-      return { campania, nombreCapa: capa?.nombre ?? '—', orden: capa?.orden ?? 0 }
+    .filter((entrada) => entrada.calleId === calleActivaId)
+    .map(({ toma }) => {
+      const capa = capasPorId.get(toma.capaId)
+      return { campania: toma, nombreCapa: capa?.nombre ?? '—', orden: capa?.orden ?? 0 }
     })
     .sort((a, b) => a.orden - b.orden || a.campania.fecha.localeCompare(b.campania.fecha))
 }
@@ -46,13 +47,23 @@ export default function SelectorCapas() {
   const fijarComparacion = useAlmacen((s) => s.fijarComparacion)
 
   const calleActivaId = useMemo(
-    () => proyecto.campanias.find((c) => c.id === campaniaActivaId)?.calleId ?? null,
+    () => calleDeToma(proyecto, campaniaActivaId),
     [proyecto, campaniaActivaId],
   )
 
+  const todasConCalle = useMemo(
+    () =>
+      proyecto.calles.flatMap((calle) =>
+        calle.nivelaciones.flatMap((nivelacion) =>
+          nivelacion.tomas.map((toma) => ({ toma, calleId: calle.id })),
+        ),
+      ),
+    [proyecto],
+  )
+
   const campanias = useMemo(
-    () => campaniasDeLaCalle(proyecto.campanias, proyecto.capas, calleActivaId),
-    [proyecto, calleActivaId],
+    () => campaniasDeLaCalle(todasConCalle, proyecto.capas, calleActivaId),
+    [todasConCalle, proyecto.capas, calleActivaId],
   )
 
   const [mensaje, setMensaje] = useState<string | null>(null)

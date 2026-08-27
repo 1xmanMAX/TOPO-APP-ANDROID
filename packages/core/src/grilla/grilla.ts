@@ -1,11 +1,9 @@
-import type { Calle, Plantilla } from '../modelo/tipos'
+import type { Calle, Estacion } from '../modelo/tipos'
 import { redondear3 } from '../numero'
-import { generarProgresivas } from './progresivas'
 
 export interface CeldaGrilla {
   progresiva: number
   elementoClave: string
-  etiqueta: string
   offset: number
   clave: string
 }
@@ -33,25 +31,47 @@ export function partirClaveCelda(
   return { progresiva, elementoClave }
 }
 
-export function construirGrilla(calle: Calle, plantilla: Plantilla): CeldaGrilla[] {
-  const progresivas = generarProgresivas(
-    calle.progresivaInicio,
-    calle.progresivaFin,
-    calle.intervalo,
-    calle.progresivasExtra,
-  )
+/**
+ * La grilla sale de las progresivas medidas, no de un intervalo inventado:
+ * quien llama las pasa **ya ordenadas y sin repetir** — esta función no las
+ * limpia, para que quien la use sepa qué va a salir. Los puntos de la calle sí
+ * se ordenan aquí, por distancia al eje, para que las columnas salgan siempre
+ * en el mismo orden sin importar cómo se escribieron.
+ */
+export function construirGrilla(calle: Calle, progresivas: number[]): CeldaGrilla[] {
+  const puntosOrdenados = [...calle.puntos].sort((a, b) => a.distancia - b.distancia)
 
   const celdas: CeldaGrilla[] = []
   for (const progresiva of progresivas) {
-    for (const elemento of plantilla.elementos) {
+    for (const punto of puntosOrdenados) {
       celdas.push({
         progresiva,
-        elementoClave: elemento.clave,
-        etiqueta: elemento.etiqueta,
-        offset: elemento.offset,
-        clave: claveCelda(progresiva, elemento.clave),
+        elementoClave: punto.codigo,
+        offset: punto.distancia,
+        clave: claveCelda(progresiva, punto.codigo),
       })
     }
   }
   return celdas
+}
+
+/**
+ * Las progresivas que de verdad se midieron en estas estaciones: las de cada
+ * lectura cuyo destino es una celda de grilla, sin repetir y ordenadas. Es lo
+ * que alimenta a `construirGrilla` desde una toma — nunca un rango inventado.
+ */
+export function progresivasMedidas(estaciones: Estacion[]): number[] {
+  const valores = new Set<number>()
+  for (const estacion of estaciones) {
+    for (const lectura of estacion.intermedias) {
+      if (lectura.destino.tipo === 'celda') valores.add(lectura.destino.celda.progresiva)
+    }
+    if (estacion.vistaAdelante && estacion.vistaAdelante.destino.tipo === 'celda') {
+      valores.add(estacion.vistaAdelante.destino.celda.progresiva)
+    }
+    if (estacion.vistaAtras.destino.tipo === 'celda') {
+      valores.add(estacion.vistaAtras.destino.celda.progresiva)
+    }
+  }
+  return [...valores].sort((a, b) => a - b)
 }

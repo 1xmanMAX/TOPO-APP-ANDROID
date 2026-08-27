@@ -1,5 +1,6 @@
 import type { Proyecto } from '@topo/core'
 import { del, get, set } from 'idb-keyval'
+import { todasLasTomas } from '../estado/proyectoTomas'
 import { migrarProyecto } from './topo'
 
 const CLAVE = 'topo:borrador'
@@ -32,7 +33,7 @@ export async function borrarBorrador(): Promise<void> {
 
 /** Cuenta lecturas para el mensaje de recuperación. */
 export function contarLecturas(proyecto: Proyecto): number {
-  return proyecto.campanias.reduce(
+  return todasLasTomas(proyecto).reduce(
     (total, campania) =>
       total +
       campania.estaciones.reduce(

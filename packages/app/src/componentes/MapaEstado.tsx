@@ -1,4 +1,4 @@
-import { formatearProgresiva, type EstadoTolerancia, type Id } from '@topo/core'
+import { formatearProgresiva, progresivasMedidas, type EstadoTolerancia, type Id } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
@@ -63,7 +63,8 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
   const seleccionar = useAlmacen((s) => s.seleccionar)
 
   const esqueleto = useMemo(
-    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
+    () =>
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
     [contexto],
   )
   const progresivas = esqueleto?.progresivas ?? []
@@ -81,9 +82,10 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
 
   function pintarCelda(clave: string): CeldaPintada {
     // `clave` sale de `progresivas`/`elementos`, que a su vez salen de
-    // `armarEsqueletoTabla(contexto.calle, contexto.plantilla)` — el mismo
-    // par calle/plantilla que `useEvaluacionRasante` usó para construir
-    // `evaluacion.celdas` (ambos cuelgan ahora del mismo `idCampaniaReferencia`,
+    // `armarEsqueletoTabla(contexto.calle, progresivasMedidas(...))` — la
+    // misma calle y las mismas progresivas medidas que `useEvaluacionRasante`
+    // usó para construir `evaluacion.celdas` (ambos cuelgan ahora del mismo
+    // `idCampaniaReferencia`,
     // sin un segundo camino que pudiera desalinearlos). Por eso el motor
     // garantiza una celda en el mapa por cada progresiva × elemento y esta
     // búsqueda nunca falla: `construirGrilla` genera ese producto completo y

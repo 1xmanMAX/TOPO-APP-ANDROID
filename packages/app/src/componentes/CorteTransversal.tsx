@@ -11,6 +11,7 @@ import {
 import { useId, useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useEvaluacionRasante, useResultadosDe } from '../estado/derivados'
+import { buscarToma } from '../estado/proyectoTomas'
 import { formatearCota } from '../formato'
 import MarcoGrafico from '../grafico/MarcoGrafico'
 
@@ -298,7 +299,7 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
     for (const id of idsVisibles) {
       const resultado = resultados.get(id)
       if (!resultado) continue
-      const campania = proyecto.campanias.find((c) => c.id === id)
+      const campania = buscarToma(proyecto, id)?.toma
       const capa = campania ? capasPorId.get(campania.capaId) : undefined
 
       lista.push({
@@ -314,7 +315,7 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
     // De abajo hacia arriba según el paquete estructural, no según el orden
     // en que se marcaron en el selector.
     return lista.sort((a, b) => a.orden - b.orden)
-  }, [idsVisibles, resultados, proyecto.capas, proyecto.campanias, progresiva])
+  }, [idsVisibles, resultados, proyecto, progresiva])
 
   const tramos = useMemo(() => {
     const salida: Tramo[] = []

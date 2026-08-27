@@ -4,7 +4,6 @@ import { useAutoguardado } from './archivo/useAutoguardado'
 import BarraSuperior from './componentes/BarraSuperior'
 import { useAlmacen } from './estado/almacen'
 import VistaProyecto from './vistas/VistaProyecto'
-import VistaPlantilla from './vistas/VistaPlantilla'
 import VistaCalle from './vistas/VistaCalle'
 import VistaCampanias from './vistas/VistaCampanias'
 import VistaLibreta from './vistas/VistaLibreta'
@@ -68,7 +67,6 @@ export default function App() {
       )}
       <div className="flex-1 overflow-auto">
         {vista === 'proyecto' && <VistaProyecto />}
-        {vista === 'plantilla' && <VistaPlantilla />}
         {vista === 'calle' && <VistaCalle />}
         {vista === 'campanias' && <VistaCampanias />}
         {vista === 'libreta' && <VistaLibreta />}

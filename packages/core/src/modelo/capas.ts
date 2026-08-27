@@ -1,4 +1,4 @@
-import type { Campania, Capa, Id } from './tipos'
+import type { Capa, Id, Toma } from './tipos'
 
 /** De arriba hacia abajo del paquete: terreno primero, carpeta al final. */
 export function ordenarCapas(capas: Capa[]): Capa[] {
@@ -10,9 +10,9 @@ export function renumerarCapas(capas: Capa[]): Capa[] {
   return ordenarCapas(capas).map((capa, indice) => ({ ...capa, orden: indice }))
 }
 
-/** True si alguna campaña usa esta capa: borrarla la dejaría apuntando a algo inexistente. */
-export function capaEnUso(campanias: Campania[], capaId: Id): boolean {
-  return campanias.some((campania) => campania.capaId === capaId)
+/** True si alguna toma usa esta capa: borrarla la dejaría apuntando a algo inexistente. */
+export function capaEnUso(tomas: Toma[], capaId: Id): boolean {
+  return tomas.some((toma) => toma.capaId === capaId)
 }
 
 /**

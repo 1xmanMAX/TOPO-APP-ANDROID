@@ -2,9 +2,8 @@ import {
   cotaEjeRasante,
   desnivelTransversal,
   formatearProgresiva,
-  type ElementoPlantilla,
   type Id,
-  type Plantilla,
+  type PuntoCalle,
   type Rasante,
   type TramoTransversal,
 } from '@topo/core'
@@ -15,10 +14,13 @@ import CampoNumero from './CampoNumero'
 import CampoTexto from './CampoTexto'
 import CorteTipo from './CorteTipo'
 
+/** Cuánto más allá de la progresiva de arranque se enseña la cota en vivo, para comprobar el signo de la pendiente. */
+const DISTANCIA_VISTA_PREVIA = 100
+
 interface Props {
   calleId: Id
-  /** La de la calle: sin ella el editor no puede saber qué deja fuera su sección ni fijar una escala estable. */
-  plantilla: Plantilla
+  /** Los de la calle: sin ellos el editor no puede saber qué deja fuera su sección ni fijar una escala estable. */
+  puntos: PuntoCalle[]
 }
 
 type Lado = 'derecha' | 'izquierda'
@@ -32,9 +34,9 @@ const TIPOS_TRAMO: { valor: TramoTransversal['tipo']; texto: string }[] = [
 ]
 
 /** Tramo de arranque razonable: una calzada con el bombeo típico de +2.0 %. */
-function rasanteInicial(progresivaArranque: number): Rasante {
+function rasanteInicial(): Rasante {
   return {
-    progresivaArranque,
+    progresivaArranque: 0,
     cotaArranque: 0,
     pendienteLongitudinal: 0,
     simetrica: true,
@@ -75,19 +77,20 @@ function alcanceLado(rasante: Rasante, lado: Lado): number {
 }
 
 /**
- * El offset más lejano de la plantilla, a cualquier lado. Sirve de ancho fijo
- * para el corte tipo: así la escala del dibujo no salta con cada tramo que se
- * edita, y de paso se ve de un vistazo cuánto de la calle cubre la sección.
+ * La distancia más lejana entre los puntos de la calle, a cualquier lado.
+ * Sirve de ancho fijo para el corte tipo: así la escala del dibujo no salta
+ * con cada tramo que se edita, y de paso se ve de un vistazo cuánto de la
+ * calle cubre la sección.
  */
-function alcanceMaximoPlantilla(plantilla: Plantilla): number {
-  return Math.max(0, ...plantilla.elementos.map((elemento) => Math.abs(elemento.offset)))
+function alcanceMaximoPuntos(puntos: PuntoCalle[]): number {
+  return Math.max(0, ...puntos.map((punto) => Math.abs(punto.distancia)))
 }
 
-/** Los elementos de la plantilla que la sección deja sin cota, del más cercano al eje al más lejano. */
-function elementosSinCota(rasante: Rasante, plantilla: Plantilla): ElementoPlantilla[] {
-  return plantilla.elementos
-    .filter((elemento) => desnivelTransversal(rasante, elemento.offset) === null)
-    .sort((a, b) => Math.abs(a.offset) - Math.abs(b.offset))
+/** Los puntos de la calle que la sección deja sin cota, del más cercano al eje al más lejano. */
+function puntosSinCota(rasante: Rasante, puntos: PuntoCalle[]): PuntoCalle[] {
+  return puntos
+    .filter((punto) => desnivelTransversal(rasante, punto.distancia) === null)
+    .sort((a, b) => Math.abs(a.distancia) - Math.abs(b.distancia))
 }
 
 /** Con cuánto alcance describir el aviso: una sola cifra si los dos lados llegan igual de lejos. */
@@ -228,7 +231,7 @@ function TablaTramos({
  * longitudinal y la sección transversal, con el corte tipo dibujándose en
  * vivo al lado para comprobar el signo de cada tramo.
  */
-export default function EditorRasante({ calleId, plantilla }: Props) {
+export default function EditorRasante({ calleId, puntos }: Props) {
   const calle = useAlmacen((s) => s.proyecto.calles.find((c) => c.id === calleId))
   const fijarRasante = useAlmacen((s) => s.fijarRasante)
   const [errorTramo, setErrorTramo] = useState<string | null>(null)
@@ -241,7 +244,7 @@ export default function EditorRasante({ calleId, plantilla }: Props) {
     return (
       <button
         type="button"
-        onClick={() => fijarRasante(calleId, rasanteInicial(calle.progresivaInicio))}
+        onClick={() => fijarRasante(calleId, rasanteInicial())}
         className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
       >
         Definir la rasante de esta calle
@@ -313,9 +316,10 @@ export default function EditorRasante({ calleId, plantilla }: Props) {
     }
   }
 
-  const cotaFinal = cotaEjeRasante(rasante, calle.progresivaFin)
+  const progresivaVistaPrevia = rasante.progresivaArranque + DISTANCIA_VISTA_PREVIA
+  const cotaVistaPrevia = cotaEjeRasante(rasante, progresivaVistaPrevia)
   const aviso = veredaBajoCalzada(rasante)
-  const faltantes = elementosSinCota(rasante, plantilla)
+  const faltantes = puntosSinCota(rasante, puntos)
   // Cero no es una cota plausible en ninguna obra: mientras la cota de arranque
   // siga en ese valor de arranque, se trata como «todavía no escrita» y no se
   // muestra, para no confundirla con una cota real de tres decimales.
@@ -351,14 +355,14 @@ export default function EditorRasante({ calleId, plantilla }: Props) {
 
       {hayCotaEscrita && (
         <p className="text-sm text-slate-600 dark:text-slate-300">
-          Al final del tramo ({formatearProgresiva(calle.progresivaFin)}): {formatearCota(cotaFinal)}
+          A {formatearProgresiva(progresivaVistaPrevia)}: {formatearCota(cotaVistaPrevia)}
         </p>
       )}
 
       {faltantes.length > 0 && (
         <p className="text-sm text-aviso">
-          {mensajeAlcance(rasante)} Estos puntos de la plantilla quedan sin cota de proyecto:{' '}
-          {faltantes.map((elemento) => elemento.clave).join(', ')}.
+          {mensajeAlcance(rasante)} Estos puntos de la calle quedan sin cota de proyecto:{' '}
+          {faltantes.map((punto) => punto.codigo).join(', ')}.
         </p>
       )}
 
@@ -405,7 +409,7 @@ export default function EditorRasante({ calleId, plantilla }: Props) {
           )}
         </div>
 
-        <CorteTipo rasante={rasante} anchoMaximo={alcanceMaximoPlantilla(plantilla) || undefined} />
+        <CorteTipo rasante={rasante} anchoMaximo={alcanceMaximoPuntos(puntos) || undefined} />
       </div>
     </div>
   )

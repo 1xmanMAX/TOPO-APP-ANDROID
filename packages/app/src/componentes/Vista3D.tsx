@@ -3,6 +3,7 @@ import {
   calcularCampania,
   claveCelda,
   formatearProgresiva,
+  progresivasMedidas,
   proyectarCaras,
   type CaraMalla,
   type CaraProyectada,
@@ -14,6 +15,7 @@ import { useMemo, useRef, type PointerEvent as EventoPuntero } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
+import { buscarToma } from '../estado/proyectoTomas'
 import { etiquetaAccesibleCelda, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasante'
 import ResumenVista3D, { type CapaResumen } from './ResumenVista3D'
 
@@ -176,13 +178,14 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
   }
 
   const esqueleto = useMemo(
-    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
+    () =>
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
     [contexto],
   )
 
   const offsets = useMemo(() => {
     const mapa = new Map<string, number>()
-    if (contexto) for (const elemento of contexto.plantilla.elementos) mapa.set(elemento.clave, elemento.offset)
+    if (contexto) for (const punto of contexto.calle.puntos) mapa.set(punto.codigo, punto.distancia)
     return mapa
   }, [contexto])
 
@@ -193,7 +196,7 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
    * gobierna el modo estado: en modo capas cada capa marcada puede tener sus
    * propias progresivas medidas, y basta con que alguna cierre un cuadro.
    */
-  const progresivasMedidas = useMemo(() => {
+  const progresivasConCotaReal = useMemo(() => {
     const conjunto = new Set<number>()
     if (evaluacion) {
       for (const celda of evaluacion.celdas.values()) {
@@ -230,17 +233,17 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
     const salida: EntradaCapa[] = []
 
     for (const id of idsCapas) {
-      const campania = proyecto.campanias.find((c) => c.id === id)
+      const hallado = buscarToma(proyecto, id)
       // Solo campañas de la misma calle que la de referencia: sus claves de
       // celda (`progresiva|elemento`) coinciden con las de cualquier otra
       // calle, así que mezclar cotas de calles distintas dibujaría una
       // superficie sin sentido físico.
-      if (!campania || campania.calleId !== contexto.calle.id) continue
+      if (!hallado || hallado.calleId !== contexto.calle.id) continue
+      const campania = hallado.toma
 
       const resultado = calcularCampania({
         campania,
         calle: contexto.calle,
-        plantilla: contexto.plantilla,
         bms: proyecto.bms,
       })
       const caras = armarCaras({
@@ -258,14 +261,14 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
   }, [modoVista3D, esqueleto, contexto, offsets, idsCapas, proyecto])
 
   const carasEstado = useMemo(() => {
-    if (modoVista3D !== 'estado' || !esqueleto || !evaluacion || progresivasMedidas.size < 2) return []
+    if (modoVista3D !== 'estado' || !esqueleto || !evaluacion || progresivasConCotaReal.size < 2) return []
     return armarCaras({
       progresivas: esqueleto.progresivas,
       elementos: esqueleto.elementos,
       offsets,
       cotaDe: (clave) => evaluacion.celdas.get(clave)?.cotaReal ?? null,
     })
-  }, [modoVista3D, esqueleto, evaluacion, offsets, progresivasMedidas])
+  }, [modoVista3D, esqueleto, evaluacion, offsets, progresivasConCotaReal])
 
   /**
    * Todas las caras de todas las capas visibles, juntas en un solo montón
@@ -375,7 +378,7 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
     )
   }
 
-  if (modoVista3D === 'estado' && progresivasMedidas.size < 2) {
+  if (modoVista3D === 'estado' && progresivasConCotaReal.size < 2) {
     return (
       <p className="rounded border border-dashed border-slate-300 p-3 text-sm text-slate-500 dark:border-slate-700">
         {MENSAJE_POCAS_PROGRESIVAS}
@@ -446,8 +449,8 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
 
           const claveInicial = claveCelda(cara.progresivaDesde, cara.elementoDesde)
           // Misma garantía que en `MapaEstado`: `esqueleto` y `evaluacion`
-          // salen del mismo par calle/plantilla (el mismo `contexto`), así
-          // que el producto progresiva × elemento que arma
+          // salen de la misma calle y las mismas progresivas medidas (el
+          // mismo `contexto`), así que el producto progresiva × elemento que arma
           // `armarEsqueletoTabla` siempre tiene su celda evaluada. `evaluacion`
           // ya no se descarta sin mirar el modo (fix del bloqueo sin rasante
           // en modo capas): este bloque solo se alcanza fuera de modo capas,

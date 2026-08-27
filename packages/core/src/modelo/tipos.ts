@@ -1,3 +1,6 @@
+import type { Catalogo } from '../catalogo/catalogo'
+import type { Concepto } from '../catalogo/conceptos'
+
 export type Id = string
 
 // ---------- Banco de nivel ----------
@@ -10,31 +13,6 @@ export interface BM {
   cota: number
   tipo: TipoBM
   descripcion: string
-}
-
-// ---------- Plantilla transversal ----------
-
-export type TipoElemento =
-  | 'vereda'
-  | 'sardinel'
-  | 'calzada'
-  | 'eje'
-  | 'peloAgua'
-  | 'existente'
-  | 'otro'
-
-export interface ElementoPlantilla {
-  clave: string
-  etiqueta: string
-  /** Metros desde el eje. Negativo = izquierda. */
-  offset: number
-  tipo: TipoElemento
-}
-
-export interface Plantilla {
-  id: Id
-  nombre: string
-  elementos: ElementoPlantilla[]
 }
 
 // ---------- Rasante de proyecto ----------
@@ -76,14 +54,27 @@ export interface Rasante {
 
 // ---------- Calle ----------
 
+/**
+ * Un punto que se mide a lo ancho de esta calle.
+ *
+ * Las distancias son **de cada calle**, no de una plantilla compartida: la
+ * misma obra puede tener una avenida de 4.20 m de media calzada y un jirón de
+ * 3.10 m, y las dos usan el mismo código para el borde. Max señaló que atarlas
+ * a una plantilla global era justo lo que no servía.
+ */
+export interface PuntoCalle {
+  concepto: Concepto
+  /** El código tal como venía en la hoja, para poder enseñarlo igual que se escribió. */
+  codigo: string
+  /** Metros desde el eje. Negativo a la izquierda, positivo a la derecha. */
+  distancia: number
+}
+
 export interface Calle {
   id: Id
   nombre: string
-  plantillaId: Id
-  progresivaInicio: number
-  progresivaFin: number
-  intervalo: number
-  progresivasExtra: number[]
+  puntos: PuntoCalle[]
+  nivelaciones: Nivelacion[]
   /** Null mientras la calle no tenga proyecto cargado: la app funciona igual, sin cota teórica. */
   rasante: Rasante | null
 }
@@ -146,12 +137,12 @@ export interface Estacion {
 export type TipoCierre = 'cerrado' | 'enlace' | 'abierto'
 export type ClaseNivelacion = 'precision' | 'tercerOrden' | 'personalizada'
 
-export interface ConfigCierre {
+export interface ConfiguracionCierre {
   tipo: TipoCierre
   bmFinalId?: Id
   /** Longitud del circuito en kilómetros. */
   longitudK: number
-  /** Si es true, longitudK se recalcula desde las progresivas de la calle. */
+  /** Si es true, longitudK se recalcula desde las progresivas medidas de la toma. */
   longitudKAuto: boolean
   clase: ClaseNivelacion
   /** Coeficiente e de la fórmula T = e·raiz(K), en milímetros. */
@@ -163,18 +154,31 @@ export const COEFICIENTE_POR_CLASE: Record<Exclude<ClaseNivelacion, 'personaliza
   tercerOrden: 12,
 }
 
-// ---------- Campaña ----------
+// ---------- Nivelación ----------
 
-export interface Campania {
+/** Una salida a campo. Es lo que hasta ahora se llamaba campaña. */
+export interface Toma {
   id: Id
-  /** Fecha ISO: 2026-08-19 */
   fecha: string
-  calleId: Id
   capaId: Id
   bmInicialId: Id
   estaciones: Estacion[]
-  cierre: ConfigCierre
-  estado: 'abierta' | 'cerrada'
+  cierre: ConfiguracionCierre
+}
+
+/**
+ * Una superficie completa, que puede haber costado varios días de campo.
+ *
+ * Hoy se mide del 0+000 al 0+100 y mañana del 0+100 al 0+200, enlazando por el
+ * punto de cambio que dejó la anterior: las dos tomas son **la misma
+ * superficie**. Lo que se compara entre sí son nivelaciones, nunca tomas.
+ */
+export interface Nivelacion {
+  id: Id
+  nombre: string
+  /** El que la identifica en la lista y en todas las vistas. */
+  color: string
+  tomas: Toma[]
 }
 
 // ---------- Proyecto ----------
@@ -192,9 +196,8 @@ export interface MetaProyecto {
 export interface Proyecto {
   version: 1
   meta: MetaProyecto
+  catalogo: Catalogo
   bms: BM[]
-  plantillas: Plantilla[]
   calles: Calle[]
   capas: Capa[]
-  campanias: Campania[]
 }

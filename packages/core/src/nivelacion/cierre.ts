@@ -1,4 +1,5 @@
-import type { BM, Calle, Campania, TipoCierre } from '../modelo/tipos'
+import { progresivasMedidas } from '../grilla/grilla'
+import type { BM, Toma, TipoCierre } from '../modelo/tipos'
 import { aMilimetros } from '../numero'
 import type { ResultadoCotas } from './cotas'
 
@@ -17,21 +18,27 @@ export function calcularToleranciaMm(coeficiente: number, longitudKKm: number): 
   return coeficiente * Math.sqrt(longitudKKm)
 }
 
-/** Un circuito cerrado recorre la calle de ida y de vuelta; enlace y abierto, una sola vez. */
-export function calcularLongitudKAuto(calle: Calle, tipo: TipoCierre): number {
-  const longitudMetros = Math.abs(calle.progresivaFin - calle.progresivaInicio)
+/**
+ * Un circuito cerrado recorre la calle de ida y de vuelta; enlace y abierto,
+ * una sola vez. La longitud sale del propio recorrido de esta toma —del
+ * primero al último de sus puntos medidos—, no de un rango configurado en la
+ * calle: dos tomas de la misma calle pueden cubrir tramos de largo distinto.
+ */
+export function calcularLongitudKAuto(toma: Toma, tipo: TipoCierre): number {
+  const progresivas = progresivasMedidas(toma.estaciones)
+  const longitudMetros = progresivas.length > 0 ? Math.max(...progresivas) - Math.min(...progresivas) : 0
   const recorridos = tipo === 'cerrado' ? 2 : 1
   return (longitudMetros * recorridos) / 1000
 }
 
 export function calcularCierre(
-  campania: Campania,
+  toma: Toma,
   bms: BM[],
   cotas: ResultadoCotas,
   longitudKKm: number,
 ): ResultadoCierre {
   const base: ResultadoCierre = {
-    tipo: campania.cierre.tipo,
+    tipo: toma.cierre.tipo,
     cotaLlegadaCalculada: cotas.cotaLlegada,
     cotaLlegadaConocida: null,
     errorMm: null,
@@ -40,15 +47,15 @@ export function calcularCierre(
     pasa: null,
   }
 
-  if (campania.cierre.tipo === 'abierto') return base
+  if (toma.cierre.tipo === 'abierto') return base
 
-  const bmFinal = bms.find((bm) => bm.id === campania.cierre.bmFinalId)
+  const bmFinal = bms.find((bm) => bm.id === toma.cierre.bmFinalId)
   // Cerrar contra un BM distinto del configurado no es cerrar: sería comparar
   // la llegada con la cota de otro punto.
   if (!bmFinal || cotas.cotaLlegada === null || cotas.bmLlegadaId !== bmFinal.id) return base
 
   const errorMm = aMilimetros(cotas.cotaLlegada - bmFinal.cota)
-  const toleranciaMm = calcularToleranciaMm(campania.cierre.coeficiente, longitudKKm)
+  const toleranciaMm = calcularToleranciaMm(toma.cierre.coeficiente, longitudKKm)
 
   return {
     ...base,

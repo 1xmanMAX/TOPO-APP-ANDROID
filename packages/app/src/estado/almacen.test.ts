@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from './almacen'
 import { proyectoEjemplo } from './ejemplo'
+import { buscarToma } from './proyectoTomas'
+
+/** La toma con este id, dondequiera que esté en la obra. */
+function tomaDe(id: string) {
+  return buscarToma(useAlmacen.getState().proyecto, id)!.toma
+}
 
 describe('almacén', () => {
   beforeEach(() => {
@@ -47,11 +53,9 @@ describe('almacén', () => {
 
   /** La lectura de 0+000 EJE en la primera estación de la campaña de ejemplo. */
   function lecturaDeEjeEnCero(): string {
-    return useAlmacen
-      .getState()
-      .proyecto.campanias[0]!.estaciones[0]!.intermedias.find(
-        (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'EJE',
-      )!.id
+    return tomaDe('camp-1').estaciones[0]!.intermedias.find(
+      (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'EJE',
+    )!.id
   }
 
   it('cambiar una lectura recalcula sin tocar el resto', () => {
@@ -95,7 +99,6 @@ describe('almacén', () => {
       calleId: 'c-1',
       capaId: 'cap-subrasante',
       bmInicialId: 'bm-1',
-      estado: 'abierta',
       cierre: {
         tipo: 'abierto',
         longitudK: 0,
@@ -105,7 +108,7 @@ describe('almacén', () => {
       },
     })
 
-    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId)!
+    const campania = tomaDe(campaniaId)
     expect(campania.estaciones).toHaveLength(1)
     expect(campania.estaciones[0]!.vistaAtras.destino).toEqual({ tipo: 'bm', bmId: 'bm-1' })
   })
@@ -116,7 +119,6 @@ describe('almacén', () => {
       calleId: 'c-1',
       capaId: 'cap-subrasante',
       bmInicialId: 'bm-1',
-      estado: 'abierta',
       cierre: {
         tipo: 'abierto',
         longitudK: 0,
@@ -131,7 +133,7 @@ describe('almacén', () => {
       valor: 1.5,
     })
 
-    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId)!
+    const campania = tomaDe(campaniaId)
     expect(campania.estaciones[0]!.intermedias).toHaveLength(1)
     expect(campania.estaciones[0]!.intermedias[0]!.valor).toBe(1.5)
   })
@@ -142,7 +144,7 @@ describe('almacén', () => {
       destino: { tipo: 'cambio', nombre: 'PC-2' },
       valor: 1.2,
     })
-    const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[0]!
+    const estacion = tomaDe('camp-1').estaciones[0]!
     expect(estacion.vistaAdelante?.valor).toBe(1.2)
   })
 
@@ -152,7 +154,7 @@ describe('almacén', () => {
       destino: { tipo: 'cambio', nombre: 'PC-1' },
       valor: 1.5,
     })
-    const campania = useAlmacen.getState().proyecto.campanias[0]!
+    const campania = tomaDe('camp-1')
     expect(campania.estaciones).toHaveLength(3)
     expect(campania.estaciones[2]!.vistaAtras.valor).toBe(1.5)
   })
@@ -163,7 +165,6 @@ describe('almacén', () => {
       calleId: 'c-1',
       capaId: 'cap-subrasante',
       bmInicialId: 'bm-1',
-      estado: 'abierta',
       cierre: {
         tipo: 'abierto',
         longitudK: 0,
@@ -190,7 +191,7 @@ describe('almacén', () => {
     expect(useAlmacen.getState().estacionActiva).toBe(0)
 
     useAlmacen.getState().activarCampania(campaniaId2)
-    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId2)!
+    const campania = tomaDe(campaniaId2)
     expect(useAlmacen.getState().estacionActiva).toBe(campania.estaciones.length - 1)
   })
 
@@ -198,7 +199,7 @@ describe('almacén', () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
     useAlmacen.getState().quitarVistaAdelante(campaniaId, 1)
 
-    const estacion = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!
+    const estacion = tomaDe('camp-1').estaciones[1]!
     expect(estacion.vistaAdelante).toBeUndefined()
     // La segunda estación del ejemplo mide 10 celdas desde la Entrega 3
     // (dos progresivas por cinco puntos). Quitar la vista adelante no toca
@@ -229,7 +230,6 @@ describe('almacén', () => {
         calleId: 'c-1',
         capaId: 'cap-terreno',
         bmInicialId: 'bm-1',
-        estado: 'abierta',
         cierre: CIERRE_ABIERTO,
       })
 
@@ -250,7 +250,6 @@ describe('almacén', () => {
         calleId: 'c-1',
         capaId: 'cap-terreno',
         bmInicialId: 'bm-1',
-        estado: 'abierta',
         cierre: CIERRE_ABIERTO,
       })
       useAlmacen.getState().activarCampania('camp-1')
@@ -264,22 +263,13 @@ describe('almacén', () => {
     })
 
     it('cambiar la calle activa limpia lo que ya no aplica', () => {
-      useAlmacen.getState().agregarCalle({
-        nombre: 'Jr. Otra',
-        plantillaId: 'pl-1',
-        progresivaInicio: 0,
-        progresivaFin: 40,
-        intervalo: 20,
-        progresivasExtra: [],
-        rasante: null,
-      })
+      useAlmacen.getState().agregarCalle({ nombre: 'Jr. Otra', rasante: null })
       const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
       const campaniaOtraCalleId = useAlmacen.getState().agregarCampania({
         fecha: '2026-08-20',
         calleId: otraCalleId,
         capaId: 'cap-terreno',
         bmInicialId: 'bm-1',
-        estado: 'abierta',
         cierre: CIERRE_ABIERTO,
       })
 
@@ -314,18 +304,9 @@ describe('almacén', () => {
         calleId: 'c-1',
         capaId: 'cap-terreno',
         bmInicialId: 'bm-1',
-        estado: 'abierta',
         cierre: CIERRE_ABIERTO,
       })
-      useAlmacen.getState().agregarCalle({
-        nombre: 'Jr. Otra',
-        plantillaId: 'pl-1',
-        progresivaInicio: 0,
-        progresivaFin: 40,
-        intervalo: 20,
-        progresivasExtra: [],
-        rasante: null,
-      })
+      useAlmacen.getState().agregarCalle({ nombre: 'Jr. Otra', rasante: null })
       const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
       // agregarCampania deja la nueva campaña como activa: se vuelve a
       // camp-1 para que otraId sea justo la que no es la activa.
@@ -348,18 +329,9 @@ describe('almacén', () => {
         calleId: 'c-1',
         capaId: 'cap-terreno',
         bmInicialId: 'bm-1',
-        estado: 'abierta',
         cierre: CIERRE_ABIERTO,
       })
-      useAlmacen.getState().agregarCalle({
-        nombre: 'Jr. Otra',
-        plantillaId: 'pl-1',
-        progresivaInicio: 0,
-        progresivaFin: 40,
-        intervalo: 20,
-        progresivasExtra: [],
-        rasante: null,
-      })
+      useAlmacen.getState().agregarCalle({ nombre: 'Jr. Otra', rasante: null })
       const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
       useAlmacen.getState().activarCampania('camp-1')
 
@@ -378,7 +350,6 @@ describe('almacén', () => {
         calleId: 'c-1',
         capaId: 'cap-terreno',
         bmInicialId: 'bm-1',
-        estado: 'abierta',
         cierre: CIERRE_ABIERTO,
       })
       useAlmacen.getState().fijarComparacion('camp-1', otraId)
@@ -389,22 +360,13 @@ describe('almacén', () => {
     })
 
     it('fijarComparacion no deja en pie una pareja de campañas de calles distintas', () => {
-      useAlmacen.getState().agregarCalle({
-        nombre: 'Jr. Otra',
-        plantillaId: 'pl-1',
-        progresivaInicio: 0,
-        progresivaFin: 40,
-        intervalo: 20,
-        progresivasExtra: [],
-        rasante: null,
-      })
+      useAlmacen.getState().agregarCalle({ nombre: 'Jr. Otra', rasante: null })
       const otraCalleId = useAlmacen.getState().proyecto.calles[1]!.id
       const campaniaOtraCalleId = useAlmacen.getState().agregarCampania({
         fecha: '2026-08-20',
         calleId: otraCalleId,
         capaId: 'cap-terreno',
         bmInicialId: 'bm-1',
-        estado: 'abierta',
         cierre: CIERRE_ABIERTO,
       })
 

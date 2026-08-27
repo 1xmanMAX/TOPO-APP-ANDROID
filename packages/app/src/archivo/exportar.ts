@@ -3,9 +3,8 @@ import {
   formatearProgresiva,
   type BM,
   type Calle,
-  type Campania,
+  type Toma,
   type Capa,
-  type Plantilla,
   type Rasante,
   type ResultadoCampania,
   type ResultadoCierre,
@@ -20,15 +19,14 @@ import { armarXlsx } from './xlsx'
 export function armarTabla(
   resultado: ResultadoCampania,
   calle: Calle,
-  plantilla: Plantilla,
+  progresivas: number[],
 ): string[][] {
-  const esqueleto = armarEsqueletoTabla(calle, plantilla)
-  if (!esqueleto) return []
-  const { progresivas, elementos } = esqueleto
+  const esqueleto = armarEsqueletoTabla(calle, progresivas)
+  const { progresivas: progresivasOrdenadas, elementos } = esqueleto
 
   const filas: string[][] = [['Progresiva', ...elementos]]
 
-  for (const progresiva of progresivas) {
+  for (const progresiva of progresivasOrdenadas) {
     filas.push([
       formatearProgresiva(progresiva),
       ...elementos.map((elementoClave) => {
@@ -52,15 +50,14 @@ export function armarTabla(
 export function armarTablaEspesores(
   comparacion: ResultadoComparacion,
   calle: Calle,
-  plantilla: Plantilla,
+  progresivas: number[],
 ): string[][] {
-  const esqueleto = armarEsqueletoTabla(calle, plantilla)
-  if (!esqueleto) return []
-  const { progresivas, elementos } = esqueleto
+  const esqueleto = armarEsqueletoTabla(calle, progresivas)
+  const { progresivas: progresivasOrdenadas, elementos } = esqueleto
 
   const filas: string[][] = [['Progresiva', ...elementos]]
 
-  for (const progresiva of progresivas) {
+  for (const progresiva of progresivasOrdenadas) {
     filas.push([
       formatearProgresiva(progresiva),
       ...elementos.map((elementoClave) => {
@@ -95,15 +92,14 @@ function formatearDiferenciaExportada(diferenciaMm: number): string {
 export function armarTablaDiferencias(
   evaluacion: ResultadoEvaluacion,
   calle: Calle,
-  plantilla: Plantilla,
+  progresivas: number[],
 ): string[][] {
-  const esqueleto = armarEsqueletoTabla(calle, plantilla)
-  if (!esqueleto) return []
-  const { progresivas, elementos } = esqueleto
+  const esqueleto = armarEsqueletoTabla(calle, progresivas)
+  const { progresivas: progresivasOrdenadas, elementos } = esqueleto
 
   const filas: string[][] = [['Progresiva', ...elementos]]
 
-  for (const progresiva of progresivas) {
+  for (const progresiva of progresivasOrdenadas) {
     filas.push([
       formatearProgresiva(progresiva),
       ...elementos.map((elementoClave) => {
@@ -119,7 +115,7 @@ export function armarTablaDiferencias(
 export interface DatosDeCabecera {
   calle: Calle
   capa: Capa | undefined
-  campania: Campania
+  campania: Toma
   bmInicial: BM | undefined
   resultado: ResultadoCampania
 }
@@ -155,8 +151,8 @@ export interface DatosDeCabeceraComparacion {
   calle: Calle
   capaInferior: Capa | undefined
   capaSuperior: Capa | undefined
-  campaniaInferior: Campania
-  campaniaSuperior: Campania
+  campaniaInferior: Toma
+  campaniaSuperior: Toma
   resultadoInferior: ResultadoCampania
   resultadoSuperior: ResultadoCampania
   comparacion: ResultadoComparacion
@@ -189,7 +185,7 @@ export function armarCabeceraComparacion(datos: DatosDeCabeceraComparacion): str
 export interface DatosDeCabeceraDiferencias {
   calle: Calle
   capa: Capa | undefined
-  campania: Campania
+  campania: Toma
   rasante: Rasante
   resultado: ResultadoCampania
 }

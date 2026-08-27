@@ -1,5 +1,5 @@
-import { claveCelda, construirGrilla, type CeldaGrilla } from '../grilla/grilla'
-import type { Calle, Capa, Id, Plantilla, Rasante } from '../modelo/tipos'
+import { claveCelda, construirGrilla, progresivasMedidas, type CeldaGrilla } from '../grilla/grilla'
+import type { Calle, Capa, Id, Rasante, Toma } from '../modelo/tipos'
 import type { ResultadoCampania } from '../nivelacion/calcularCampania'
 import { aMilimetros, redondear3 } from '../numero'
 import { cotaTeoricaDeCapa } from './espesores'
@@ -41,9 +41,12 @@ export interface ResultadoEvaluacion {
   /** Sin medir todavía, tenga o no rasante definida en ese punto. */
   sinMedir: number
   /**
-   * Por qué no hay nada que evaluar, cuando la calle está mal configurada
-   * (progresiva final antes que la inicial, intervalo cero). Null si la
-   * grilla se pudo construir, aunque salga vacía.
+   * Por qué no hay nada que evaluar. Ahora mismo `construirGrilla` no puede
+   * fallar —recibe las progresivas ya medidas, no un rango que alguien pueda
+   * escribir al revés— así que este campo sale siempre null: se conserva
+   * porque quien llama todavía lo lee, y porque una fuente de progresivas más
+   * exigente en el futuro (por ejemplo, validar el archivo importado) puede
+   * volver a necesitarlo.
    */
   error: string | null
 }
@@ -51,7 +54,7 @@ export interface ResultadoEvaluacion {
 export interface EntradaEvaluacion {
   resultado: ResultadoCampania
   calle: Calle
-  plantilla: Plantilla
+  toma: Toma
   rasante: Rasante
   capas: Capa[]
   capaId: Id
@@ -66,16 +69,10 @@ export interface EntradaEvaluacion {
  * cotas y con los espesores.
  */
 export function evaluarContraRasante(entrada: EntradaEvaluacion): ResultadoEvaluacion {
-  const { resultado, calle, plantilla, rasante, capas, capaId } = entrada
+  const { resultado, calle, toma, rasante, capas, capaId } = entrada
 
-  let grilla: CeldaGrilla[] = []
-  let error: string | null = null
-  try {
-    grilla = construirGrilla(calle, plantilla)
-  } catch (fallo) {
-    grilla = []
-    error = (fallo as Error).message
-  }
+  const grilla = construirGrilla(calle, progresivasMedidas(toma.estaciones))
+  const error: string | null = null
 
   const toleranciaMm = capas.find((capa) => capa.id === capaId)?.toleranciaMm ?? 0
   const celdas = new Map<string, CeldaEvaluada>()

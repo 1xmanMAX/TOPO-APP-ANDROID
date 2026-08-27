@@ -1,4 +1,4 @@
-import type { BM, Calle, Campania, Capa, Plantilla } from '../modelo/tipos'
+import type { BM, Calle, Capa, Toma } from '../modelo/tipos'
 
 export const BM_1: BM = {
   id: 'bm-1',
@@ -8,24 +8,15 @@ export const BM_1: BM = {
   descripcion: 'clavo en vereda esq. Av. Sol / Jr. Lima',
 }
 
-export const PLANTILLA_EJEMPLO: Plantilla = {
-  id: 'pl-1',
-  nombre: 'Calle con vereda',
-  elementos: [
-    { clave: 'BOR-I', etiqueta: 'Borde izquierdo', offset: -4.2, tipo: 'calzada' },
-    { clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' },
-    { clave: 'BOR-D', etiqueta: 'Borde derecho', offset: 4.2, tipo: 'calzada' },
-  ],
-}
-
 export const CALLE_EJEMPLO: Calle = {
   id: 'c-1',
   nombre: 'Av. Sol',
-  plantillaId: 'pl-1',
-  progresivaInicio: 0,
-  progresivaFin: 180,
-  intervalo: 20,
-  progresivasExtra: [],
+  puntos: [
+    { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -4.2 },
+    { concepto: 'eje', codigo: 'EJE', distancia: 0 },
+    { concepto: 'bordeDer', codigo: 'BOR-D', distancia: 4.2 },
+  ],
+  nivelaciones: [],
   rasante: null,
 }
 
@@ -37,20 +28,26 @@ export const CAPA_EJEMPLO: Capa = {
   toleranciaMm: 20,
 }
 
-/** Libreta verificada a mano. Cierre -5.0 mm, tolerancia ±7.2 mm, PASA. */
-export function campaniaEjemplo(): Campania {
+/**
+ * Libreta verificada a mano. Cierre -5.0 mm, tolerancia ±7.2 mm, PASA.
+ *
+ * `longitudKAuto` va en falso a propósito: esta libreta es un ejemplo de dos
+ * estaciones (20 m de recorrido real), pero lo que verifica el cierre a mano
+ * es el circuito de 0.36 km que describe el plan. Lo automático se prueba
+ * aparte, activándolo sobre una copia, donde sí importa cuánto mide de
+ * verdad esta toma.
+ */
+export function tomaEjemplo(): Toma {
   return {
     id: 'camp-1',
     fecha: '2026-08-19',
-    calleId: 'c-1',
     capaId: 'cap-1',
     bmInicialId: 'bm-1',
-    estado: 'abierta',
     cierre: {
       tipo: 'cerrado',
       bmFinalId: 'bm-1',
       longitudK: 0.36,
-      longitudKAuto: true,
+      longitudKAuto: false,
       clase: 'tercerOrden',
       coeficiente: 12,
     },

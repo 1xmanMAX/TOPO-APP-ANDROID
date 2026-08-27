@@ -1,6 +1,6 @@
-import { construirGrilla, type CeldaGrilla } from '../grilla/grilla'
+import { construirGrilla, progresivasMedidas, type CeldaGrilla } from '../grilla/grilla'
 import { formatearProgresiva } from '../grilla/progresivas'
-import type { BM, Calle, Campania, DestinoLectura, Plantilla } from '../modelo/tipos'
+import type { BM, Calle, Toma, DestinoLectura } from '../modelo/tipos'
 import { aMilimetros, redondear3 } from '../numero'
 import { calcularCierre, calcularLongitudKAuto, type ResultadoCierre } from './cierre'
 import { compensarPuntos, correccionesAcumuladas } from './compensacion'
@@ -29,9 +29,8 @@ export interface Aviso {
 }
 
 export interface EntradaCalculo {
-  campania: Campania
+  campania: Toma
   calle: Calle
-  plantilla: Plantilla
   bms: BM[]
 }
 
@@ -47,15 +46,15 @@ export interface ResultadoCampania {
 }
 
 export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
-  const { campania, calle, plantilla, bms } = entrada
+  const { campania, calle, bms } = entrada
 
   let grilla: CeldaGrilla[] = []
   let longitudKKm = campania.cierre.longitudK
 
   try {
-    grilla = construirGrilla(calle, plantilla)
+    grilla = construirGrilla(calle, progresivasMedidas(campania.estaciones))
     longitudKKm = campania.cierre.longitudKAuto
-      ? calcularLongitudKAuto(calle, campania.cierre.tipo)
+      ? calcularLongitudKAuto(campania, campania.cierre.tipo)
       : campania.cierre.longitudK
 
     const offsetPorClave = new Map(grilla.map((celda) => [celda.clave, celda.offset]))
@@ -151,7 +150,7 @@ function mensajeLecturaNoUsable(descripcion: string, valor: number): string {
  * Si la vista atrás de una estación no es usable, esa estación entera queda
  * pendiente: avisar además de sus intermedias sería ruido, así que se omiten.
  */
-function agregarAvisosDeLecturasNoUsables(campania: Campania, avisos: Aviso[]): void {
+function agregarAvisosDeLecturasNoUsables(campania: Toma, avisos: Aviso[]): void {
   campania.estaciones.forEach((estacion, indice) => {
     if (!esLecturaUsable(estacion.vistaAtras.valor)) {
       avisos.push({
@@ -251,10 +250,10 @@ function agregarAvisosDeApartamiento(
 
 /**
  * Las lecturas apuntan a su elemento por la clave de texto, y esa clave puede
- * cambiar (renombrar un elemento de la plantilla, cambiar el intervalo de
- * progresivas) después de que ya se tomaron lecturas. El dato crudo no se
- * pierde, pero deja de caer en la grilla: desaparece de la tabla y de la
- * exportación sin que nada lo diga. Esto avisa.
+ * cambiar (renombrar el código de un punto de la calle) después de que ya se
+ * tomaron lecturas. El dato crudo no se pierde, pero deja de caer en la
+ * grilla: desaparece de la tabla y de la exportación sin que nada lo diga.
+ * Esto avisa.
  */
 function agregarAvisosDeHuerfanas(
   grilla: CeldaGrilla[],
@@ -276,14 +275,14 @@ function agregarAvisosDeHuerfanas(
         `Hay ${huerfanas.length} ${huerfanas.length === 1 ? 'lectura' : 'lecturas'} que ya no ` +
         'caen en la grilla de esta calle, así que no salen en la tabla ni en la exportación: ' +
         `${nombres.slice(0, 5).join(', ')}${nombres.length > 5 ? '…' : ''}. ` +
-        'Suele pasar al renombrar un elemento de la plantilla o al cambiar el intervalo.',
+        'Suele pasar al renombrar el código de un punto de la calle.',
     })
   }
 }
 
 function agregarAvisosDeCierre(
   cierre: ResultadoCierre,
-  campania: Campania,
+  campania: Toma,
   bms: BM[],
   avisos: Aviso[],
 ): void {

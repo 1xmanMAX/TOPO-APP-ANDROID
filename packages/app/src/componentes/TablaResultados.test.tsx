@@ -18,10 +18,10 @@ describe('TablaResultados', () => {
 
   it('deja vacías las celdas sin medir', () => {
     render(<TablaResultados />)
-    // La campaña de SUBRASANTE del ejemplo (Entrega 3) mide una grilla
-    // completa de 0+000 a 0+080: la calle sigue sin medir nada de 0+100 en
-    // adelante, así que la comprobación se muda ahí.
-    expect(screen.getByLabelText(/Cota en 0\+100 EJE/).textContent).toBe('—')
+    // La toma de SUBRASANTE del ejemplo mide SAR-I, BOR-I, EJE, BOR-D y SAR-D
+    // en cada progresiva, pero nunca VER-I ni VER-D: esa columna queda vacía
+    // en toda fila, incluida 0+000, aunque la progresiva sí se haya medido.
+    expect(screen.getByLabelText(/Cota en 0\+000 VER-I/).textContent).toBe('—')
   })
 
   it('selecciona la celda al hacer clic', async () => {
@@ -38,12 +38,9 @@ describe('TablaResultados', () => {
     expect(boton.getAttribute('aria-label')).toContain(boton.textContent)
   })
 
-  it('con una calle de progresiva final menor que la inicial, se dibuja sin lanzar', () => {
-    const proyecto = proyectoEjemplo()
-    proyecto.calles[0]!.progresivaInicio = 200
-    proyecto.calles[0]!.progresivaFin = 180
-    useAlmacen.getState().cargarProyecto(proyecto)
-
-    expect(() => render(<TablaResultados />)).not.toThrow()
-  })
+  // NOTA (tarea C3): existía aquí una prueba «con una calle de progresiva
+  // final menor que la inicial, se dibuja sin lanzar», del mismo tipo que
+  // las retiradas en `evaluar.test.ts` y otros. `Calle` ya no tiene
+  // `progresivaInicio`/`progresivaFin`: no hay forma de reproducir ese
+  // escenario. Se anota una sola vez en el informe de la tarea.
 })

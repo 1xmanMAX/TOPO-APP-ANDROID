@@ -1,4 +1,4 @@
-import { claveCelda, formatearProgresiva } from '@topo/core'
+import { claveCelda, formatearProgresiva, progresivasMedidas } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
@@ -12,7 +12,8 @@ export default function TablaResultados() {
   const seleccionar = useAlmacen((s) => s.seleccionar)
 
   const esqueleto = useMemo(
-    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
+    () =>
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
     [contexto],
   )
   const progresivas = esqueleto?.progresivas ?? []

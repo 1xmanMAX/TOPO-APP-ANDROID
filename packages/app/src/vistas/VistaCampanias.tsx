@@ -1,4 +1,5 @@
 import { useAlmacen } from '../estado/almacen'
+import { calleDeToma, todasLasTomas } from '../estado/proyectoTomas'
 
 function hoyISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -14,6 +15,7 @@ export default function VistaCampanias() {
 
   const calle = proyecto.calles[0]
   const bm = proyecto.bms[0]
+  const campanias = todasLasTomas(proyecto)
 
   function nombreDe(lista: { id: string; nombre: string }[], id: string): string {
     return lista.find((elemento) => elemento.id === id)?.nombre ?? '—'
@@ -33,7 +35,6 @@ export default function VistaCampanias() {
               calleId: calle.id,
               capaId: proyecto.capas[0]?.id ?? '',
               bmInicialId: bm.id,
-              estado: 'abierta',
               cierre: {
                 tipo: 'cerrado',
                 bmFinalId: bm.id,
@@ -63,17 +64,18 @@ export default function VistaCampanias() {
         </p>
       )}
 
-      {proyecto.campanias.length === 0 && (
+      {campanias.length === 0 && (
         <p className="text-sm text-slate-500">Todavía no hay campañas. Crea la primera.</p>
       )}
 
       <ul className="flex flex-col gap-2">
-        {[...proyecto.campanias]
+        {[...campanias]
           .sort((a, b) => b.fecha.localeCompare(a.fecha))
           .map((campania) => {
             const activa = campania.id === campaniaActivaId
             const lecturas = campania.estaciones.reduce((suma, e) => suma + e.intermedias.length, 0)
-            const nombreCalle = nombreDe(proyecto.calles, campania.calleId)
+            const calleDeLaCampania = calleDeToma(proyecto, campania.id)
+            const nombreCalle = calleDeLaCampania ? nombreDe(proyecto.calles, calleDeLaCampania) : '—'
             const senia = `del ${campania.fecha} en ${nombreCalle}`
 
             return (
@@ -108,7 +110,7 @@ export default function VistaCampanias() {
                   <span className="text-xs text-slate-500">Calle</span>
                   <select
                     aria-label={`Calle de la campaña ${senia}`}
-                    value={campania.calleId}
+                    value={calleDeLaCampania ?? ''}
                     onChange={(evento) =>
                       actualizarCampania(campania.id, { calleId: evento.target.value })
                     }

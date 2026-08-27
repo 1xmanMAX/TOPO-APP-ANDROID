@@ -1,4 +1,4 @@
-import type { Campania, Capa, ResultadoCampania, ResultadoCierre } from '@topo/core'
+import type { Toma, Capa, ResultadoCampania, ResultadoCierre } from '@topo/core'
 
 /**
  * Lo mínimo que hace falta para saber si una comparación de espesores está
@@ -9,8 +9,8 @@ import type { Campania, Capa, ResultadoCampania, ResultadoCierre } from '@topo/c
 export interface DatosEstadoComparacion {
   capaInferior: Capa | undefined
   capaSuperior: Capa | undefined
-  campaniaInferior: Campania
-  campaniaSuperior: Campania
+  campaniaInferior: Toma
+  campaniaSuperior: Toma
   resultadoInferior: ResultadoCampania
   resultadoSuperior: ResultadoCampania
 }
@@ -22,7 +22,7 @@ export interface EstadoComparacion {
   texto: string
 }
 
-function etiquetaCapa(capa: Capa | undefined, campania: Campania): string {
+function etiquetaCapa(capa: Capa | undefined, campania: Toma): string {
   return `${capa?.nombre ?? '—'} · ${campania.fecha}`
 }
 

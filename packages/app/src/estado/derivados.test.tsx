@@ -40,7 +40,6 @@ describe('useResultadosDe', () => {
       calleId: 'c-1',
       capaId: 'cap-terreno',
       bmInicialId: 'bm-1',
-      estado: 'abierta',
       cierre: {
         tipo: 'cerrado',
         bmFinalId: 'bm-1',
@@ -122,15 +121,14 @@ describe('useEvaluacionRasante', () => {
     expect(celda.estado).toBe('fuera')
   })
 
-  it('deja pasar el error de una calle mal configurada, sin tragárselo', () => {
-    fijarRasanteDeEjemplo()
-    useAlmacen.getState().actualizarCalle('c-1', { progresivaInicio: 180, progresivaFin: 0 })
-
-    const { result } = renderHook(() => useEvaluacionRasante())
-
-    expect(result.current?.error).not.toBeNull()
-    expect(result.current?.celdas.size).toBe(0)
-  })
+  // NOTA (tarea C3): existía aquí una prueba «deja pasar el error de una
+  // calle mal configurada, sin tragárselo», que usaba
+  // `actualizarCalle('c-1', { progresivaInicio: 180, progresivaFin: 0 })`
+  // para forzar el error de `construirGrilla`. `Calle` ya no tiene esos
+  // campos: no hay forma de dejarla «mal configurada» en ese sentido. Misma
+  // causa que las pruebas equivalentes retiradas en `evaluar.test.ts`,
+  // `calcularCampania.test.ts` y `VistaLibreta.test.tsx`; se anota una sola
+  // vez en el informe de la tarea.
 
   it('evalúa cualquier campaña que se le pida, sea la activa o no', () => {
     fijarRasanteDeEjemplo()
@@ -139,7 +137,6 @@ describe('useEvaluacionRasante', () => {
       calleId: 'c-1',
       capaId: 'cap-terreno',
       bmInicialId: 'bm-1',
-      estado: 'abierta',
       cierre: {
         tipo: 'cerrado',
         bmFinalId: 'bm-1',

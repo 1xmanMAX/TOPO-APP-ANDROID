@@ -8,19 +8,27 @@ import {
   type BM,
   type Calle,
   type Camara,
-  type Campania,
   type Capa,
   type DestinoLectura,
   type Id,
-  type Plantilla,
   type Proyecto,
   type Rasante,
   type ResultadoCampania,
+  type Toma,
 } from '@topo/core'
 import { create } from 'zustand'
 import { nuevoId, proyectoEjemplo, proyectoVacio } from './ejemplo'
+import {
+  buscarToma,
+  calleDeToma,
+  conToma,
+  moverTomaDeCalle,
+  primeraTomaId,
+  todasLasTomas,
+  agregarTomaComoNivelacion,
+} from './proyectoTomas'
 
-export type Vista = 'proyecto' | 'plantilla' | 'calle' | 'campanias' | 'libreta' | 'resultados'
+export type Vista = 'proyecto' | 'calle' | 'campanias' | 'libreta' | 'resultados'
 
 /** Qué manda el color en el visor 3D: el estado de la celda o la capa activa. */
 export type ModoVista3D = 'estado' | 'capas'
@@ -41,7 +49,6 @@ interface EstadoApp {
   vista: Vista
   campaniaActivaId: Id | null
   estacionActiva: number
-  plantillaEnEdicionId: Id | null
   seleccion: Seleccion
   /** Campañas que se dibujan superpuestas en el corte transversal. */
   capasVisibles: Id[]
@@ -67,18 +74,13 @@ interface EstadoApp {
   eliminarCapa(id: Id): void
   moverCapa(capaId: Id, direccion: -1 | 1): void
 
-  agregarPlantilla(nombre: string): Id
-  actualizarPlantilla(id: Id, cambios: Partial<Omit<Plantilla, 'id'>>): void
-  eliminarPlantilla(id: Id): void
-  editarPlantilla(id: Id | null): void
-
-  agregarCalle(datos: Omit<Calle, 'id'>): Id
+  agregarCalle(datos: Omit<Calle, 'id' | 'puntos' | 'nivelaciones'>): Id
   actualizarCalle(id: Id, cambios: Partial<Omit<Calle, 'id'>>): void
   eliminarCalle(id: Id): void
   fijarRasante(calleId: Id, rasante: Rasante | null): void
 
-  agregarCampania(datos: Omit<Campania, 'id' | 'estaciones'>): Id
-  actualizarCampania(id: Id, cambios: Partial<Omit<Campania, 'id'>>): void
+  agregarCampania(datos: Omit<Toma, 'id' | 'estaciones'> & { calleId: Id }): Id
+  actualizarCampania(id: Id, cambios: Partial<Omit<Toma, 'id'>> & { calleId?: Id }): void
   activarCampania(id: Id | null): void
   activarEstacion(indice: number): void
   agregarEstacion(campaniaId: Id, vistaAtras: { destino: DestinoLectura; valor: number }): void
@@ -118,14 +120,8 @@ function marcarModificado(proyecto: Proyecto): Proyecto {
  * La estación activa de una campaña recién activada es la última: es donde
  * se sigue trabajando. 0 si la campaña no existe o no tiene estaciones.
  */
-function ultimaEstacion(campania: Campania | undefined): number {
+function ultimaEstacion(campania: Toma | undefined): number {
   return Math.max(0, (campania?.estaciones.length ?? 0) - 1)
-}
-
-/** La calle de la campaña activa, o null si no hay campaña activa. */
-function calleDeCampania(proyecto: Proyecto, campaniaId: Id | null): Id | null {
-  if (!campaniaId) return null
-  return proyecto.campanias.find((c) => c.id === campaniaId)?.calleId ?? null
 }
 
 const SIN_COMPARACION: Comparacion = { inferior: null, superior: null }
@@ -173,24 +169,25 @@ function seleccionDeCapasTrasCambio(
 export const useAlmacen = create<EstadoApp>((set, get) => ({
   proyecto: proyectoEjemplo(),
   vista: 'proyecto',
-  campaniaActivaId: 'camp-1',
+  campaniaActivaId: primeraTomaId(proyectoEjemplo()),
   estacionActiva: 0,
-  plantillaEnEdicionId: null,
   seleccion: { clave: null, progresiva: null },
   capasVisibles: [],
   comparacion: SIN_COMPARACION,
   camara: CAMARA_ISOMETRICA,
   modoVista3D: 'estado',
 
-  cargarProyecto: (proyecto) =>
-    set({
+  cargarProyecto: (proyecto) => {
+    const primeraId = primeraTomaId(proyecto)
+    return set({
       proyecto,
-      campaniaActivaId: proyecto.campanias[0]?.id ?? null,
-      estacionActiva: ultimaEstacion(proyecto.campanias[0]),
+      campaniaActivaId: primeraId,
+      estacionActiva: ultimaEstacion(buscarToma(proyecto, primeraId)?.toma),
       seleccion: { clave: null, progresiva: null },
       capasVisibles: [],
       comparacion: SIN_COMPARACION,
-    }),
+    })
+  },
 
   nuevoProyecto: () =>
     set({
@@ -256,9 +253,9 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
 
   eliminarCapa: (id) =>
     set((s) => {
-      // Borrar una capa en uso dejaría campañas apuntando a algo inexistente,
-      // y al comparar capas produciría comparaciones fantasma.
-      if (capaEnUso(s.proyecto.campanias, id)) return {}
+      // Borrar una capa en uso dejaría tomas apuntando a algo inexistente, y
+      // al comparar capas produciría comparaciones fantasma.
+      if (capaEnUso(todasLasTomas(s.proyecto), id)) return {}
       return {
         proyecto: marcarModificado({
           ...s.proyecto,
@@ -275,40 +272,13 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       }),
     })),
 
-  agregarPlantilla: (nombre) => {
-    const id = nuevoId('pl')
-    set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        plantillas: [...s.proyecto.plantillas, { id, nombre, elementos: [] }],
-      }),
-      plantillaEnEdicionId: id,
-    }))
-    return id
-  },
-
-  actualizarPlantilla: (id, cambios) =>
-    set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        plantillas: s.proyecto.plantillas.map((p) => (p.id === id ? { ...p, ...cambios } : p)),
-      }),
-    })),
-
-  eliminarPlantilla: (id) =>
-    set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        plantillas: s.proyecto.plantillas.filter((p) => p.id !== id),
-      }),
-    })),
-
-  editarPlantilla: (id) => set({ plantillaEnEdicionId: id }),
-
   agregarCalle: (datos) => {
     const id = nuevoId('c')
     set((s) => ({
-      proyecto: marcarModificado({ ...s.proyecto, calles: [...s.proyecto.calles, { ...datos, id }] }),
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        calles: [...s.proyecto.calles, { ...datos, id, puntos: [], nivelaciones: [] }],
+      }),
     }))
     return id
   },
@@ -340,37 +310,35 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     })),
 
   agregarCampania: (datos) => {
+    const { calleId, ...restoDatos } = datos
     const id = nuevoId('camp')
     set((s) => {
-      const calleAnterior = calleDeCampania(s.proyecto, s.campaniaActivaId)
-      return {
-        proyecto: marcarModificado({
-          ...s.proyecto,
-          campanias: [
-            ...s.proyecto.campanias,
-            {
-              ...datos,
-              id,
-              // Toda nivelación empieza plantando el nivel y leyendo hacia atrás al
-              // banco de nivel. Sin esa primera estación no hay dónde escribir, y la
-              // campaña nace inutilizable.
-              estaciones: [
-                {
-                  id: nuevoId('e'),
-                  vistaAtras: {
-                    id: nuevoId('l'),
-                    destino: { tipo: 'bm', bmId: datos.bmInicialId },
-                    valor: 0,
-                  },
-                  intermedias: [],
-                },
-              ],
+      const calleAnterior = calleDeToma(s.proyecto, s.campaniaActivaId)
+      const toma: Toma = {
+        ...restoDatos,
+        id,
+        // Toda nivelación empieza plantando el nivel y leyendo hacia atrás al
+        // banco de nivel. Sin esa primera estación no hay dónde escribir, y la
+        // toma nace inutilizable.
+        estaciones: [
+          {
+            id: nuevoId('e'),
+            vistaAtras: {
+              id: nuevoId('l'),
+              destino: { tipo: 'bm', bmId: restoDatos.bmInicialId },
+              valor: 0,
             },
-          ],
-        }),
+            intermedias: [],
+          },
+        ],
+      }
+      return {
+        proyecto: marcarModificado(
+          agregarTomaComoNivelacion(s.proyecto, calleId, toma, nuevoId('niv')),
+        ),
         campaniaActivaId: id,
         estacionActiva: 0,
-        ...seleccionDeCapasTrasCambio(calleAnterior, datos.calleId, s),
+        ...seleccionDeCapasTrasCambio(calleAnterior, calleId, s),
       }
     })
     return id
@@ -378,24 +346,31 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
 
   actualizarCampania: (id, cambios) =>
     set((s) => {
-      const calleActivaAnterior = calleDeCampania(s.proyecto, s.campaniaActivaId)
-      const calleEditadaAnterior = calleDeCampania(s.proyecto, id)
-      const proyecto = marcarModificado({
-        ...s.proyecto,
-        campanias: s.proyecto.campanias.map((c) => (c.id === id ? { ...c, ...cambios } : c)),
-      })
+      const { calleId: calleDestinoId, ...restoCambios } = cambios
+      const calleActivaAnterior = calleDeToma(s.proyecto, s.campaniaActivaId)
+      const calleEditadaAnterior = calleDeToma(s.proyecto, id)
+
+      // Cambiar de calle mueve la toma entera (con su nivelación) de una
+      // calle a otra; el resto de cambios se aplican donde quede.
+      let proyecto =
+        calleDestinoId !== undefined && calleDestinoId !== calleEditadaAnterior
+          ? moverTomaDeCalle(s.proyecto, id, calleDestinoId, () => nuevoId('niv'))
+          : s.proyecto
+
+      proyecto = marcarModificado(conToma(proyecto, id, (toma) => ({ ...toma, ...restoCambios })))
+
+      const calleEditadaNueva = calleDeToma(proyecto, id)
       // Solo cambiar la calle de la campaña activa mueve la calle activa: las
       // demás campañas pueden reasignarse sin afectar lo que se está viendo.
-      const calleActivaNueva = id === s.campaniaActivaId ? calleDeCampania(proyecto, id) : calleActivaAnterior
+      const calleActivaNueva = id === s.campaniaActivaId ? calleEditadaNueva : calleActivaAnterior
       const { capasVisibles, comparacion } = seleccionDeCapasTrasCambio(calleActivaAnterior, calleActivaNueva, s)
 
       // La campaña editada puede no ser la activa (el selector de calle de
-      // VistaCampanias:113 deja tocar cualquiera de la lista). Si de todos
-      // modos cambió de calle y seguía en la comparación o en capasVisibles,
-      // hay que sacarla de ahí: sus claves de celda (`progresiva|elemento`)
+      // VistaCampanias deja tocar cualquiera de la lista). Si de todos modos
+      // cambió de calle y seguía en la comparación o en capasVisibles, hay
+      // que sacarla de ahí: sus claves de celda (`progresiva|elemento`)
       // coinciden con las de cualquier otra calle, así que dejarla sería
       // comparar o dibujar cotas de sitios distintos como si fueran uno.
-      const calleEditadaNueva = calleDeCampania(proyecto, id)
       if (calleEditadaAnterior !== calleEditadaNueva) {
         return {
           proyecto,
@@ -410,11 +385,11 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
 
   activarCampania: (id) =>
     set((s) => {
-      const calleAnterior = calleDeCampania(s.proyecto, s.campaniaActivaId)
-      const calleNueva = calleDeCampania(s.proyecto, id)
+      const calleAnterior = calleDeToma(s.proyecto, s.campaniaActivaId)
+      const calleNueva = calleDeToma(s.proyecto, id)
       return {
         campaniaActivaId: id,
-        estacionActiva: ultimaEstacion(s.proyecto.campanias.find((c) => c.id === id)),
+        estacionActiva: ultimaEstacion(buscarToma(s.proyecto, id)?.toma),
         ...seleccionDeCapasTrasCambio(calleAnterior, calleNueva, s),
       }
     }),
@@ -423,72 +398,54 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
 
   agregarEstacion: (campaniaId, vistaAtras) =>
     set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        campanias: s.proyecto.campanias.map((c) =>
-          c.id === campaniaId
-            ? {
-                ...c,
-                estaciones: [
-                  ...c.estaciones,
-                  {
-                    id: nuevoId('e'),
-                    vistaAtras: { id: nuevoId('l'), ...vistaAtras },
-                    intermedias: [],
-                  },
-                ],
-              }
-            : c,
-        ),
-      }),
+      proyecto: marcarModificado(
+        conToma(s.proyecto, campaniaId, (toma) => ({
+          ...toma,
+          estaciones: [
+            ...toma.estaciones,
+            {
+              id: nuevoId('e'),
+              vistaAtras: { id: nuevoId('l'), ...vistaAtras },
+              intermedias: [],
+            },
+          ],
+        })),
+      ),
     })),
 
   fijarVistaAdelante: (campaniaId, estacionIndice, lectura) =>
     set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        campanias: s.proyecto.campanias.map((c) =>
-          c.id === campaniaId
-            ? {
-                ...c,
-                estaciones: c.estaciones.map((e, i) =>
-                  i === estacionIndice
-                    ? {
-                        ...e,
-                        vistaAdelante: { id: e.vistaAdelante?.id ?? nuevoId('l'), ...lectura },
-                      }
-                    : e,
-                ),
-              }
-            : c,
-        ),
-      }),
+      proyecto: marcarModificado(
+        conToma(s.proyecto, campaniaId, (toma) => ({
+          ...toma,
+          estaciones: toma.estaciones.map((e, i) =>
+            i === estacionIndice
+              ? { ...e, vistaAdelante: { id: e.vistaAdelante?.id ?? nuevoId('l'), ...lectura } }
+              : e,
+          ),
+        })),
+      ),
     })),
 
   quitarVistaAdelante: (campaniaId, estacionIndice) =>
     set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        campanias: s.proyecto.campanias.map((c) =>
-          c.id === campaniaId
-            ? {
-                ...c,
-                estaciones: c.estaciones.map((e, i) => {
-                  if (i !== estacionIndice) return e
-                  const copia = { ...e }
-                  delete copia.vistaAdelante
-                  return copia
-                }),
-              }
-            : c,
-        ),
-      }),
+      proyecto: marcarModificado(
+        conToma(s.proyecto, campaniaId, (toma) => ({
+          ...toma,
+          estaciones: toma.estaciones.map((e, i) => {
+            if (i !== estacionIndice) return e
+            const copia = { ...e }
+            delete copia.vistaAdelante
+            return copia
+          }),
+        })),
+      ),
     })),
 
   agregarIntermedia: (campaniaId, estacionIndice, lectura) =>
     set((s) => {
-      const campania = s.proyecto.campanias.find((c) => c.id === campaniaId)
-      if (!campania || !campania.estaciones[estacionIndice]) {
+      const hallado = buscarToma(s.proyecto, campaniaId)
+      if (!hallado || !hallado.toma.estaciones[estacionIndice]) {
         // Perder una lectura en silencio es lo peor que puede hacer esta app.
         console.error(
           `Se intentó escribir una lectura en la estación ${estacionIndice + 1}, que no existe.`,
@@ -497,64 +454,48 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       }
 
       return {
-        proyecto: marcarModificado({
-          ...s.proyecto,
-          campanias: s.proyecto.campanias.map((c) =>
-            c.id === campaniaId
-              ? {
-                  ...c,
-                  estaciones: c.estaciones.map((e, i) =>
-                    i === estacionIndice
-                      ? { ...e, intermedias: [...e.intermedias, { id: nuevoId('l'), ...lectura }] }
-                      : e,
-                  ),
-                }
-              : c,
-          ),
-        }),
+        proyecto: marcarModificado(
+          conToma(s.proyecto, campaniaId, (toma) => ({
+            ...toma,
+            estaciones: toma.estaciones.map((e, i) =>
+              i === estacionIndice
+                ? { ...e, intermedias: [...e.intermedias, { id: nuevoId('l'), ...lectura }] }
+                : e,
+            ),
+          })),
+        ),
       }
     }),
 
   actualizarLectura: (campaniaId, lecturaId, valor) =>
     set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        campanias: s.proyecto.campanias.map((c) =>
-          c.id === campaniaId
-            ? {
-                ...c,
-                estaciones: c.estaciones.map((e) => ({
-                  ...e,
-                  vistaAtras:
-                    e.vistaAtras.id === lecturaId ? { ...e.vistaAtras, valor } : e.vistaAtras,
-                  intermedias: e.intermedias.map((l) => (l.id === lecturaId ? { ...l, valor } : l)),
-                  vistaAdelante:
-                    e.vistaAdelante && e.vistaAdelante.id === lecturaId
-                      ? { ...e.vistaAdelante, valor }
-                      : e.vistaAdelante,
-                })),
-              }
-            : c,
-        ),
-      }),
+      proyecto: marcarModificado(
+        conToma(s.proyecto, campaniaId, (toma) => ({
+          ...toma,
+          estaciones: toma.estaciones.map((e) => ({
+            ...e,
+            vistaAtras: e.vistaAtras.id === lecturaId ? { ...e.vistaAtras, valor } : e.vistaAtras,
+            intermedias: e.intermedias.map((l) => (l.id === lecturaId ? { ...l, valor } : l)),
+            vistaAdelante:
+              e.vistaAdelante && e.vistaAdelante.id === lecturaId
+                ? { ...e.vistaAdelante, valor }
+                : e.vistaAdelante,
+          })),
+        })),
+      ),
     })),
 
   eliminarLectura: (campaniaId, lecturaId) =>
     set((s) => ({
-      proyecto: marcarModificado({
-        ...s.proyecto,
-        campanias: s.proyecto.campanias.map((c) =>
-          c.id === campaniaId
-            ? {
-                ...c,
-                estaciones: c.estaciones.map((e) => ({
-                  ...e,
-                  intermedias: e.intermedias.filter((l) => l.id !== lecturaId),
-                })),
-              }
-            : c,
-        ),
-      }),
+      proyecto: marcarModificado(
+        conToma(s.proyecto, campaniaId, (toma) => ({
+          ...toma,
+          estaciones: toma.estaciones.map((e) => ({
+            ...e,
+            intermedias: e.intermedias.filter((l) => l.id !== lecturaId),
+          })),
+        })),
+      ),
     })),
 
   seleccionar: (clave) =>
@@ -583,8 +524,8 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       // una pareja de calles distintas sin que actualizarCampania la haya
       // limpiado antes: sus claves de celda coinciden entre calles, así que
       // la resta daría un número sin ningún sentido físico.
-      const calleInferior = calleDeCampania(s.proyecto, inferior)
-      const calleSuperior = calleDeCampania(s.proyecto, superior)
+      const calleInferior = calleDeToma(s.proyecto, inferior)
+      const calleSuperior = calleDeToma(s.proyecto, superior)
       const callesDistintas = calleInferior !== null && calleSuperior !== null && calleInferior !== calleSuperior
 
       return {
@@ -604,15 +545,12 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
 
   calcular: () => {
     const { proyecto, campaniaActivaId } = get()
-    const campania = proyecto.campanias.find((c) => c.id === campaniaActivaId)
-    if (!campania) return null
+    const hallado = buscarToma(proyecto, campaniaActivaId)
+    if (!hallado) return null
 
-    const calle = proyecto.calles.find((c) => c.id === campania.calleId)
+    const calle = proyecto.calles.find((c) => c.id === hallado.calleId)
     if (!calle) return null
 
-    const plantilla = proyecto.plantillas.find((p) => p.id === calle.plantillaId)
-    if (!plantilla) return null
-
-    return calcularCampania({ campania, calle, plantilla, bms: proyecto.bms })
+    return calcularCampania({ campania: hallado.toma, calle, bms: proyecto.bms })
   },
 }))

@@ -1,5 +1,5 @@
 import { claveCelda } from '../grilla/grilla'
-import type { BM, Campania, DestinoLectura, Id } from '../modelo/tipos'
+import type { BM, Toma, DestinoLectura, Id } from '../modelo/tipos'
 
 export interface PuntoCalculado {
   claveDestino: string
@@ -43,8 +43,8 @@ export function claveDestino(destino: DestinoLectura): string {
   }
 }
 
-export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
-  const bmInicial = bms.find((bm) => bm.id === campania.bmInicialId)
+export function calcularCotas(toma: Toma, bms: BM[]): ResultadoCotas {
+  const bmInicial = bms.find((bm) => bm.id === toma.bmInicialId)
   if (!bmInicial) throw new Error('No se encontró el banco de nivel inicial de la campaña')
 
   const cotasConocidas = new Map<string, number>()
@@ -59,7 +59,7 @@ export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
   let cotaLlegada: number | null = null
   let bmLlegadaId: Id | null = null
 
-  campania.estaciones.forEach((estacion, indice) => {
+  toma.estaciones.forEach((estacion, indice) => {
     const clavePartida = claveDestino(estacion.vistaAtras.destino)
     const cotaPartida = cotasConocidas.get(clavePartida)
 
@@ -131,7 +131,7 @@ export function calcularCotas(campania: Campania, bms: BM[]): ResultadoCotas {
       // visada intermedia a un BM es un control, no un cierre: tomarla como
       // llegada daría por verificadas las estaciones posteriores, que nadie
       // comprobó, y además repartiría entre ellas una corrección inventada.
-      const esUltimaEstacion = indice === campania.estaciones.length - 1
+      const esUltimaEstacion = indice === toma.estaciones.length - 1
       if (estacion.vistaAdelante.destino.tipo === 'bm' && esUltimaEstacion) {
         cotaLlegada = cota
         bmLlegadaId = estacion.vistaAdelante.destino.bmId

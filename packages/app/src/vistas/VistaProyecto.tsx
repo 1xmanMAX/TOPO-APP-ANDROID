@@ -3,6 +3,7 @@ import { useState } from 'react'
 import CampoNumero from '../componentes/CampoNumero'
 import CampoTexto from '../componentes/CampoTexto'
 import { useAlmacen } from '../estado/almacen'
+import { todasLasTomas } from '../estado/proyectoTomas'
 
 export default function VistaProyecto() {
   const meta = useAlmacen((s) => s.proyecto.meta)
@@ -16,7 +17,8 @@ export default function VistaProyecto() {
   const actualizarCapa = useAlmacen((s) => s.actualizarCapa)
   const eliminarCapa = useAlmacen((s) => s.eliminarCapa)
   const moverCapa = useAlmacen((s) => s.moverCapa)
-  const campanias = useAlmacen((s) => s.proyecto.campanias)
+  const proyectoCompleto = useAlmacen((s) => s.proyecto)
+  const campanias = todasLasTomas(proyectoCompleto)
   const [porEliminar, setPorEliminar] = useState<string | null>(null)
   const [avisoCapa, setAvisoCapa] = useState<string | null>(null)
   const capasOrdenadas = ordenarCapas(capas)

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Campania, Proyecto } from '@topo/core'
+import type { Proyecto, Toma } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
@@ -20,14 +20,12 @@ const CIERRE_CERRADO = {
  * de TERRENO, SAR-D exclusivo de SUBRASANTE: sirven para distinguir sin
  * ambigüedad qué campaña dibujó el corte.
  */
-function campaniaTerreno(): Campania {
+function tomaTerreno(): Toma {
   return {
     id: 'camp-t',
     fecha: '2026-08-01',
-    calleId: 'c-1',
     capaId: 'cap-terreno',
     bmInicialId: 'bm-1',
-    estado: 'cerrada',
     cierre: CIERRE_CERRADO,
     estaciones: [
       {
@@ -43,14 +41,12 @@ function campaniaTerreno(): Campania {
   }
 }
 
-function campaniaSubrasante(): Campania {
+function tomaSubrasante(): Toma {
   return {
     id: 'camp-s',
     fecha: '2026-08-15',
-    calleId: 'c-1',
     capaId: 'cap-subrasante',
     bmInicialId: 'bm-1',
-    estado: 'cerrada',
     cierre: CIERRE_CERRADO,
     estaciones: [
       {
@@ -68,7 +64,10 @@ function campaniaSubrasante(): Campania {
 
 function proyectoDosCapas(): Proyecto {
   const proyecto = proyectoEjemplo()
-  proyecto.campanias = [campaniaTerreno(), campaniaSubrasante()]
+  proyecto.calles[0]!.nivelaciones = [
+    { id: 'niv-t', nombre: 'Terreno', color: '#2563eb', tomas: [tomaTerreno()] },
+    { id: 'niv-s', nombre: 'Subrasante', color: '#dc2626', tomas: [tomaSubrasante()] },
+  ]
   return proyecto
 }
 
@@ -109,32 +108,40 @@ describe('VistaLibreta', () => {
     await usuario.type(campo, '2.100{Enter}')
 
     const resultado = useAlmacen.getState().calcular()!
-    // La campaña de SUBRASANTE del ejemplo mide 25 celdas desde la Entrega 3
-    // (una grilla completa de 0+000 a 0+080); con la lectura recién escrita
-    // quedan 26.
+    // La toma de SUBRASANTE del ejemplo mide 25 celdas; con la lectura recién
+    // escrita (en la primera celda pendiente, 0+000 VER-I) quedan 26.
     expect(resultado.celdasLlenas).toBe(26)
     expect(screen.getByText(/celda activa/i).textContent).not.toContain('0+000 VER-I')
   })
 
-  it('muestra cuántas celdas faltan', () => {
-    render(<VistaLibreta />)
-    // La campaña de SUBRASANTE del ejemplo mide 25 celdas desde la Entrega 3
-    // (una grilla completa de 0+000 a 0+080).
-    expect(screen.getByText(/llenadas 25 de 70/i)).toBeInTheDocument()
-  })
+  // NOTA (tarea C3): existía aquí una prueba «muestra cuántas celdas faltan»
+  // que esperaba el texto «llenadas 25 de 70». Ese 70 salía de la plantilla
+  // completa (7 puntos) por el rango configurado de la calle (0 a 180 m cada
+  // 20 m): un total que representaba TODA la calle, se hubiera medido o no.
+  // Con el nuevo modelo la grilla sale de las progresivas medidas —no de un
+  // rango inventado—, así que el total ya no puede representar «toda la
+  // calle»: solo puede contar las progresivas que ya se tocaron (35 en este
+  // ejemplo: 5 progresivas medidas × 7 puntos de la calle). Cambiar el 70 por
+  // un 35 sin decirlo escondería que el número ya no significa lo mismo —
+  // antes avisaba cuánta calle faltaba por recorrer; ahora, como mucho, avisa
+  // cuánto falta de lo ya empezado, y no dice nada de lo que ni se ha tocado.
+  // Se retira la prueba en vez de renumerarla en silencio: queda anotada en
+  // el informe de la tarea para que se decida qué reemplaza esa lectura de
+  // avance sobre la calle completa.
 
-  it('con una calle de progresiva final menor que la inicial, se dibuja sin lanzar', () => {
-    const proyecto = proyectoEjemplo()
-    proyecto.calles[0]!.progresivaInicio = 200
-    proyecto.calles[0]!.progresivaFin = 180
-    useAlmacen.getState().cargarProyecto(proyecto)
-
-    expect(() => render(<VistaLibreta />)).not.toThrow()
-  })
+  // NOTA (tarea C3): existía aquí una prueba «con una calle de progresiva
+  // final menor que la inicial, se dibuja sin lanzar», que fijaba
+  // `progresivaInicio`/`progresivaFin` al revés en la calle para comprobar
+  // que la vista no revienta. Esos campos ya no existen en `Calle`: no hay
+  // forma de dejarla «mal configurada» en ese sentido. Misma causa que la
+  // prueba equivalente retirada en `evaluar.test.ts`; se anota una sola vez
+  // en el informe de la tarea.
 
   it('muestra el aviso de cierre fuera de tolerancia', async () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
-    const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id
+    const lecturaId = useAlmacen
+      .getState()
+      .proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones[1]!.vistaAdelante!.id
     useAlmacen.getState().actualizarLectura(campaniaId, lecturaId, 1.887)
 
     render(<VistaLibreta />)
@@ -144,7 +151,7 @@ describe('VistaLibreta', () => {
   it('con una campaña sin estaciones, ofrece empezar la libreta en vez de no mostrar nada', async () => {
     const usuario = userEvent.setup()
     const proyecto = proyectoEjemplo()
-    proyecto.campanias[0]!.estaciones = []
+    proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones = []
     useAlmacen.getState().cargarProyecto(proyecto)
 
     render(<VistaLibreta />)
@@ -157,7 +164,7 @@ describe('VistaLibreta', () => {
     await usuario.click(screen.getByRole('button', { name: /empezar la libreta/i }))
 
     expect(screen.getByRole('heading', { name: 'Estación 1' })).toBeInTheDocument()
-    expect(useAlmacen.getState().proyecto.campanias[0]!.estaciones).toHaveLength(1)
+    expect(useAlmacen.getState().proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones).toHaveLength(1)
   })
 
   describe('el corte de la libreta dibuja la campaña activa', () => {

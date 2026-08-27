@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { BM_1, campaniaEjemplo } from '../pruebas/libretaEjemplo'
+import { BM_1, tomaEjemplo } from '../pruebas/libretaEjemplo'
 import { calcularCotas, claveDestino } from './cotas'
-import type { Campania } from '../modelo/tipos'
+import type { Toma } from '../modelo/tipos'
 
 describe('claveDestino', () => {
   it('distingue cada tipo de destino', () => {
@@ -18,13 +18,13 @@ describe('claveDestino', () => {
 
 describe('calcularCotas', () => {
   it('calcula la cota instrumento de cada estación', () => {
-    const resultado = calcularCotas(campaniaEjemplo(), [BM_1])
+    const resultado = calcularCotas(tomaEjemplo(), [BM_1])
     expect(resultado.cotasInstrumento[0]).toBeCloseTo(3246.605, 6)
     expect(resultado.cotasInstrumento[1]).toBeCloseTo(3247.085, 6)
   })
 
   it('calcula la cota cruda de cada punto intermedio', () => {
-    const resultado = calcularCotas(campaniaEjemplo(), [BM_1])
+    const resultado = calcularCotas(tomaEjemplo(), [BM_1])
     const porClave = new Map(resultado.puntos.map((p) => [p.claveDestino, p.cotaCruda]))
     expect(porClave.get('0|EJE')).toBeCloseTo(3244.625, 6)
     expect(porClave.get('0|BOR-I')).toBeCloseTo(3244.56, 6)
@@ -32,37 +32,37 @@ describe('calcularCotas', () => {
   })
 
   it('calcula la cota del punto de cambio y la usa en la estación siguiente', () => {
-    const resultado = calcularCotas(campaniaEjemplo(), [BM_1])
+    const resultado = calcularCotas(tomaEjemplo(), [BM_1])
     const pc = resultado.puntos.find((p) => p.claveDestino === 'cambio:PC-1')
     expect(pc?.cotaCruda).toBeCloseTo(3245.455, 6)
   })
 
   it('devuelve la cota de llegada del circuito', () => {
-    const resultado = calcularCotas(campaniaEjemplo(), [BM_1])
+    const resultado = calcularCotas(tomaEjemplo(), [BM_1])
     expect(resultado.cotaLlegada).toBeCloseTo(3245.175, 6)
   })
 
   it('registra a qué estación pertenece cada punto', () => {
-    const resultado = calcularCotas(campaniaEjemplo(), [BM_1])
+    const resultado = calcularCotas(tomaEjemplo(), [BM_1])
     const punto = resultado.puntos.find((p) => p.claveDestino === '20|EJE')
     expect(punto?.estacionIndice).toBe(1)
   })
 
   it('recalcula todo cuando cambia la cota del BM', () => {
     const bmCorregido = { ...BM_1, cota: 3245.28 }
-    const resultado = calcularCotas(campaniaEjemplo(), [bmCorregido])
+    const resultado = calcularCotas(tomaEjemplo(), [bmCorregido])
     const punto = resultado.puntos.find((p) => p.claveDestino === '0|EJE')
     expect(punto?.cotaCruda).toBeCloseTo(3244.725, 6)
   })
 
   it('avisa si el BM inicial no existe', () => {
-    expect(() => calcularCotas(campaniaEjemplo(), [])).toThrow(
+    expect(() => calcularCotas(tomaEjemplo(), [])).toThrow(
       'No se encontró el banco de nivel inicial de la campaña',
     )
   })
 
   it('avisa si una vista atrás apunta a un punto de cambio desconocido', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.vistaAtras.destino = { tipo: 'cambio', nombre: 'PC-9' }
     expect(() => calcularCotas(campania, [BM_1])).toThrow(
       'La estación 2 arranca en PC-9, que no fue medido antes',
@@ -70,7 +70,7 @@ describe('calcularCotas', () => {
   })
 
   it('avisa si dos puntos de cambio se llaman igual', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.vistaAdelante!.destino = { tipo: 'cambio', nombre: 'PC-1' }
     expect(() => calcularCotas(campania, [BM_1])).toThrow(
       'El punto de cambio PC-1 está repetido: dos estaciones distintas lo usan como punto de llegada. Renombra uno de los dos.',
@@ -81,8 +81,8 @@ describe('calcularCotas', () => {
     // Circuito de 3 estaciones: la segunda pasa cerca del BM inicial y toma
     // una visada de control contra él, pero el circuito sigue: la tercera
     // estación remata en un punto de cambio, no en el BM de cierre.
-    const campania: Campania = {
-      ...campaniaEjemplo(),
+    const campania: Toma = {
+      ...tomaEjemplo(),
       estaciones: [
         {
           id: 'e-1',
@@ -111,21 +111,21 @@ describe('calcularCotas', () => {
   })
 
   it('una lectura de 0 no produce punto', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[0]!.intermedias[0]!.valor = 0
     const resultado = calcularCotas(campania, [BM_1])
     expect(resultado.puntos.find((p) => p.claveDestino === '0|EJE')).toBeUndefined()
   })
 
   it('una lectura de 14.230 no produce punto', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[0]!.intermedias[0]!.valor = 14.23
     const resultado = calcularCotas(campania, [BM_1])
     expect(resultado.puntos.find((p) => p.claveDestino === '0|EJE')).toBeUndefined()
   })
 
   it('una vista atrás no usable deja esa estación sin cotas, sin lanzar', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.vistaAtras.valor = 0
     let resultado: ReturnType<typeof calcularCotas> | undefined
     expect(() => {
@@ -138,7 +138,7 @@ describe('calcularCotas', () => {
   it('una vista atrás que apunta a un punto de cambio pendiente de lectura no lanza y conserva las cotas anteriores', () => {
     // Es justo lo que pasa al trasladar el instrumento: la vista adelante al
     // punto de cambio queda en 0 (pendiente) hasta que se teclea la lectura.
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[0]!.vistaAdelante!.valor = 0
 
     let resultado: ReturnType<typeof calcularCotas> | undefined
@@ -153,7 +153,7 @@ describe('calcularCotas', () => {
   })
 
   it('una vista atrás que apunta a un punto que nunca fue destino de nadie sí lanza', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.vistaAtras.destino = { tipo: 'cambio', nombre: 'PC-9' }
     expect(() => calcularCotas(campania, [BM_1])).toThrow(
       'La estación 2 arranca en PC-9, que no fue medido antes',

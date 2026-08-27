@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { claveCelda } from '../grilla/grilla'
-import type { Calle, Capa, Plantilla, Rasante } from '../modelo/tipos'
+import type { Calle, Capa, PuntoCalle, Rasante, Toma } from '../modelo/tipos'
 import type { CotaCelda, ResultadoCampania } from '../nivelacion/calcularCampania'
 import { estadoDeDiferencia, evaluarContraRasante, type EstadoTolerancia } from './evaluar'
 
@@ -66,30 +66,43 @@ function rasanteBase(): Rasante {
   }
 }
 
-function plantillaDe(elementos: { clave: string; offset: number }[]): Plantilla {
-  return {
-    id: 'plantilla-prueba',
-    nombre: 'Plantilla de prueba',
-    elementos: elementos.map((e) => ({
-      clave: e.clave,
-      etiqueta: e.clave,
-      offset: e.offset,
-      tipo: 'otro',
-    })),
-  }
+function puntosDe(elementos: { clave: string; offset: number }[]): PuntoCalle[] {
+  return elementos.map((e) => ({ concepto: 'eje', codigo: e.clave, distancia: e.offset }))
 }
 
-function calleDe(cambios: Partial<Calle> = {}): Calle {
+function calleDe(puntos: PuntoCalle[]): Calle {
   return {
     id: 'calle-prueba',
     nombre: 'Calle de prueba',
-    plantillaId: 'plantilla-prueba',
-    progresivaInicio: 0,
-    progresivaFin: 0,
-    intervalo: 1,
-    progresivasExtra: [],
+    puntos,
+    nivelaciones: [],
     rasante: null,
-    ...cambios,
+  }
+}
+
+/**
+ * Una toma cuyas lecturas tocan exactamente estas progresivas: es lo que
+ * `evaluarContraRasante` usa ahora para armar la grilla — las progresivas
+ * medidas de la toma, no un rango configurado en la calle.
+ */
+function tomaConProgresivas(progresivas: number[]): Toma {
+  return {
+    id: 'toma-prueba',
+    fecha: '2026-08-19',
+    capaId: 'unica',
+    bmInicialId: 'bm-1',
+    cierre: { tipo: 'abierto', longitudK: 0, longitudKAuto: true, clase: 'tercerOrden', coeficiente: 12 },
+    estaciones: [
+      {
+        id: 'e-1',
+        vistaAtras: { id: 'l-va', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1 },
+        intermedias: progresivas.map((progresiva, indice) => ({
+          id: `l-${indice}`,
+          destino: { tipo: 'celda', celda: { progresiva, elementoClave: 'x' } },
+          valor: 1,
+        })),
+      },
+    ],
   }
 }
 
@@ -130,11 +143,13 @@ describe('evaluarContraRasante', () => {
   it('los cinco contadores suman el total de celdas de la grilla, sin que ninguna se pierda', () => {
     // Cuatro celdas: progresivas 0 y 20, elementos «eje» (offset 0, dentro de
     // la sección) y «borde» (offset 9, más allá del tramo de calzada).
-    const plantilla = plantillaDe([
-      { clave: 'eje', offset: 0 },
-      { clave: 'borde', offset: 9 },
-    ])
-    const calle = calleDe({ progresivaFin: 20, intervalo: 20 })
+    const calle = calleDe(
+      puntosDe([
+        { clave: 'eje', offset: 0 },
+        { clave: 'borde', offset: 9 },
+      ]),
+    )
+    const toma = tomaConProgresivas([0, 20])
     const rasante = rasanteBase()
     const capas = capaUnica()
 
@@ -150,7 +165,7 @@ describe('evaluarContraRasante', () => {
     const evaluacion = evaluarContraRasante({
       resultado,
       calle,
-      plantilla,
+      toma,
       rasante,
       capas,
       capaId: 'unica',
@@ -174,14 +189,14 @@ describe('evaluarContraRasante', () => {
   })
 
   it('una celda medida y clavada en la cota da diferencia cero y cuenta como conforme, no como sin dato', () => {
-    const plantilla = plantillaDe([{ clave: 'eje', offset: 0 }])
-    const calle = calleDe()
+    const calle = calleDe(puntosDe([{ clave: 'eje', offset: 0 }]))
+    const toma = tomaConProgresivas([0])
     const resultado = resultadoCon([celdaMedida(0, 'eje', 3245.18)])
 
     const evaluacion = evaluarContraRasante({
       resultado,
       calle,
-      plantilla,
+      toma,
       rasante: rasanteBase(),
       capas: capaUnica(),
       capaId: 'unica',
@@ -195,14 +210,14 @@ describe('evaluarContraRasante', () => {
   })
 
   it('una celda sin medir tiene diferencia null, no cero', () => {
-    const plantilla = plantillaDe([{ clave: 'eje', offset: 0 }])
-    const calle = calleDe()
+    const calle = calleDe(puntosDe([{ clave: 'eje', offset: 0 }]))
+    const toma = tomaConProgresivas([0])
     const resultado = resultadoCon([])
 
     const evaluacion = evaluarContraRasante({
       resultado,
       calle,
-      plantilla,
+      toma,
       rasante: rasanteBase(),
       capas: capaUnica(),
       capaId: 'unica',
@@ -220,14 +235,14 @@ describe('evaluarContraRasante', () => {
   })
 
   it('una celda sin rasante y sin medir también sale sinMedir, por el mismo criterio', () => {
-    const plantilla = plantillaDe([{ clave: 'borde', offset: 9 }]) // fuera del tramo (hastaOffset 4.2)
-    const calle = calleDe()
+    const calle = calleDe(puntosDe([{ clave: 'borde', offset: 9 }])) // fuera del tramo (hastaOffset 4.2)
+    const toma = tomaConProgresivas([0])
     const resultado = resultadoCon([])
 
     const evaluacion = evaluarContraRasante({
       resultado,
       calle,
-      plantilla,
+      toma,
       rasante: rasanteBase(),
       capas: capaUnica(),
       capaId: 'unica',
@@ -241,14 +256,14 @@ describe('evaluarContraRasante', () => {
   })
 
   it('una celda sin rasante pero medida sigue saliendo con sinRasante', () => {
-    const plantilla = plantillaDe([{ clave: 'borde', offset: 9 }])
-    const calle = calleDe()
+    const calle = calleDe(puntosDe([{ clave: 'borde', offset: 9 }]))
+    const toma = tomaConProgresivas([0])
     const resultado = resultadoCon([celdaMedida(0, 'borde', 3245.0)])
 
     const evaluacion = evaluarContraRasante({
       resultado,
       calle,
-      plantilla,
+      toma,
       rasante: rasanteBase(),
       capas: capaUnica(),
       capaId: 'unica',
@@ -265,11 +280,13 @@ describe('evaluarContraRasante', () => {
   it('el estado de cada celda y los contadores del resumen cuentan lo mismo, en un escenario con las cinco categorías', () => {
     // Ocho celdas: progresivas 0/20/40/60 × elementos «a» (offset 0, dentro
     // de sección) y «b» (offset 9, fuera del tramo de calzada).
-    const plantilla = plantillaDe([
-      { clave: 'a', offset: 0 },
-      { clave: 'b', offset: 9 },
-    ])
-    const calle = calleDe({ progresivaFin: 60, intervalo: 20 })
+    const calle = calleDe(
+      puntosDe([
+        { clave: 'a', offset: 0 },
+        { clave: 'b', offset: 9 },
+      ]),
+    )
+    const toma = tomaConProgresivas([0, 20, 40, 60])
     const rasante = rasanteBase()
     const capas = capaUnica() // toleranciaMm 10
 
@@ -285,7 +302,7 @@ describe('evaluarContraRasante', () => {
     const evaluacion = evaluarContraRasante({
       resultado,
       calle,
-      plantilla,
+      toma,
       rasante,
       capas,
       capaId: 'unica',
@@ -313,8 +330,8 @@ describe('evaluarContraRasante', () => {
   })
 
   it('la diferencia sale en milímetros enteros, sin el arrastre de coma flotante', () => {
-    const plantilla = plantillaDe([{ clave: 'eje', offset: 0 }])
-    const calle = calleDe()
+    const calle = calleDe(puntosDe([{ clave: 'eje', offset: 0 }]))
+    const toma = tomaConProgresivas([0])
     // Cota teórica en progresiva 0, offset 0, con capaUnica: 3245.18 (coincide
     // con la rasante). 3244.878 queda 0.302 m por debajo, igual que el caso
     // de aMilimetros(-0.302) del comentario de evaluar.ts.
@@ -323,7 +340,7 @@ describe('evaluarContraRasante', () => {
     const evaluacion = evaluarContraRasante({
       resultado,
       calle,
-      plantilla,
+      toma,
       rasante: rasanteBase(),
       capas: capaUnica(),
       capaId: 'unica',
@@ -334,8 +351,8 @@ describe('evaluarContraRasante', () => {
   })
 
   it('cotaReal y cotaTeorica se resuelven bien en una celda con bombeo, no solo en el eje', () => {
-    const plantilla = plantillaDe([{ clave: 'borde', offset: 4.2 }])
-    const calle = calleDe()
+    const calle = calleDe(puntosDe([{ clave: 'borde', offset: 4.2 }]))
+    const toma = tomaConProgresivas([0])
     // Mismo caso que espesores.test.ts: la base en el eje da 3245.13; a
     // offset 4.2 el bombeo del 2% le resta 84 mm → 3245.046.
     const resultado = resultadoCon([celdaMedida(0, 'borde', 3245.046)])
@@ -343,7 +360,7 @@ describe('evaluarContraRasante', () => {
     const evaluacion = evaluarContraRasante({
       resultado,
       calle,
-      plantilla,
+      toma,
       rasante: rasanteBase(),
       capas: capasEnPaquete(),
       capaId: 'base',
@@ -356,30 +373,15 @@ describe('evaluarContraRasante', () => {
     expect(celda?.estado).toBe('conforme')
   })
 
-  it('con la calle mal configurada, dice qué está mal en vez de mostrar un resumen vacío y engañoso', () => {
-    const plantilla = plantillaDe([{ clave: 'eje', offset: 0 }])
-    // Progresiva final antes que la inicial: construirGrilla no puede armar la grilla.
-    const calle = calleDe({ progresivaInicio: 10, progresivaFin: 0, intervalo: 1 })
-    const resultado = resultadoCon([])
-
-    const evaluacion = evaluarContraRasante({
-      resultado,
-      calle,
-      plantilla,
-      rasante: rasanteBase(),
-      capas: capaUnica(),
-      capaId: 'unica',
-    })
-
-    expect(evaluacion.error).not.toBeNull()
-    expect(evaluacion.error).not.toMatch(/error|exception/i)
-    expect(evaluacion.celdas.size).toBe(0)
-    expect(
-      evaluacion.conformes +
-        evaluacion.alLimite +
-        evaluacion.fuera +
-        evaluacion.fueraDeSeccion +
-        evaluacion.sinMedir,
-    ).toBe(0)
-  })
+  // NOTA (tarea C3): existía aquí una prueba «con la calle mal configurada,
+  // dice qué está mal en vez de mostrar un resumen vacío y engañoso», que
+  // fabricaba una `Calle` con progresivaInicio > progresivaFin para forzar el
+  // error de `construirGrilla`. Esos campos ya no existen: la calle no
+  // configura un rango de progresivas, así que no hay forma de dejarla «mal
+  // configurada» en ese sentido — las progresivas vienen de lo medido, y una
+  // toma sin lecturas simplemente da una grilla vacía (celdas.size === 0), no
+  // un error. Se retira la prueba en vez de forzarla a pasar con otro
+  // escenario: es la señal de que esa capacidad de aviso se perdió con el
+  // cambio de modelo, y queda anotada en el informe de la tarea para que se
+  // decida qué hacer con ella, en vez de esconderla aquí.
 })

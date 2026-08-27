@@ -1,4 +1,4 @@
-import { construirGrilla, esLecturaUsable, formatearProgresiva } from '@topo/core'
+import { construirGrilla, esLecturaUsable, formatearProgresiva, progresivasMedidas } from '@topo/core'
 import { useEffect, useMemo, useState } from 'react'
 import BarraCierre from '../componentes/BarraCierre'
 import CorteTransversal from '../componentes/CorteTransversal'
@@ -26,11 +26,7 @@ export default function VistaLibreta() {
 
   const celdas = useMemo(() => {
     if (!contexto) return []
-    try {
-      return construirGrilla(contexto.calle, contexto.plantilla)
-    } catch {
-      return []
-    }
+    return construirGrilla(contexto.calle, progresivasMedidas(contexto.campania.estaciones))
   }, [contexto])
   const llenas = useMemo(
     () => new Set(resultado ? [...resultado.cotasPorCelda.keys()] : []),
@@ -40,7 +36,8 @@ export default function VistaLibreta() {
   // si cada rejilla lo calculara por su cuenta, un empate de offset podría
   // desalinearlas sin que nada lo avisara.
   const esqueleto = useMemo(
-    () => (contexto ? armarEsqueletoTabla(contexto.calle, contexto.plantilla) : null),
+    () =>
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
     [contexto],
   )
 

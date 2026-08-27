@@ -7,11 +7,10 @@ import { proyectoEjemplo } from '../estado/ejemplo'
 import MapaEstado from './MapaEstado'
 
 /**
- * Misma libreta del proyecto de ejemplo (EJE y BOR-I medidos en 0+000, EJE en
- * 0+020), pero con la calle recortada a 0+000–0+120: así la grilla queda en
- * 7 progresivas × 7 elementos = 49 celdas, un ancho manejable para afirmar
- * "todas las celdas" sin depender de cuántas progresivas tenga el proyecto
- * de ejemplo completo.
+ * Misma libreta del proyecto de ejemplo: mide 5 progresivas (0+000 a 0+080)
+ * por los 7 puntos de la calle (VER-I, SAR-I, BOR-I, EJE, BOR-D, SAR-D,
+ * VER-D) = 35 celdas. La grilla ya no se puede recortar con un rango de
+ * calle —ese campo no existe—: sale entera de lo que la libreta mide.
  *
  * La rasante arranca en 3245.179 (plana, sin pendiente longitudinal ni
  * transversal). La campaña activa mide en SUBRASANTE, y BASE + CARPETA
@@ -21,7 +20,6 @@ import MapaEstado from './MapaEstado'
  * bien fuera de los 20 mm de tolerancia de SUBRASANTE.
  */
 function fijarRasanteDeEjemplo(): void {
-  useAlmacen.getState().actualizarCalle('c-1', { progresivaFin: 120 })
   useAlmacen.getState().fijarRasante('c-1', {
     progresivaArranque: 0,
     cotaArranque: 3245.179,
@@ -41,7 +39,7 @@ describe('MapaEstado', () => {
     fijarRasanteDeEjemplo()
     render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
-    expect(screen.getAllByRole('button', { name: /^0\+\d{3} / }).length).toBe(49)
+    expect(screen.getAllByRole('button', { name: /^0\+\d{3} / }).length).toBe(35)
   })
 
   // La celda tiene que decir los milímetros, qué hacer (cortar/rellenar) y

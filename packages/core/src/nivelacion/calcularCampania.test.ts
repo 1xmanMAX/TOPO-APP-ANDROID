@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import {
-  BM_1,
-  CALLE_EJEMPLO,
-  PLANTILLA_EJEMPLO,
-  campaniaEjemplo,
-} from '../pruebas/libretaEjemplo'
+import { BM_1, CALLE_EJEMPLO, tomaEjemplo } from '../pruebas/libretaEjemplo'
 import { calcularCampania } from './calcularCampania'
 
-function entrada(campania = campaniaEjemplo()) {
-  return { campania, calle: CALLE_EJEMPLO, plantilla: PLANTILLA_EJEMPLO, bms: [BM_1] }
+function entrada(campania = tomaEjemplo()) {
+  return { campania, calle: CALLE_EJEMPLO, bms: [BM_1] }
 }
 
 describe('calcularCampania', () => {
@@ -18,19 +13,26 @@ describe('calcularCampania', () => {
     expect(resultado.cotasPorCelda.get('20|EJE')?.cota).toBeCloseTo(3244.62, 9)
   })
 
-  it('lleva el offset de cada celda desde la plantilla', () => {
+  it('lleva el offset de cada celda desde los puntos de la calle', () => {
     const resultado = calcularCampania(entrada())
     expect(resultado.cotasPorCelda.get('0|BOR-I')?.offset).toBe(-4.2)
   })
 
   it('calcula la longitud K automáticamente cuando está en automático', () => {
-    const resultado = calcularCampania(entrada())
-    expect(resultado.cierre.longitudKKm).toBeCloseTo(0.36, 9)
-    expect(resultado.cierre.pasa).toBe(true)
+    const campania = tomaEjemplo()
+    campania.cierre = { ...campania.cierre, longitudKAuto: true }
+    const resultado = calcularCampania(entrada(campania))
+
+    // La toma de ejemplo mide de 0+000 a 0+020: 20 m ida y vuelta = 0.04 km.
+    expect(resultado.cierre.longitudKKm).toBeCloseTo(0.04, 9)
+    // Con una longitud tan corta la tolerancia es de solo ±2.4 mm: el cierre
+    // de -5.0 mm de esta libreta, que sí pasaba contra el circuito de 0.36 km
+    // del plan, ya no pasa contra su propio recorrido real.
+    expect(resultado.cierre.pasa).toBe(false)
   })
 
   it('respeta la longitud K escrita a mano', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.cierre = { ...campania.cierre, longitudKAuto: false, longitudK: 1 }
     const resultado = calcularCampania(entrada(campania))
     expect(resultado.cierre.longitudKKm).toBe(1)
@@ -39,12 +41,14 @@ describe('calcularCampania', () => {
 
   it('cuenta celdas llenas y totales', () => {
     const resultado = calcularCampania(entrada())
-    expect(resultado.celdasTotales).toBe(30)
+    // Dos progresivas medidas (0 y 20) por tres puntos de la calle (BOR-I,
+    // EJE, BOR-D) = 6 celdas posibles; solo 3 tienen lectura.
+    expect(resultado.celdasTotales).toBe(6)
     expect(resultado.celdasLlenas).toBe(3)
   })
 
   it('no compensa cuando el cierre no pasa', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.vistaAdelante!.valor = 1.887
     const resultado = calcularCampania(entrada(campania))
 
@@ -54,7 +58,7 @@ describe('calcularCampania', () => {
   })
 
   it('avisa cuando el cierre no pasa', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.vistaAdelante!.valor = 1.887
     const resultado = calcularCampania(entrada(campania))
     const aviso = resultado.avisos.find((a) => a.nivel === 'error')
@@ -65,7 +69,7 @@ describe('calcularCampania', () => {
   })
 
   it('avisa cuando el circuito quedó abierto', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.cierre = { ...campania.cierre, tipo: 'abierto', bmFinalId: undefined }
     delete campania.estaciones[1]!.vistaAdelante
     const resultado = calcularCampania(entrada(campania))
@@ -74,7 +78,7 @@ describe('calcularCampania', () => {
   })
 
   it('guarda todas las lecturas de una celda medida dos veces y usa la última', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.intermedias.push({
       id: 'l-8',
       destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
@@ -88,7 +92,7 @@ describe('calcularCampania', () => {
   })
 
   it('advierte cuando dos lecturas de la misma celda difieren más de 5 mm', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.intermedias.push({
       id: 'l-8',
       destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
@@ -102,7 +106,7 @@ describe('calcularCampania', () => {
   })
 
   it('avisa de una lectura que se aparta de sus vecinas de la misma progresiva', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[0]!.intermedias.push({
       id: 'l-9',
       destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } },
@@ -129,7 +133,7 @@ describe('calcularCampania', () => {
   })
 
   it('devuelve el error legible si la longitud K escrita a mano es negativa', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.cierre = { ...campania.cierre, longitudKAuto: false, longitudK: -1 }
     const resultado = calcularCampania(entrada(campania))
 
@@ -138,18 +142,8 @@ describe('calcularCampania', () => {
     expect(resultado.cotasInstrumento).toEqual([])
   })
 
-  it('devuelve el error legible si la calle tiene un intervalo inválido', () => {
-    const resultado = calcularCampania({
-      ...entrada(),
-      calle: { ...CALLE_EJEMPLO, intervalo: 0 },
-    })
-
-    expect(resultado.error).toBe('El intervalo debe ser mayor que cero')
-    expect(resultado.cotasPorCelda.size).toBe(0)
-  })
-
   it('una lectura fuera de rango genera un aviso que menciona la mira, y el cálculo no revienta', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[0]!.intermedias[0]!.valor = 0
     const resultado = calcularCampania(entrada(campania))
 
@@ -159,7 +153,7 @@ describe('calcularCampania', () => {
   })
 
   it('poner la vista adelante de cierre en 0 deja el cierre sin veredicto, no en fuera de tolerancia', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.estaciones[1]!.vistaAdelante!.valor = 0
     const resultado = calcularCampania(entrada(campania))
 
@@ -167,17 +161,16 @@ describe('calcularCampania', () => {
     expect(resultado.avisos.some((a) => a.mensaje.includes('fuera de tolerancia'))).toBe(false)
   })
 
-  it('avisa de las lecturas que quedan huérfanas al renombrar el elemento de una lectura ya tomada', () => {
-    const plantillaRenombrada: typeof PLANTILLA_EJEMPLO = {
-      ...PLANTILLA_EJEMPLO,
-      elementos: PLANTILLA_EJEMPLO.elementos.map((elemento) =>
-        elemento.clave === 'EJE' ? { ...elemento, clave: 'EJE-C' } : elemento,
+  it('avisa de las lecturas que quedan huérfanas al renombrar el código de un punto ya medido', () => {
+    const calleConCodigoRenombrado = {
+      ...CALLE_EJEMPLO,
+      puntos: CALLE_EJEMPLO.puntos.map((punto) =>
+        punto.codigo === 'EJE' ? { ...punto, codigo: 'EJE-C' } : punto,
       ),
     }
     const resultado = calcularCampania({
-      campania: campaniaEjemplo(),
-      calle: CALLE_EJEMPLO,
-      plantilla: plantillaRenombrada,
+      campania: tomaEjemplo(),
+      calle: calleConCodigoRenombrado,
       bms: [BM_1],
     })
 
@@ -189,7 +182,7 @@ describe('calcularCampania', () => {
   })
 
   it('avisa si el banco de nivel de cierre ya no existe en el proyecto', () => {
-    const campania = campaniaEjemplo()
+    const campania = tomaEjemplo()
     campania.cierre = { ...campania.cierre, bmFinalId: 'bm-borrado' }
     const resultado = calcularCampania(entrada(campania))
 
