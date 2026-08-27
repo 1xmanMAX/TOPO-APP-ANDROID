@@ -76,6 +76,26 @@ function valorDeCelda(celdaXml: Element, cadenas: string[]): string {
 }
 
 /**
+ * Empareja el ancho de todas las filas al de la más ancha, rellenando lo que
+ * falte con celdas vacías al final.
+ *
+ * La pieza que interpreta esta tabla casa cada columna con su cabecera por
+ * posición, así que una fila más angosta desplazaría o perdería lecturas en
+ * silencio. La causa más común es la última columna sin medir (por ejemplo,
+ * la vereda derecha): Excel, un .csv o un pegado se saltan por completo esa
+ * celda final en vez de dejarla en blanco. Rellenar el hueco no inventa un
+ * dato — la celda de relleno es una celda vacía, un punto no medido, que es
+ * justo lo que era. Una fila más ancha que las demás nunca se recorta.
+ */
+function rellenarAnchoParejo(filas: string[][]): string[][] {
+  const anchoMaximo = filas.reduce((maximo, fila) => Math.max(maximo, fila.length), 0)
+
+  return filas.map((fila) =>
+    fila.length < anchoMaximo ? [...fila, ...new Array(anchoMaximo - fila.length).fill('')] : fila,
+  )
+}
+
+/**
  * Convierte el XML de una hoja en su tabla de celdas.
  *
  * Excel se salta las celdas vacías al escribir una fila: un hueco en medio no
@@ -116,9 +136,15 @@ function analizarHoja(xml: string, cadenas: string[]): string[][] {
 
   const celdas: string[][] = []
   for (let fila = 1; fila <= filaMaxima; fila++) {
-    celdas.push(filasPorNumero.get(fila) ?? [])
+    const valores = filasPorNumero.get(fila) ?? []
+    // Una fila sin ningún <c>: no hay ni una celda real, así que es una línea
+    // vacía (un separador o un final de hoja de sobra), no una fila de datos.
+    // Se descarta igual que en los otros dos caminos de lectura, para no
+    // dejar una fila hueca que rompa el ancho parejo del resto de la tabla.
+    if (valores.length === 0) continue
+    celdas.push(valores)
   }
-  return celdas
+  return rellenarAnchoParejo(celdas)
 }
 
 /** La ruta dentro del paquete .xlsx para el destino de una relación (relativo a "xl/"). */
@@ -180,6 +206,16 @@ export function leerXlsx(datos: Uint8Array): HojaLeida[] {
  * celdas, respetando los valores que van entre comillas —que pueden traer el
  * propio delimitador o un salto de línea— y las comillas dobles escapadas
  * como `""`.
+ *
+ * Una línea completamente vacía (sin ni un delimitador ni contenido) no es
+ * una fila de datos: es un separador o una línea final de sobra, y se
+ * descarta. Eso es distinto de una celda vacía dentro de una fila con
+ * contenido (`a,,c`), que sí se conserva: esa es un punto no medido.
+ *
+ * Una fila a la que le faltan delimitadores al final (por ejemplo, la última
+ * columna sin medir) sale más angosta que las demás; se rellena con celdas
+ * vacías hasta el ancho de la fila más ancha, para que la tabla resultante
+ * sea siempre rectangular.
  */
 function partirTextoDelimitado(texto: string, delimitador: string): string[][] {
   const filas: string[][] = []
@@ -244,7 +280,8 @@ function partirTextoDelimitado(texto: string, delimitador: string): string[][] {
     filas.push(fila)
   }
 
-  return filas
+  const sinLineasVacias = filas.filter((fila) => !(fila.length === 1 && fila[0] === ''))
+  return rellenarAnchoParejo(sinLineasVacias)
 }
 
 /** Lee un texto en formato CSV (separado por comas) como una sola hoja. */
@@ -254,15 +291,18 @@ export function leerCsv(texto: string, nombreHoja: string): HojaLeida {
 
 /**
  * Lee lo pegado desde una hoja de cálculo (Excel o Google Sheets): llega como
- * texto separado por tabuladores, una fila por línea. Si no trae ningún
- * tabulador, es texto suelto y no una tabla copiada de celdas.
+ * texto separado por tabuladores, una fila por línea.
+ *
+ * Una sola columna copiada (por ejemplo, solo las lecturas de mira) no trae
+ * ningún tabulador y sigue siendo una tabla válida, de varias filas de una
+ * celda cada una. Lo que se rechaza es el texto suelto: ni un tabulador y una
+ * sola línea, que no puede ser una tabla copiada de celdas.
  */
 export function leerPegado(texto: string, nombreHoja: string): HojaLeida {
-  if (!texto.includes('\t')) throw new Error(ERROR_PEGADO)
+  const filas = partirTextoDelimitado(texto, '\t')
 
-  const filas = partirTextoDelimitado(texto, '\t').filter(
-    (fila) => !(fila.length === 1 && fila[0] === ''),
-  )
+  const esTextoSuelto = !texto.includes('\t') && filas.length <= 1
+  if (esTextoSuelto) throw new Error(ERROR_PEGADO)
 
   return { nombre: nombreHoja, celdas: filas }
 }

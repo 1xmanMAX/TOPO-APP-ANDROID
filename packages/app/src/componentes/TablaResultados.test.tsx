@@ -43,4 +43,26 @@ describe('TablaResultados', () => {
   // las retiradas en `evaluar.test.ts` y otros. `Calle` ya no tiene
   // `progresivaInicio`/`progresivaFin`: no hay forma de reproducir ese
   // escenario. Se anota una sola vez en el informe de la tarea.
+
+  it('con una toma sin lecturas, no revienta y no inventa filas ni columnas', () => {
+    // Es justo lo que deja crear una campaña nueva: una estación con la vista
+    // atrás al banco de nivel y ninguna lectura todavía. progresivasMedidas()
+    // devuelve [] y la grilla queda vacía.
+    const proyecto = proyectoEjemplo()
+    proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones = [
+      {
+        id: 'e-nueva',
+        vistaAtras: { id: 'l-nueva', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 0 },
+        intermedias: [],
+      },
+    ]
+    useAlmacen.getState().cargarProyecto(proyecto)
+
+    render(<TablaResultados />)
+
+    // La cabecera sigue en pie: la pantalla no desaparece ni lanza.
+    expect(screen.getByText('Progresiva')).toBeInTheDocument()
+    // Sin progresivas medidas no hay ninguna celda de cota que dibujar.
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+  })
 })

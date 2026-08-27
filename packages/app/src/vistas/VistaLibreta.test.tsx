@@ -100,6 +100,17 @@ describe('VistaLibreta', () => {
     expect(screen.getByText(/±7.2 mm/)).toBeInTheDocument()
   })
 
+  it('muestra cuántas celdas de la grilla ya están llenas', () => {
+    render(<VistaLibreta />)
+
+    // La toma de SUBRASANTE del ejemplo mide 5 progresivas (0,20,40,60,80) ×
+    // 5 puntos (SAR-I, BOR-I, EJE, BOR-D, SAR-D) = 25 celdas llenas, contadas
+    // a mano en `estaciones[0].intermedias` (15) + `estaciones[1].intermedias`
+    // (10). La calle tiene 7 puntos en total (suma VER-I y VER-D, que esta
+    // toma nunca midió): el total de la grilla es 5 progresivas × 7 puntos = 35.
+    expect(screen.getByText(/llenadas 25 de 35/)).toBeInTheDocument()
+  })
+
   it('registra una lectura y salta a la siguiente celda pendiente', async () => {
     const usuario = userEvent.setup()
     render(<VistaLibreta />)

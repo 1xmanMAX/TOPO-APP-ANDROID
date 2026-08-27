@@ -31,6 +31,32 @@ describe('calcularCampania', () => {
     expect(resultado.cierre.pasa).toBe(false)
   })
 
+  it('con un recorrido real más largo, el cierre automático también puede pasar', () => {
+    const campania = tomaEjemplo()
+    campania.cierre = { ...campania.cierre, longitudKAuto: true }
+    // Alargamos el recorrido medido cambiando solo el destino de una lectura
+    // intermedia (BOR-I de la primera estación, de 0+000 a 0+250). Las
+    // lecturas de enlace (vista atrás y vista adelante de las dos estaciones,
+    // que son las que fijan el error de cierre) no se tocan.
+    campania.estaciones[0]!.intermedias[1] = {
+      ...campania.estaciones[0]!.intermedias[1]!,
+      destino: { tipo: 'celda', celda: { progresiva: 250, elementoClave: 'BOR-I' } },
+    }
+
+    const resultado = calcularCampania(entrada(campania))
+
+    // Progresivas medidas ahora: 0 (EJE, e-1), 250 (BOR-I, e-1) y 20 (EJE,
+    // e-2) → de 0+000 a 0+250, 250 m. Circuito cerrado = ida y vuelta =
+    // 500 m = 0.5 km.
+    expect(resultado.cierre.longitudKKm).toBeCloseTo(0.5, 9)
+    // Tolerancia = coeficiente(12) · √K(0.5) ≈ 8.49 mm.
+    expect(resultado.cierre.toleranciaMm).toBeCloseTo(12 * Math.sqrt(0.5), 9)
+    // El error de cierre de esta libreta es siempre -5.0 mm (no se tocó
+    // ninguna lectura de enlace): cabe dentro de los ±8.49 mm de tolerancia.
+    expect(resultado.cierre.errorMm).toBeCloseTo(-5.0, 1)
+    expect(resultado.cierre.pasa).toBe(true)
+  })
+
   it('respeta la longitud K escrita a mano', () => {
     const campania = tomaEjemplo()
     campania.cierre = { ...campania.cierre, longitudKAuto: false, longitudK: 1 }

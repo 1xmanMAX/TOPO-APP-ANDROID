@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Calle, ConfiguracionCierre, Estacion, Nivelacion, Toma } from '../modelo/tipos'
-import { claveCelda, construirGrilla, partirClaveCelda } from './grilla'
+import type { Calle, ConfiguracionCierre, Estacion, Lectura, Nivelacion, Toma } from '../modelo/tipos'
+import { claveCelda, construirGrilla, partirClaveCelda, progresivasMedidas } from './grilla'
 
 describe('claveCelda', () => {
   it('combina progresiva y elemento', () => {
@@ -138,6 +138,118 @@ describe('construirGrilla', () => {
 
   it('sin progresivas medidas tampoco hay celdas', () => {
     expect(construirGrilla(calleDeEjemplo(), [])).toEqual([])
+  })
+})
+
+/** Lectura mínima hacia una celda, para armar estaciones a medida en cada prueba. */
+function lecturaACelda(id: string, progresiva: number, elementoClave = 'EJE'): Lectura {
+  return { id, destino: { tipo: 'celda', celda: { progresiva, elementoClave } }, valor: 1.5 }
+}
+
+function lecturaABm(id: string, bmId = 'bm-1'): Lectura {
+  return { id, destino: { tipo: 'bm', bmId }, valor: 1.5 }
+}
+
+describe('progresivasMedidas', () => {
+  it('sin estaciones no hay progresivas', () => {
+    expect(progresivasMedidas([])).toEqual([])
+  })
+
+  it('recoge las progresivas de las lecturas intermedias', () => {
+    const estaciones: Estacion[] = [
+      {
+        id: 'e-1',
+        vistaAtras: lecturaABm('l-va'),
+        intermedias: [lecturaACelda('l-1', 20), lecturaACelda('l-2', 0)],
+      },
+    ]
+
+    expect(progresivasMedidas(estaciones)).toEqual([0, 20])
+  })
+
+  it('deduplica progresivas medidas más de una vez', () => {
+    const estaciones: Estacion[] = [
+      {
+        id: 'e-1',
+        vistaAtras: lecturaABm('l-va'),
+        // Dos puntos distintos de la calle, misma progresiva: 0 debe salir una sola vez.
+        intermedias: [lecturaACelda('l-1', 0, 'EJE'), lecturaACelda('l-2', 0, 'BOR-I')],
+      },
+    ]
+
+    expect(progresivasMedidas(estaciones)).toEqual([0])
+  })
+
+  it('devuelve las progresivas ordenadas, aunque se hayan medido en otro orden', () => {
+    const estaciones: Estacion[] = [
+      {
+        id: 'e-1',
+        vistaAtras: lecturaABm('l-va'),
+        intermedias: [lecturaACelda('l-1', 47), lecturaACelda('l-2', 3), lecturaACelda('l-3', 20)],
+      },
+    ]
+
+    expect(progresivasMedidas(estaciones)).toEqual([3, 20, 47])
+  })
+
+  it('incluye la progresiva de la vista atrás cuando cae en una celda', () => {
+    const estaciones: Estacion[] = [
+      {
+        id: 'e-1',
+        vistaAtras: lecturaACelda('l-va', 5),
+        intermedias: [lecturaACelda('l-1', 10)],
+      },
+    ]
+
+    expect(progresivasMedidas(estaciones)).toEqual([5, 10])
+  })
+
+  it('incluye la progresiva de la vista adelante cuando cae en una celda', () => {
+    const estaciones: Estacion[] = [
+      {
+        id: 'e-1',
+        vistaAtras: lecturaABm('l-va'),
+        intermedias: [lecturaACelda('l-1', 10)],
+        vistaAdelante: lecturaACelda('l-vd', 15),
+      },
+    ]
+
+    expect(progresivasMedidas(estaciones)).toEqual([10, 15])
+  })
+
+  it('ignora las lecturas que no apuntan a una celda (BM, cambio o punto suelto)', () => {
+    const estaciones: Estacion[] = [
+      {
+        id: 'e-1',
+        vistaAtras: lecturaABm('l-va'),
+        intermedias: [
+          { id: 'l-1', destino: { tipo: 'cambio', nombre: 'PC-1' }, valor: 1.2 },
+          { id: 'l-2', destino: { tipo: 'suelto', punto: { etiqueta: 'BZ-1', offset: 3, notas: '' } }, valor: 1.1 },
+        ],
+        vistaAdelante: lecturaABm('l-vd', 'bm-2'),
+      },
+    ]
+
+    expect(progresivasMedidas(estaciones)).toEqual([])
+  })
+
+  it('junta y ordena las progresivas de varias estaciones a la vez', () => {
+    const estaciones: Estacion[] = [
+      {
+        id: 'e-1',
+        vistaAtras: lecturaABm('l-va-1'),
+        intermedias: [lecturaACelda('l-1', 40), lecturaACelda('l-2', 0)],
+        vistaAdelante: { id: 'l-vd-1', destino: { tipo: 'cambio', nombre: 'PC-1' }, valor: 1.5 },
+      },
+      {
+        id: 'e-2',
+        vistaAtras: { id: 'l-va-2', destino: { tipo: 'cambio', nombre: 'PC-1' }, valor: 1.5 },
+        // 40 se repite entre estaciones y debe seguir apareciendo una sola vez.
+        intermedias: [lecturaACelda('l-3', 40), lecturaACelda('l-4', 60)],
+      },
+    ]
+
+    expect(progresivasMedidas(estaciones)).toEqual([0, 40, 60])
   })
 })
 

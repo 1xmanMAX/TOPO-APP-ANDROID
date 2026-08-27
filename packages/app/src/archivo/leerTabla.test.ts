@@ -154,6 +154,58 @@ describe('leerXlsx', () => {
     expect(hojas[0]!.celdas[0]).toEqual(['Progresiva', '', '5'])
   })
 
+  it('una fila sin ninguna celda se descarta, igual que una línea vacía del csv o del pegado', () => {
+    // Una fila XML sin ningún <c> (Excel no escribió nada para esa línea) es
+    // el equivalente, en un .xlsx, de una línea vacía en un CSV o en un
+    // pegado. Antes del arreglo quedaba como una fila hueca ([]) en medio de
+    // la tabla, en vez de descartarse como en los otros dos caminos.
+    const filaUno = '<c r="A1" t="inlineStr"><is><t>a</t></is></c>'
+    const filaDos = '' // <row r="2"></row>: sin celdas, línea vacía.
+    const filaTres = '<c r="A3" t="inlineStr"><is><t>c</t></is></c>'
+
+    const hojas = leerXlsx(armarXlsxCrudo([{ nombre: 'x', filas: [filaUno, filaDos, filaTres] }]))
+
+    expect(hojas[0]!.celdas).toEqual([['a'], ['c']])
+  })
+
+  it('una fila a la que le falta la última columna se rellena, no queda angosta', () => {
+    // En una libreta de topografía, la última columna suele ser la vereda
+    // derecha, y no medirla es lo normal. Excel se salta del todo esa celda
+    // final en vez de escribirla vacía, así que la fila sale más corta que
+    // la cabecera. La pieza que interpreta la tabla casa cada columna con su
+    // cabecera por posición, así que hay que rellenar el hueco, no dejarlo.
+    const cabecera =
+      '<c r="A1" t="inlineStr"><is><t>PROG</t></is></c>' +
+      '<c r="B1" t="inlineStr"><is><t>BI</t></is></c>' +
+      '<c r="C1" t="inlineStr"><is><t>BD</t></is></c>'
+    // Fila sin C2: la vereda derecha no se midió, y Excel no escribe ni el
+    // elemento <c> para esa celda.
+    const filaCorta =
+      '<c r="A2" t="inlineStr"><is><t>0+000</t></is></c>' +
+      '<c r="B2" t="inlineStr"><is><t>1.980</t></is></c>'
+
+    const hojas = leerXlsx(armarXlsxCrudo([{ nombre: 'x', filas: [cabecera, filaCorta] }]))
+
+    expect(hojas[0]!.celdas[1]).toEqual(['0+000', '1.980', ''])
+  })
+
+  it('una fila más ancha que las demás no se recorta', () => {
+    // Si alguien mide una columna de más en una sola fila, esa lectura tiene
+    // que llegar completa, no perderse por el camino.
+    const cabecera =
+      '<c r="A1" t="inlineStr"><is><t>PROG</t></is></c>' +
+      '<c r="B1" t="inlineStr"><is><t>BI</t></is></c>'
+    const filaAncha =
+      '<c r="A2" t="inlineStr"><is><t>0+000</t></is></c>' +
+      '<c r="B2" t="inlineStr"><is><t>1.980</t></is></c>' +
+      '<c r="C2" t="inlineStr"><is><t>1.975</t></is></c>'
+
+    const hojas = leerXlsx(armarXlsxCrudo([{ nombre: 'x', filas: [cabecera, filaAncha] }]))
+
+    expect(hojas[0]!.celdas[0]).toEqual(['PROG', 'BI', ''])
+    expect(hojas[0]!.celdas[1]).toEqual(['0+000', '1.980', '1.975'])
+  })
+
   it('un libro con dos hojas lee las dos, con su nombre, en el orden del libro', () => {
     const filaUno = '<c r="A1" t="inlineStr"><is><t>uno</t></is></c>'
     const filaDos = '<c r="A1" t="inlineStr"><is><t>dos</t></is></c>'
@@ -183,6 +235,27 @@ describe('leerCsv', () => {
   it('admite finales de línea de Windows', () => {
     expect(leerCsv('a,b\r\nc,d\r\n', 'x').celdas).toEqual([['a', 'b'], ['c', 'd']])
   })
+
+  it('se salta las líneas del todo vacías, igual que el pegado', () => {
+    // Antes del arreglo, una línea vacía de un CSV se convertía en una fila
+    // de una sola celda (['']) en vez de descartarse, a diferencia de lo que
+    // ya hacía leerPegado con el mismo contenido. Cualquier .csv con una
+    // línea de separación o una línea final en blanco disparaba esto.
+    expect(leerCsv('a,b\n\nc,d\n', 'x').celdas).toEqual([['a', 'b'], ['c', 'd']])
+  })
+
+  it('una fila a la que le faltan comas al final se rellena, no queda angosta', () => {
+    // La última columna sin medir (la comas de más al final de la línea) es
+    // lo normal en una libreta real, no un caso raro.
+    expect(leerCsv('PROG,BI,BD\n0+000,1.980\n', 'x').celdas[1]).toEqual(['0+000', '1.980', ''])
+  })
+
+  it('una fila con más comas que la cabecera no se recorta', () => {
+    expect(leerCsv('PROG,BI\n0+000,1.980,1.975\n', 'x').celdas).toEqual([
+      ['PROG', 'BI', ''],
+      ['0+000', '1.980', '1.975'],
+    ])
+  })
 })
 
 describe('leerPegado', () => {
@@ -203,5 +276,82 @@ describe('leerPegado', () => {
 
   it('un texto que no parece una tabla se rechaza con un mensaje legible', () => {
     expect(() => leerPegado('hola', 'x')).toThrow(/no parece una tabla/i)
+  })
+
+  it('una sola columna, de varias líneas y sin ningún tabulador, sí entra como tabla', () => {
+    // Copiar una sola columna de Excel (por ejemplo, solo las lecturas de
+    // mira) no trae ningún tabulador. Antes del arreglo esto se rechazaba
+    // igual que texto suelto, aunque el mismo contenido guardado como .csv
+    // entraba sin problema. Varias líneas sin tabuladores sí son una tabla,
+    // de una sola columna.
+    const hoja = leerPegado('1.955\n1.980\n1.975\n', 'x')
+
+    expect(hoja.celdas).toEqual([['1.955'], ['1.980'], ['1.975']])
+  })
+
+  it('una sola línea de texto suelto se sigue rechazando, aunque tenga varias palabras', () => {
+    expect(() => leerPegado('esto es texto suelto', 'x')).toThrow(/no parece una tabla/i)
+  })
+
+  it('una fila a la que le faltan tabuladores al final se rellena, no queda angosta', () => {
+    expect(leerPegado('PROG\tBI\tBD\n0+000\t1.980\n', 'x').celdas[1]).toEqual(['0+000', '1.980', ''])
+  })
+
+  it('una fila con más tabuladores que la cabecera no se recorta', () => {
+    expect(leerPegado('PROG\tBI\n0+000\t1.980\t1.975\n', 'x').celdas).toEqual([
+      ['PROG', 'BI', ''],
+      ['0+000', '1.980', '1.975'],
+    ])
+  })
+})
+
+describe('simetría entre los tres caminos', () => {
+  it('los mismos datos dan la misma tabla por xlsx, csv y pegado', () => {
+    // La promesa central: no importa por dónde entren los datos, la tabla de
+    // celdas resultante tiene que ser idéntica. Se prueba con una línea en
+    // blanco intercalada (debe descartarse en los tres), celdas vacías
+    // dentro de las filas (deben conservarse en los tres) y una fila a la
+    // que le falta la última columna, como la vereda derecha sin medir
+    // (debe rellenarse en los tres, con la misma tabla rectangular).
+    const esperado = [
+      ['PROG', 'BI', 'EJE', 'OBS'],
+      ['0+000', '1.980', '', 'ok'],
+      ['0+005', '', '1.975', 'ok'],
+      ['0+010', '2.005', '1.960', ''],
+    ]
+
+    const filaUno =
+      '<c r="A1" t="inlineStr"><is><t>PROG</t></is></c>' +
+      '<c r="B1" t="inlineStr"><is><t>BI</t></is></c>' +
+      '<c r="C1" t="inlineStr"><is><t>EJE</t></is></c>' +
+      '<c r="D1" t="inlineStr"><is><t>OBS</t></is></c>'
+    // C2 (EJE) se lo salta del todo: es la celda vacía dentro de la fila.
+    const filaDos =
+      '<c r="A2" t="inlineStr"><is><t>0+000</t></is></c>' +
+      '<c r="B2" t="inlineStr"><is><t>1.980</t></is></c>' +
+      '<c r="D2" t="inlineStr"><is><t>ok</t></is></c>'
+    const filaTres = '' // <row r="3"></row>: la línea en blanco intercalada.
+    // B4 (BI) se lo salta del todo: la otra celda vacía dentro de la fila.
+    const filaCuatro =
+      '<c r="A4" t="inlineStr"><is><t>0+005</t></is></c>' +
+      '<c r="C4" t="inlineStr"><is><t>1.975</t></is></c>' +
+      '<c r="D4" t="inlineStr"><is><t>ok</t></is></c>'
+    // D5 (OBS) se lo salta del todo: la última columna, sin medir, deja la
+    // fila más angosta que la cabecera.
+    const filaCinco =
+      '<c r="A5" t="inlineStr"><is><t>0+010</t></is></c>' +
+      '<c r="B5" t="inlineStr"><is><t>2.005</t></is></c>' +
+      '<c r="C5" t="inlineStr"><is><t>1.960</t></is></c>'
+
+    const hojaXlsx = leerXlsx(
+      armarXlsxCrudo([{ nombre: 'x', filas: [filaUno, filaDos, filaTres, filaCuatro, filaCinco] }]),
+    )[0]!
+
+    const csv = 'PROG,BI,EJE,OBS\n0+000,1.980,,ok\n\n0+005,,1.975,ok\n0+010,2.005,1.960\n'
+    const pegado = 'PROG\tBI\tEJE\tOBS\n0+000\t1.980\t\tok\n\n0+005\t\t1.975\tok\n0+010\t2.005\t1.960\n'
+
+    expect(hojaXlsx.celdas).toEqual(esperado)
+    expect(leerCsv(csv, 'x').celdas).toEqual(esperado)
+    expect(leerPegado(pegado, 'x').celdas).toEqual(esperado)
   })
 })

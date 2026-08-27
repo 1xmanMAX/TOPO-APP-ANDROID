@@ -113,7 +113,7 @@ Y en un navegador de verdad, que comprueba lo que un entorno simulado no puede ‚
 npm run build --workspace packages/app
 npx vite preview --port 4173        # desde packages/app, en otra ventana
 node packages/app/verificacion/recorrido.mjs <carpeta-de-salida>
-node packages/app/verificacion/foco-plantilla.mjs <carpeta-de-salida>
+node packages/app/verificacion/foco-plantilla.mjs <carpeta-de-salida>   # retirado despu√©s
 node packages/app/verificacion/capas.mjs <carpeta-de-salida>
 node packages/app/verificacion/rasante.mjs <carpeta-de-salida>
 node packages/app/verificacion/visor3d.mjs <carpeta-de-salida>

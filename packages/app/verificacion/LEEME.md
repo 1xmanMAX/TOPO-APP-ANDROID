@@ -28,12 +28,6 @@ Catorce cosas de punta a punta, entre ellas:
 
 Deja capturas de pantalla en la carpeta que se le pase como argumento.
 
-## Qué comprueba `foco-plantilla.mjs`
-
-Una sola cosa, pero delicada: en el editor de plantilla, cambiar la distancia de un elemento lo reordena en pantalla. Comprueba que **el campo que estás editando sigue siendo el del mismo elemento** después de que la fila salte de sitio.
-
-No basta con mirar si algo tiene el foco: todos los campos de distancia se llaman igual. Hay que comprobar que el nodo enfocado sea el mismo y que pertenezca al elemento que se empezó a editar. Una comprobación menos precisa da un falso positivo.
-
 ## Qué comprueba `capas.mjs`
 
 El recorrido completo de la Entrega 2A: registrar una segunda campaña sobre la misma calle, en otra capa, y comparar las dos.
