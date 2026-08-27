@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { calcularCampania, compararCapas, type Campania, type Proyecto } from '@topo/core'
+import { calcularCampania, compararCapas, type Proyecto, type Toma } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
+import { agregarTomaComoNivelacion, todasLasTomas } from '../estado/proyectoTomas'
 import { formatearCota } from '../formato'
 import TablaEspesores from './TablaEspesores'
 
@@ -23,14 +24,12 @@ const CIERRE_CERRADO = {
  * encima (espesor positivo); en 20|EJE queda por debajo (espesor negativo),
  * para poder probar ambos casos con datos reales y no inventados a mano.
  */
-function campaniaTerreno(): Campania {
+function campaniaTerreno(): Toma {
   return {
     id: 'camp-terreno',
     fecha: '2026-08-10',
-    calleId: 'c-1',
     capaId: 'cap-terreno',
     bmInicialId: 'bm-1',
-    estado: 'cerrada',
     cierre: CIERRE_CERRADO,
     estaciones: [
       {
@@ -63,8 +62,7 @@ function campaniaTerreno(): Campania {
 
 function proyectoConComparacion(): Proyecto {
   const proyecto = proyectoEjemplo()
-  proyecto.campanias.push(campaniaTerreno())
-  return proyecto
+  return agregarTomaComoNivelacion(proyecto, 'c-1', campaniaTerreno(), 'niv-terreno')
 }
 
 /**
@@ -73,14 +71,12 @@ function proyectoConComparacion(): Proyecto {
  * EJE sale bit a bit idéntica y el espesor entre ellas da cero exacto: el
  * caso real de un tramo que ya estaba a nivel, no una celda sin medir.
  */
-function campaniaCero(id: string, fecha: string, capaId: string): Campania {
+function campaniaCero(id: string, fecha: string, capaId: string): Toma {
   return {
     id,
     fecha,
-    calleId: 'c-1',
     capaId,
     bmInicialId: 'bm-1',
-    estado: 'cerrada',
     cierre: CIERRE_CERRADO,
     estaciones: [
       {
@@ -102,17 +98,15 @@ function campaniaCero(id: string, fecha: string, capaId: string): Campania {
 /** Comparación real, calculada con el mismo motor que usa la app. */
 function comparacionEsperada(proyecto: Proyecto, idInferior = 'camp-terreno', idSuperior = 'camp-1') {
   const calle = proyecto.calles[0]!
-  const plantilla = proyecto.plantillas[0]!
+  const tomas = todasLasTomas(proyecto)
   const inferior = calcularCampania({
-    campania: proyecto.campanias.find((c) => c.id === idInferior)!,
+    campania: tomas.find((t) => t.id === idInferior)!,
     calle,
-    plantilla,
     bms: proyecto.bms,
   })
   const superior = calcularCampania({
-    campania: proyecto.campanias.find((c) => c.id === idSuperior)!,
+    campania: tomas.find((t) => t.id === idSuperior)!,
     calle,
-    plantilla,
     bms: proyecto.bms,
   })
   return compararCapas(inferior, superior)
@@ -228,9 +222,19 @@ describe('TablaEspesores', () => {
   // en el guion largo, el topógrafo pensaría que ahí falta una medición
   // cuando en realidad ya se comprobó que no hacía falta material.
   it('un espesor real de cero se ve en pantalla como 0.000, no como una celda sin comparar', () => {
-    const proyectoCero = proyectoEjemplo()
-    proyectoCero.campanias.push(campaniaCero('camp-cero-a', '2026-08-05', 'cap-terreno'))
-    proyectoCero.campanias.push(campaniaCero('camp-cero-b', '2026-08-06', 'cap-subrasante'))
+    let proyectoCero = proyectoEjemplo()
+    proyectoCero = agregarTomaComoNivelacion(
+      proyectoCero,
+      'c-1',
+      campaniaCero('camp-cero-a', '2026-08-05', 'cap-terreno'),
+      'niv-cero-a',
+    )
+    proyectoCero = agregarTomaComoNivelacion(
+      proyectoCero,
+      'c-1',
+      campaniaCero('camp-cero-b', '2026-08-06', 'cap-subrasante'),
+      'niv-cero-b',
+    )
     useAlmacen.getState().cargarProyecto(proyectoCero)
     useAlmacen.getState().fijarComparacion('camp-cero-a', 'camp-cero-b')
 

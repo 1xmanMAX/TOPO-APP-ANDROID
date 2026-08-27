@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
+import { calleDeToma, todasLasTomas } from '../estado/proyectoTomas'
 import VistaCampanias from './VistaCampanias'
 
 describe('VistaCampanias', () => {
@@ -33,8 +34,8 @@ describe('VistaCampanias', () => {
     await usuario.click(screen.getByRole('button', { name: /nueva campaña/i }))
 
     const { proyecto, campaniaActivaId } = useAlmacen.getState()
-    expect(proyecto.campanias).toHaveLength(3)
-    expect(campaniaActivaId).toBe(proyecto.campanias[2]!.id)
+    expect(todasLasTomas(proyecto)).toHaveLength(3)
+    expect(campaniaActivaId).toBe(todasLasTomas(proyecto)[2]!.id)
   })
 
   it('la campaña nueva arranca vacía, sin pisar la anterior', async () => {
@@ -44,14 +45,14 @@ describe('VistaCampanias', () => {
 
     const resultado = useAlmacen.getState().calcular()!
     expect(resultado.celdasLlenas).toBe(0)
-    expect(useAlmacen.getState().proyecto.campanias[0]!.estaciones).toHaveLength(2)
+    expect(todasLasTomas(useAlmacen.getState().proyecto)[0]!.estaciones).toHaveLength(2)
   })
 
   it('cambia la capa de una campaña', async () => {
     const usuario = userEvent.setup()
     render(<VistaCampanias />)
     await usuario.selectOptions(screen.getByLabelText(/capa de la campaña del 2026-08-19/i), 'cap-terreno')
-    expect(useAlmacen.getState().proyecto.campanias[0]!.capaId).toBe('cap-terreno')
+    expect(todasLasTomas(useAlmacen.getState().proyecto)[0]!.capaId).toBe('cap-terreno')
   })
 
   it('vuelve a activar una campaña anterior', async () => {
@@ -66,11 +67,6 @@ describe('VistaCampanias', () => {
     const usuario = userEvent.setup()
     useAlmacen.getState().agregarCalle({
       nombre: 'Jr. Lima',
-      plantillaId: 'pl-1',
-      progresivaInicio: 0,
-      progresivaFin: 240,
-      intervalo: 20,
-      progresivasExtra: [],
       rasante: null,
     })
     render(<VistaCampanias />)
@@ -81,7 +77,7 @@ describe('VistaCampanias', () => {
       otraCalle.id,
     )
 
-    expect(useAlmacen.getState().proyecto.campanias[0]!.calleId).toBe(otraCalle.id)
+    expect(calleDeToma(useAlmacen.getState().proyecto, 'camp-1')).toBe(otraCalle.id)
     expect(otraCalle.nombre).toBe('Jr. Lima')
   })
 
@@ -89,11 +85,6 @@ describe('VistaCampanias', () => {
     const usuario = userEvent.setup()
     const idOtraCalle = useAlmacen.getState().agregarCalle({
       nombre: 'Jr. Lima',
-      plantillaId: 'pl-1',
-      progresivaInicio: 0,
-      progresivaFin: 240,
-      intervalo: 20,
-      progresivasExtra: [],
       rasante: null,
     })
     useAlmacen.getState().agregarCampania({
@@ -101,7 +92,6 @@ describe('VistaCampanias', () => {
       calleId: idOtraCalle,
       capaId: 'cap-subrasante',
       bmInicialId: 'bm-1',
-      estado: 'abierta',
       cierre: {
         tipo: 'cerrado',
         bmFinalId: 'bm-1',
@@ -115,10 +105,8 @@ describe('VistaCampanias', () => {
 
     await usuario.click(screen.getByRole('button', { name: /Abrir campaña del 2026-08-19 en Jr\. Lima/i }))
 
-    const activa = useAlmacen.getState().proyecto.campanias.find(
-      (c) => c.id === useAlmacen.getState().campaniaActivaId,
-    )!
-    expect(activa.calleId).toBe(idOtraCalle)
+    const { proyecto, campaniaActivaId } = useAlmacen.getState()
+    expect(calleDeToma(proyecto, campaniaActivaId)).toBe(idOtraCalle)
   })
 
   it('explica por qué no se puede crear una campaña cuando falta algo', () => {

@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
-import type { Campania, Proyecto, Rasante } from '@topo/core'
+import type { Proyecto, Rasante, Toma } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo, proyectoVacio } from '../estado/ejemplo'
+import { agregarTomaComoNivelacion } from '../estado/proyectoTomas'
 import Vista3D from './Vista3D'
 
 /** Rasante plana, sin pendiente longitudinal ni transversal, hasta el ancho de la plantilla. */
@@ -40,14 +41,15 @@ function conRasanteYMedidas(): void {
  */
 function conUnaSolaProgresivaMedida(): void {
   const proyecto = proyectoEjemplo()
-  proyecto.campanias[0]!.estaciones[0]!.intermedias = [
+  const toma = proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!
+  toma.estaciones[0]!.intermedias = [
     {
       id: 'l-14b',
       destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } },
       valor: 1.931,
     },
   ]
-  proyecto.campanias[0]!.estaciones[1]!.intermedias = [
+  toma.estaciones[1]!.intermedias = [
     {
       id: 'l-29b',
       destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } },
@@ -69,14 +71,12 @@ function sinRasante(): void {
  * comprobar que el visor dibuja la campaña que se le pasa por parámetro y no
  * la campaña activa del almacén (que sigue siendo camp-1 tras `cargarProyecto`).
  */
-function campaniaDos(): Campania {
+function campaniaDos(): Toma {
   return {
     id: 'camp-2',
     fecha: '2026-08-20',
-    calleId: 'c-1',
     capaId: 'cap-subrasante',
     bmInicialId: 'bm-1',
-    estado: 'abierta',
     cierre: {
       tipo: 'cerrado',
       bmFinalId: 'bm-1',
@@ -102,8 +102,7 @@ function campaniaDos(): Campania {
 }
 
 function conDosCampanias(): void {
-  const proyecto = proyectoEjemplo()
-  proyecto.campanias.push(campaniaDos())
+  const proyecto = agregarTomaComoNivelacion(proyectoEjemplo(), 'c-1', campaniaDos(), 'niv-camp-2')
   useAlmacen.getState().cargarProyecto(proyecto)
   useAlmacen.getState().fijarRasante('c-1', rasanteEjemplo())
 }
@@ -129,14 +128,12 @@ function conDosCapasMedidas(): void {
  * vez de rellenarlo con algo que nadie midió. Se marcan ambas capas en el
  * selector.
  */
-function campaniaSoloAlPrincipio(): Campania {
+function campaniaSoloAlPrincipio(): Toma {
   return {
     id: 'camp-2',
     fecha: '2026-08-21',
-    calleId: 'c-1',
     capaId: 'cap-base',
     bmInicialId: 'bm-1',
-    estado: 'abierta',
     cierre: {
       tipo: 'cerrado',
       bmFinalId: 'bm-1',
@@ -168,8 +165,7 @@ function campaniaSoloAlPrincipio(): Campania {
 }
 
 function conCapaMedidaSoloAlPrincipio(): void {
-  const proyecto = proyectoEjemplo()
-  proyecto.campanias.push(campaniaSoloAlPrincipio())
+  const proyecto = agregarTomaComoNivelacion(proyectoEjemplo(), 'c-1', campaniaSoloAlPrincipio(), 'niv-camp-2')
   useAlmacen.getState().cargarProyecto(proyecto)
   useAlmacen.getState().fijarRasante('c-1', rasanteEjemplo())
   useAlmacen.getState().alternarCapaVisible('camp-1')
@@ -184,60 +180,47 @@ function conCapaMedidaSoloAlPrincipio(): void {
  * midieron, así que el deslizador es lo único que decide qué se ve.
  */
 function conMedidasSoloDesde60(): void {
+  const toma: Toma = {
+    id: 'camp-1',
+    fecha: '2026-08-21',
+    capaId: 'cap-subrasante',
+    bmInicialId: 'bm-1',
+    cierre: {
+      tipo: 'cerrado',
+      bmFinalId: 'bm-1',
+      longitudK: 0.16,
+      longitudKAuto: true,
+      clase: 'tercerOrden',
+      coeficiente: 12,
+    },
+    estaciones: [
+      {
+        id: 'e-1',
+        vistaAtras: { id: 'v-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+        intermedias: [
+          { id: 'i-1', destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'BOR-I' } }, valor: 1.5 },
+          { id: 'i-2', destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'EJE' } }, valor: 1.5 },
+          { id: 'i-3', destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'BOR-I' } }, valor: 1.5 },
+          { id: 'i-4', destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'EJE' } }, valor: 1.5 },
+        ],
+        vistaAdelante: { id: 'v-2', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+      },
+    ],
+  }
+
   const proyecto: Proyecto = {
     ...proyectoVacio(),
     bms: [{ id: 'bm-1', nombre: 'BM-1', cota: 100, tipo: 'oficial', descripcion: '' }],
-    plantillas: [
-      {
-        id: 'pl-1',
-        nombre: 'Plantilla mínima',
-        elementos: [
-          { clave: 'BOR-I', etiqueta: 'Borde izquierdo', offset: -2, tipo: 'calzada' },
-          { clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' },
-        ],
-      },
-    ],
     calles: [
       {
         id: 'c-1',
         nombre: 'Calle mínima',
-        plantillaId: 'pl-1',
-        progresivaInicio: 0,
-        progresivaFin: 80,
-        intervalo: 20,
-        progresivasExtra: [],
-        rasante: rasanteEjemplo(),
-      },
-    ],
-    campanias: [
-      {
-        id: 'camp-1',
-        fecha: '2026-08-21',
-        calleId: 'c-1',
-        capaId: 'cap-subrasante',
-        bmInicialId: 'bm-1',
-        estado: 'abierta',
-        cierre: {
-          tipo: 'cerrado',
-          bmFinalId: 'bm-1',
-          longitudK: 0.16,
-          longitudKAuto: true,
-          clase: 'tercerOrden',
-          coeficiente: 12,
-        },
-        estaciones: [
-          {
-            id: 'e-1',
-            vistaAtras: { id: 'v-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
-            intermedias: [
-              { id: 'i-1', destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'BOR-I' } }, valor: 1.5 },
-              { id: 'i-2', destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'EJE' } }, valor: 1.5 },
-              { id: 'i-3', destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'BOR-I' } }, valor: 1.5 },
-              { id: 'i-4', destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'EJE' } }, valor: 1.5 },
-            ],
-            vistaAdelante: { id: 'v-2', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
-          },
+        puntos: [
+          { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -2 },
+          { concepto: 'eje', codigo: 'EJE', distancia: 0 },
         ],
+        nivelaciones: [{ id: 'niv-1', nombre: 'Nivelación', color: '#2563eb', tomas: [toma] }],
+        rasante: rasanteEjemplo(),
       },
     ],
   }
@@ -253,28 +236,46 @@ function conMedidasSoloDesde60(): void {
  * cero y no hay compensación que mueva las cotas.
  */
 function conTodoConforme(): void {
+  const toma: Toma = {
+    id: 'camp-1',
+    fecha: '2026-08-21',
+    capaId: 'cap-subrasante',
+    bmInicialId: 'bm-1',
+    cierre: {
+      tipo: 'cerrado',
+      bmFinalId: 'bm-1',
+      longitudK: 0.04,
+      longitudKAuto: true,
+      clase: 'tercerOrden',
+      coeficiente: 12,
+    },
+    estaciones: [
+      {
+        id: 'e-1',
+        vistaAtras: { id: 'v-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+        intermedias: [
+          { id: 'i-1', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } }, valor: 1.5 },
+          { id: 'i-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.5 },
+          { id: 'i-3', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } }, valor: 1.5 },
+          { id: 'i-4', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } }, valor: 1.5 },
+        ],
+        vistaAdelante: { id: 'v-2', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+      },
+    ],
+  }
+
   const proyecto: Proyecto = {
     ...proyectoVacio(),
     bms: [{ id: 'bm-1', nombre: 'BM-1', cota: 100, tipo: 'oficial', descripcion: '' }],
-    plantillas: [
-      {
-        id: 'pl-1',
-        nombre: 'Plantilla mínima',
-        elementos: [
-          { clave: 'BOR-I', etiqueta: 'Borde izquierdo', offset: -2, tipo: 'calzada' },
-          { clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' },
-        ],
-      },
-    ],
     calles: [
       {
         id: 'c-1',
         nombre: 'Calle mínima',
-        plantillaId: 'pl-1',
-        progresivaInicio: 0,
-        progresivaFin: 20,
-        intervalo: 20,
-        progresivasExtra: [],
+        puntos: [
+          { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -2 },
+          { concepto: 'eje', codigo: 'EJE', distancia: 0 },
+        ],
+        nivelaciones: [{ id: 'niv-1', nombre: 'Nivelación', color: '#2563eb', tomas: [toma] }],
         rasante: {
           progresivaArranque: 0,
           cotaArranque: 100,
@@ -283,37 +284,6 @@ function conTodoConforme(): void {
           simetrica: true,
           tramosIzquierda: null,
         },
-      },
-    ],
-    campanias: [
-      {
-        id: 'camp-1',
-        fecha: '2026-08-21',
-        calleId: 'c-1',
-        capaId: 'cap-subrasante',
-        bmInicialId: 'bm-1',
-        estado: 'abierta',
-        cierre: {
-          tipo: 'cerrado',
-          bmFinalId: 'bm-1',
-          longitudK: 0.04,
-          longitudKAuto: true,
-          clase: 'tercerOrden',
-          coeficiente: 12,
-        },
-        estaciones: [
-          {
-            id: 'e-1',
-            vistaAtras: { id: 'v-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
-            intermedias: [
-              { id: 'i-1', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } }, valor: 1.5 },
-              { id: 'i-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.5 },
-              { id: 'i-3', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } }, valor: 1.5 },
-              { id: 'i-4', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } }, valor: 1.5 },
-            ],
-            vistaAdelante: { id: 'v-2', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
-          },
-        ],
       },
     ],
   }

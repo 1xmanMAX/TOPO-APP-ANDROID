@@ -3,7 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
+import { buscarToma } from '../estado/proyectoTomas'
 import BarraCierre from './BarraCierre'
+
+/** La toma que antes era «campanias[0]»: la primera de la primera nivelación de la primera calle. */
+function primeraToma(proyecto: ReturnType<typeof proyectoEjemplo>) {
+  return proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!
+}
 
 describe('BarraCierre', () => {
   beforeEach(() => {
@@ -19,7 +25,8 @@ describe('BarraCierre', () => {
 
   it('da el veredicto de fuera de tolerancia cuando el cierre no pasa', () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
-    const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id
+    const toma = buscarToma(useAlmacen.getState().proyecto, campaniaId)!.toma
+    const lecturaId = toma.estaciones[1]!.vistaAdelante!.id
     useAlmacen.getState().actualizarLectura(campaniaId, lecturaId, 1.887)
 
     render(<BarraCierre />)
@@ -30,12 +37,13 @@ describe('BarraCierre', () => {
 
   it('no da ningún veredicto cuando el circuito quedó abierto', () => {
     const proyecto = proyectoEjemplo()
-    proyecto.campanias[0]!.cierre = {
-      ...proyecto.campanias[0]!.cierre,
+    const toma = primeraToma(proyecto)
+    toma.cierre = {
+      ...toma.cierre,
       tipo: 'abierto',
       bmFinalId: undefined,
     }
-    delete proyecto.campanias[0]!.estaciones[1]!.vistaAdelante
+    delete toma.estaciones[1]!.vistaAdelante
     useAlmacen.getState().cargarProyecto(proyecto)
 
     render(<BarraCierre />)
@@ -47,7 +55,7 @@ describe('BarraCierre', () => {
 
   it('dice que falta cerrar cuando la libreta todavía no llega a un banco de nivel', () => {
     const proyecto = proyectoEjemplo()
-    delete proyecto.campanias[0]!.estaciones[1]!.vistaAdelante
+    delete primeraToma(proyecto).estaciones[1]!.vistaAdelante
     useAlmacen.getState().cargarProyecto(proyecto)
 
     render(<BarraCierre />)
@@ -58,7 +66,8 @@ describe('BarraCierre', () => {
   it('se puede escribir una longitud con decimales y queda guardada', async () => {
     const usuario = userEvent.setup()
     const proyecto = proyectoEjemplo()
-    proyecto.campanias[0]!.cierre = { ...proyecto.campanias[0]!.cierre, longitudKAuto: false }
+    const tomaInicial = primeraToma(proyecto)
+    tomaInicial.cierre = { ...tomaInicial.cierre, longitudKAuto: false }
     useAlmacen.getState().cargarProyecto(proyecto)
 
     render(<BarraCierre />)
@@ -70,8 +79,8 @@ describe('BarraCierre', () => {
     expect(campo).toHaveValue('0.5')
 
     const campaniaId = useAlmacen.getState().campaniaActivaId!
-    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId)!
-    expect(campania.cierre.longitudK).toBe(0.5)
+    const toma = buscarToma(useAlmacen.getState().proyecto, campaniaId)!.toma
+    expect(toma.cierre.longitudK).toBe(0.5)
   })
 
   it('al desmarcar «calcular sola», la longitud no cae a cero', async () => {
@@ -82,9 +91,9 @@ describe('BarraCierre', () => {
     await usuario.click(casilla)
 
     const campaniaId = useAlmacen.getState().campaniaActivaId!
-    const campania = useAlmacen.getState().proyecto.campanias.find((c) => c.id === campaniaId)!
-    expect(campania.cierre.longitudK).not.toBe(0)
-    expect(campania.cierre.longitudK).toBeCloseTo(0.36, 9)
+    const toma = buscarToma(useAlmacen.getState().proyecto, campaniaId)!.toma
+    expect(toma.cierre.longitudK).not.toBe(0)
+    expect(toma.cierre.longitudK).toBeCloseTo(0.36, 9)
   })
 
   it('dice que no cierra contra el banco configurado cuando la última estación remata en otro banco existente', () => {
@@ -96,7 +105,7 @@ describe('BarraCierre', () => {
       tipo: 'oficial',
       descripcion: 'otro banco de nivel del proyecto',
     })
-    proyecto.campanias[0]!.estaciones[1]!.vistaAdelante = {
+    primeraToma(proyecto).estaciones[1]!.vistaAdelante = {
       id: 'l-7',
       destino: { tipo: 'bm', bmId: 'bm-2' },
       valor: 1.91,
@@ -114,8 +123,9 @@ describe('BarraCierre', () => {
 
   it('dice cuando el banco de nivel de cierre ya no está en el proyecto', () => {
     const proyecto = proyectoEjemplo()
-    proyecto.campanias[0]!.cierre = {
-      ...proyecto.campanias[0]!.cierre,
+    const toma = primeraToma(proyecto)
+    toma.cierre = {
+      ...toma.cierre,
       bmFinalId: 'bm-borrado',
     }
     useAlmacen.getState().cargarProyecto(proyecto)

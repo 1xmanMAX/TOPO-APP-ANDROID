@@ -45,9 +45,8 @@ describe('PanelEstacion', () => {
     const campo = screen.getByLabelText('Lectura de 0+000 EJE')
     await usuario.clear(campo)
 
-    const lectura = useAlmacen
-      .getState()
-      .proyecto.campanias[0]!.estaciones[0]!.intermedias.find(
+    const lectura = buscarToma(useAlmacen.getState().proyecto, 'camp-1')!
+      .toma.estaciones[0]!.intermedias.find(
         (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'EJE',
       )!
     expect(lectura.valor).toBe(2.011)

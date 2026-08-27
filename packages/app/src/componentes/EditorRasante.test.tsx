@@ -1,33 +1,29 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Plantilla, Proyecto } from '@topo/core'
+import { catalogoDeFabrica, type Proyecto, type PuntoCalle } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import EditorRasante from './EditorRasante'
 
 /**
- * La misma plantilla del proyecto de ejemplo: eje, dos bordes de calzada a
+ * Los mismos puntos del proyecto de ejemplo: eje, dos bordes de calzada a
  * ±4.20, dos sardineles a ±4.40 y dos veredas a ±5.60. Con la rasante por
  * defecto (una calzada hasta 4.20) los cuatro puntos más lejanos —los dos
  * sardineles y las dos veredas— quedan sin cota de proyecto.
  */
-function plantillaEjemplo(): Plantilla {
-  return {
-    id: 'pl-1',
-    nombre: 'Calle con vereda',
-    elementos: [
-      { clave: 'VER-I', etiqueta: 'Vereda izquierda', offset: -5.6, tipo: 'vereda' },
-      { clave: 'SAR-I', etiqueta: 'Sardinel izquierdo', offset: -4.4, tipo: 'sardinel' },
-      { clave: 'BOR-I', etiqueta: 'Borde izquierdo', offset: -4.2, tipo: 'calzada' },
-      { clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' },
-      { clave: 'BOR-D', etiqueta: 'Borde derecho', offset: 4.2, tipo: 'calzada' },
-      { clave: 'SAR-D', etiqueta: 'Sardinel derecho', offset: 4.4, tipo: 'sardinel' },
-      { clave: 'VER-D', etiqueta: 'Vereda derecha', offset: 5.6, tipo: 'vereda' },
-    ],
-  }
+function puntosEjemplo(): PuntoCalle[] {
+  return [
+    { concepto: 'veredaIzq', codigo: 'VER-I', distancia: -5.6 },
+    { concepto: 'sardinelIzq', codigo: 'SAR-I', distancia: -4.4 },
+    { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -4.2 },
+    { concepto: 'eje', codigo: 'EJE', distancia: 0 },
+    { concepto: 'bordeDer', codigo: 'BOR-D', distancia: 4.2 },
+    { concepto: 'sardinelDer', codigo: 'SAR-D', distancia: 4.4 },
+    { concepto: 'veredaDer', codigo: 'VER-D', distancia: 5.6 },
+  ]
 }
 
-/** Calle de 0+000 a 0+140, sin rasante todavía: lo mínimo que el editor necesita. */
+/** Calle sin rasante todavía, con sus propios puntos: lo mínimo que el editor necesita. */
 function proyectoConCalle(): Proyecto {
   return {
     version: 1,
@@ -40,22 +36,18 @@ function proyectoConCalle(): Proyecto {
       creado: '2026-08-19T00:00:00.000Z',
       modificado: '2026-08-19T00:00:00.000Z',
     },
+    catalogo: catalogoDeFabrica(),
     bms: [],
-    plantillas: [],
     calles: [
       {
         id: 'c-1',
         nombre: 'Calle 1',
-        plantillaId: '',
-        progresivaInicio: 0,
-        progresivaFin: 140,
-        intervalo: 20,
-        progresivasExtra: [],
+        puntos: puntosEjemplo(),
+        nivelaciones: [],
         rasante: null,
       },
     ],
     capas: [],
-    campanias: [],
   }
 }
 
@@ -77,14 +69,16 @@ describe('EditorRasante', () => {
   })
 
   it('empieza plegado, con un botón para definir la rasante', () => {
-    render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+    render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
     expect(screen.getByRole('button', { name: /definir la rasante/i })).toBeInTheDocument()
     expect(screen.queryByLabelText('Cota de arranque')).not.toBeInTheDocument()
   })
 
   it('muestra en vivo la cota al final del tramo, para comprobar el signo', async () => {
-    // Calle de 0+000 a 0+140. Con -1.25 %, la cota baja 1.750 m en 140 m.
-    render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+    // El editor ya no lee el final de la calle (no existe): enseña la cota a
+    // una distancia fija de 100 m desde el arranque (DISTANCIA_VISTA_PREVIA
+    // en EditorRasante.tsx). Con -1.25 %, la cota baja 1.250 m en esos 100 m.
+    render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
 
     await userEvent.click(screen.getByRole('button', { name: /definir la rasante/i }))
 
@@ -98,11 +92,11 @@ describe('EditorRasante', () => {
     await userEvent.type(pendiente, '-1.25')
     fireEvent.blur(pendiente)
 
-    expect(screen.getByText(/3243\.430/)).toBeInTheDocument()
+    expect(screen.getByText(/3243\.930/)).toBeInTheDocument()
   })
 
   it('un tramo que retrocede se rechaza con un mensaje que se entiende', async () => {
-    render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+    render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
     await userEvent.click(screen.getByRole('button', { name: /definir la rasante/i }))
     await userEvent.click(screen.getByRole('button', { name: /añadir tramo/i }))
 
@@ -121,7 +115,7 @@ describe('EditorRasante', () => {
   })
 
   it('la rasante escrita queda guardada en la calle', async () => {
-    render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+    render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
     await userEvent.click(screen.getByRole('button', { name: /definir la rasante/i }))
 
     const cota = screen.getByLabelText('Cota de arranque')
@@ -134,7 +128,7 @@ describe('EditorRasante', () => {
   })
 
   it('avisa si la vereda queda por debajo de la calzada, sin impedir guardarlo', async () => {
-    render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+    render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
     await userEvent.click(screen.getByRole('button', { name: /definir la rasante/i }))
     await escribirSardinelAlReves()
 
@@ -143,7 +137,7 @@ describe('EditorRasante', () => {
   })
 
   it('avisa de los elementos de la plantilla que quedan sin cota, y el aviso desaparece al ampliar la sección', async () => {
-    render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+    render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
     await userEvent.click(screen.getByRole('button', { name: /definir la rasante/i }))
 
     // La rasante por defecto solo llega a 4.20: los dos sardineles (±4.40) y
@@ -161,7 +155,7 @@ describe('EditorRasante', () => {
 
   describe('lado no simétrico', () => {
     it('al desmarcar «Los dos lados son iguales», el lado izquierdo se siembra con lo que había', async () => {
-      render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+      render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
       await userEvent.click(screen.getByRole('button', { name: /definir la rasante/i }))
 
       await userEvent.click(screen.getByRole('checkbox', { name: /los dos lados son iguales/i }))
@@ -171,7 +165,7 @@ describe('EditorRasante', () => {
     })
 
     it('cada lado se edita por separado', async () => {
-      render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+      render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
       await userEvent.click(screen.getByRole('button', { name: /definir la rasante/i }))
       await userEvent.click(screen.getByRole('checkbox', { name: /los dos lados son iguales/i }))
 
@@ -183,7 +177,7 @@ describe('EditorRasante', () => {
     })
 
     it('un ciclo de marcar y desmarcar la casilla no pierde lo escrito en el lado izquierdo', async () => {
-      render(<EditorRasante calleId="c-1" plantilla={plantillaEjemplo()} />)
+      render(<EditorRasante calleId="c-1" puntos={puntosEjemplo()} />)
       await userEvent.click(screen.getByRole('button', { name: /definir la rasante/i }))
 
       const casilla = screen.getByRole('checkbox', { name: /los dos lados son iguales/i })

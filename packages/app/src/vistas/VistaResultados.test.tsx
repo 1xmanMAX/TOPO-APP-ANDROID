@@ -1,10 +1,11 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { calcularCampania, compararCapas, type Campania, type Rasante } from '@topo/core'
+import { calcularCampania, compararCapas, type Proyecto, type Rasante, type Toma } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { armarCabeceraComparacion } from '../archivo/exportar'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
+import { agregarTomaComoNivelacion, buscarToma, conToma } from '../estado/proyectoTomas'
 import VistaResultados from './VistaResultados'
 
 /** Misma rasante de ejemplo que usa `TablaDiferencias.test.tsx`. */
@@ -35,16 +36,16 @@ const CIERRE_CERRADO = {
 /**
  * Segunda campaña (TERRENO EXISTENTE) sobre la misma calle que camp-1
  * (SUBRASANTE), para poder fijar una comparación y que ambas tablas —
- * TablaResultados y TablaEspesores— convivan en pantalla.
+ * TablaResultados y TablaEspesores— convivan en pantalla. La asociación con
+ * la calle 'c-1' ya no vive en la toma: la pone quien la agrega al proyecto,
+ * con `conTerreno` más abajo.
  */
-function campaniaTerreno(): Campania {
+function campaniaTerreno(): Toma {
   return {
     id: 'camp-terreno',
     fecha: '2026-08-10',
-    calleId: 'c-1',
     capaId: 'cap-terreno',
     bmInicialId: 'bm-1',
-    estado: 'cerrada',
     cierre: CIERRE_CERRADO,
     estaciones: [
       {
@@ -67,14 +68,24 @@ function campaniaTerreno(): Campania {
  * La misma campaña, pero con el circuito sin cerrar: es la forma más directa
  * de reproducir "el circuito no se verificó", el motivo del defecto real que
  * corrige esta tarea (una campaña que nunca llegó a cerrar contra un banco
- * de nivel).
+ * de nivel). El veredicto ya no sale de un campo `estado` guardado: sale de
+ * `cierre.pasa`, que calcula `calcularCampania` a partir de `cierre.tipo`.
  */
-function conCircuitoAbierto(campania: Campania): Campania {
+function conCircuitoAbierto(campania: Toma): Toma {
   return {
     ...campania,
-    estado: 'abierta',
     cierre: { ...campania.cierre, tipo: 'abierto', bmFinalId: undefined },
   }
+}
+
+/** Agrega la toma de terreno como su propia nivelación en la calle del ejemplo. */
+function conTerreno(proyecto: Proyecto, toma: Toma = campaniaTerreno()): Proyecto {
+  return agregarTomaComoNivelacion(proyecto, 'c-1', toma, 'niv-terreno')
+}
+
+/** Reemplaza camp-1 (la toma de SUBRASANTE del ejemplo) por otra versión, dondequiera que esté. */
+function conCampUno(proyecto: Proyecto, transformar: (toma: Toma) => Toma): Proyecto {
+  return conToma(proyecto, 'camp-1', transformar)
 }
 
 describe('VistaResultados', () => {
@@ -112,7 +123,7 @@ describe('VistaResultados', () => {
 
   it('con el cierre fuera de tolerancia, el título dice que las cotas no están compensadas y se ve el veredicto', () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
-    const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id
+    const lecturaId = buscarToma(useAlmacen.getState().proyecto, 'camp-1')!.toma.estaciones[1]!.vistaAdelante!.id
     useAlmacen.getState().actualizarLectura(campaniaId, lecturaId, 1.887)
 
     render(<VistaResultados />)
@@ -127,14 +138,14 @@ describe('VistaResultados', () => {
 
   it('el perfil cae a otro elemento si el elegido ya no está en la plantilla', async () => {
     render(<VistaResultados />)
-    const plantilla = useAlmacen.getState().proyecto.plantillas[0]!
+    const calle = useAlmacen.getState().proyecto.calles[0]!
 
     // La mutación llega desde fuera de un evento de usuario (como lo haría el
-    // editor de plantilla en otra pantalla), así que hay que envolverla en
+    // editor de la calle en otra pantalla), así que hay que envolverla en
     // act() para que React aplique el re-render antes de la aserción.
     act(() => {
-      useAlmacen.getState().actualizarPlantilla(plantilla.id, {
-        elementos: plantilla.elementos.filter((elemento) => elemento.clave !== 'EJE'),
+      useAlmacen.getState().actualizarCalle(calle.id, {
+        puntos: calle.puntos.filter((punto) => punto.codigo !== 'EJE'),
       })
     })
 
@@ -143,8 +154,7 @@ describe('VistaResultados', () => {
   })
 
   it('con una comparación elegida, la tabla de cotas y la de espesores conviven sin que sus nombres se confundan', () => {
-    const proyecto = proyectoEjemplo()
-    proyecto.campanias.push(campaniaTerreno())
+    const proyecto = conTerreno(proyectoEjemplo())
     useAlmacen.getState().cargarProyecto(proyecto)
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
 
@@ -171,8 +181,7 @@ describe('VistaResultados', () => {
   })
 
   it('con una comparación elegida, los botones de exportar dejan claro si bajan cotas o espesores', () => {
-    const proyecto = proyectoEjemplo()
-    proyecto.campanias.push(campaniaTerreno())
+    const proyecto = conTerreno(proyectoEjemplo())
     useAlmacen.getState().cargarProyecto(proyecto)
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
 
@@ -187,8 +196,7 @@ describe('VistaResultados', () => {
   })
 
   it('si la capa de abajo no cierra, la pantalla avisa y la nombra, aunque la de arriba sí cierre', () => {
-    const proyecto = proyectoEjemplo()
-    proyecto.campanias.push(conCircuitoAbierto(campaniaTerreno()))
+    const proyecto = conTerreno(proyectoEjemplo(), conCircuitoAbierto(campaniaTerreno()))
     useAlmacen.getState().cargarProyecto(proyecto)
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
 
@@ -201,9 +209,10 @@ describe('VistaResultados', () => {
   })
 
   it('si la capa de arriba no cierra, la pantalla avisa y la nombra, aunque la de abajo sí cierre', () => {
-    const proyecto = proyectoEjemplo()
-    const subrasanteAbierta = conCircuitoAbierto(proyecto.campanias[0]!)
-    proyecto.campanias = [subrasanteAbierta, campaniaTerreno()]
+    let proyecto = proyectoEjemplo()
+    const subrasanteAbierta = conCircuitoAbierto(buscarToma(proyecto, 'camp-1')!.toma)
+    proyecto = conCampUno(proyecto, () => subrasanteAbierta)
+    proyecto = conTerreno(proyecto)
     useAlmacen.getState().cargarProyecto(proyecto)
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
 
@@ -216,9 +225,10 @@ describe('VistaResultados', () => {
   })
 
   it('si ninguna de las dos capas cierra, la pantalla nombra a las dos', () => {
-    const proyecto = proyectoEjemplo()
-    const subrasanteAbierta = conCircuitoAbierto(proyecto.campanias[0]!)
-    proyecto.campanias = [subrasanteAbierta, conCircuitoAbierto(campaniaTerreno())]
+    let proyecto = proyectoEjemplo()
+    const subrasanteAbierta = conCircuitoAbierto(buscarToma(proyecto, 'camp-1')!.toma)
+    proyecto = conCampUno(proyecto, () => subrasanteAbierta)
+    proyecto = conTerreno(proyecto, conCircuitoAbierto(campaniaTerreno()))
     useAlmacen.getState().cargarProyecto(proyecto)
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
 
@@ -230,8 +240,7 @@ describe('VistaResultados', () => {
   })
 
   it('cuando las dos campañas cierran, la pantalla dice que los espesores están verificados', () => {
-    const proyecto = proyectoEjemplo()
-    proyecto.campanias.push(campaniaTerreno())
+    const proyecto = conTerreno(proyectoEjemplo())
     useAlmacen.getState().cargarProyecto(proyecto)
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
 
@@ -248,19 +257,19 @@ describe('VistaResultados', () => {
   // `exportar.ts` — y no contra una cadena copiada a mano, que podría quedar
   // desactualizada sin que la prueba se enterara.
   it('el texto que ve el topógrafo es exactamente el mismo que lleva la cabecera del archivo exportado', () => {
-    const proyecto = proyectoEjemplo()
-    const subrasanteAbierta = conCircuitoAbierto(proyecto.campanias[0]!)
+    let proyecto = proyectoEjemplo()
+    const subrasanteAbierta = conCircuitoAbierto(buscarToma(proyecto, 'camp-1')!.toma)
     const terreno = campaniaTerreno()
-    proyecto.campanias = [subrasanteAbierta, terreno]
+    proyecto = conCampUno(proyecto, () => subrasanteAbierta)
+    proyecto = conTerreno(proyecto, terreno)
     useAlmacen.getState().cargarProyecto(proyecto)
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
 
     render(<VistaResultados />)
 
     const calle = proyecto.calles[0]!
-    const plantilla = proyecto.plantillas[0]!
-    const resultadoInferior = calcularCampania({ campania: terreno, calle, plantilla, bms: proyecto.bms })
-    const resultadoSuperior = calcularCampania({ campania: subrasanteAbierta, calle, plantilla, bms: proyecto.bms })
+    const resultadoInferior = calcularCampania({ campania: terreno, calle, bms: proyecto.bms })
+    const resultadoSuperior = calcularCampania({ campania: subrasanteAbierta, calle, bms: proyecto.bms })
     const capaInferior = proyecto.capas.find((c) => c.id === terreno.capaId)
     const capaSuperior = proyecto.capas.find((c) => c.id === subrasanteAbierta.capaId)
 
@@ -284,8 +293,7 @@ describe('VistaResultados', () => {
   // por parámetro: Resultados es la única pantalla que debe seguir mandando
   // `capasVisibles` sobre lo que dibuja el corte.
   it('con dos capas marcadas en el selector, el corte sigue dibujando las dos con su etiqueta', () => {
-    const proyecto = proyectoEjemplo()
-    proyecto.campanias.push(campaniaTerreno())
+    const proyecto = conTerreno(proyectoEjemplo())
     useAlmacen.getState().cargarProyecto(proyecto)
     useAlmacen.getState().alternarCapaVisible('camp-1')
     useAlmacen.getState().alternarCapaVisible('camp-terreno')
@@ -339,7 +347,7 @@ describe('VistaResultados', () => {
   it('con una rasante definida pero el circuito sin cerrar, el aviso único dice que las cuatro vistas no están comprobadas', () => {
     useAlmacen.getState().fijarRasante('c-1', rasanteDeEjemplo())
     const campaniaId = useAlmacen.getState().campaniaActivaId!
-    const lecturaId = useAlmacen.getState().proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id
+    const lecturaId = buscarToma(useAlmacen.getState().proyecto, 'camp-1')!.toma.estaciones[1]!.vistaAdelante!.id
     useAlmacen.getState().actualizarLectura(campaniaId, lecturaId, 1.887)
 
     render(<VistaResultados />)

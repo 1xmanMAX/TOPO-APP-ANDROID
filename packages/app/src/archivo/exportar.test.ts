@@ -3,14 +3,16 @@ import {
   claveCelda,
   compararCapas,
   evaluarContraRasante,
-  type Campania,
+  progresivasMedidas,
   type CotaCelda,
   type Rasante,
   type ResultadoCampania,
   type ResultadoEvaluacion,
+  type Toma,
 } from '@topo/core'
 import { describe, expect, it } from 'vitest'
 import { proyectoEjemplo } from '../estado/ejemplo'
+import { buscarToma, conToma, todasLasTomas } from '../estado/proyectoTomas'
 import {
   aTextoSeparado,
   armarCabecera,
@@ -24,13 +26,11 @@ import {
 
 function resultadoEjemplo() {
   const proyecto = proyectoEjemplo()
-  const campania = proyecto.campanias[0]!
+  const campania = todasLasTomas(proyecto)[0]!
   const calle = proyecto.calles[0]!
-  const plantilla = proyecto.plantillas[0]!
   return {
-    resultado: calcularCampania({ campania, calle, plantilla, bms: proyecto.bms }),
+    resultado: calcularCampania({ campania, calle, bms: proyecto.bms }),
     calle,
-    plantilla,
     campania,
     proyecto,
   }
@@ -72,7 +72,7 @@ function resultadoComparable(celdas: CotaCelda[], pasa: boolean | null = true): 
 }
 
 /** Campaña de prueba, solo para tener la fecha y la capa que la cabecera necesita. */
-function campaniaEjemplo(campaniaBase: Campania, overrides: Partial<Campania>): Campania {
+function campaniaEjemplo(campaniaBase: Toma, overrides: Partial<Toma>): Toma {
   return { ...campaniaBase, ...overrides }
 }
 
@@ -80,8 +80,9 @@ function calle() {
   return proyectoEjemplo().calles[0]!
 }
 
-function plantilla() {
-  return proyectoEjemplo().plantillas[0]!
+/** Las progresivas de la toma de ejemplo (camp-1): lo que alimenta a `armarTablaDiferencias` ahora, en vez de una plantilla. */
+function progresivasEjemplo(): number[] {
+  return progresivasMedidas(todasLasTomas(proyectoEjemplo())[0]!.estaciones)
 }
 
 /**
@@ -108,16 +109,15 @@ function rasantePlana(): Rasante {
 /** Lo mínimo para evaluar la calle del ejemplo contra una rasante cualquiera. */
 function evaluacionBase() {
   const proyecto = proyectoEjemplo()
-  const campania = proyecto.campanias[0]!
+  const campania = todasLasTomas(proyecto)[0]!
   const calle = proyecto.calles[0]!
-  const plantilla = proyecto.plantillas[0]!
-  const resultado = calcularCampania({ campania, calle, plantilla, bms: proyecto.bms })
-  return { campania, calle, plantilla, resultado, capas: proyecto.capas, capaId: campania.capaId }
+  const resultado = calcularCampania({ campania, calle, bms: proyecto.bms })
+  return { campania, calle, resultado, capas: proyecto.capas, capaId: campania.capaId }
 }
 
 function evaluacionEjemplo(): ResultadoEvaluacion {
-  const { calle, plantilla, capas, capaId, resultado } = evaluacionBase()
-  return evaluarContraRasante({ resultado, calle, plantilla, rasante: rasantePlana(), capas, capaId })
+  const { campania, calle, capas, capaId, resultado } = evaluacionBase()
+  return evaluarContraRasante({ resultado, calle, toma: campania, rasante: rasantePlana(), capas, capaId })
 }
 
 /**
@@ -128,7 +128,7 @@ function evaluacionEjemplo(): ResultadoEvaluacion {
  * 0+000.
  */
 function evaluacionEstrecha(): ResultadoEvaluacion {
-  const { calle, plantilla, capas, capaId, resultado } = evaluacionBase()
+  const { campania, calle, capas, capaId, resultado } = evaluacionBase()
   const cotasPorCelda = new Map(resultado.cotasPorCelda)
   cotasPorCelda.set(claveCelda(0, 'VER-I'), celda(0, 'VER-I', 3244.0))
   const resultadoConVerI: ResultadoCampania = { ...resultado, cotasPorCelda }
@@ -140,16 +140,16 @@ function evaluacionEstrecha(): ResultadoEvaluacion {
     simetrica: true,
     tramosIzquierda: null,
   }
-  return evaluarContraRasante({ resultado: resultadoConVerI, calle, plantilla, rasante: rasanteEstrecha, capas, capaId })
+  return evaluarContraRasante({ resultado: resultadoConVerI, calle, toma: campania, rasante: rasanteEstrecha, capas, capaId })
 }
 
 /** La cota real de 0+000 EJE se lleva a mano a la misma cota teórica: diferencia cero exacta. */
 function evaluacionConCeroExacto(): ResultadoEvaluacion {
-  const { calle, plantilla, capas, capaId, resultado } = evaluacionBase()
+  const { campania, calle, capas, capaId, resultado } = evaluacionBase()
   const cotasPorCelda = new Map(resultado.cotasPorCelda)
   cotasPorCelda.set(claveCelda(0, 'EJE'), celda(0, 'EJE', 3244.929))
   const resultadoAjustado: ResultadoCampania = { ...resultado, cotasPorCelda }
-  return evaluarContraRasante({ resultado: resultadoAjustado, calle, plantilla, rasante: rasantePlana(), capas, capaId })
+  return evaluarContraRasante({ resultado: resultadoAjustado, calle, toma: campania, rasante: rasantePlana(), capas, capaId })
 }
 
 /** ResultadoCampania de prueba cuyo circuito no cerró, para la cabecera de diferencias. */
@@ -173,33 +173,35 @@ function datosEjemplo(): DatosDeCabeceraDiferencias {
 
 describe('armarTabla', () => {
   it('pone las progresivas en la primera columna y los elementos en el encabezado', () => {
-    const { resultado, calle, plantilla } = resultadoEjemplo()
-    const tabla = armarTabla(resultado, calle, plantilla)
+    const { resultado, calle, campania } = resultadoEjemplo()
+    const tabla = armarTabla(resultado, calle, progresivasMedidas(campania.estaciones))
 
     expect(tabla[0]).toEqual(['Progresiva', 'VER-I', 'SAR-I', 'BOR-I', 'EJE', 'BOR-D', 'SAR-D', 'VER-D'])
     expect(tabla[1]![0]).toBe('0+000')
   })
 
   it('escribe las cotas con tres decimales', () => {
-    const { resultado, calle, plantilla } = resultadoEjemplo()
-    const tabla = armarTabla(resultado, calle, plantilla)
+    const { resultado, calle, campania } = resultadoEjemplo()
+    const tabla = armarTabla(resultado, calle, progresivasMedidas(campania.estaciones))
     const fila = tabla.find((f) => f[0] === '0+000')!
     expect(fila[4]).toBe('3244.597')
   })
 
   it('deja vacías las celdas sin medir', () => {
-    const { resultado, calle, plantilla } = resultadoEjemplo()
-    const tabla = armarTabla(resultado, calle, plantilla)
-    // La campaña de SUBRASANTE del ejemplo mide una grilla completa de
-    // 0+000 a 0+080 (Entrega 3): la calle sigue sin medir nada de 0+100 en
-    // adelante, así que la comprobación se muda ahí.
-    const fila = tabla.find((f) => f[0] === '0+100')!
-    expect(fila[4]).toBe('')
+    const { resultado, calle, campania } = resultadoEjemplo()
+    const tabla = armarTabla(resultado, calle, progresivasMedidas(campania.estaciones))
+    // VER-I es un punto de la calle, pero esta toma nunca lo mide: la grilla
+    // lo incluye igual en cada progresiva (une calle.puntos con las
+    // progresivas medidas), y la celda queda vacía en vez de un cero inventado.
+    const fila = tabla.find((f) => f[0] === '0+000')!
+    const columnaVerI = tabla[0]!.indexOf('VER-I')
+    expect(fila[columnaVerI]).toBe('')
   })
 
   it('incluye una fila por cada progresiva de la calle', () => {
-    const { resultado, calle, plantilla } = resultadoEjemplo()
-    expect(armarTabla(resultado, calle, plantilla)).toHaveLength(11)
+    const { resultado, calle, campania } = resultadoEjemplo()
+    const progresivas = progresivasMedidas(campania.estaciones)
+    expect(armarTabla(resultado, calle, progresivas)).toHaveLength(progresivas.length + 1)
   })
 })
 
@@ -222,22 +224,24 @@ describe('armarCabecera', () => {
   })
 
   it('el estado dice NO COMPROBADAS cuando el cierre no pasa', () => {
-    const proyecto = proyectoEjemplo()
-    const campaniaId = proyecto.campanias[0]!.id
-    const lecturaId = proyecto.campanias[0]!.estaciones[1]!.vistaAdelante!.id
-    proyecto.campanias[0]!.estaciones = proyecto.campanias[0]!.estaciones.map((estacion) => ({
-      ...estacion,
-      vistaAdelante:
-        estacion.vistaAdelante?.id === lecturaId
-          ? { ...estacion.vistaAdelante, valor: 1.887 }
-          : estacion.vistaAdelante,
+    const proyectoOriginal = proyectoEjemplo()
+    const tomaOriginal = todasLasTomas(proyectoOriginal)[0]!
+    const lecturaId = tomaOriginal.estaciones[1]!.vistaAdelante!.id
+    const proyecto = conToma(proyectoOriginal, tomaOriginal.id, (toma) => ({
+      ...toma,
+      estaciones: toma.estaciones.map((estacion) => ({
+        ...estacion,
+        vistaAdelante:
+          estacion.vistaAdelante?.id === lecturaId
+            ? { ...estacion.vistaAdelante, valor: 1.887 }
+            : estacion.vistaAdelante,
+      })),
     }))
-    const campania = proyecto.campanias.find((c) => c.id === campaniaId)!
+    const campania = buscarToma(proyecto, tomaOriginal.id)!.toma
     const calle = proyecto.calles[0]!
-    const plantilla = proyecto.plantillas[0]!
     const capa = proyecto.capas.find((c) => c.id === campania.capaId)
     const bmInicial = proyecto.bms.find((bm) => bm.id === campania.bmInicialId)
-    const resultado = calcularCampania({ campania, calle, plantilla, bms: proyecto.bms })
+    const resultado = calcularCampania({ campania, calle, bms: proyecto.bms })
 
     const cabecera = armarCabecera({ calle, capa, campania, bmInicial, resultado })
     const texto = cabecera.map((fila) => fila.join(' ')).join('\n')
@@ -248,12 +252,12 @@ describe('armarCabecera', () => {
 
 describe('armarTablaEspesores', () => {
   it('escribe el espesor con tres decimales en las celdas comparables', () => {
-    const { calle, plantilla } = resultadoEjemplo()
+    const { calle } = resultadoEjemplo()
     const inferior = resultadoComparable([celda(0, 'EJE', 3244.600)])
     const superior = resultadoComparable([celda(0, 'EJE', 3244.848)])
     const comparacion = compararCapas(inferior, superior)
 
-    const tabla = armarTablaEspesores(comparacion, calle, plantilla)
+    const tabla = armarTablaEspesores(comparacion, calle, [0])
     const fila = tabla.find((f) => f[0] === '0+000')!
     const columnaEje = tabla[0]!.indexOf('EJE')
 
@@ -261,12 +265,12 @@ describe('armarTablaEspesores', () => {
   })
 
   it('deja vacía, y no en cero, la celda que no tiene pareja en la otra capa', () => {
-    const { calle, plantilla } = resultadoEjemplo()
+    const { calle } = resultadoEjemplo()
     const inferior = resultadoComparable([celda(0, 'EJE', 3244.600)])
     const superior = resultadoComparable([celda(20, 'EJE', 3244.900)])
     const comparacion = compararCapas(inferior, superior)
 
-    const tabla = armarTablaEspesores(comparacion, calle, plantilla)
+    const tabla = armarTablaEspesores(comparacion, calle, [0, 20])
     const columnaEje = tabla[0]!.indexOf('EJE')
 
     expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('')
@@ -274,13 +278,14 @@ describe('armarTablaEspesores', () => {
   })
 
   it('pone las progresivas en la primera columna y los elementos en el encabezado, igual que armarTabla', () => {
-    const { calle, plantilla } = resultadoEjemplo()
+    const { calle, campania } = resultadoEjemplo()
+    const progresivas = progresivasMedidas(campania.estaciones)
     const comparacion = compararCapas(resultadoComparable([]), resultadoComparable([]))
 
-    const tabla = armarTablaEspesores(comparacion, calle, plantilla)
+    const tabla = armarTablaEspesores(comparacion, calle, progresivas)
 
     expect(tabla[0]).toEqual(['Progresiva', 'VER-I', 'SAR-I', 'BOR-I', 'EJE', 'BOR-D', 'SAR-D', 'VER-D'])
-    expect(tabla).toHaveLength(11)
+    expect(tabla).toHaveLength(progresivas.length + 1)
   })
 
   // Un tramo que ya estaba a nivel exacto (las dos cotas iguales, no hizo
@@ -289,12 +294,12 @@ describe('armarTablaEspesores', () => {
   // condición a un chequeo de verdad ("truthy")— haría desaparecer del
   // reporte justo los tramos que ya estaban listos.
   it('un espesor real de cero sale como 0.000, no vacío', () => {
-    const { calle, plantilla } = resultadoEjemplo()
+    const { calle } = resultadoEjemplo()
     const inferior = resultadoComparable([celda(0, 'EJE', 3244.600)])
     const superior = resultadoComparable([celda(0, 'EJE', 3244.600)])
     const comparacion = compararCapas(inferior, superior)
 
-    const tabla = armarTablaEspesores(comparacion, calle, plantilla)
+    const tabla = armarTablaEspesores(comparacion, calle, [0])
     const columnaEje = tabla[0]!.indexOf('EJE')
 
     expect(comparacion.celdas.get('0|EJE')?.espesor).toBe(0)
@@ -475,7 +480,7 @@ describe('armarCabeceraComparacion', () => {
 
 describe('armarTablaDiferencias', () => {
   it('pone las progresivas en la primera columna y los elementos en el encabezado, igual que armarTabla', () => {
-    const tabla = armarTablaDiferencias(evaluacionEjemplo(), calle(), plantilla())
+    const tabla = armarTablaDiferencias(evaluacionEjemplo(), calle(), progresivasEjemplo())
 
     expect(tabla[0]).toEqual(['Progresiva', 'VER-I', 'SAR-I', 'BOR-I', 'EJE', 'BOR-D', 'SAR-D', 'VER-D'])
   })
@@ -484,14 +489,14 @@ describe('armarTablaDiferencias', () => {
   // sección definida por el proyecto no es lo mismo que una diferencia de
   // cero. Confundirlas ya pasó dos veces en la Entrega 2A.
   it('una celda fuera de la sección definida sale vacía, nunca en cero', () => {
-    const tabla = armarTablaDiferencias(evaluacionEstrecha(), calle(), plantilla())
+    const tabla = armarTablaDiferencias(evaluacionEstrecha(), calle(), progresivasEjemplo())
     const columnaVerI = tabla[0]!.indexOf('VER-I')
 
     expect(tabla.find((f) => f[0] === '0+000')![columnaVerI]).toBe('')
   })
 
   it('las diferencias van en milímetros con signo', () => {
-    const tabla = armarTablaDiferencias(evaluacionEjemplo(), calle(), plantilla())
+    const tabla = armarTablaDiferencias(evaluacionEjemplo(), calle(), progresivasEjemplo())
     const columnaEje = tabla[0]!.indexOf('EJE')
 
     expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('-333')
@@ -500,7 +505,7 @@ describe('armarTablaDiferencias', () => {
   // El cero de una diferencia significa «clavado en la cota del proyecto»,
   // la mejor noticia posible: nunca puede confundirse con «sin dato».
   it('un cero real sale como cero, porque significa que está justo en la cota', () => {
-    const tabla = armarTablaDiferencias(evaluacionConCeroExacto(), calle(), plantilla())
+    const tabla = armarTablaDiferencias(evaluacionConCeroExacto(), calle(), progresivasEjemplo())
     const columnaEje = tabla[0]!.indexOf('EJE')
 
     expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('0')

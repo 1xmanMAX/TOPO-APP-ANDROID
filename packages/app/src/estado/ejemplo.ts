@@ -93,7 +93,15 @@ export function proyectoEjemplo(): Proyecto {
                   tipo: 'cerrado',
                   bmFinalId: 'bm-1',
                   longitudK: 0.36,
-                  longitudKAuto: true,
+                  // A mano, y a propósito, igual que `tomaEjemplo()` en el motor.
+                  // Esta libreta es una versión abreviada: mide de 0+000 a 0+080,
+                  // pero el circuito que representa es el de 0.36 km de la calle
+                  // entera. Puesto en automático, la longitud saldría de lo que
+                  // esta libreta recorrió de verdad —0.16 km—, la tolerancia
+                  // caería de ±7.2 a ±4.8 mm, el cierre de −5.0 mm dejaría de
+                  // pasar y, sin cierre, no se aplica la compensación: todas las
+                  // cotas del ejemplo se moverían 2 y 3 mm.
+                  longitudKAuto: false,
                   clase: 'tercerOrden',
                   coeficiente: 12,
                 },
@@ -266,7 +274,8 @@ export function proyectoEjemplo(): Proyecto {
                   tipo: 'cerrado',
                   bmFinalId: 'bm-1',
                   longitudK: 0.36,
-                  longitudKAuto: true,
+                  // A mano por el mismo motivo que la toma de subrasante.
+                  longitudKAuto: false,
                   clase: 'tercerOrden',
                   coeficiente: 12,
                 },

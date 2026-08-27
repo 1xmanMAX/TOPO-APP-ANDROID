@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Campania, Plantilla, Proyecto, Rasante } from '@topo/core'
+import type { Proyecto, PuntoCalle, Rasante, Toma } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
@@ -64,14 +64,12 @@ const CIERRE_CERRADO = {
  * hay dos tramos con pareja — VER-I↔SAR-I y EJE↔BOR-D — separados por
  * celdas que solo tiene una de las dos capas.
  */
-function campaniaTerreno(): Campania {
+function campaniaTerreno(): Toma {
   return {
     id: 'camp-t',
     fecha: '2026-08-01',
-    calleId: 'c-1',
     capaId: 'cap-terreno',
     bmInicialId: 'bm-1',
-    estado: 'cerrada',
     cierre: CIERRE_CERRADO,
     estaciones: [
       {
@@ -90,14 +88,12 @@ function campaniaTerreno(): Campania {
   }
 }
 
-function campaniaSubrasante(): Campania {
+function campaniaSubrasante(): Toma {
   return {
     id: 'camp-s',
     fecha: '2026-08-15',
-    calleId: 'c-1',
     capaId: 'cap-subrasante',
     bmInicialId: 'bm-1',
-    estado: 'cerrada',
     cierre: CIERRE_CERRADO,
     estaciones: [
       {
@@ -118,7 +114,10 @@ function campaniaSubrasante(): Campania {
 
 function proyectoDosCapas(): Proyecto {
   const proyecto = proyectoEjemplo()
-  proyecto.campanias = [campaniaTerreno(), campaniaSubrasante()]
+  proyecto.calles[0]!.nivelaciones = [
+    { id: 'niv-t', nombre: 'Terreno', color: '#2563eb', tomas: [campaniaTerreno()] },
+    { id: 'niv-s', nombre: 'Subrasante', color: '#dc2626', tomas: [campaniaSubrasante()] },
+  ]
   // Estas pruebas comparan capas, no rasante: sin esto, la rasante por
   // defecto del ejemplo agregaría su propia polilínea y correría los índices.
   proyecto.calles[0]!.rasante = null
@@ -382,15 +381,11 @@ describe('CorteTransversal: contra qué capa se sombrea', () => {
  * caiga justo en el eje, un tramo con pareja puede unir un punto de cada
  * lado en una sola zona.
  */
-function plantillaSinEje(): Plantilla {
-  return {
-    id: 'pl-sin-eje',
-    nombre: 'Sección angosta sin eje',
-    elementos: [
-      { clave: 'IZQ', etiqueta: 'Izquierda', offset: -3.0, tipo: 'otro' },
-      { clave: 'DER', etiqueta: 'Derecha', offset: 2.0, tipo: 'otro' },
-    ],
-  }
+function puntosSinEje(): PuntoCalle[] {
+  return [
+    { concepto: 'bordeIzq', codigo: 'IZQ', distancia: -3.0 },
+    { concepto: 'bordeDer', codigo: 'DER', distancia: 2.0 },
+  ]
 }
 
 /**
@@ -403,16 +398,30 @@ function plantillaSinEje(): Plantilla {
  */
 function proyectoSinEje(): Proyecto {
   const proyecto = proyectoEjemplo()
-  proyecto.plantillas = [plantillaSinEje()]
+  const tomaSinEje: Toma = {
+    id: 'camp-sin-eje',
+    fecha: '2026-08-21',
+    capaId: 'cap-subrasante',
+    bmInicialId: 'bm-1',
+    cierre: CIERRE_CERRADO,
+    estaciones: [
+      {
+        id: 'e-1',
+        vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
+        intermedias: [
+          { id: 'l-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'IZQ' } }, valor: 1.148 },
+          { id: 'l-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'DER' } }, valor: 1.16 },
+        ],
+        vistaAdelante: { id: 'l-4', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
+      },
+    ],
+  }
   proyecto.calles = [
     {
       id: 'c-sin-eje',
       nombre: 'Calle sin eje',
-      plantillaId: 'pl-sin-eje',
-      progresivaInicio: 0,
-      progresivaFin: 20,
-      intervalo: 20,
-      progresivasExtra: [],
+      puntos: puntosSinEje(),
+      nivelaciones: [{ id: 'niv-sin-eje', nombre: 'Nivelación', color: '#2563eb', tomas: [tomaSinEje] }],
       rasante: {
         progresivaArranque: 0,
         cotaArranque: 3245.0,
@@ -421,28 +430,6 @@ function proyectoSinEje(): Proyecto {
         simetrica: true,
         tramosIzquierda: null,
       },
-    },
-  ]
-  proyecto.campanias = [
-    {
-      id: 'camp-sin-eje',
-      fecha: '2026-08-21',
-      calleId: 'c-sin-eje',
-      capaId: 'cap-subrasante',
-      bmInicialId: 'bm-1',
-      estado: 'cerrada',
-      cierre: CIERRE_CERRADO,
-      estaciones: [
-        {
-          id: 'e-1',
-          vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
-          intermedias: [
-            { id: 'l-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'IZQ' } }, valor: 1.148 },
-            { id: 'l-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'DER' } }, valor: 1.16 },
-          ],
-          vistaAdelante: { id: 'l-4', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
-        },
-      ],
     },
   ]
   return proyecto

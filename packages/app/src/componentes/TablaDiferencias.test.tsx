@@ -141,16 +141,21 @@ describe('TablaDiferencias', () => {
     fijarRasanteDeEjemplo()
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
-    // 10 progresivas × 7 elementos = 70 celdas. La campaña de SUBRASANTE del
-    // ejemplo (Entrega 3) mide una grilla completa de 25 celdas, de 0+000 a
-    // 0+080. Esta rasante de prueba tiene una pendiente longitudinal mucho
+    // 5 progresivas × 7 elementos = 35 celdas. Las progresivas son las que la
+    // libreta midió —de 0+000 a 0+080—, no un rango que la calle declare: por
+    // eso «sin medir» son 10 y no 45. Las otras 5 progresivas que la calle
+    // declaraba antes (0+100 a 0+180) eran celdas que nadie había pedido
+    // medir nunca, y contarlas como pendientes inflaba el trabajo por hacer.
+    //
+    // La campaña de SUBRASANTE del ejemplo mide una grilla completa de 25
+    // celdas. Esta rasante de prueba tiene una pendiente longitudinal mucho
     // más fuerte (-1.25 %) que la del proyecto (-0.30 %), así que se aparta
     // cada vez más de lo medido según avanza la progresiva: con esta rasante
     // y esta libreta, 23 celdas quedan fuera de tolerancia y una al límite
-    // (0+000 SAR-D). La rasante de ejemplo cubre todo el ancho de la
-    // plantilla, así que ninguna celda medida queda fuera de sección.
+    // (0+000 SAR-D). La rasante de ejemplo cubre todo el ancho de los puntos
+    // de la calle, así que ninguna celda medida queda fuera de sección.
     expect(
-      screen.getByText('Conformes 1 · Al límite 1 · Fuera 23 — Sin medir 45 · Fuera de sección 0'),
+      screen.getByText('Conformes 1 · Al límite 1 · Fuera 23 — Sin medir 10 · Fuera de sección 0'),
     ).toBeInTheDocument()
   })
 
