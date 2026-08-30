@@ -407,6 +407,49 @@ function proyectoAnteriorSinPlantillaConLecturas(): Proyecto {
   } as unknown as Proyecto
 }
 
+/**
+ * Una calle sin plantilla, con una lectura cuyo `elementoClave` guardado es
+ * 'VEREDA': la sección de fábrica declara esa palabra en los DOS puntos de
+ * vereda a la vez (`p-vereda-i` y `p-vereda-d`), así que no hay una
+ * correspondencia única que leer. Resolverla de todos modos adivinaría un
+ * lado, y colocaría la lectura en la vereda derecha aunque la medida fuera
+ * de la izquierda.
+ */
+function proyectoAnteriorSinPlantillaConLecturaAmbigua(): Proyecto {
+  return {
+    version: 1,
+    meta: metaAntigua('Jr. Sin Plantilla Ambigua'),
+    bms: [{ id: 'bm-1', nombre: 'BM-1', cota: 100, tipo: 'oficial', descripcion: 'clavo' }],
+    plantillas: [],
+    calles: [{ id: 'c-1', nombre: 'Jr. Sin Plantilla Ambigua', plantillaId: 'pl-fantasma', rasante: null }],
+    capas: [capaAntigua()],
+    campanias: [
+      {
+        id: 'camp-1',
+        fecha: '2026-01-10',
+        calleId: 'c-1',
+        capaId: 'cap-1',
+        bmInicialId: 'bm-1',
+        estado: 'cerrada',
+        cierre: { tipo: 'abierto', longitudK: 0.1, longitudKAuto: false, clase: 'tercerOrden', coeficiente: 12 },
+        estaciones: [
+          {
+            id: 'e-1',
+            vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.2 },
+            intermedias: [
+              {
+                id: 'l-2',
+                destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'VEREDA' } },
+                valor: 1.75,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as unknown as Proyecto
+}
+
 /** Una plantilla que existe pero no tiene ni un elemento declarado. */
 function proyectoAnteriorConPlantillaVacia(): Proyecto {
   return {
@@ -871,6 +914,29 @@ describe('migración de calles del modelo anterior a la sección declarada', () 
 
     expect((lectura.destino as { celda: { elementoClave: string } }).celda.elementoClave).toBe(bordeIzquierdo.id)
     expect(lectura.valor).toBe(2.084)
+  })
+
+  // ---------- Reparo del controlador (2026-08-30): la palabra que declaran dos puntos a la vez ----------
+  //
+  // `seccionDeFabrica` declara 'BORDE', 'SARDINEL' y 'VEREDA' en los dos
+  // puntos de cada par a la vez —uno por lado—. Si el mapa de respaldo de
+  // una calle sin plantilla se armara punto por punto, el del lado derecho
+  // pisaría siempre al del izquierdo, y una lectura con esa palabra genérica
+  // se remaparía siempre al lado derecho, con su distancia, sin importar de
+  // qué lado hubiera sido la medida en el campo. Solo la palabra que un
+  // único punto declare resuelve sin ambigüedad; la que declaren dos queda
+  // fuera del mapa, y la lectura que la use queda huérfana y anotada.
+
+  it('una calle sin plantilla no resuelve una palabra que la fábrica declara en dos puntos a la vez: la lectura queda huérfana y anotada, no colocada a la derecha', () => {
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoAnteriorSinPlantillaConLecturaAmbigua()))
+    const lectura = recuperado.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones[0]!.intermedias[0]!
+
+    // Ni se coloca en la vereda derecha (que es la que ganaría si el mapa se
+    // armara por orden de iteración) ni en ninguna otra: se conserva con su
+    // clave vieja, sin resolver, y su valor de campo intacto.
+    expect(lectura.destino).toEqual({ tipo: 'celda', celda: { progresiva: 0, elementoClave: 'VEREDA' } })
+    expect(lectura.valor).toBe(1.75)
+    expect(console.warn).toHaveBeenCalled()
   })
 
   it('una plantilla sin elementos se trata igual que si no existiera: sección de fábrica y se anota', () => {

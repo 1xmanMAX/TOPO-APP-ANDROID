@@ -294,10 +294,32 @@ function construirSeccionDesdePlantilla(
     // está escrita. Sin esto, una plantilla borrada después de medir dejaría
     // huérfana cada lectura de la calle, aunque su código fuera uno de
     // fábrica de sobra reconocible.
+    //
+    // Pero la fábrica también declara palabras genéricas en dos puntos a la
+    // vez: 'BORDE', 'SARDINEL' y 'VEREDA' están en los dos lados. Si el mapa
+    // se armara punto por punto, el del lado derecho pisaría siempre al del
+    // izquierdo (van de izquierda a derecha), y una lectura con
+    // `elementoClave: 'VEREDA'` se remaparía siempre a la vereda derecha, con
+    // su distancia, aunque la medida fuera de la izquierda —sin ningún
+    // aviso, porque `remaparLectura` la daría por resuelta con éxito—. Eso no
+    // es leer una correspondencia declarada, es adivinar un lado. Por eso se
+    // cuenta primero cuántos puntos distintos declaran cada palabra, y solo
+    // entra en el mapa la que sea de un único punto: la ambigua se deja
+    // fuera, y la lectura que la use queda huérfana y anotada, como
+    // cualquier otra que no se pueda traducir.
     const fabricaDeRespaldo = seccionDeFabrica()
-    const claveDeRespaldo = new Map<string, string>()
+    const puntosPorPalabra = new Map<string, Set<string>>()
     for (const punto of fabricaDeRespaldo.puntos) {
-      for (const palabra of punto.palabras) claveDeRespaldo.set(normalizarPalabra(palabra), punto.id)
+      for (const palabra of punto.palabras) {
+        const clave = normalizarPalabra(palabra)
+        const puntos = puntosPorPalabra.get(clave) ?? new Set<string>()
+        puntos.add(punto.id)
+        puntosPorPalabra.set(clave, puntos)
+      }
+    }
+    const claveDeRespaldo = new Map<string, string>()
+    for (const [clave, puntos] of puntosPorPalabra) {
+      if (puntos.size === 1) claveDeRespaldo.set(clave, [...puntos][0]!)
     }
     return { seccion: fabricaDeRespaldo, claveANuevoId: claveDeRespaldo }
   }
