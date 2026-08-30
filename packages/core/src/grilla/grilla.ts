@@ -1,5 +1,6 @@
 import type { Calle, Estacion } from '../modelo/tipos'
 import { redondear3 } from '../numero'
+import { palabraDePunto } from '../seccion/seccion'
 
 export interface CeldaGrilla {
   progresiva: number
@@ -71,9 +72,7 @@ export function construirGrilla(calle: Calle, progresivas: number[]): CeldaGrill
         progresiva,
         elementoClave: punto.id,
         elementoNombre: punto.nombre,
-        // Un punto puede quedarse sin ninguna palabra: Max las añade y las
-        // quita. Entonces el nombre es lo único que hay para enseñar.
-        elementoPalabra: punto.palabras[0] ?? punto.nombre,
+        elementoPalabra: palabraDePunto(punto),
         offset: punto.distancia,
         clave: claveCelda(progresiva, punto.id),
       })

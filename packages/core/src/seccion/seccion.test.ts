@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   anadirPalabra, esPalabraDe, hayDistanciasDeFabrica, ladoDe,
+  palabraDePunto, palabrasDeSeccion,
   puntoPorPalabraYLado, puntosConPalabra, seccionDeFabrica,
+  type PuntoSeccion,
 } from './seccion'
 
 describe('la sección de fábrica', () => {
@@ -91,5 +93,54 @@ describe('anadirPalabra', () => {
     const antes = seccionDeFabrica()
 
     expect(anadirPalabra(antes, 'p-que-no-existe', 'zkj').puntos).toEqual(antes.puntos)
+  })
+})
+
+describe('la palabra con la que se enseña un punto', () => {
+  it('es la primera de las suyas: la que Max escribe en su hoja', () => {
+    const eje = seccionDeFabrica().puntos.find((p) => p.rol === 'eje')!
+
+    expect(palabraDePunto(eje)).toBe('EJE')
+  })
+
+  it('sin ninguna palabra cae al nombre, que es lo único que queda para enseñar', () => {
+    // Max añade y quita palabras: un punto puede quedarse sin ninguna, y
+    // entonces la cabecera de su columna no puede salir en blanco.
+    const sinPalabras: PuntoSeccion = {
+      id: 'p-cuneta-i',
+      rol: 'cuneta',
+      nombre: 'Cuneta izquierda',
+      distancia: -6,
+      distanciaDeFabrica: false,
+      palabras: [],
+    }
+
+    expect(palabraDePunto(sinPalabras)).toBe('Cuneta izquierda')
+  })
+
+  it('el mapa de la sección da esa misma palabra, buscable por el id del punto', () => {
+    const seccion = seccionDeFabrica()
+
+    const palabras = palabrasDeSeccion(seccion)
+
+    expect(palabras.get('p-eje')).toBe('EJE')
+    expect(palabras.get('p-vereda-i')).toBe('VI')
+    expect(palabras.size).toBe(seccion.puntos.length)
+  })
+
+  it('el mapa usa el mismo respaldo al nombre, no uno propio', () => {
+    // Es la razón de que las dos vivan juntas: con el respaldo copiado en
+    // cada vista, dos pantallas podrían llamar distinto al mismo punto.
+    const seccion = seccionDeFabrica()
+    const sinPalabras = { ...seccion.puntos[0]!, palabras: [] }
+
+    const palabras = palabrasDeSeccion({ ...seccion, puntos: [sinPalabras] })
+
+    expect(palabras.get(sinPalabras.id)).toBe(palabraDePunto(sinPalabras))
+    expect(palabras.get(sinPalabras.id)).toBe(sinPalabras.nombre)
+  })
+
+  it('un id que ya no está en la sección no tiene entrada: la llave no se enseña', () => {
+    expect(palabrasDeSeccion(seccionDeFabrica()).get('p-borrado')).toBeUndefined()
   })
 })

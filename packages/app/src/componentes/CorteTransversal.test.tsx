@@ -27,14 +27,14 @@ describe('CorteTransversal', () => {
   it('selecciona la celda al hacer clic en un punto', async () => {
     const usuario = userEvent.setup()
     render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
-    await usuario.click(screen.getByRole('button', { name: /0\+000 EJE/ }))
+    await usuario.click(screen.getByRole('button', { name: /0\+000 Eje/ }))
     expect(useAlmacen.getState().seleccion.clave).toBe('0|p-eje')
   })
 
   it('marca el punto seleccionado', () => {
     useAlmacen.getState().seleccionar('0|p-eje')
     render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
-    expect(screen.getByRole('button', { name: /0\+000 EJE/ })).toHaveAttribute('data-activo', 'true')
+    expect(screen.getByRole('button', { name: /0\+000 Eje/ })).toHaveAttribute('data-activo', 'true')
   })
 
   it('sin ninguna campaña visible no dibuja nada y avisa que no hay lecturas', () => {
@@ -197,7 +197,7 @@ describe('CorteTransversal con varias capas', () => {
         idCampaniaReferencia="camp-t"
       />,
     )
-    const botones = screen.getAllByRole('button', { name: /0\+000 EJE/ })
+    const botones = screen.getAllByRole('button', { name: /0\+000 Eje/ })
     expect(botones).toHaveLength(2)
     const etiquetas = botones.map((b) => b.getAttribute('aria-label'))
     expect(etiquetas.some((t) => t?.includes('TERRENO EXISTENTE'))).toBe(true)
@@ -219,9 +219,9 @@ describe('CorteTransversal con varias capas', () => {
     const botones = screen.getAllByRole('button', { name: /^0\+000 / })
     expect(botones).toHaveLength(5) // VER-I, SAR-I, BOR-I, EJE, BOR-D
 
-    const eje = screen.getByRole('button', { name: /0\+000 EJE/ })
+    const eje = screen.getByRole('button', { name: /0\+000 Eje/ })
     expect(eje.getAttribute('aria-label')).not.toContain('TERRENO EXISTENTE')
-    expect(eje.getAttribute('aria-label')).toMatch(/^0\+000 EJE · cota [\d.]+ m$/)
+    expect(eje.getAttribute('aria-label')).toMatch(/^0\+000 Eje · cota [\d.]+ m$/)
   })
 })
 

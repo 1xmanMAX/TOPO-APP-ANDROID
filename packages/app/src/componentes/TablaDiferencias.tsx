@@ -177,7 +177,12 @@ export default function TablaDiferencias({ idCampaniaReferencia }: Props) {
                   const clave = claveCelda(progresiva, elemento.clave)
                   const celda = evaluacion.celdas.get(clave)
                   const activa = seleccion.clave === clave
-                  const etiqueta = `${formatearProgresiva(progresiva)} ${elemento.palabra}`
+                  // El nombre completo, no la palabra corta de la cabecera:
+                  // esto es el nombre accesible del botón, y la sección
+                  // permite la misma palabra a los dos lados del eje. Dos
+                  // botones anunciados «0+000 VEREDA» en la misma fila no se
+                  // distinguirían de oído.
+                  const etiqueta = `${formatearProgresiva(progresiva)} ${elemento.nombre}`
                   const { fondo, texto } = clasesCelda(celda, activa)
                   return (
                     <td key={clave} className="p-0.5">

@@ -1,4 +1,4 @@
-import { formatearProgresiva, type CeldaEvaluada, type Id } from '@topo/core'
+import { formatearProgresiva, palabraDePunto, type CeldaEvaluada, type Id } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useEvaluacionRasante, useResultado } from '../estado/derivados'
@@ -37,12 +37,13 @@ export default function PerfilLongitudinal({ elementoClave, idCampaniaReferencia
    * lo escribe en su hoja («EJE»), no la clave con la que se identifica
    * internamente. Sale de la sección de la calle de la campaña activa — la
    * misma de la que sale el terreno que se dibuja (`useResultado`), así que
-   * es la sección que declaró esta clave. Si el punto se quedó sin palabras,
-   * cae al nombre; si la clave ya no corresponde a ningún punto (una lectura
-   * huérfana), se enseña tal cual: es lo único que quedó guardado de ella.
+   * es la sección que declaró esta clave. El respaldo para un punto sin
+   * palabras lo decide `palabraDePunto`, en el motor, y no aquí; si la clave
+   * ya no corresponde a ningún punto (una lectura huérfana), se enseña tal
+   * cual: es lo único que quedó guardado de ella.
    */
   const punto = contexto?.calle.seccion.puntos.find((p) => p.id === elementoClave)
-  const nombreElemento = punto ? (punto.palabras[0] ?? punto.nombre) : elementoClave
+  const nombreElemento = punto ? palabraDePunto(punto) : elementoClave
 
   const puntos = useMemo(() => {
     if (!resultado) return []

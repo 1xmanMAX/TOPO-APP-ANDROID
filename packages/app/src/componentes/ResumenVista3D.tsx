@@ -1,4 +1,7 @@
-import { claveCelda, formatearProgresiva, type CaraMalla, type EstadoTolerancia, type Id } from '@topo/core'
+import {
+  claveCelda, formatearProgresiva, palabrasDeSeccion,
+  type CaraMalla, type EstadoTolerancia, type Id,
+} from '@topo/core'
 import type { ModoVista3D } from '../estado/almacen'
 import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
 import { ETIQUETA_ESTADO, formatearDiferencia } from '../estadoRasante'
@@ -79,13 +82,13 @@ export default function ResumenVista3D({ idCampaniaReferencia, modoVista3D, cara
 
   // El párrafo dice dónde está la peor diferencia, y eso se lee: nombra el
   // punto con la palabra corta con la que Max lo escribe en su hoja («BI»),
-  // nunca por el id interno con el que la cara lo identifica. Si el punto se
-  // quedó sin palabras, cae al nombre; una clave que ya no corresponda a
-  // ningún punto se enseña tal cual, que es lo único que quedó guardado de
-  // ella.
-  const nombresDeElemento = new Map(
-    (contexto?.calle.seccion.puntos ?? []).map((punto) => [punto.id, punto.palabras[0] ?? punto.nombre]),
-  )
+  // nunca por el id interno con el que la cara lo identifica. El respaldo
+  // para un punto sin palabras lo decide `palabrasDeSeccion`, en el motor;
+  // una clave que ya no corresponda a ningún punto se enseña tal cual, que
+  // es lo único que quedó guardado de ella.
+  const nombresDeElemento = contexto
+    ? palabrasDeSeccion(contexto.calle.seccion)
+    : new Map<string, string>()
 
   const conteos: Partial<Record<EstadoTolerancia, number>> = {}
   let peor: { etiqueta: string; diferenciaMm: number } | null = null

@@ -50,7 +50,7 @@ describe('MapaEstado', () => {
     fijarRasanteDeEjemplo()
     render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
-    const etiqueta = screen.getByLabelText(/0\+000 EJE/).getAttribute('aria-label')
+    const etiqueta = screen.getByLabelText(/0\+000 Eje/).getAttribute('aria-label')
     expect(etiqueta).toMatch(/−333 mm/)
     expect(etiqueta).toMatch(/rellenar/)
     expect(etiqueta).toMatch(/fuera de tolerancia/)
@@ -60,7 +60,7 @@ describe('MapaEstado', () => {
     fijarRasanteDeEjemplo()
     render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
-    await userEvent.click(screen.getByLabelText(/0\+020 EJE/))
+    await userEvent.click(screen.getByLabelText(/0\+020 Eje/))
 
     expect(useAlmacen.getState().seleccion.clave).toBe('20|p-eje')
   })
@@ -89,7 +89,7 @@ describe('MapaEstado', () => {
     // 0+000 VER-I no se midió en el proyecto de ejemplo, pero la rasante
     // plana sí cubre todo el ancho de la plantilla (hasta 5.6 m): es "sin
     // medir", nunca "fuera de la sección".
-    const celda = screen.getByLabelText(/0\+000 VER-I/)
+    const celda = screen.getByLabelText(/0\+000 Vereda izquierda/)
     expect(celda.getAttribute('aria-label')).toMatch(/sin medir/)
     expect(celda.getAttribute('aria-label')).not.toMatch(/fuera de la sección/)
   })

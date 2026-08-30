@@ -114,3 +114,28 @@ export function anadirPalabra(seccion: Seccion, puntoId: Id, palabra: string): S
 export function hayDistanciasDeFabrica(seccion: Seccion): boolean {
   return seccion.puntos.some((p) => p.distanciaDeFabrica)
 }
+
+/**
+ * Con qué palabra se escribe este punto donde el espacio manda: la cabecera
+ * de una tabla, el rótulo de 9 px del corte, la cabecera de lo que se
+ * exporta. Es la primera de las suyas —texto del propio Max, que cabe donde
+ * cabía el código viejo—, y si se quedó sin ninguna (las añade y las quita a
+ * voluntad) cae al nombre largo, que es lo único que queda para enseñar.
+ *
+ * Vive aquí, junto al modelo, porque este respaldo llegó a estar copiado en
+ * seis sitios: el día que uno cambiara de criterio, dos pantallas llamarían
+ * distinto al mismo punto sin que nada lo avisara.
+ */
+export function palabraDePunto(punto: PuntoSeccion): string {
+  return punto.palabras[0] ?? punto.nombre
+}
+
+/**
+ * La palabra de cada punto de la sección, buscable por su id: para las
+ * vistas que pintan muchas celdas y solo traen guardada la llave. Un id que
+ * no esté aquí es una lectura de un punto que ya no está en la sección —el
+ * mapa no lo inventa, y quien lo busque decide qué decir en su lugar.
+ */
+export function palabrasDeSeccion(seccion: Seccion): Map<Id, string> {
+  return new Map(seccion.puntos.map((punto) => [punto.id, palabraDePunto(punto)]))
+}

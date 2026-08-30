@@ -69,10 +69,14 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
   )
   const progresivas = esqueleto?.progresivas ?? []
   const elementos = esqueleto?.elementos ?? []
-  // Para rotular cada celda con la palabra corta del punto («BI»), nunca con
-  // el id interno de la sección (`p-borde-i`) que compone la mitad derecha
-  // de `clave`: ese id no se le enseña a nadie.
-  const palabrasPorClave = useMemo(() => new Map(elementos.map((e) => [e.clave, e.palabra])), [elementos])
+  // Para nombrar cada celda con el nombre completo del punto («Borde
+  // izquierdo»), nunca con el id interno de la sección (`p-borde-i`) que
+  // compone la mitad derecha de `clave`: ese id no se le enseña a nadie.
+  // Va el nombre completo y no la palabra corta de la cabecera porque esto
+  // solo se usa para el nombre accesible de la celda, y la sección permite
+  // la misma palabra a los dos lados del eje: dos celdas anunciadas «0+000
+  // VEREDA» en la misma fila no se distinguirían de oído.
+  const nombresPorClave = useMemo(() => new Map(elementos.map((e) => [e.clave, e.nombre])), [elementos])
 
   if (!contexto) return null
 
@@ -98,7 +102,7 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
     const separador = clave.indexOf('|')
     const progresiva = Number(clave.slice(0, separador))
     const elementoClave = clave.slice(separador + 1)
-    const etiqueta = `${formatearProgresiva(progresiva)} ${palabrasPorClave.get(elementoClave) ?? elementoClave}`
+    const etiqueta = `${formatearProgresiva(progresiva)} ${nombresPorClave.get(elementoClave) ?? elementoClave}`
 
     return {
       simbolo: SIMBOLO_ESTADO[celda.estado],

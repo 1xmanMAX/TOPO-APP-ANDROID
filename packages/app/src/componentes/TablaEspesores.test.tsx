@@ -134,7 +134,7 @@ describe('TablaEspesores', () => {
 
     render(<TablaEspesores />)
 
-    expect(screen.getByLabelText(/Espesor en 0\+000 EJE/).textContent).toBe(formatearCota(espesor0))
+    expect(screen.getByLabelText(/Espesor en 0\+000 Eje/).textContent).toBe(formatearCota(espesor0))
   })
 
   it('muestra un guion largo cuando falta una de las dos cotas', () => {
@@ -143,7 +143,7 @@ describe('TablaEspesores', () => {
     render(<TablaEspesores />)
 
     // 0|p-borde-i solo se midió en camp-1 (SUBRASANTE): no tiene pareja en TERRENO.
-    expect(screen.getByLabelText(/Espesor en 0\+000 BOR-I/).textContent).toBe('—')
+    expect(screen.getByLabelText(/Espesor en 0\+000 Borde izquierdo/).textContent).toBe('—')
   })
 
   it('el nombre accesible de una celda con espesor incluye la cifra', () => {
@@ -151,7 +151,7 @@ describe('TablaEspesores', () => {
 
     render(<TablaEspesores />)
 
-    const boton = screen.getByLabelText(/Espesor en 0\+000 EJE/)
+    const boton = screen.getByLabelText(/Espesor en 0\+000 Eje/)
     expect(boton.getAttribute('aria-label')).toContain(boton.textContent)
   })
 
@@ -161,7 +161,7 @@ describe('TablaEspesores', () => {
     render(<TablaEspesores />)
 
     // 0|p-borde-i solo se midió en camp-1 (SUBRASANTE): no tiene pareja en TERRENO.
-    const boton = screen.getByLabelText(/Espesor en 0\+000 BOR-I/)
+    const boton = screen.getByLabelText(/Espesor en 0\+000 Borde izquierdo/)
     expect(boton.getAttribute('aria-label')).toContain('sin comparar')
     expect(boton.getAttribute('aria-label')).not.toMatch(/0\.000/)
   })
@@ -174,7 +174,7 @@ describe('TablaEspesores', () => {
 
     render(<TablaEspesores />)
 
-    const boton = screen.getByLabelText(/Espesor en 0\+020 EJE/)
+    const boton = screen.getByLabelText(/Espesor en 0\+020 Eje/)
     expect(boton.textContent).toBe(formatearCota(celda20.espesor!))
     expect(boton.className).toMatch(/falla/)
   })
@@ -184,7 +184,7 @@ describe('TablaEspesores', () => {
     const usuario = userEvent.setup()
     render(<TablaEspesores />)
 
-    const boton = screen.getByLabelText(/Espesor en 0\+020 EJE/)
+    const boton = screen.getByLabelText(/Espesor en 0\+020 Eje/)
     await usuario.click(boton)
 
     expect(useAlmacen.getState().seleccion.clave).toBe('20|p-eje')
@@ -211,7 +211,7 @@ describe('TablaEspesores', () => {
     const usuario = userEvent.setup()
     render(<TablaEspesores />)
 
-    await usuario.click(screen.getByLabelText(/Espesor en 0\+000 EJE/))
+    await usuario.click(screen.getByLabelText(/Espesor en 0\+000 Eje/))
 
     expect(useAlmacen.getState().seleccion.clave).toBe('0|p-eje')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(0)
@@ -243,7 +243,7 @@ describe('TablaEspesores', () => {
 
     render(<TablaEspesores />)
 
-    const boton = screen.getByLabelText(/Espesor en 0\+040 EJE/)
+    const boton = screen.getByLabelText(/Espesor en 0\+040 Eje/)
     expect(boton.textContent).toBe('0.000')
     expect(boton.getAttribute('aria-label')).not.toContain('sin comparar')
   })

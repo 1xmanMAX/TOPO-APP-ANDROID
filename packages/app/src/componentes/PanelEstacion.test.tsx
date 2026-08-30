@@ -13,7 +13,7 @@ describe('PanelEstacion', () => {
 
   it('lista las lecturas intermedias de la estación con su cota', () => {
     render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
-    expect(screen.getByLabelText('Lectura de 0+000 EJE')).toHaveValue('2.011')
+    expect(screen.getByLabelText('Lectura de 0+000 Eje')).toHaveValue('2.011')
     expect(screen.getByText('3244.597')).toBeInTheDocument()
   })
 
@@ -21,7 +21,7 @@ describe('PanelEstacion', () => {
     const usuario = userEvent.setup()
     render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
 
-    const campo = screen.getByLabelText('Lectura de 0+000 EJE')
+    const campo = screen.getByLabelText('Lectura de 0+000 Eje')
     await usuario.clear(campo)
     await usuario.type(campo, '1.880')
 
@@ -32,7 +32,7 @@ describe('PanelEstacion', () => {
   it('borra una lectura', async () => {
     const usuario = userEvent.setup()
     render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
-    await usuario.click(screen.getByLabelText('Borrar lectura de 0+000 EJE'))
+    await usuario.click(screen.getByLabelText('Borrar lectura de 0+000 Eje'))
 
     const resultado = useAlmacen.getState().calcular()!
     expect(resultado.cotasPorCelda.has('0|p-eje')).toBe(false)
@@ -42,7 +42,7 @@ describe('PanelEstacion', () => {
     const usuario = userEvent.setup()
     render(<PanelEstacion estacionIndice={0} alCambiarEstacion={vi.fn()} />)
 
-    const campo = screen.getByLabelText('Lectura de 0+000 EJE')
+    const campo = screen.getByLabelText('Lectura de 0+000 Eje')
     await usuario.clear(campo)
 
     const lectura = buscarToma(useAlmacen.getState().proyecto, 'camp-1')!

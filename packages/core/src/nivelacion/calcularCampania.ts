@@ -54,15 +54,21 @@ export interface ResultadoCampania {
 
 /**
  * Cómo se nombra un elemento en los avisos: el nombre del punto de la sección
- * («Vereda izquierda»), nunca su id, que es jerga de programador. Si la clave
- * ya no corresponde a ningún punto —una lectura huérfana— se enseña tal cual:
- * es lo único que queda guardado de ella.
+ * («Vereda izquierda»), nunca su id, que es jerga de programador.
  */
 type NombreDeElemento = (elementoClave: string) => string
 
+/**
+ * Cómo se nombra una celda cuya clave ya no corresponde a ningún punto. De
+ * ese punto no queda guardado más que la clave, y la clave es la llave
+ * interna: no se enseña. Así que en su lugar se dice qué le pasa, que es lo
+ * que el topógrafo necesita saber para arreglarlo.
+ */
+const PUNTO_FUERA_DE_LA_SECCION = 'un punto que ya no está en la sección'
+
 function nombradorDeElementos(calle: Calle): NombreDeElemento {
   const nombres = new Map(calle.seccion.puntos.map((punto) => [punto.id, punto.nombre]))
-  return (elementoClave) => nombres.get(elementoClave) ?? elementoClave
+  return (elementoClave) => nombres.get(elementoClave) ?? PUNTO_FUERA_DE_LA_SECCION
 }
 
 export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
@@ -293,8 +299,11 @@ function agregarAvisosDeHuerfanas(
   const huerfanas = [...cotasPorCelda.values()].filter((celda) => !clavesDeLaGrilla.has(celda.clave))
 
   if (huerfanas.length > 0) {
+    // Cada huérfana se nombra por lo único suyo que sí se puede leer —su
+    // progresiva— más lo que le pasa. El elemento no se puede nombrar: de él
+    // solo quedó la clave, que es la llave interna y no se enseña.
     const nombres = huerfanas.map(
-      (celda) => `${formatearProgresiva(celda.progresiva)} ${nombreDe(celda.elementoClave)}`,
+      (celda) => `${formatearProgresiva(celda.progresiva)}, ${nombreDe(celda.elementoClave)}`,
     )
 
     avisos.push({
@@ -303,7 +312,7 @@ function agregarAvisosDeHuerfanas(
       mensaje:
         `Hay ${huerfanas.length} ${huerfanas.length === 1 ? 'lectura' : 'lecturas'} que ya no ` +
         'caen en la grilla de esta calle, así que no salen en la tabla ni en la exportación: ' +
-        `${nombres.slice(0, 5).join(', ')}${nombres.length > 5 ? '…' : ''}. ` +
+        `${nombres.slice(0, 5).join('; ')}${nombres.length > 5 ? '…' : ''}. ` +
         'Suele pasar al quitar un punto de la sección de la calle.',
     })
   }

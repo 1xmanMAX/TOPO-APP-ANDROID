@@ -78,10 +78,14 @@ export default function TablaEspesores() {
                     <td key={clave} className="p-0.5">
                       <button
                         type="button"
+                        // El nombre completo, no la palabra corta de la
+                        // cabecera: la sección permite la misma palabra a los
+                        // dos lados del eje, y dos botones anunciados «0+000
+                        // VEREDA» en la misma fila no se distinguirían de oído.
                         aria-label={
                           espesor !== null
-                            ? `Espesor en ${formatearProgresiva(progresiva)} ${elemento.palabra}: ${formatearCota(espesor)}`
-                            : `Espesor en ${formatearProgresiva(progresiva)} ${elemento.palabra}, sin comparar`
+                            ? `Espesor en ${formatearProgresiva(progresiva)} ${elemento.nombre}: ${formatearCota(espesor)}`
+                            : `Espesor en ${formatearProgresiva(progresiva)} ${elemento.nombre}, sin comparar`
                         }
                         onClick={() => seleccionar(clave)}
                         className={`numerico w-full rounded px-2 py-1 text-right ${

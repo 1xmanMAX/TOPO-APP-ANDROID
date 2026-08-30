@@ -48,10 +48,16 @@ export default function TablaResultados() {
                   <td key={clave} className="p-0.5">
                     <button
                       type="button"
+                      // La cabecera de la columna lleva la palabra corta, que
+                      // es lo que cabe; el nombre accesible lleva el nombre
+                      // completo, que es lo que distingue. La sección permite
+                      // la misma palabra a los dos lados del eje, así que dos
+                      // botones anunciados «0+000 VEREDA» en la misma fila no
+                      // se distinguirían de oído.
                       aria-label={
                         celda
-                          ? `Cota en ${formatearProgresiva(progresiva)} ${elemento.palabra}: ${formatearCota(celda.cota)}`
-                          : `Cota en ${formatearProgresiva(progresiva)} ${elemento.palabra}, sin medir`
+                          ? `Cota en ${formatearProgresiva(progresiva)} ${elemento.nombre}: ${formatearCota(celda.cota)}`
+                          : `Cota en ${formatearProgresiva(progresiva)} ${elemento.nombre}, sin medir`
                       }
                       onClick={() => seleccionar(clave)}
                       className={`numerico w-full rounded px-2 py-1 text-right ${

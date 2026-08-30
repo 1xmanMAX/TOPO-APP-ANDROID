@@ -78,7 +78,7 @@ describe('TablaDiferencias', () => {
     fijarRasanteDeEjemplo()
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
-    expect(screen.getByLabelText(/0\+000 EJE: −334 mm, rellenar/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/0\+000 Eje: −334 mm, rellenar/)).toBeInTheDocument()
   })
 
   it('el interruptor cambia entre cota real, cota teórica y diferencia', async () => {
@@ -97,7 +97,7 @@ describe('TablaDiferencias', () => {
     fijarRasanteDeEjemplo()
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
-    const celda = screen.getByLabelText(/0\+000 EJE/)
+    const celda = screen.getByLabelText(/0\+000 Eje/)
     expect(celda.getAttribute('aria-label')).toMatch(/fuera de tolerancia/)
   })
 
@@ -105,7 +105,7 @@ describe('TablaDiferencias', () => {
     fijarRasanteEstrecha()
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
-    const celda = screen.getByLabelText(/0\+000 VER-I/)
+    const celda = screen.getByLabelText(/0\+000 Vereda izquierda/)
     expect(celda.textContent).toBe('')
     expect(celda.getAttribute('aria-label')).toMatch(/fuera de la sección/)
   })
@@ -117,7 +117,7 @@ describe('TablaDiferencias', () => {
 
     await usuario.click(screen.getByRole('button', { name: 'Cota real' }))
 
-    const celda = screen.getByLabelText(/0\+000 VER-I/)
+    const celda = screen.getByLabelText(/0\+000 Vereda izquierda/)
     expect(celda.textContent).not.toBe('')
   })
 
@@ -127,7 +127,7 @@ describe('TablaDiferencias', () => {
 
     // 0+000 VER-I no se mide en el proyecto de ejemplo, pero la rasante
     // ancha sí la cubre: es "sin medir", no "fuera de sección".
-    const celda = screen.getByLabelText(/0\+000 VER-I/)
+    const celda = screen.getByLabelText(/0\+000 Vereda izquierda/)
     expect(celda.textContent).toBe('')
     expect(celda.getAttribute('aria-label')).toMatch(/sin medir/)
     expect(celda.getAttribute('aria-label')).not.toMatch(/fuera de la sección/)
@@ -173,7 +173,7 @@ describe('TablaDiferencias', () => {
     await usuario.click(screen.getByRole('button', { name: 'Cota real' }))
 
     // 0+000 EJE está fuera de tolerancia con esta rasante y esta libreta.
-    const celda = screen.getByLabelText(/0\+000 EJE/)
+    const celda = screen.getByLabelText(/0\+000 Eje/)
     expect(celda.textContent).toBe('✗ 3244.597')
     // La cifra sigue siendo buscable sola: el símbolo no la contamina.
     expect(screen.getByText('3244.597')).toBeInTheDocument()
@@ -184,7 +184,7 @@ describe('TablaDiferencias', () => {
     const usuario = userEvent.setup()
     render(<TablaDiferencias idCampaniaReferencia="camp-1" />)
 
-    await usuario.click(screen.getByLabelText(/0\+000 EJE/))
+    await usuario.click(screen.getByLabelText(/0\+000 Eje/))
 
     expect(useAlmacen.getState().seleccion.clave).toBe('0|p-eje')
   })

@@ -42,11 +42,13 @@ interface CeldaFila {
   progresiva: number
   /**
    * Cómo se nombra el elemento de esta celda en el nombre accesible por
-   * defecto: la palabra corta del punto («BI»), la misma que ya llevaba la
-   * cabecera de la columna — nunca el nombre largo, que en una rejilla de
-   * decenas de celdas repetiría un texto que no cabe.
+   * defecto: el nombre completo del punto («Borde izquierdo»), no la palabra
+   * corta que lleva la cabecera. En pantalla manda el ancho de la rejilla,
+   * pero aquí manda distinguir: la sección permite la misma palabra a los dos
+   * lados del eje, así que dos celdas anunciadas «0+000 VEREDA» en la misma
+   * fila no se distinguirían de oído.
    */
-  elementoPalabra: string
+  elementoNombre: string
 }
 
 interface Fila {
@@ -88,7 +90,7 @@ export default function MapaGrilla({
         celdas: elementos.map((elemento) => ({
           clave: claveCelda(progresiva, elemento.clave),
           progresiva,
-          elementoPalabra: elemento.palabra,
+          elementoNombre: elemento.nombre,
         })),
       }))
     }
@@ -98,7 +100,7 @@ export default function MapaGrilla({
       celdas: progresivas.map((progresiva) => ({
         clave: claveCelda(progresiva, elemento.clave),
         progresiva,
-        elementoPalabra: elemento.palabra,
+        elementoNombre: elemento.nombre,
       })),
     }))
   }, [porElemento, progresivas, elementos])
@@ -124,7 +126,7 @@ export default function MapaGrilla({
               <td className="numerico sticky left-0 z-10 bg-white px-2 py-1 text-slate-600 dark:bg-slate-950 dark:text-slate-300">
                 {fila.titulo}
               </td>
-              {fila.celdas.map(({ clave, progresiva, elementoPalabra }) => {
+              {fila.celdas.map(({ clave, progresiva, elementoNombre }) => {
                 const llena = llenas.has(clave)
                 const activa = clave === claveActiva
                 const pintado = pintarCelda?.(clave)
@@ -132,7 +134,7 @@ export default function MapaGrilla({
                   <td key={clave} className="p-0.5 text-center">
                     <button
                       type="button"
-                      aria-label={pintado?.etiqueta ?? `${formatearProgresiva(progresiva)} ${elementoPalabra}`}
+                      aria-label={pintado?.etiqueta ?? `${formatearProgresiva(progresiva)} ${elementoNombre}`}
                       onClick={() => alElegir(clave)}
                       className={`h-6 w-full rounded text-xs ${
                         activa

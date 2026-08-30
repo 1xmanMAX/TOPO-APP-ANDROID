@@ -215,8 +215,35 @@ describe('calcularCampania', () => {
     const aviso = resultado.avisos.find((a) => a.mensaje.includes('ya no caen en la grilla'))
     expect(aviso).toBeDefined()
     expect(aviso?.nivel).toBe('advertencia')
-    expect(aviso?.mensaje).toContain('0+000 p-eje')
-    expect(aviso?.mensaje).toContain('0+020 p-eje')
+    // Las dos huérfanas siguen nombradas una por una; lo que cambia es con
+    // qué, porque el punto que las declaraba ya no está en la sección y de
+    // él solo quedó la llave interna, que no se enseña. Queda su progresiva
+    // —que sí se lee— y qué le pasó.
+    expect(aviso?.mensaje).toContain('0+000, un punto que ya no está en la sección')
+    expect(aviso?.mensaje).toContain('0+020, un punto que ya no está en la sección')
+  })
+
+  // El aviso de huérfanas es el único sitio donde el nombrador de elementos
+  // no encuentra el punto —esa es justo la condición para emitirlo—, así que
+  // es el camino garantizado por donde se escaparía la llave interna si
+  // volviera a caer a ella.
+  it('el aviso de huérfanas no enseña la llave interna de la celda', () => {
+    const calleSinEje = {
+      ...CALLE_EJEMPLO,
+      seccion: {
+        ...CALLE_EJEMPLO.seccion,
+        puntos: CALLE_EJEMPLO.seccion.puntos.filter((punto) => punto.id !== 'p-eje'),
+      },
+    }
+    const resultado = calcularCampania({
+      campania: tomaEjemplo(),
+      calle: calleSinEje,
+      bms: [BM_1],
+    })
+
+    const aviso = resultado.avisos.find((a) => a.mensaje.includes('ya no caen en la grilla'))
+    expect(aviso?.mensaje).not.toContain('p-eje')
+    expect(aviso?.mensaje).not.toMatch(/\bp-[a-z]/)
   })
 
   it('avisa si el banco de nivel de cierre ya no existe en el proyecto', () => {

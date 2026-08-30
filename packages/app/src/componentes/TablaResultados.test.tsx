@@ -21,20 +21,20 @@ describe('TablaResultados', () => {
     // La toma de SUBRASANTE del ejemplo mide SAR-I, BOR-I, EJE, BOR-D y SAR-D
     // en cada progresiva, pero nunca VER-I ni VER-D: esa columna queda vacía
     // en toda fila, incluida 0+000, aunque la progresiva sí se haya medido.
-    expect(screen.getByLabelText(/Cota en 0\+000 VER-I/).textContent).toBe('—')
+    expect(screen.getByLabelText(/Cota en 0\+000 Vereda izquierda/).textContent).toBe('—')
   })
 
   it('selecciona la celda al hacer clic', async () => {
     const usuario = userEvent.setup()
     render(<TablaResultados />)
-    await usuario.click(screen.getByLabelText(/Cota en 0\+020 EJE/))
+    await usuario.click(screen.getByLabelText(/Cota en 0\+020 Eje/))
     expect(useAlmacen.getState().seleccion.clave).toBe('20|p-eje')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(20)
   })
 
   it('el nombre accesible de una celda con cota incluye la cota', () => {
     render(<TablaResultados />)
-    const boton = screen.getByLabelText(/Cota en 0\+020 EJE/)
+    const boton = screen.getByLabelText(/Cota en 0\+020 Eje/)
     expect(boton.getAttribute('aria-label')).toContain(boton.textContent)
   })
 

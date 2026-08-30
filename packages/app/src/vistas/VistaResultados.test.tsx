@@ -97,7 +97,7 @@ describe('VistaResultados', () => {
     const usuario = userEvent.setup()
     render(<VistaResultados />)
 
-    await usuario.click(screen.getByLabelText(/Cota en 0\+020 EJE/))
+    await usuario.click(screen.getByLabelText(/Cota en 0\+020 Eje/))
 
     expect(screen.getByRole('img', { name: /Corte transversal en 0\+020/ })).toBeInTheDocument()
   })
@@ -106,7 +106,7 @@ describe('VistaResultados', () => {
     const usuario = userEvent.setup()
     render(<VistaResultados />)
 
-    await usuario.click(screen.getByLabelText(/Cota en 0\+040 EJE/))
+    await usuario.click(screen.getByLabelText(/Cota en 0\+040 Eje/))
 
     expect(useAlmacen.getState().seleccion.progresiva).toBe(40)
     expect(screen.getByLabelText('Progresiva')).toHaveValue('2')
@@ -169,8 +169,8 @@ describe('VistaResultados', () => {
     // cotas» sin ambigüedad. getByLabelText lanza si hay más de una
     // coincidencia, así que cada consulta por separado ya prueba que no se
     // confunden.
-    const cota = screen.getByLabelText(/^Cota en 0\+000 EJE:/)
-    const espesor = screen.getByLabelText(/^Espesor en 0\+000 EJE:/)
+    const cota = screen.getByLabelText(/^Cota en 0\+000 Eje:/)
+    const espesor = screen.getByLabelText(/^Espesor en 0\+000 Eje:/)
 
     expect(cota).not.toBe(espesor)
     expect(cota.getAttribute('aria-label')).not.toBe(espesor.getAttribute('aria-label'))
@@ -336,7 +336,7 @@ describe('VistaResultados', () => {
     // que se acota a la sección de la tabla de diferencias con `within`.
     const encabezadoTabla = within(grupo).getByRole('heading', { name: 'Diferencias' })
     const etiqueta = within(encabezadoTabla.closest('section')!)
-      .getByLabelText(/0\+000 EJE/)
+      .getByLabelText(/0\+000 Eje/)
       .getAttribute('aria-label')
     expect(etiqueta).toMatch(/−334 mm/)
     expect(etiqueta).toMatch(/rellenar/)

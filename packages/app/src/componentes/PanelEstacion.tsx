@@ -1,17 +1,26 @@
-import { claveCelda, formatearProgresiva, type Calle, type DestinoLectura } from '@topo/core'
+import {
+  claveCelda, formatearProgresiva, palabraDePunto,
+  type Calle, type DestinoLectura, type PuntoSeccion,
+} from '@topo/core'
 import { formatearCota } from '../formato'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
 import CampoNumero from './CampoNumero'
 
 /**
- * Cómo se nombra cada lectura en el panel de la estación: la palabra corta
- * con la que Max escribe el punto en su hoja («BI»), nunca `elementoClave`
- * — el id interno de la sección (`p-borde-i`), que no se le enseña a nadie.
- * Si la clave ya no corresponde a ningún punto (una lectura huérfana), se
- * enseña tal cual: es lo único que quedó guardado de ella.
+ * Cómo se nombra cada lectura en el panel de la estación. Nunca por
+ * `elementoClave` —el id interno de la sección (`p-borde-i`), que no se le
+ * enseña a nadie—; si la clave ya no corresponde a ningún punto (una lectura
+ * huérfana), se enseña tal cual: es lo único que quedó guardado de ella.
+ *
+ * `textoDelPunto` decide con cuál de los dos textos del punto se escribe,
+ * porque el de la fila y el que oye un lector de pantalla no son el mismo.
  */
-function describirDestino(destino: DestinoLectura, calle: Calle): string {
+function describirDestino(
+  destino: DestinoLectura,
+  calle: Calle,
+  textoDelPunto: (punto: PuntoSeccion) => string,
+): string {
   switch (destino.tipo) {
     case 'bm':
       return 'BM'
@@ -19,12 +28,26 @@ function describirDestino(destino: DestinoLectura, calle: Calle): string {
       return destino.nombre
     case 'celda': {
       const punto = calle.seccion.puntos.find((p) => p.id === destino.celda.elementoClave)
-      const palabra = punto ? (punto.palabras[0] ?? punto.nombre) : destino.celda.elementoClave
-      return `${formatearProgresiva(destino.celda.progresiva)} ${palabra}`
+      const texto = punto ? textoDelPunto(punto) : destino.celda.elementoClave
+      return `${formatearProgresiva(destino.celda.progresiva)} ${texto}`
     }
     case 'suelto':
       return destino.punto.etiqueta
   }
+}
+
+/** En la fila manda el ancho: va la palabra corta de la hoja de Max («BI»). */
+function textoDeDestino(destino: DestinoLectura, calle: Calle): string {
+  return describirDestino(destino, calle, palabraDePunto)
+}
+
+/**
+ * En el nombre accesible manda distinguir: va el nombre completo («Borde
+ * izquierdo»). La sección permite la misma palabra a los dos lados del eje,
+ * así que dos campos anunciados «0+000 VEREDA» no se distinguirían de oído.
+ */
+function nombreAccesibleDeDestino(destino: DestinoLectura, calle: Calle): string {
+  return describirDestino(destino, calle, (punto) => punto.nombre)
 }
 
 function claveDe(destino: DestinoLectura): string | null {
@@ -87,9 +110,9 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
       </div>
 
       <div className="grid grid-cols-[1fr_6rem] items-center gap-2 text-sm">
-        <span className="text-slate-500">Vista atrás · {describirDestino(estacion.vistaAtras.destino, contexto.calle)}</span>
+        <span className="text-slate-500">Vista atrás · {textoDeDestino(estacion.vistaAtras.destino, contexto.calle)}</span>
         <CampoNumero
-          ariaLabel={`Vista atrás a ${describirDestino(estacion.vistaAtras.destino, contexto.calle)}`}
+          ariaLabel={`Vista atrás a ${nombreAccesibleDeDestino(estacion.vistaAtras.destino, contexto.calle)}`}
           valor={estacion.vistaAtras.valor}
           alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAtras.id, v)}
         />
@@ -114,10 +137,10 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
                 onClick={() => clave && seleccionar(clave)}
                 className="text-left text-slate-600 hover:text-marca dark:text-slate-300"
               >
-                {describirDestino(lectura.destino, contexto.calle)}
+                {textoDeDestino(lectura.destino, contexto.calle)}
               </button>
               <CampoNumero
-                ariaLabel={`Lectura de ${describirDestino(lectura.destino, contexto.calle)}`}
+                ariaLabel={`Lectura de ${nombreAccesibleDeDestino(lectura.destino, contexto.calle)}`}
                 valor={lectura.valor}
                 alCambiar={(v) => actualizarLectura(campania.id, lectura.id, v)}
               />
@@ -126,7 +149,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
               </span>
               <button
                 type="button"
-                aria-label={`Borrar lectura de ${describirDestino(lectura.destino, contexto.calle)}`}
+                aria-label={`Borrar lectura de ${nombreAccesibleDeDestino(lectura.destino, contexto.calle)}`}
                 onClick={() => eliminarLectura(campania.id, lectura.id)}
                 className="px-1 text-slate-400 hover:text-falla"
               >
@@ -140,10 +163,10 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
       {estacion.vistaAdelante && (
         <div className="grid grid-cols-[1fr_6rem] items-center gap-2 text-sm">
           <span className="text-slate-500">
-            Vista adelante · {describirDestino(estacion.vistaAdelante.destino, contexto.calle)}
+            Vista adelante · {textoDeDestino(estacion.vistaAdelante.destino, contexto.calle)}
           </span>
           <CampoNumero
-            ariaLabel={`Vista adelante a ${describirDestino(estacion.vistaAdelante.destino, contexto.calle)}`}
+            ariaLabel={`Vista adelante a ${nombreAccesibleDeDestino(estacion.vistaAdelante.destino, contexto.calle)}`}
             valor={estacion.vistaAdelante.valor}
             alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAdelante!.id, v)}
           />

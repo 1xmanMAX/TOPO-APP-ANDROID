@@ -3,6 +3,7 @@ import {
   calcularCampania,
   claveCelda,
   formatearProgresiva,
+  palabrasDeSeccion,
   progresivasMedidas,
   proyectarCaras,
   type CaraMalla,
@@ -192,16 +193,13 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
   /**
    * Cómo se llama cada elemento en pantalla: la palabra corta con la que Max
    * lo escribe en su hoja («VI»), no la clave con la que la grilla lo
-   * identifica, que es un id interno y no se le enseña a nadie. Si el punto
-   * se quedó sin palabras, cae al nombre.
+   * identifica, que es un id interno y no se le enseña a nadie. El respaldo
+   * para un punto sin palabras lo decide `palabrasDeSeccion`, en el motor.
    */
-  const nombresDeElemento = useMemo(() => {
-    const mapa = new Map<string, string>()
-    if (contexto) {
-      for (const punto of contexto.calle.seccion.puntos) mapa.set(punto.id, punto.palabras[0] ?? punto.nombre)
-    }
-    return mapa
-  }, [contexto])
+  const nombresDeElemento = useMemo(
+    () => (contexto ? palabrasDeSeccion(contexto.calle.seccion) : new Map<string, string>()),
+    [contexto],
+  )
 
   const nombreDeElemento = (elementoClave: string) => nombresDeElemento.get(elementoClave) ?? elementoClave
 
