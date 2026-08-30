@@ -1,5 +1,6 @@
 import {
   esPalabraDe,
+  formatearProgresiva,
   ladoDe,
   parsearProgresiva,
   puntoPorPalabraYLado,
@@ -84,11 +85,16 @@ function textoDeCelda(texto: string): string {
   return texto.trim()
 }
 
-/** Cómo se nombra un lado cuando hay que escribirlo en un aviso. */
+/** Dónde cae un lado, escrito para meterlo en un aviso: «hay dos lecturas en …». */
 function nombreDeLado(lado: Lado): string {
-  if (lado === 'izquierda') return 'izquierdo'
-  if (lado === 'derecha') return 'derecho'
-  return 'del eje'
+  if (lado === 'izquierda') return 'el lado izquierdo'
+  if (lado === 'derecha') return 'el lado derecho'
+  return 'el eje'
+}
+
+/** «Una fila quedó fuera» o «8 filas quedaron fuera», según cuántas sean. */
+function cuantasFilasFuera(cuantas: number): string {
+  return cuantas === 1 ? 'Una fila quedó fuera' : `${cuantas} filas quedaron fuera`
 }
 
 /** El lado en el que cae una columna según dónde esté respecto a la del eje. */
@@ -255,7 +261,12 @@ function leerFilaDeReferencia(
   indiceMarcador: number,
   columnas: ColumnaLeida[],
   seccion: Seccion,
-): { referencias: ReferenciaLeida[]; conflictos: Conflicto[]; sinLeer: string[] } {
+): {
+  elemento: string
+  referencias: ReferenciaLeida[]
+  conflictos: Conflicto[]
+  sinLeer: string[]
+} {
   let indiceElemento = -1
   for (let c = indiceMarcador + 1; c < fila.length; c++) {
     if (textoDeCelda(fila[c] ?? '') !== '') {
@@ -265,7 +276,11 @@ function leerFilaDeReferencia(
   }
 
   if (indiceElemento < 0) {
+    // La fila no lleva nada detrás de la marca, así que lo único escrito en
+    // ella es la marca misma: el conflicto ya la nombra y no hay nada más que
+    // enseñar aparte.
     return {
+      elemento: '',
       referencias: [],
       conflictos: [
         {
@@ -274,25 +289,46 @@ function leerFilaDeReferencia(
             ' elemento es, así que no se ha guardado ninguna referencia de ella.',
         },
       ],
-      sinLeer: contenidoDeFila(fila),
+      sinLeer: [],
     }
   }
 
   const elemento = textoDeCelda(fila[indiceElemento] ?? '')
   const distanciaPorPunto = new Map(seccion.puntos.map((p) => [p.id, p.distancia]))
 
-  const medidas = columnas
-    .filter((col) => col.indice !== indiceElemento)
-    .map((col) => ({
-      lado: col.lado,
-      distancia: distanciaPorPunto.get(col.puntoId) ?? 0,
-      texto: textoDeCelda(fila[col.indice] ?? ''),
-      valor: numeroDeCelda(fila[col.indice] ?? ''),
-    }))
-    .filter((m): m is typeof m & { valor: number } => m.valor !== null)
+  const medidas: { lado: Lado; distancia: number; texto: string; valor: number }[] = []
+  const conflictos: Conflicto[] = []
+  const sinLeer: string[] = []
+
+  for (const col of columnas) {
+    if (col.indice === indiceElemento) continue
+
+    const texto = textoDeCelda(fila[col.indice] ?? '')
+    const valor = numeroDeCelda(texto)
+
+    if (valor === null) {
+      // Escrito pero no es un número: no es una lectura, pero tampoco es una
+      // celda vacía. Se devuelve para enseñarlo con el resto de la fila.
+      if (texto !== '') sinLeer.push(texto)
+      continue
+    }
+
+    const distancia = distanciaPorPunto.get(col.puntoId)
+    if (distancia === undefined) {
+      // No se le pone la distancia del eje por salir del paso: eso guardaría
+      // una referencia falsa justo en el centro de la calle.
+      conflictos.push({
+        que:
+          `La lectura ${texto} de la columna ${letraDeColumna(col.indice)} no se ha guardado:` +
+          ' su punto ya no está en la sección de esta calle.',
+      })
+      continue
+    }
+
+    medidas.push({ lado: col.lado, distancia, texto, valor })
+  }
 
   const referencias: ReferenciaLeida[] = []
-  const conflictos: Conflicto[] = []
 
   for (const lado of ['izquierda', 'eje', 'derecha'] as const) {
     const delLado = medidas.filter((m) => m.lado === lado)
@@ -305,7 +341,7 @@ function leerFilaDeReferencia(
     if (delLado.length > 1) {
       conflictos.push({
         que:
-          `En la fila de «${elemento}» hay ${delLado.length} lecturas del lado` +
+          `En la fila de «${elemento}» hay ${delLado.length} lecturas en` +
           ` ${nombreDeLado(lado)} (${delLado.map((m) => m.texto).join(', ')}). Una cosa` +
           ' existente solo tiene una por lado y no se sabe cuál de ellas es, así que no se ha' +
           ' guardado ninguna: di cuál vale y entrará.',
@@ -317,7 +353,7 @@ function leerFilaDeReferencia(
     referencias.push({ elemento, distancia: unica.distancia, valor: unica.valor })
   }
 
-  return { referencias, conflictos, sinLeer: [] }
+  return { elemento, referencias, conflictos, sinLeer }
 }
 
 /**
@@ -389,8 +425,8 @@ export function interpretarHoja(hoja: HojaLeida, seccion: Seccion): HojaInterpre
           conflictos: [
             {
               que:
-                'En la cabecera no aparece el eje. Sin él no se sabe qué queda a la izquierda y' +
-                ' qué a la derecha, así que no se ha colocado ninguna columna: señala cuál es la' +
+                'En la fila de títulos no aparece el eje. Sin él no se sabe qué queda a la izquierda' +
+                ' y qué a la derecha, así que no se ha colocado ninguna columna: señala cuál es la' +
                 ' del eje o escribe su palabra en la sección.',
             },
           ],
@@ -411,7 +447,7 @@ export function interpretarHoja(hoja: HojaLeida, seccion: Seccion): HojaInterpre
     seccion,
   )
 
-  if (columnaProgresiva === null && columnas.length > 0) {
+  if (columnaProgresiva === null) {
     conflictos.push({
       que:
         'No encontré la columna de las progresivas. Señálala en la vista previa o escribe su' +
@@ -445,19 +481,32 @@ export function interpretarHoja(hoja: HojaLeida, seccion: Seccion): HojaInterpre
   //        traen progresiva y alguna lectura bajo una columna de la sección.
   const lecturas: LecturaLeida[] = []
   const referencias: ReferenciaLeida[] = []
-  const contenidoDeLasFilasFuera: string[] = []
-  let cuantasFilasFuera = 0
+  const sinProgresiva: string[] = []
+  const sinLecturas: string[] = []
+  let cuantasSinProgresiva = 0
+  let cuantasSinLecturas = 0
 
   for (const fila of filasDeDatos) {
-    const indiceMarcador = fila.findIndex((celda) => esPalabraDe(seccion.palabrasReferencia, celda))
+    // La marca de referencia solo vale al principio de la fila, como dice el
+    // spec. Si valiera en cualquier celda, una fila medida que llevara escrito
+    // «REF» en una esquina se convertiría en referencia y perdería su
+    // progresiva y sus lecturas.
+    const primeraEscrita = fila.findIndex((celda) => textoDeCelda(celda) !== '')
+    const esReferencia =
+      primeraEscrita >= 0 && esPalabraDe(seccion.palabrasReferencia, fila[primeraEscrita] ?? '')
 
-    if (indiceMarcador >= 0) {
-      const leida = leerFilaDeReferencia(fila, indiceMarcador, columnas, seccion)
+    if (esReferencia) {
+      const leida = leerFilaDeReferencia(fila, primeraEscrita, columnas, seccion)
       referencias.push(...leida.referencias)
       conflictos.push(...leida.conflictos)
+
       if (leida.sinLeer.length > 0) {
-        cuantasFilasFuera++
-        contenidoDeLasFilasFuera.push(...leida.sinLeer)
+        noImportado.push({
+          que:
+            `En la fila de «${leida.elemento}» había esto escrito y no era una lectura, así que` +
+            ' no entró.',
+          contenido: leida.sinLeer,
+        })
       }
       continue
     }
@@ -465,13 +514,37 @@ export function interpretarHoja(hoja: HojaLeida, seccion: Seccion): HojaInterpre
     const progresiva =
       columnaProgresiva === null ? null : parsearProgresiva(fila[columnaProgresiva] ?? '')
 
-    const medidas = columnas
-      .map((col) => ({ puntoId: col.puntoId, valor: numeroDeCelda(fila[col.indice] ?? '') }))
-      .filter((m): m is { puntoId: Id; valor: number } => m.valor !== null)
+    const medidas: { puntoId: Id; valor: number }[] = []
+    const sinLeer: string[] = []
+
+    for (const col of columnas) {
+      const texto = textoDeCelda(fila[col.indice] ?? '')
+      const valor = numeroDeCelda(texto)
+
+      if (valor === null) {
+        // Una celda vacía es un punto sin medir, y eso es información. Una
+        // celda escrita que no es un número —«1.88 m», una nota a mano— es
+        // otra cosa: es trabajo de campo que no se puede leer, y callarlo lo
+        // haría indistinguible de un punto que nadie midió.
+        if (texto !== '') sinLeer.push(texto)
+        continue
+      }
+
+      medidas.push({ puntoId: col.puntoId, valor })
+    }
 
     if (progresiva !== null && medidas.length > 0) {
       for (const medida of medidas) {
         lecturas.push({ progresiva, puntoId: medida.puntoId, valor: medida.valor })
+      }
+
+      if (sinLeer.length > 0) {
+        noImportado.push({
+          que:
+            `En la fila de la progresiva ${formatearProgresiva(progresiva)} había esto escrito y` +
+            ' no era un número, así que no entró.',
+          contenido: sinLeer,
+        })
       }
       continue
     }
@@ -480,16 +553,30 @@ export function interpretarHoja(hoja: HojaLeida, seccion: Seccion): HojaInterpre
     const contenido = contenidoDeFila(fila)
     if (contenido.length === 0) continue
 
-    cuantasFilasFuera++
-    contenidoDeLasFilasFuera.push(...contenido)
+    // El motivo se separa porque no es el mismo, y un aviso que dice un motivo
+    // falso es peor que uno genérico.
+    if (progresiva === null) {
+      cuantasSinProgresiva++
+      sinProgresiva.push(...contenido)
+    } else {
+      cuantasSinLecturas++
+      sinLecturas.push(...contenido)
+    }
   }
 
-  if (cuantasFilasFuera > 0) {
-    const cuantas =
-      cuantasFilasFuera === 1 ? 'Una fila quedó fuera' : `${cuantasFilasFuera} filas quedaron fuera`
+  if (cuantasSinProgresiva > 0) {
     noImportado.push({
-      que: `${cuantas}: sin progresiva y sin ninguna lectura bajo las columnas de la sección.`,
-      contenido: contenidoDeLasFilasFuera,
+      que:
+        `${cuantasFilasFuera(cuantasSinProgresiva)} por no llevar progresiva: sin ella no se sabe` +
+        ' a qué punto de la calle pertenece lo que hay escrito.',
+      contenido: sinProgresiva,
+    })
+  }
+
+  if (cuantasSinLecturas > 0) {
+    noImportado.push({
+      que: `${cuantasFilasFuera(cuantasSinLecturas)} por no traer ninguna lectura bajo las columnas de la sección.`,
+      contenido: sinLecturas,
     })
   }
 

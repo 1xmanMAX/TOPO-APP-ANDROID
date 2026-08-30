@@ -8,7 +8,7 @@ interface ArchivosDeNode {
 }
 
 /**
- * Se declara aquí, y el módulo se pide con `getBuiltinModule` en vez de con un
+ * Se declara aquí, y se pide con `getBuiltinModule` en vez de con un
  * `import`, por dos razones. Una: `@types/node` no está instalado y este
  * proyecto no añade dependencias. Y otra, la que de verdad importa: así el
  * acceso al disco queda encerrado en este archivo de pruebas, y nada del resto
@@ -19,8 +19,6 @@ declare const process: {
   cwd(): string
   getBuiltinModule(nombre: string): unknown
 }
-
-const archivos = process.getBuiltinModule('node:fs') as ArchivosDeNode
 
 const RUTA_EN_EL_PAQUETE = 'src/pruebas/muestras/detras-del-colegio.xlsx'
 
@@ -33,7 +31,7 @@ const RUTA_EN_EL_PAQUETE = 'src/pruebas/muestras/detras-del-colegio.xlsx'
  * cuando se corre `npm test --workspace packages/app` y el de la raíz cuando
  * se corre la batería entera.
  */
-function rutaDeLaMuestra(): string {
+function rutaDeLaMuestra(archivos: ArchivosDeNode): string {
   const desdeElPaquete = `${process.cwd()}/${RUTA_EN_EL_PAQUETE}`
   if (archivos.existsSync(desdeElPaquete)) return desdeElPaquete
   return `${process.cwd()}/packages/app/${RUTA_EN_EL_PAQUETE}`
@@ -42,9 +40,15 @@ function rutaDeLaMuestra(): string {
 /**
  * El archivo real que Max mandó el 2026-08-29, tal como salió de Google Sheets.
  * Es la prueba de que la app lee su hoja y no una hoja de laboratorio.
+ *
+ * Node se pide aquí dentro y no en el cuerpo del módulo: si una pantalla
+ * importara este archivo por error, reventaría al llamar a esta función —donde
+ * se ve qué se estaba haciendo— y no al cargarse, con un «process no existe»
+ * que no dice nada.
  */
 export function hojaDetrasDelColegio(): HojaLeida {
-  return leerXlsx(new Uint8Array(archivos.readFileSync(rutaDeLaMuestra())))[0]!
+  const archivos = process.getBuiltinModule('node:fs') as ArchivosDeNode
+  return leerXlsx(new Uint8Array(archivos.readFileSync(rutaDeLaMuestra(archivos))))[0]!
 }
 
 /** La sección que Max habría declarado para esa calle: sus palabras sobre la de fábrica. */

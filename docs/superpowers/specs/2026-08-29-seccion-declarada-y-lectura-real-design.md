@@ -234,7 +234,10 @@ previa tiene que enseñar, con la muestra como medida:
 
 - Qué palabra cayó en qué punto y **de qué lado**, sobre el dibujo de la sección.
 - Cuántas progresivas y cuántas lecturas: 7 progresivas (6 a 60) × 5 puntos.
-- Las referencias encontradas: cuneta y calzada, con sus dos lados.
+- Las referencias encontradas: **tres**, no cuatro — la cuneta izquierda, la
+  calzada izquierda y la calzada derecha. La cuneta derecha no entra: ahí caen
+  dos lecturas del mismo lado (el `1.955` bajo `DER` y el `0.23` bajo la vereda)
+  y la app no elige. Sale en los conflictos, con los dos valores.
 - **Lo que no importó, con su contenido**: la columna H, las filas 12–19, y el
   `2.11` suelto del preámbulo.
 - Lo que quedó sin resolver, si algo quedó: dos lecturas del mismo lado, una

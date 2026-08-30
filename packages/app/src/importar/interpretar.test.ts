@@ -152,6 +152,87 @@ describe('reglas generales', () => {
     expect(interpretarHoja(hoja, seccionDeFabrica()).lecturas[0]!.progresiva).toBe(20)
   })
 
+  it('una anotación a mano bajo una columna colocada no se pierde: se enseña', () => {
+    // Una celda vacía es un punto sin medir y eso es información. Una celda
+    // escrita que no es un número es trabajo de campo, y callarla la dejaría
+    // indistinguible de la vacía.
+    const hoja = conCabecera([
+      ['', 'VEREDA', 'EJE'],
+      ['20', '1.88 m', '1.20'],
+    ])
+
+    const c = interpretarHoja(hoja, seccionDeFabrica())
+
+    expect(c.lecturas).toHaveLength(1)
+    expect(c.noImportado.flatMap((n) => n.contenido)).toContain('1.88 m')
+    expect(c.noImportado.map((n) => n.que).join(' ')).toMatch(/0\+020/)
+  })
+
+  it('lo escrito en una fila de referencia que no es una lectura tampoco se pierde', () => {
+    const hoja = conCabecera([
+      ['', 'VEREDA', 'EJE', 'VEREDA'],
+      ['0', '1.10', '1.20', '1.30'],
+      ['existente', 'cuneta', 'roto', '1.55'],
+    ])
+
+    const c = interpretarHoja(hoja, seccionDeFabrica())
+
+    expect(c.referencias).toEqual([{ elemento: 'cuneta', distancia: 5.15, valor: 1.55 }])
+    expect(c.noImportado.flatMap((n) => n.contenido)).toContain('roto')
+  })
+
+  it('la palabra de referencia solo cuenta si abre la fila', () => {
+    // «REF» escrito en una celda cualquiera no convierte una fila medida en
+    // referencia, ni le quita su progresiva.
+    const hoja = conCabecera([
+      ['', 'VEREDA', 'EJE', ''],
+      ['20', '1.10', '1.20', 'REF'],
+    ])
+
+    const c = interpretarHoja(hoja, seccionDeFabrica())
+
+    expect(c.lecturas.map((l) => l.progresiva)).toEqual([20, 20])
+    expect(c.referencias).toEqual([])
+    expect(c.noImportado.flatMap((n) => n.contenido)).toContain('REF')
+  })
+
+  it('sin columna de progresivas lo dice, y no importa nada a ciegas', () => {
+    const hoja = conCabecera([['EJE'], ['1.20']])
+
+    const c = interpretarHoja(hoja, seccionDeFabrica())
+
+    expect(c.columnaProgresiva).toBeNull()
+    expect(c.lecturas).toEqual([])
+    expect(c.conflictos.map((x) => x.que).join(' ')).toMatch(/progresiva/i)
+    expect(c.noImportado.flatMap((n) => n.contenido)).toContain('1.20')
+  })
+
+  it('el aviso de la progresiva sale aunque no se haya colocado ninguna columna', () => {
+    // Sin eje no se coloca ninguna columna, y sin progresiva tampoco se sabe a
+    // qué punto de la calle va la fila: las dos cosas se dicen, no una sola.
+    const hoja = conCabecera([['VEREDA', 'VEREDA'], ['1.10', '1.30']])
+
+    const c = interpretarHoja(hoja, seccionDeFabrica())
+
+    expect(c.columnaProgresiva).toBeNull()
+    const texto = c.conflictos.map((x) => x.que).join(' ')
+    expect(texto).toMatch(/progresiva/i)
+    expect(texto).toMatch(/eje/i)
+  })
+
+  it('una fila de referencia sin elemento lo dice, y no inventa ninguna', () => {
+    const hoja = conCabecera([
+      ['', 'VEREDA', 'EJE'],
+      ['0', '1.10', '1.20'],
+      ['existente', '', ''],
+    ])
+
+    const c = interpretarHoja(hoja, seccionDeFabrica())
+
+    expect(c.referencias).toEqual([])
+    expect(c.conflictos.map((x) => x.que).join(' ')).toMatch(/no dice de qué elemento/i)
+  })
+
   it('una hoja sin ninguna palabra conocida no se interpreta, y lo dice con palabras', () => {
     const c = interpretarHoja(conCabecera([['nada', 'de', 'nada'], ['1', '2', '3']]), seccionDeFabrica())
 
