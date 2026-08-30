@@ -40,6 +40,16 @@ export interface ColumnaSinAsignar {
   indice: number
   palabra: string
   muestra: string[]
+  /**
+   * Si en la columna hay escrito algún número, mirando la columna **entera** y
+   * no solo la muestra. Es lo que distingue una columna medida —que no se
+   * puede dejar fuera sin perder trabajo de campo— de una de puras notas.
+   *
+   * Se decide aquí y no en la pantalla porque la muestra son tres valores: una
+   * columna con dos observaciones escritas arriba y las lecturas debajo
+   * parecería de texto vista desde fuera.
+   */
+  traeNumeros: boolean
 }
 
 /** Algo que estaba en la hoja y no entró. Nunca se descarta en silencio. */
@@ -467,7 +477,12 @@ export function interpretarHoja(hoja: HojaLeida, seccion: Seccion): HojaInterpre
 
     const palabra = textoDeCelda(celda)
     if (palabra !== '') {
-      sinAsignar.push({ indice, palabra, muestra: valores.slice(0, VALORES_DE_MUESTRA) })
+      sinAsignar.push({
+        indice,
+        palabra,
+        muestra: valores.slice(0, VALORES_DE_MUESTRA),
+        traeNumeros: valores.some((valor) => numeroDeCelda(valor) !== null),
+      })
       return
     }
 

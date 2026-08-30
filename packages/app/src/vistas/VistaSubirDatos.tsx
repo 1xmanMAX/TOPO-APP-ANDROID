@@ -1,37 +1,31 @@
 import {
   anadirPalabra,
   hayDistanciasDeFabrica,
-  ladoDe,
   mismaPalabra,
   seccionDeFabrica,
   type Calle,
   type Id,
-  type PuntoSeccion,
   type Seccion,
 } from '@topo/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { bytesDelArchivo } from '../archivo/bytes'
 import { leerCsv, leerPegado, leerXlsx, type HojaLeida } from '../archivo/leerTabla'
 import { letraDeColumna } from '../archivo/xlsx'
-import DibujoSeccion from '../componentes/DibujoSeccion'
+import VistaPreviaHoja from '../componentes/VistaPreviaHoja'
 import { useAlmacen } from '../estado/almacen'
-import {
-  interpretarHoja,
-  type ColumnaSinAsignar,
-  type HojaInterpretada,
-  type NoImportado,
-} from '../importar/interpretar'
+import { cuenta } from '../formato'
+import { agruparNoImportado } from '../importar/agrupar'
+import { interpretarHoja, type ColumnaSinAsignar } from '../importar/interpretar'
 
-/** Una columna que se ha decidido colocar sobre un punto, sin guardarla todavía. */
+/**
+ * Una columna colocada sobre un punto, todavía sin guardar. Se queda con la
+ * columna entera y no solo con su palabra: en cuanto se coloca desaparece de
+ * `sinAsignar` —el intérprete ya la reconoce— y sin esta copia no habría con
+ * qué seguir enseñando su desplegable para corregirla.
+ */
 interface Asignacion {
+  columna: ColumnaSinAsignar
   puntoId: Id
-  palabra: string
-}
-
-/** Lo que quedó fuera, contado una sola vez y con todos sus motivos juntos. */
-interface CosaNoImportada {
-  valor: string
-  veces: number
-  motivos: string[]
 }
 
 /** Lo que entró, para poder decirlo después de aceptar la hoja. */
@@ -51,137 +45,46 @@ function hoyISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-/**
- * Los bytes de un archivo elegido en el navegador.
- *
- * Se leen con `FileReader` y no con `archivo.arrayBuffer()` porque el segundo
- * no existe en el entorno donde corren las pruebas, y un camino de entrada que
- * no se puede probar es un camino sin red. `FileReader` está en todos los
- * navegadores desde hace años y hace exactamente lo mismo.
- */
-function bytesDelArchivo(archivo: File): Promise<Uint8Array> {
-  return new Promise((resolver, rechazar) => {
-    const lector = new FileReader()
-    lector.onload = () => resolver(new Uint8Array(lector.result as ArrayBuffer))
-    lector.onerror = () =>
-      rechazar(
-        new Error('No se pudo leer el archivo: el navegador no lo dejó abrir. Inténtalo otra vez.'),
-      )
-    lector.readAsArrayBuffer(archivo)
-  })
-}
-
 /** «detras-del-colegio.xlsx» → «detras-del-colegio», que es lo que se propone como calle. */
 function nombreSinExtension(nombre: string): string {
   return nombre.replace(/\.[^.]+$/, '')
 }
 
-/** El lado dicho en palabras, que es como se lee una sección: el signo no se lee. */
-function ladoEnPalabras(distancia: number): string {
-  const lado = ladoDe(distancia)
-  if (lado === 'eje') return 'en el eje'
-  return `a ${Math.abs(distancia).toFixed(2)} m a la ${lado}`
-}
-
-/** Si en una celda hay escrito un número suelto, con coma o con punto. */
-function esNumero(texto: string): boolean {
-  return /^-?\d+([.,]\d+)?$/.test(texto.trim())
-}
-
-/**
- * Una columna sin colocar trae lecturas si alguno de sus valores es un
- * número. Es la que no se puede dejar fuera: perderla sería perder trabajo de
- * campo. Una columna de puro texto —una nota, una observación— se enseña
- * igual y se puede colocar, pero no bloquea.
- */
-function traeLecturas(columna: ColumnaSinAsignar): boolean {
-  return columna.muestra.some(esNumero)
-}
-
-/**
- * Junta lo no importado por su contenido, no por el camino que lo dejó fuera.
- *
- * El intérprete puede nombrar el mismo valor dos veces —una porque su columna
- * entera se quedó fuera, y otra porque su fila tampoco entró—, y los ceros
- * arrastrados del archivo de Max salen justo por esos dos caminos. No se
- * pierde nada, se dice de más; pero repetido en pantalla parece desorden y
- * tapa lo demás. Aquí cada valor sale una vez, con todos sus motivos.
- *
- * Las veces son las del camino que más lo vio, no la suma de los dos: son las
- * mismas celdas contadas dos veces, y sumarlas diría que hay el doble.
- */
-function agruparNoImportado(entradas: NoImportado[]): CosaNoImportada[] {
-  const porValor = new Map<string, CosaNoImportada>()
-
-  for (const entrada of entradas) {
-    const vecesEnEstaEntrada = new Map<string, number>()
-    for (const valor of entrada.contenido) {
-      vecesEnEstaEntrada.set(valor, (vecesEnEstaEntrada.get(valor) ?? 0) + 1)
-    }
-
-    for (const [valor, veces] of vecesEnEstaEntrada) {
-      const cosa = porValor.get(valor)
-      if (!cosa) {
-        porValor.set(valor, { valor, veces, motivos: [entrada.que] })
-        continue
-      }
-
-      cosa.veces = Math.max(cosa.veces, veces)
-      if (!cosa.motivos.includes(entrada.que)) cosa.motivos.push(entrada.que)
-    }
-  }
-
-  return [...porValor.values()]
-}
-
-/**
- * Los puntos tal como se dibujan en la vista previa: de izquierda a derecha, y
- * los que recibieron columna rotulados con la palabra que traía la hoja, no
- * con la suya. Así se ve de un vistazo qué cayó dónde, que es lo primero que
- * pide el spec antes de aceptar.
- */
-function puntosDelDibujo(seccion: Seccion, leida: HojaInterpretada | null): PuntoSeccion[] {
-  const palabraPorPunto = new Map((leida?.columnas ?? []).map((col) => [col.puntoId, col.palabra]))
-
-  return [...seccion.puntos]
-    .sort((a, b) => a.distancia - b.distancia)
-    .map((punto) => {
-      const palabra = palabraPorPunto.get(punto.id)
-      return palabra ? { ...punto, palabras: [palabra] } : punto
-    })
-}
-
-/** «7 progresivas», «1 progresiva»: sin plural falso, que se lee como un descuido. */
-function cuenta(cuantas: number, singular: string, plural: string): string {
-  return `${cuantas} ${cuantas === 1 ? singular : plural}`
-}
-
 interface PropsColumnas {
   seccion: Seccion
-  columnas: ColumnaSinAsignar[]
+  /** Las que el intérprete no reconoce ahora mismo. */
+  sinColocar: ColumnaSinAsignar[]
+  /** Las que ya se colocaron a mano y por eso él sí reconoce. */
   asignaciones: Asignacion[]
-  alAsignar: (columna: ColumnaSinAsignar, puntoId: Id) => void
+  alColocar: (columna: ColumnaSinAsignar, puntoId: Id) => void
 }
 
 /**
- * Las columnas que la sección no reconoce, con sus valores y un desplegable
- * de los puntos para colocarlas ahí mismo. Es la última red: una columna que
- * no case con ninguna palabra nunca se descarta en silencio.
+ * Las columnas que la sección no reconocía, con sus valores y un desplegable
+ * de los puntos para colocarlas. Es la última red: una columna que no case con
+ * ninguna palabra nunca se descarta en silencio.
+ *
+ * Las ya colocadas **siguen aquí**, con su punto elegido a la vista. Si no, un
+ * clic en el punto equivocado no tendría vuelta atrás: la columna desaparece de
+ * la lista en cuanto se coloca, y la palabra se guardaría mal al aceptar.
  */
-function ColumnasSinColocar({ seccion, columnas, asignaciones, alAsignar }: PropsColumnas) {
-  const ordenados = [...seccion.puntos].sort((a, b) => a.distancia - b.distancia)
+function ColumnasSinColocar({ seccion, sinColocar, asignaciones, alColocar }: PropsColumnas) {
+  const puntos = [...seccion.puntos].sort((a, b) => a.distancia - b.distancia)
+  const todas = [...asignaciones.map((a) => a.columna), ...sinColocar].sort(
+    (a, b) => a.indice - b.indice,
+  )
 
   return (
     <section className="flex flex-col gap-2">
       <h3 className="font-semibold">Columnas que no reconocí</h3>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Dime a qué punto va cada una. Al aceptar la hoja, su palabra queda guardada en la sección de la
-        calle y la próxima vez ya no habrá que decirlo.
+        Dime a qué punto va cada una. Al aceptar la hoja, su palabra queda guardada en la sección de
+        la calle y la próxima vez ya no habrá que decirlo. Mientras no aceptes, puedes cambiarlas.
       </p>
 
       <ul className="flex flex-col gap-2">
-        {columnas.map((columna) => {
-          const puesta = asignaciones.find((a) => a.palabra === columna.palabra)
+        {todas.map((columna) => {
+          const puesta = asignaciones.find((a) => a.columna.indice === columna.indice)
 
           return (
             <li
@@ -195,20 +98,20 @@ function ColumnasSinColocar({ seccion, columnas, asignaciones, alAsignar }: Prop
               <span className="numerico text-xs text-slate-500 dark:text-slate-400">
                 {columna.muestra.join(' · ')}…
               </span>
-              {!traeLecturas(columna) && (
+              {!columna.traeNumeros && (
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Sin números dentro: no impide aceptar la hoja.
+                  Sin ningún número dentro: no impide aceptar la hoja.
                 </span>
               )}
 
               <select
                 aria-label={`Dónde va la columna ${columna.palabra}`}
                 value={puesta?.puntoId ?? ''}
-                onChange={(evento) => alAsignar(columna, evento.target.value)}
+                onChange={(evento) => alColocar(columna, evento.target.value)}
                 className="ml-auto rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
               >
                 <option value="">Elige un punto…</option>
-                {ordenados.map((punto) => (
+                {puntos.map((punto) => (
                   <option key={punto.id} value={punto.id}>
                     {punto.nombre}
                   </option>
@@ -230,8 +133,8 @@ function ColumnasSinColocar({ seccion, columnas, asignaciones, alAsignar }: Prop
  *
  * La regla que manda aquí: nada entra en el proyecto hasta que se confirma, y
  * lo que no se entendió se enseña con su contenido. Un archivo con una columna
- * corrida entraría sin ruido y daría cotas equivocadas que nadie vería hasta
- * la obra.
+ * corrida entraría sin ruido y daría cotas equivocadas que nadie vería hasta la
+ * obra. Las tres únicas escrituras al almacén están dentro de `aceptar()`.
  */
 export default function VistaSubirDatos() {
   const proyecto = useAlmacen((s) => s.proyecto)
@@ -240,9 +143,10 @@ export default function VistaSubirDatos() {
   const importarHoja = useAlmacen((s) => s.importarHoja)
   const irA = useAlmacen((s) => s.irA)
 
-  // El campo de archivo se vacía al aceptar: si conservara el archivo, volver
-  // a elegir el mismo —la misma hoja en otra calle, que es corriente— no
-  // dispararía ningún cambio y parecería que la app no responde.
+  // El campo de archivo se vacía antes de cada lectura y al aceptar: si
+  // conservara el archivo, volver a elegir el mismo —para rehacer una
+  // colocación, o para meterlo en otra calle— no dispararía ningún cambio y
+  // parecería que la app no responde.
   const entradaArchivo = useRef<HTMLInputElement>(null)
 
   const [hoja, setHoja] = useState<HojaLeida | null>(null)
@@ -251,6 +155,8 @@ export default function VistaSubirDatos() {
   const [error, setError] = useState<string | null>(null)
   const [pegado, setPegado] = useState('')
   const [nombreCalle, setNombreCalle] = useState('')
+  /** El que salió del nombre del archivo, para saber si Max lo cambió después. */
+  const [nombrePropuesto, setNombrePropuesto] = useState('')
   const [fecha, setFecha] = useState(hoyISO())
   const [capaElegida, setCapaElegida] = useState('')
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([])
@@ -270,18 +176,15 @@ export default function VistaSubirDatos() {
 
   // La sección de la calle destino, o la de fábrica si la calle es nueva: una
   // hoja siempre se puede leer aunque no se haya declarado nada todavía.
-  const seccionGuardada = useMemo(
-    () => calleDestino?.seccion ?? seccionDeFabrica(),
-    [calleDestino],
-  )
+  const seccionGuardada = useMemo(() => calleDestino?.seccion ?? seccionDeFabrica(), [calleDestino])
 
-  // Lo que se ve es el resultado de verdad, no una promesa: cada columna que
-  // se coloca entra en la sección con la que se vuelve a leer la hoja entera,
-  // y de ahí pueden salir conflictos que antes no estaban.
+  // Lo que se ve es el resultado de verdad, no una promesa: cada columna que se
+  // coloca entra en la sección con la que se vuelve a leer la hoja entera, y de
+  // ahí pueden salir conflictos que antes no estaban.
   const seccion = useMemo(
     () =>
       asignaciones.reduce(
-        (parcial, asignacion) => anadirPalabra(parcial, asignacion.puntoId, asignacion.palabra),
+        (parcial, puesta) => anadirPalabra(parcial, puesta.puntoId, puesta.columna.palabra),
         seccionGuardada,
       ),
     [seccionGuardada, asignaciones],
@@ -289,10 +192,7 @@ export default function VistaSubirDatos() {
 
   const leida = useMemo(() => (hoja ? interpretarHoja(hoja, seccion) : null), [hoja, seccion])
 
-  const progresivas = leida ? new Set(leida.lecturas.map((l) => l.progresiva)).size : 0
-  const puntosMedidos = leida ? new Set(leida.lecturas.map((l) => l.puntoId)).size : 0
-  const noImportado = useMemo(() => agruparNoImportado(leida?.noImportado ?? []), [leida])
-  const sinColocarConLecturas = (leida?.sinAsignar ?? []).filter(traeLecturas)
+  const sinColocarMedidas = (leida?.sinAsignar ?? []).filter((columna) => columna.traeNumeros)
 
   const bm = proyecto.bms[0]
   const capaId = proyecto.capas.some((capa) => capa.id === capaElegida)
@@ -301,20 +201,22 @@ export default function VistaSubirDatos() {
 
   const impedimentos: string[] = []
   if (nombreCalle.trim() === '') {
-    impedimentos.push('Dime a qué calle va esta hoja: la sección con la que se lee es la de la calle.')
+    impedimentos.push(
+      'Dime a qué calle va esta hoja: la sección con la que se lee es la de la calle.',
+    )
   }
   if (!bm) {
     impedimentos.push(
-      'Hace falta un banco de nivel en el proyecto: es lo que le da cota a la vista atrás.' +
+      'Hace falta un banco de nivel en el proyecto: es lo que le da cota al punto de control.' +
         ' Créalo en la pantalla de Proyecto.',
     )
   }
   if (capaId === '') {
     impedimentos.push('Hace falta una capa en el proyecto para decir qué se midió.')
   }
-  if (sinColocarConLecturas.length > 0) {
+  if (sinColocarMedidas.length > 0) {
     impedimentos.push(
-      `Hay ${cuenta(sinColocarConLecturas.length, 'columna', 'columnas')} sin colocar con lecturas` +
+      `Hay ${cuenta(sinColocarMedidas.length, 'columna', 'columnas')} sin colocar con lecturas` +
         ' dentro: colócalas antes de aceptar la hoja, porque dejar fuera una columna medida es' +
         ' perder trabajo de campo sin que se note.',
     )
@@ -341,9 +243,15 @@ export default function VistaSubirDatos() {
     setAsignaciones([])
   }
 
+  /** Deja el campo de archivo vacío para que elegir el mismo otra vez sí cuente. */
+  function vaciarElCampoDeArchivo() {
+    if (entradaArchivo.current) entradaArchivo.current.value = ''
+  }
+
   async function cargarArchivo(archivo: File) {
     setLeyendo(true)
     setError(null)
+    vaciarElCampoDeArchivo()
 
     try {
       const esCsv = /\.csv$/i.test(archivo.name)
@@ -365,6 +273,7 @@ export default function VistaSubirDatos() {
       estrenar(leidas[0]!)
       setPegado('')
       setNombreCalle(nombreSinExtension(archivo.name))
+      setNombrePropuesto(nombreSinExtension(archivo.name))
     } catch (fallo) {
       // Nada del proyecto se ha tocado: lo único que hay es un archivo que no
       // se pudo leer, y se dice cuál y por qué.
@@ -378,6 +287,14 @@ export default function VistaSubirDatos() {
   function cargarPegado(texto: string) {
     setPegado(texto)
     setError(null)
+    // El archivo de antes ya no es la fuente de lo que se ve. Se suelta el
+    // campo, y con él el nombre de calle que había salido de su nombre —pero
+    // solo si Max no lo cambió: lo que él escribió no se le borra.
+    vaciarElCampoDeArchivo()
+    if (nombrePropuesto !== '' && nombreCalle === nombrePropuesto) {
+      setNombreCalle('')
+      setNombrePropuesto('')
+    }
 
     if (texto.trim() === '') {
       olvidarLaHoja()
@@ -396,8 +313,8 @@ export default function VistaSubirDatos() {
 
   function colocarColumna(columna: ColumnaSinAsignar, puntoId: Id) {
     setAsignaciones((antes) => {
-      const resto = antes.filter((a) => a.palabra !== columna.palabra)
-      return puntoId === '' ? resto : [...resto, { puntoId, palabra: columna.palabra }]
+      const resto = antes.filter((puesta) => puesta.columna.indice !== columna.indice)
+      return puntoId === '' ? resto : [...resto, { columna, puntoId }]
     })
   }
 
@@ -405,26 +322,27 @@ export default function VistaSubirDatos() {
     if (!leida || !puedeAceptar) return
 
     const nombre = nombreCalle.trim()
-    // Aquí es donde el proyecto cambia por primera vez, y de una sola vez: la
-    // calle si es nueva, las palabras que se colocaron, y la toma.
+    // Aquí es donde el proyecto cambia por primera vez: la calle si es nueva,
+    // las palabras que se colocaron, y la toma. Fuera de estas tres líneas esta
+    // pantalla no escribe nada.
     const calleId = calleDestinoId ?? agregarCalle({ nombre, rasante: null })
-    for (const asignacion of asignaciones) {
-      anadirPalabraAPunto(calleId, asignacion.puntoId, asignacion.palabra)
+    for (const puesta of asignaciones) {
+      anadirPalabraAPunto(calleId, puesta.puntoId, puesta.columna.palabra)
     }
     importarHoja(calleId, leida, fecha, capaId)
 
     setAceptada({
       calle: nombre,
-      progresivas,
+      progresivas: new Set(leida.lecturas.map((lectura) => lectura.progresiva)).size,
       lecturas: leida.lecturas.length,
       referencias: leida.referencias.length,
-      fuera: noImportado.length,
+      fuera: agruparNoImportado(leida.noImportado).length,
     })
     setHoja(null)
     setHojasDelLibro([])
     setAsignaciones([])
     setPegado('')
-    if (entradaArchivo.current) entradaArchivo.current.value = ''
+    vaciarElCampoDeArchivo()
   }
 
   return (
@@ -484,8 +402,8 @@ export default function VistaSubirDatos() {
           <p className="text-aviso">{AVISO_NO_CIERRA}</p>
           {aceptada.fuera > 0 && (
             <p className="text-slate-600 dark:text-slate-300">
-              Quedaron fuera {cuenta(aceptada.fuera, 'cosa', 'cosas')}, que no entraron en el proyecto.
-              Vuelve a subir la hoja si quieres repasarlas.
+              Quedaron fuera {cuenta(aceptada.fuera, 'cosa', 'cosas')}, que no entraron en el
+              proyecto. Vuelve a subir la hoja si quieres repasarlas.
             </p>
           )}
           <div>
@@ -575,132 +493,14 @@ export default function VistaSubirDatos() {
 
       {leida && (
         <div className="flex flex-col gap-6">
-          <section className="flex flex-col gap-2">
-            <h3 className="font-semibold">Qué columna cayó en qué punto</h3>
-            <DibujoSeccion puntos={puntosDelDibujo(seccion, leida)} />
-            <ul className="flex flex-col gap-1 text-sm">
-              {[...seccion.puntos]
-                .sort((a, b) => a.distancia - b.distancia)
-                .map((punto) => {
-                  const columna = leida.columnas.find((col) => col.puntoId === punto.id)
-                  return (
-                    <li key={punto.id} className="flex flex-wrap items-baseline gap-x-2">
-                      <span className="font-medium">{punto.nombre}</span>
-                      {columna ? (
-                        <span className="text-slate-500 dark:text-slate-400">
-                          escrito «{columna.palabra}» en la columna {letraDeColumna(columna.indice)},{' '}
-                          {ladoEnPalabras(punto.distancia)}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">sin columna en esta hoja</span>
-                      )}
-                    </li>
-                  )
-                })}
-            </ul>
-          </section>
+          <VistaPreviaHoja leida={leida} seccion={seccion} />
 
-          <section className="flex flex-col gap-1">
-            <h3 className="font-semibold">Las cuentas</h3>
-            <p className="flex flex-wrap gap-x-3 text-sm">
-              <span>{cuenta(progresivas, 'progresiva', 'progresivas')}</span>
-              <span>·</span>
-              <span>{cuenta(leida.lecturas.length, 'lectura', 'lecturas')}</span>
-              <span>·</span>
-              <span>{cuenta(puntosMedidos, 'punto de la sección', 'puntos de la sección')}</span>
-            </p>
-            <p className="text-sm">
-              <span>
-                Vista atrás al punto de control:{' '}
-                {leida.vistaAtras === null
-                  ? 'no la encontré en la hoja'
-                  : leida.vistaAtras.toFixed(3)}
-              </span>
-            </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {leida.columnaProgresiva === null
-                ? 'No encontré la columna de las progresivas.'
-                : `Las progresivas salen de la columna ${letraDeColumna(leida.columnaProgresiva)}.`}
-            </p>
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h3 className="font-semibold">Referencias</h3>
-            {leida.referencias.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Ninguna: no había filas de cosas existentes que pudiera leer.
-              </p>
-            ) : (
-              <ul aria-label="Referencias encontradas" className="flex flex-col gap-1 text-sm">
-                {leida.referencias.map((referencia, indice) => (
-                  <li
-                    key={`${referencia.elemento}-${referencia.distancia}-${indice}`}
-                    className="flex flex-wrap items-baseline gap-x-2"
-                  >
-                    <span className="font-medium">{referencia.elemento}</span>
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {ladoEnPalabras(referencia.distancia)}
-                    </span>
-                    <span className="numerico">lectura {referencia.valor.toFixed(3)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h3 className="font-semibold">Lo que no importé</h3>
-            {noImportado.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Nada: de esta hoja entró todo lo que había escrito.
-              </p>
-            ) : (
-              <ul aria-label="Lo que no importé" className="flex flex-col gap-1 text-sm">
-                {noImportado.map((cosa) => (
-                  <li key={cosa.valor} className="flex flex-wrap items-baseline gap-x-2">
-                    <span data-valor={cosa.valor} className="numerico font-medium">
-                      {cosa.valor}
-                    </span>
-                    {cosa.veces > 1 && (
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {cosa.veces} veces
-                      </span>
-                    )}
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {cosa.motivos.join(' ')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h3 className="font-semibold">Sin resolver</h3>
-            {leida.conflictos.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Nada quedó a medias en esta hoja.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-1 text-sm">
-                {leida.conflictos.map((conflicto) => (
-                  <li
-                    key={conflicto.que}
-                    className="rounded border border-aviso bg-aviso/10 px-3 py-2 text-aviso"
-                  >
-                    {conflicto.que}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {leida.sinAsignar.length > 0 && (
+          {(leida.sinAsignar.length > 0 || asignaciones.length > 0) && (
             <ColumnasSinColocar
               seccion={seccion}
-              columnas={leida.sinAsignar}
+              sinColocar={leida.sinAsignar}
               asignaciones={asignaciones}
-              alAsignar={colocarColumna}
+              alColocar={colocarColumna}
             />
           )}
 
@@ -709,15 +509,22 @@ export default function VistaSubirDatos() {
 
             {hayDistanciasDeFabrica(seccion) && (
               <p className="rounded border border-aviso bg-aviso/10 px-3 py-2 text-sm text-aviso">
-                <strong>Las distancias son las de fábrica.</strong> Las puso la app, no las mediste tú:
-                las pendientes y el bombeo que salgan de esta hoja son orientativos hasta que las midas
-                en la pantalla de la sección.
+                <strong>Las distancias son las de fábrica.</strong> Las puso la app, no las mediste
+                tú: las pendientes y el bombeo que salgan de esta hoja son orientativos hasta que las
+                midas en la pantalla de la sección.
               </p>
             )}
 
             <p className="rounded border border-aviso bg-aviso/10 px-3 py-2 text-sm text-aviso">
               {AVISO_NO_CIERRA}
             </p>
+
+            {bm && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Las cotas de esta hoja se cuelgan de {bm.nombre}, cota {bm.cota.toFixed(3)}. Es el
+                primer banco de nivel del proyecto: la app todavía no deja elegir otro.
+              </p>
+            )}
 
             {impedimentos.length > 0 && (
               <ul className="flex flex-col gap-1 text-sm text-falla">

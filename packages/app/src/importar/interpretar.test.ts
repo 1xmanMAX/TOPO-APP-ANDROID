@@ -233,6 +233,33 @@ describe('reglas generales', () => {
     expect(c.conflictos.map((x) => x.que).join(' ')).toMatch(/no dice de qué elemento/i)
   })
 
+  it('una columna sin colocar con notas arriba y números abajo se marca como medida', () => {
+    // La muestra son tres valores, y aquí los tres son texto. Si de la muestra
+    // saliera el juicio, esta columna pasaría por no medida y el 2.40 se iría
+    // con la hoja aceptada sin que nadie lo viera.
+    const hoja = conCabecera([
+      ['', 'EJE', 'OBS'],
+      ['0', '1.20', 'bacheo'],
+      ['10', '1.25', 'roto'],
+      ['20', '1.30', 'ojo'],
+      ['30', '1.35', '2.40'],
+    ])
+
+    const columna = interpretarHoja(hoja, seccionDeFabrica()).sinAsignar[0]!
+
+    expect(columna.muestra).toEqual(['bacheo', 'roto', 'ojo'])
+    expect(columna.traeNumeros).toBe(true)
+  })
+
+  it('una columna de puras notas se marca como no medida', () => {
+    const hoja = conCabecera([
+      ['', 'EJE', 'OBS'],
+      ['0', '1.20', 'bacheo'],
+      ['10', '1.25', 'roto'],
+    ])
+
+    expect(interpretarHoja(hoja, seccionDeFabrica()).sinAsignar[0]!.traeNumeros).toBe(false)
+  })
   it('una hoja sin ninguna palabra conocida no se interpreta, y lo dice con palabras', () => {
     const c = interpretarHoja(conCabecera([['nada', 'de', 'nada'], ['1', '2', '3']]), seccionDeFabrica())
 

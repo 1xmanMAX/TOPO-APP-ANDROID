@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Calle, Id } from '@topo/core'
+import { strToU8, zipSync } from 'fflate'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
@@ -16,6 +17,69 @@ function archivoDetrasDelColegio(): File {
   return new File([bytesDetrasDelColegio()], 'detras-del-colegio.xlsx')
 }
 
+/**
+ * Un libro de dos hojas, armado a mano con fflate —que ya está en el
+ * proyecto—, porque `armarXlsx` solo sabe escribir libros de una.
+ */
+function libroDeDosHojas(): Uint8Array<ArrayBuffer> {
+  const celda = (referencia: string, texto: string) =>
+    `<c r="${referencia}" t="inlineStr"><is><t>${texto}</t></is></c>`
+
+  const hojaXml = (filas: string[][]) =>
+    strToU8(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' +
+        filas
+          .map(
+            (fila, indiceFila) =>
+              `<row r="${indiceFila + 1}">` +
+              fila
+                .map((texto, indice) =>
+                  celda(`${String.fromCharCode(65 + indice)}${indiceFila + 1}`, texto),
+                )
+                .join('') +
+              '</row>',
+          )
+          .join('') +
+        '</sheetData></worksheet>',
+    )
+
+  return zipSync({
+    '[Content_Types].xml': strToU8(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+        '</Types>',
+    ),
+    '_rels/.rels': strToU8(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+        '</Relationships>',
+    ),
+    'xl/workbook.xml': strToU8(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+        '<sheet name="Portada" sheetId="1" r:id="rId1"/><sheet name="Medidas" sheetId="2" r:id="rId2"/>' +
+        '</sheets></workbook>',
+    ),
+    'xl/_rels/workbook.xml.rels': strToU8(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>' +
+        '</Relationships>',
+    ),
+    'xl/worksheets/sheet1.xml': hojaXml([['Obra', 'la de siempre']]),
+    'xl/worksheets/sheet2.xml': hojaXml([
+      ['', 'VEREDA', 'EJE'],
+      ['0', '1.10', '1.20'],
+    ]),
+  })
+}
+
 /** Subir un archivo y esperar a que termine de leerse: la lectura es asíncrona. */
 async function elegirArchivo(archivo: File) {
   await userEvent.upload(screen.getByLabelText(/archivo de la hoja/i), archivo)
@@ -27,6 +91,12 @@ async function pegarTexto(texto: string) {
   const area = screen.getByLabelText(/pegar/i)
   await userEvent.click(area)
   await userEvent.paste(texto)
+}
+
+async function escribirCalle(nombre: string) {
+  const campo = screen.getByLabelText(/a qué calle/i)
+  await userEvent.clear(campo)
+  await userEvent.type(campo, nombre)
 }
 
 /**
@@ -45,11 +115,7 @@ async function colocarIzqYDer() {
 /** El recorrido entero: subir la hoja de Max, decir a qué calle va y aceptarla. */
 async function importarLaMuestraEn(nombreCalle: string) {
   await elegirArchivo(archivoDetrasDelColegio())
-
-  const campo = screen.getByLabelText(/a qué calle/i)
-  await userEvent.clear(campo)
-  await userEvent.type(campo, nombreCalle)
-
+  await escribirCalle(nombreCalle)
   await colocarIzqYDer()
   await userEvent.click(screen.getByRole('button', { name: /importar/i }))
 }
@@ -150,6 +216,22 @@ describe('la pantalla de subir datos', () => {
     expect(puntoDe(calleImportada(), 'p-borde-d').palabras).toContain('DER')
   })
 
+  it('una colocación equivocada se corrige sin volver a cargar la hoja', async () => {
+    render(<VistaSubirDatos />)
+    await elegirArchivo(archivoDetrasDelColegio())
+
+    // Un clic en el punto de al lado. La columna deja de estar sin colocar
+    // —el intérprete ya la reconoce— pero su desplegable sigue a la vista.
+    await userEvent.selectOptions(screen.getByLabelText(/dónde va la columna IZQ/i), 'p-sardinel-i')
+    expect(screen.getByLabelText(/dónde va la columna IZQ/i)).toHaveValue('p-sardinel-i')
+
+    await colocarIzqYDer()
+    await userEvent.click(screen.getByRole('button', { name: /importar/i }))
+
+    expect(puntoDe(calleImportada(), 'p-sardinel-i').palabras).not.toContain('IZQ')
+    expect(puntoDe(calleImportada(), 'p-borde-i').palabras).toContain('IZQ')
+  })
+
   it('no deja importar mientras quede una columna medida sin colocar', async () => {
     render(<VistaSubirDatos />)
     await elegirArchivo(archivoDetrasDelColegio())
@@ -157,6 +239,30 @@ describe('la pantalla de subir datos', () => {
     // Dejar fuera una columna medida es perder trabajo de campo en silencio.
     expect(screen.getByRole('button', { name: /importar/i })).toBeDisabled()
     expect(screen.getByText(/hay 2 columnas sin colocar/i)).toBeInTheDocument()
+  })
+
+  it('una columna con notas arriba y lecturas abajo también bloquea', async () => {
+    // Sus tres primeros valores son texto, así que mirar solo la muestra diría
+    // que no trae lecturas y el 2.40 se iría con la hoja aceptada.
+    render(<VistaSubirDatos />)
+
+    await pegarTexto('\tEJE\tOBS\n0\t1.20\tbacheo\n10\t1.25\troto\n20\t1.30\tojo\n30\t1.35\t2.40\n')
+    await escribirCalle('Camino nuevo')
+
+    expect(screen.getByRole('button', { name: /importar/i })).toBeDisabled()
+    expect(screen.getByText(/hay 1 columna sin colocar/i)).toBeInTheDocument()
+  })
+
+  it('una columna de puras notas no bloquea, y se dice que no bloquea', async () => {
+    // Si bloqueara, una columna de observaciones dejaría la hoja encerrada:
+    // no se puede colocar en ningún punto sin meter basura en la grilla.
+    render(<VistaSubirDatos />)
+
+    await pegarTexto('\tEJE\tOBS\n0\t1.20\tbacheo\n10\t1.25\troto\n')
+    await escribirCalle('Camino nuevo')
+
+    expect(screen.getByText(/sin ningún número dentro/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /importar/i })).toBeEnabled()
   })
 
   it('colocar una columna vuelve a interpretar la hoja entera', async () => {
@@ -190,6 +296,15 @@ describe('la pantalla de subir datos', () => {
     expect(screen.getByText(/las de fábrica/i)).toBeInTheDocument()
   })
 
+  it('dice de qué banco de nivel cuelgan las cotas', async () => {
+    // Con dos BM en la obra, unas cotas colgadas del que no era no se verían
+    // por ningún lado antes de aceptar.
+    render(<VistaSubirDatos />)
+    await elegirArchivo(archivoDetrasDelColegio())
+
+    expect(screen.getByText(/se cuelgan de BM-1/i)).toBeInTheDocument()
+  })
+
   it('acepta datos pegados igual que un archivo', async () => {
     render(<VistaSubirDatos />)
 
@@ -198,11 +313,88 @@ describe('la pantalla de subir datos', () => {
     expect(screen.getByText(/1 progresiva/)).toBeInTheDocument()
   })
 
+  it('un .csv entra por el mismo camino que un .xlsx', async () => {
+    render(<VistaSubirDatos />)
+
+    await elegirArchivo(new File([',VEREDA,EJE\n0,1.10,1.20\n'], 'jiron-tacna.csv'))
+
+    expect(screen.getByLabelText(/a qué calle/i)).toHaveValue('jiron-tacna')
+    expect(screen.getByText(/1 progresiva/)).toBeInTheDocument()
+  })
+
+  it('de un libro con varias hojas se elige cuál se lee', async () => {
+    render(<VistaSubirDatos />)
+    await elegirArchivo(new File([libroDeDosHojas()], 'obra.xlsx'))
+
+    // La primera hoja es una portada: no trae ninguna palabra de la sección.
+    expect(screen.getByText(/ninguna de las palabras de la sección/i)).toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText(/qué hoja del libro/i), 'Medidas')
+
+    expect(screen.getByText(/1 progresiva/)).toBeInTheDocument()
+  })
+
+  it('un archivo que no es una hoja se rechaza con palabras, sin llegar a leerlo', async () => {
+    render(<VistaSubirDatos />)
+
+    // El navegador filtra por la extensión antes de entregar el archivo, así
+    // que el filtro se apaga a propósito: lo que se prueba es la red de
+    // detrás, la que responde si el archivo llega igual.
+    const sinFiltro = userEvent.setup({ applyAccept: false })
+    await sinFiltro.upload(screen.getByLabelText(/archivo de la hoja/i), new File(['lo que sea'], 'foto.jpg'))
+    await waitFor(() => expect(screen.queryByText(/leyendo el archivo/i)).toBeNull())
+
+    expect(screen.getByText(/no sé leer/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /importar/i })).toBeNull()
+  })
+
+  it('pegar suelta el nombre de calle que había salido del archivo', async () => {
+    render(<VistaSubirDatos />)
+    await elegirArchivo(archivoDetrasDelColegio())
+    expect(screen.getByLabelText(/a qué calle/i)).toHaveValue('detras-del-colegio')
+
+    // Lo que se ve ya describe otras celdas: seguir enseñando el nombre del
+    // .xlsx haría creer que la hoja de la vista previa es aquella.
+    await pegarTexto('\tVEREDA\tEJE\n0\t1.10\t1.20\n')
+
+    expect(screen.getByLabelText(/a qué calle/i)).toHaveValue('')
+  })
+
+  it('pero el nombre que escribió Max no se le borra al pegar', async () => {
+    render(<VistaSubirDatos />)
+    await elegirArchivo(archivoDetrasDelColegio())
+    await escribirCalle('Av. Sol')
+
+    await pegarTexto('\tVEREDA\tEJE\n0\t1.10\t1.20\n')
+
+    expect(screen.getByLabelText(/a qué calle/i)).toHaveValue('Av. Sol')
+  })
   it('nada entra en el proyecto hasta que se confirma', async () => {
     const antes = useAlmacen.getState().proyecto
     render(<VistaSubirDatos />)
 
     await elegirArchivo(archivoDetrasDelColegio())
+
+    expect(useAlmacen.getState().proyecto).toBe(antes)
+  })
+
+  it('pegar tampoco toca el proyecto', async () => {
+    const antes = useAlmacen.getState().proyecto
+    render(<VistaSubirDatos />)
+
+    await pegarTexto('\tVEREDA\tEJE\n0\t1.10\t1.20\n')
+
+    expect(useAlmacen.getState().proyecto).toBe(antes)
+  })
+
+  it('colocar una columna tampoco toca el proyecto', async () => {
+    // La palabra colocada vive en la pantalla hasta que se acepta: si se
+    // guardara al elegirla, mirar una hoja ya cambiaría la sección.
+    render(<VistaSubirDatos />)
+    await elegirArchivo(archivoDetrasDelColegio())
+    const antes = useAlmacen.getState().proyecto
+
+    await colocarIzqYDer()
 
     expect(useAlmacen.getState().proyecto).toBe(antes)
   })
