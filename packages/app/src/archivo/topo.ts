@@ -275,20 +275,34 @@ function construirSeccionDesdePlantilla(
   calle: CalleConPlantilla,
   proyecto: ProyectoAntiguo,
 ): { seccion: Seccion; claveANuevoId: Map<string, string> } {
-  const claveANuevoId = new Map<string, string>()
   const plantilla = proyecto.plantillas?.find((p) => p.id === calle.plantillaId)
 
-  if (!plantilla) {
+  if (!plantilla || plantilla.elementos.length === 0) {
     // Antes se quedaba sin puntos: una distancia inventada movería todas las
     // cotas teóricas de la calle. Ahora arranca de fábrica porque el aviso de
-    // «distancias de fábrica» ya impide que se lean como medidas.
+    // «distancias de fábrica» ya impide que se lean como medidas. Trata igual
+    // la plantilla ausente y la plantilla vacía: el resultado práctico —una
+    // calle sin un solo punto declarado— es el mismo.
     console.warn(
-      `La calle "${calle.nombre}" no tenía una plantilla guardada: arranca con la sección de fábrica,` +
-        ' con todas sus distancias orientativas hasta que se midan de nuevo.',
+      `La calle "${calle.nombre}" ${plantilla ? 'tenía una plantilla guardada sin ningún punto' : 'no tenía una plantilla guardada'}` +
+        ': arranca con la sección de fábrica, con todas sus distancias orientativas hasta que se midan de nuevo.',
     )
-    return { seccion: seccionDeFabrica(), claveANuevoId }
+
+    // La sección de fábrica ya declara las palabras típicas de cada punto
+    // ('BOR-I' en el borde izquierdo, 'EJE' en el eje…): resolver la clave
+    // vieja contra ellas no es adivinar, es leer una correspondencia que ya
+    // está escrita. Sin esto, una plantilla borrada después de medir dejaría
+    // huérfana cada lectura de la calle, aunque su código fuera uno de
+    // fábrica de sobra reconocible.
+    const fabricaDeRespaldo = seccionDeFabrica()
+    const claveDeRespaldo = new Map<string, string>()
+    for (const punto of fabricaDeRespaldo.puntos) {
+      for (const palabra of punto.palabras) claveDeRespaldo.set(normalizarPalabra(palabra), punto.id)
+    }
+    return { seccion: fabricaDeRespaldo, claveANuevoId: claveDeRespaldo }
   }
 
+  const claveANuevoId = new Map<string, string>()
   const fabrica = seccionDeFabrica()
   const puntos: PuntoSeccion[] = plantilla.elementos.map((elemento) => {
     const id = nuevoId('p')
@@ -417,7 +431,10 @@ function aplicarCatalogoAntiguo(
     }
 
     resultado = anadirPalabra(resultado, punto.id, codigo)
-    claveANuevoId.set(codigo, punto.id)
+    // Normalizado, igual que los otros dos `set` de este mapa: el `get` de
+    // `remaparLectura` siempre normaliza, así que si esta clave entrara cruda
+    // una lectura con el código en otra mayúscula quedaría huérfana sin motivo.
+    claveANuevoId.set(normalizarPalabra(codigo), punto.id)
   }
   return resultado
 }
@@ -481,6 +498,30 @@ function remaparToma(toma: Toma, claveANuevoId: Map<string, string>, nombreCalle
 }
 
 /**
+ * Avisa de las campañas que ninguna calle reclamó: o su `calleId` no
+ * corresponde a ninguna calle del proyecto —la calle se borró sin arrastrar
+ * sus campañas, que era el sitio clásico donde se acumulaban huérfanas si
+ * borrar una calle no hacía cascada—, o el proyecto no tenía ninguna calle
+ * capaz de reclamarlas. Perder un día entero de campo, con todas sus
+ * estaciones y lecturas, sin decir nada, es exactamente lo que esta
+ * migración existe para impedir.
+ */
+function avisarDeCampaniasHuerfanas(campanias: CampaniaAntigua[], consumidas: Set<Id>): void {
+  const huerfanas = campanias.filter((c) => !consumidas.has(c.id))
+  if (huerfanas.length === 0) return
+
+  const singular = huerfanas.length === 1
+  const nombres = huerfanas.map((c) => `${c.fecha} (calle "${c.calleId}")`)
+
+  console.warn(
+    `Hay ${huerfanas.length} ${singular ? 'campaña guardada' : 'campañas guardadas'} que no ` +
+      `${singular ? 'se pudo colocar' : 'se pudieron colocar'} en ninguna calle del proyecto, y no ` +
+      `${singular ? 'se migró' : 'se migraron'}: ${nombres.slice(0, 5).join('; ')}${nombres.length > 5 ? '…' : ''}. ` +
+      'Puede que la calle a la que pertenecían se haya borrado.',
+  )
+}
+
+/**
  * Trae al modelo de la sección un proyecto guardado con alguna de las dos
  * formas anteriores. Con plantilla: la plantilla compartida de la calle se
  * convierte en su propia sección, y cada campaña —antes suelta en
@@ -501,9 +542,17 @@ function remaparToma(toma: Toma, claveANuevoId: Map<string, string>, nombreCalle
  */
 function migrarASeccion(proyectoBruto: Proyecto): Proyecto {
   const proyecto = proyectoBruto as unknown as ProyectoAntiguo
-  if (!proyecto.calles.some(esCalleVieja)) return proyectoBruto
-
   const campanias = proyecto.campanias ?? []
+
+  if (!proyecto.calles.some(esCalleVieja)) {
+    // Nada que migrar en las calles, pero si el proyecto trae campañas
+    // sueltas de todos modos —campo fantasma que la app ya no lee—, no se
+    // sale en silencio.
+    avisarDeCampaniasHuerfanas(campanias, new Set())
+    return proyectoBruto
+  }
+
+  const campaniasConsumidas = new Set<Id>()
   let resultado: Proyecto = {
     version: proyectoBruto.version,
     meta: proyectoBruto.meta,
@@ -553,17 +602,23 @@ function migrarASeccion(proyectoBruto: Proyecto): Proyecto {
       id: calleBruta.id,
       nombre: calleBruta.nombre,
       seccion,
-      nivelaciones: [],
+      // `[]` a secas perdería en silencio unas nivelaciones que ya trajera
+      // consigo una calle de esta forma —no es la forma habitual (esta trae
+      // sus campañas aparte), pero si las trajera, no hay motivo para
+      // tirarlas: las campañas de abajo se apilan encima con `agregarTomaComoNivelacion`.
+      nivelaciones: (calleBruta as Partial<CalleConPuntos>).nivelaciones ?? [],
       rasante: calleBruta.rasante ?? null,
     }
     resultado = { ...resultado, calles: [...resultado.calles, calleNueva] }
 
     for (const campania of campanias.filter((c) => c.calleId === calleBruta.id)) {
+      campaniasConsumidas.add(campania.id)
       const toma = construirTomaMigrada(campania, construida.claveANuevoId, calleBruta.nombre)
       resultado = agregarTomaComoNivelacion(resultado, calleBruta.id, toma, nuevoId('niv'))
     }
   }
 
+  avisarDeCampaniasHuerfanas(campanias, campaniasConsumidas)
   return resultado
 }
 

@@ -279,6 +279,182 @@ function proyectoIntermedioConCodigoHuerfano(): Proyecto {
   } as unknown as Proyecto
 }
 
+// ---------- Fixtures de la revisión (2026-08-30) ----------
+
+/**
+ * Una campaña cuya calle ya no está entre las calles del proyecto: el sitio
+ * clásico donde se acumula un huérfano si borrar una calle no hacía cascada
+ * sobre sus campañas.
+ */
+function proyectoAnteriorConCampaniaHuerfana(): Proyecto {
+  return {
+    version: 1,
+    meta: metaAntigua('Jr. Campaña Huérfana'),
+    bms: [{ id: 'bm-1', nombre: 'BM-1', cota: 100, tipo: 'oficial', descripcion: 'clavo' }],
+    plantillas: [
+      { id: 'pl-1', nombre: 'Plantilla urbana', elementos: [{ clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' }] },
+    ],
+    calles: [{ id: 'c-1', nombre: 'Jr. Campaña Huérfana', plantillaId: 'pl-1', rasante: null }],
+    capas: [capaAntigua()],
+    campanias: [
+      {
+        id: 'camp-fantasma',
+        fecha: '2026-01-05',
+        // 'c-borrada' no es el id de ninguna calle del proyecto.
+        calleId: 'c-borrada',
+        capaId: 'cap-1',
+        bmInicialId: 'bm-1',
+        estado: 'cerrada',
+        cierre: { tipo: 'abierto', longitudK: 0.1, longitudKAuto: false, clase: 'tercerOrden', coeficiente: 12 },
+        estaciones: [
+          {
+            id: 'e-1',
+            vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.2 },
+            intermedias: [],
+          },
+        ],
+      },
+    ],
+  } as unknown as Proyecto
+}
+
+/**
+ * Una lectura cuyo `elementoClave` guardado es un código que el catálogo
+ * había aprendido —no una clave de la plantilla—, y en otra mayúscula que la
+ * que quedó guardada en `catalogo.codigos`: prueba que el mapa que arma
+ * `aplicarCatalogoAntiguo` normaliza igual que las otras dos entradas.
+ */
+function proyectoAnteriorConLecturaPorCodigoDeCatalogo(): Proyecto {
+  return {
+    version: 1,
+    meta: metaAntigua('Jr. Lectura Por Catálogo'),
+    bms: [{ id: 'bm-1', nombre: 'BM-1', cota: 100, tipo: 'oficial', descripcion: 'clavo' }],
+    plantillas: [
+      { id: 'pl-1', nombre: 'Plantilla urbana', elementos: [{ clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' }] },
+    ],
+    calles: [{ id: 'c-1', nombre: 'Jr. Lectura Por Catálogo', plantillaId: 'pl-1', rasante: null }],
+    capas: [capaAntigua()],
+    // La clave del catálogo va en mayúscula: si el mapa la guardara cruda, no
+    // casaría con la lectura de abajo, que la trae en minúscula.
+    catalogo: { codigos: { ZKJ: 'eje' } },
+    campanias: [
+      {
+        id: 'camp-1',
+        fecha: '2026-01-10',
+        calleId: 'c-1',
+        capaId: 'cap-1',
+        bmInicialId: 'bm-1',
+        estado: 'cerrada',
+        cierre: { tipo: 'abierto', longitudK: 0.1, longitudKAuto: false, clase: 'tercerOrden', coeficiente: 12 },
+        estaciones: [
+          {
+            id: 'e-1',
+            vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.2 },
+            intermedias: [
+              {
+                id: 'l-2',
+                // 'zkj' nunca fue clave de la plantilla: es el código que el
+                // catálogo había aprendido para el eje, y en minúscula.
+                destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'zkj' } },
+                valor: 1.85,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as unknown as Proyecto
+}
+
+/**
+ * Una calle sin plantilla, con una lectura cuyo `elementoClave` es una
+ * palabra de fábrica ('BOR-I', que `seccionDeFabrica` ya declara en
+ * `p-borde-i'): la plantilla se pudo haber borrado después de medir, y eso
+ * no tiene por qué huerfanizar la lectura.
+ */
+function proyectoAnteriorSinPlantillaConLecturas(): Proyecto {
+  return {
+    version: 1,
+    meta: metaAntigua('Jr. Sin Plantilla Con Lecturas'),
+    bms: [{ id: 'bm-1', nombre: 'BM-1', cota: 100, tipo: 'oficial', descripcion: 'clavo' }],
+    plantillas: [],
+    calles: [{ id: 'c-1', nombre: 'Jr. Sin Plantilla Con Lecturas', plantillaId: 'pl-fantasma', rasante: null }],
+    capas: [capaAntigua()],
+    campanias: [
+      {
+        id: 'camp-1',
+        fecha: '2026-01-10',
+        calleId: 'c-1',
+        capaId: 'cap-1',
+        bmInicialId: 'bm-1',
+        estado: 'cerrada',
+        cierre: { tipo: 'abierto', longitudK: 0.1, longitudKAuto: false, clase: 'tercerOrden', coeficiente: 12 },
+        estaciones: [
+          {
+            id: 'e-1',
+            vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.2 },
+            intermedias: [
+              {
+                id: 'l-2',
+                destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } },
+                valor: 2.084,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as unknown as Proyecto
+}
+
+/** Una plantilla que existe pero no tiene ni un elemento declarado. */
+function proyectoAnteriorConPlantillaVacia(): Proyecto {
+  return {
+    version: 1,
+    meta: metaAntigua('Jr. Plantilla Vacía'),
+    bms: [],
+    plantillas: [{ id: 'pl-1', nombre: 'Plantilla urbana', elementos: [] }],
+    calles: [{ id: 'c-1', nombre: 'Jr. Plantilla Vacía', plantillaId: 'pl-1', rasante: null }],
+    capas: [capaAntigua()],
+    campanias: [],
+  } as unknown as Proyecto
+}
+
+/**
+ * Una calle de la forma más vieja (con plantilla) que, además, ya trae una
+ * nivelación puesta a mano: no es la forma habitual —esta calle debería
+ * traer sus campañas aparte, en `proyecto.campanias`—, pero si la trajera de
+ * todos modos, `nivelaciones: []` a secas se la comería en silencio.
+ */
+function proyectoAnteriorConNivelacionesSueltas(): Proyecto {
+  return {
+    version: 1,
+    meta: metaAntigua('Jr. Nivelaciones Sueltas'),
+    bms: [{ id: 'bm-1', nombre: 'BM-1', cota: 100, tipo: 'oficial', descripcion: 'clavo' }],
+    plantillas: [
+      { id: 'pl-1', nombre: 'Plantilla urbana', elementos: [{ clave: 'EJE', etiqueta: 'Eje', offset: 0, tipo: 'eje' }] },
+    ],
+    calles: [
+      {
+        id: 'c-1',
+        nombre: 'Jr. Nivelaciones Sueltas',
+        plantillaId: 'pl-1',
+        rasante: null,
+        nivelaciones: [
+          {
+            id: 'niv-suelta',
+            nombre: 'Nivelación suelta',
+            color: '#16a34a',
+            tomas: [],
+          },
+        ],
+      },
+    ],
+    capas: [capaAntigua()],
+    campanias: [],
+  } as unknown as Proyecto
+}
+
 describe('archivo .topo', () => {
   it('empaqueta y desempaqueta sin perder datos', () => {
     const original = proyectoEjemplo()
@@ -432,7 +608,10 @@ describe('migración de calles del modelo anterior a la sección declarada', () 
     // Son medidas que Max puso; decir que las puso la app sería mentir en pantalla.
     const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoAnterior()))
 
-    expect(recuperado.calles[0]!.seccion.puntos.every((p) => p.distanciaDeFabrica)).toBe(false)
+    // every(...) === false solo diría «no todos»: con dos puntos, uno mal
+    // marcado dejaría esto en verde igual. Lo que hay que afirmar es que
+    // NINGUNO quedó de fábrica.
+    expect(recuperado.calles[0]!.seccion.puntos.every((p) => !p.distanciaDeFabrica)).toBe(true)
   })
 
   it('una calle sin plantilla estrena la sección de fábrica y se anota', () => {
@@ -549,7 +728,7 @@ describe('migración de calles del modelo anterior a la sección declarada', () 
     expect(puntos.map((p) => p.distancia)).toEqual([-4.2, 0])
     expect(puntos[0]!.palabras).toContain('BI')
     expect(puntos[1]!.palabras).toContain('EJE')
-    expect(puntos.every((p) => p.distanciaDeFabrica)).toBe(false)
+    expect(puntos.every((p) => !p.distanciaDeFabrica)).toBe(true)
   })
 
   it('las nivelaciones del modelo intermedio, ya en forma de toma, se conservan enteras', () => {
@@ -618,5 +797,93 @@ describe('migración de calles del modelo anterior a la sección declarada', () 
     expect(avisoDeHuerfanas).toBeDefined()
     // El aviso nombra qué le pasa al punto, nunca su clave interna vieja.
     expect(avisoDeHuerfanas!.mensaje).not.toContain('BOR-I')
+  })
+
+  // ---------- Revisión (2026-08-30): la campaña huérfana ----------
+  //
+  // `proyecto.campanias` era un array de nivel de proyecto: el sitio clásico
+  // donde se acumulan huérfanas si borrar una calle no hacía cascada. Antes,
+  // la única consumidora era el filtro dentro del bucle de calles viejas: una
+  // campaña cuya calle ya no existiera, o un proyecto sin ninguna calle
+  // vieja, la perdían entera —estaciones y lecturas de un día de campo— sin
+  // avisar.
+
+  it('una campaña cuya calle ya no existe no desaparece en silencio: se anota', () => {
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoAnteriorConCampaniaHuerfana()))
+
+    // No hay dónde ponerla: la calle que la tenía ya no está en el proyecto.
+    expect(recuperado.calles).toHaveLength(1)
+    expect(recuperado.calles[0]!.nivelaciones).toHaveLength(0)
+
+    const mensajes = vi.mocked(console.warn).mock.calls.map((llamada) => String(llamada[0]))
+    expect(mensajes.some((m) => /campañ/i.test(m) && /c-borrada/.test(m))).toBe(true)
+  })
+
+  it('una campaña sobrante cuando el proyecto ya no tiene ninguna calle vieja tampoco desaparece en silencio', () => {
+    const nuevo = proyectoEjemplo()
+    const conCampaniaFantasma = {
+      ...nuevo,
+      campanias: [
+        {
+          id: 'camp-fantasma',
+          fecha: '2026-01-05',
+          calleId: 'c-inexistente',
+          capaId: nuevo.capas[0]!.id,
+          bmInicialId: nuevo.bms[0]!.id,
+          estado: 'cerrada',
+          cierre: { tipo: 'abierto', longitudK: 0.1, longitudKAuto: false, clase: 'tercerOrden', coeficiente: 12 },
+          estaciones: [
+            {
+              id: 'e-1',
+              vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: nuevo.bms[0]!.id }, valor: 1.2 },
+              intermedias: [],
+            },
+          ],
+        },
+      ],
+    } as unknown as Proyecto
+
+    // Ninguna calle vieja: antes se salía por identidad sin mirar campanias.
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(conCampaniaFantasma))
+    expect(recuperado.calles).toEqual(nuevo.calles)
+
+    const mensajes = vi.mocked(console.warn).mock.calls.map((llamada) => String(llamada[0]))
+    expect(mensajes.some((m) => /campañ/i.test(m) && /c-inexistente/.test(m))).toBe(true)
+  })
+
+  // ---------- Revisión (2026-08-30): cinco de una línea ----------
+
+  it('una lectura cuyo elementoClave venía de un código del catálogo (no de la plantilla) resuelve a su punto, sin importar la mayúscula', () => {
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoAnteriorConLecturaPorCodigoDeCatalogo()))
+    const seccion = recuperado.calles[0]!.seccion
+    const eje = seccion.puntos.find((p) => p.rol === 'eje')!
+    const lectura = recuperado.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones[0]!.intermedias[0]!
+
+    expect((lectura.destino as { celda: { elementoClave: string } }).celda.elementoClave).toBe(eje.id)
+    expect(lectura.valor).toBe(1.85)
+  })
+
+  it('una calle sin plantilla resuelve sus lecturas contra las palabras de fábrica: la plantilla borrada no las huerfaniza', () => {
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoAnteriorSinPlantillaConLecturas()))
+    const seccion = recuperado.calles[0]!.seccion
+    const bordeIzquierdo = seccion.puntos.find((p) => p.id === 'p-borde-i')!
+    const lectura = recuperado.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones[0]!.intermedias[0]!
+
+    expect((lectura.destino as { celda: { elementoClave: string } }).celda.elementoClave).toBe(bordeIzquierdo.id)
+    expect(lectura.valor).toBe(2.084)
+  })
+
+  it('una plantilla sin elementos se trata igual que si no existiera: sección de fábrica y se anota', () => {
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoAnteriorConPlantillaVacia()))
+
+    expect(recuperado.calles[0]!.seccion.puntos).toHaveLength(7)
+    expect(recuperado.calles[0]!.seccion.puntos.every((p) => p.distanciaDeFabrica)).toBe(true)
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('una calle con plantilla que ya trajera una nivelación puesta no la pierde al construirse de nuevo', () => {
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoAnteriorConNivelacionesSueltas()))
+
+    expect(recuperado.calles[0]!.nivelaciones.map((n) => n.id)).toContain('niv-suelta')
   })
 })
