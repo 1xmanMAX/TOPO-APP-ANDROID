@@ -124,4 +124,91 @@ describe('CampoNumero', () => {
     render(<CampoNumero etiqueta="Cota" valor={1} alCambiar={() => {}} />)
     expect(screen.getByLabelText('Cota')).toBeInTheDocument()
   })
+
+  describe('confirmarAlSalir', () => {
+    /**
+     * Para cuando escribir el número tiene consecuencias que no se deshacen
+     * —marcar como medida una distancia que la app había supuesto—: entonces
+     * medir tiene que ser un acto, y rozar el campo no puede bastar.
+     */
+    it('no avisa en cada tecla, sino al salir del campo', async () => {
+      const usuario = userEvent.setup()
+      const alCambiar = vi.fn()
+      render(<CampoNumero ariaLabel="cota" valor={1.5} alCambiar={alCambiar} confirmarAlSalir />)
+
+      const campo = screen.getByLabelText('cota')
+      await usuario.clear(campo)
+      await usuario.type(campo, '9.5')
+      expect(alCambiar).not.toHaveBeenCalled()
+
+      await usuario.tab()
+      expect(alCambiar).toHaveBeenCalledTimes(1)
+      expect(alCambiar).toHaveBeenCalledWith(9.5)
+    })
+
+    it('entrar y salir sin escribir nada no avisa de ningún cambio', async () => {
+      const usuario = userEvent.setup()
+      const alCambiar = vi.fn()
+      render(<CampoNumero ariaLabel="cota" valor={1.5} alCambiar={alCambiar} confirmarAlSalir />)
+
+      await usuario.click(screen.getByLabelText('cota'))
+      await usuario.tab()
+
+      expect(alCambiar).not.toHaveBeenCalled()
+    })
+
+    it('escribir algo y borrarlo antes de salir no avisa de ningún cambio', async () => {
+      // El defecto que esto ataja: teclear un 3 sin querer, borrarlo, y que el
+      // campo quede marcado como escrito a mano aunque el número no cambió.
+      const usuario = userEvent.setup()
+      const alCambiar = vi.fn()
+      render(<CampoNumero ariaLabel="cota" valor={1.5} alCambiar={alCambiar} confirmarAlSalir />)
+
+      const campo = screen.getByLabelText('cota')
+      await usuario.type(campo, '3')
+      await usuario.clear(campo)
+      await usuario.tab()
+
+      expect(alCambiar).not.toHaveBeenCalled()
+      expect(campo).toHaveValue('1.500')
+    })
+
+    it('escribir la misma cifra que ya estaba sí avisa: confirmarla es un acto', async () => {
+      const usuario = userEvent.setup()
+      const alCambiar = vi.fn()
+      render(<CampoNumero ariaLabel="cota" valor={1.5} alCambiar={alCambiar} confirmarAlSalir />)
+
+      const campo = screen.getByLabelText('cota')
+      await usuario.clear(campo)
+      await usuario.type(campo, '1.5')
+      await usuario.tab()
+
+      expect(alCambiar).toHaveBeenCalledTimes(1)
+      expect(alCambiar).toHaveBeenCalledWith(1.5)
+    })
+
+    it('Enter confirma sin esperar a salir del campo', async () => {
+      const usuario = userEvent.setup()
+      const alCambiar = vi.fn()
+      render(<CampoNumero ariaLabel="cota" valor={1.5} alCambiar={alCambiar} confirmarAlSalir />)
+
+      const campo = screen.getByLabelText('cota')
+      await usuario.clear(campo)
+      await usuario.type(campo, '2.75{Enter}')
+
+      expect(alCambiar).toHaveBeenCalledTimes(1)
+      expect(alCambiar).toHaveBeenCalledWith(2.75)
+    })
+
+    it('sin el modo, sigue avisando en cada tecla como siempre', async () => {
+      const usuario = userEvent.setup()
+      const alCambiar = vi.fn()
+      render(<CampoNumero ariaLabel="cota" valor={0} alCambiar={alCambiar} />)
+
+      await usuario.clear(screen.getByLabelText('cota'))
+      await usuario.type(screen.getByLabelText('cota'), '4')
+
+      expect(alCambiar).toHaveBeenCalledWith(4)
+    })
+  })
 })

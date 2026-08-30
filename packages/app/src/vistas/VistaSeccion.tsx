@@ -1,8 +1,8 @@
 import {
+  esPalabraDe,
   ETIQUETA_ROL,
   hayDistanciasDeFabrica,
   ladoDe,
-  palabraDePunto,
   ROLES,
   type Id,
   type PuntoSeccion,
@@ -10,38 +10,52 @@ import {
 } from '@topo/core'
 import { useState } from 'react'
 import CampoNumero from '../componentes/CampoNumero'
-import { useAlmacen } from '../estado/almacen'
+import DibujoSeccion from '../componentes/DibujoSeccion'
+import { useAlmacen, type ListaDePalabras } from '../estado/almacen'
 
 interface Props {
   calleId: Id
 }
 
-/** Lienzo del dibujo, en unidades del `viewBox`. */
-const ANCHO = 720
-const ALTO = 190
-/** Aire a los lados: el punto más lejano cae justo aquí, no pegado al borde. */
-const MARGEN = 48
-/** Altura de la línea de la calzada dentro del lienzo. */
-const SUELO = 112
-
-/** Pasos posibles de la barra de escala, en metros. */
-const PASOS_BARRA = [0.5, 1, 2, 5, 10, 20, 50]
-/** Lo que se le deja crecer a la barra de escala dentro del lienzo. */
-const BARRA_MAXIMA = 140
+/**
+ * Las tres palabras de la hoja que no son puntos de la sección. El nombre en
+ * minúscula es el que entra en los textos accesibles —«Palabra nueva para la
+ * progresiva»—, así que está escrito para que suene bien detrás de «para»,
+ * «a» y «de».
+ */
+const LISTAS_SUELTAS: {
+  lista: ListaDePalabras
+  titulo: string
+  nombre: string
+  ayuda: string
+  avisoSinPalabras: string
+}[] = [
+  {
+    lista: 'progresiva',
+    titulo: 'La progresiva',
+    nombre: 'la progresiva',
+    ayuda: 'La columna donde escribes 0+000, 10, 20…',
+    avisoSinPalabras: 'Sin ninguna palabra habrá que adivinar cuál es esa columna.',
+  },
+  {
+    lista: 'puntoControl',
+    titulo: 'Los puntos de control',
+    nombre: 'los puntos de control',
+    ayuda: 'Lo que escribes junto a la lectura de la vista atrás: PC, BM…',
+    avisoSinPalabras: 'Sin ninguna palabra no se sabrá cuál es la vista atrás.',
+  },
+  {
+    lista: 'referencia',
+    titulo: 'Las filas de referencia',
+    nombre: 'las filas de referencia',
+    ayuda: 'Lo que abre una fila que no es una progresiva sino algo existente: una cuneta, una calzada.',
+    avisoSinPalabras: 'Sin ninguna palabra no se reconocerá ninguna fila de referencia.',
+  },
+]
 
 /** De izquierda a derecha, que es como se ve la calle desde la progresiva. */
 function ordenadosPorDistancia(puntos: PuntoSeccion[]): PuntoSeccion[] {
   return [...puntos].sort((a, b) => a.distancia - b.distancia)
-}
-
-/**
- * La distancia dicha en palabras: el signo no se lee en voz alta, el lado
- * sí. Negativo es izquierda, como en todo el modelo.
- */
-function distanciaEnPalabras(distancia: number): string {
-  const lado = ladoDe(distancia)
-  if (lado === 'eje') return 'en el eje'
-  return `${Math.abs(distancia).toFixed(2)} m a la ${lado}`
 }
 
 /** Dónde está el punto, para leerlo al lado de su elemento. */
@@ -51,139 +65,92 @@ function sitioDelPunto(distancia: number): string {
   return `lado ${lado === 'izquierda' ? 'izquierdo' : 'derecho'}`
 }
 
-/** El paso más largo de la barra de escala que todavía cabe en el lienzo. */
-function pasoDeBarra(escala: number): number {
-  const caben = PASOS_BARRA.filter((paso) => paso * escala <= BARRA_MAXIMA)
-  return caben[caben.length - 1] ?? PASOS_BARRA[0]!
+interface PropsFichas {
+  /**
+   * Cómo se nombra este grupo dentro de los textos accesibles: «Vereda
+   * izquierda», «la progresiva». Va detrás de «para», de «a» y de «de», así
+   * que se escribe pensando en las tres.
+   */
+  nombre: string
+  palabras: string[]
+  /** Qué se pierde si este grupo se queda sin ninguna palabra. */
+  avisoSinPalabras: string
+  alAnadir: (palabra: string) => void
+  alQuitar: (palabra: string) => void
 }
 
 /**
- * Todo lo que el dibujo enseña, dicho de corrido: es lo único que llega a
- * quien no lo ve, y por eso nombra los extremos de la sección. Lo demás —lo
- * que se puede tocar— está en la lista de abajo, que basta por sí sola.
+ * Con qué palabras se escribe algo en la hoja: las que ya están, cada una
+ * con su equis, y un campo para añadir otra. Lo usan igual los puntos de la
+ * sección y las tres palabras que no son puntos.
  */
-function etiquetaDelDibujo(puntos: PuntoSeccion[]): string {
-  if (puntos.length === 0) return 'Sección de la calle: todavía sin puntos'
+function FichasDePalabras({ nombre, palabras, avisoSinPalabras, alAnadir, alQuitar }: PropsFichas) {
+  const [nueva, setNueva] = useState('')
+  const [yaEstaba, setYaEstaba] = useState(false)
 
-  const primero = puntos[0]!
-  const ultimo = puntos[puntos.length - 1]!
-  return (
-    `Sección de la calle: ${puntos.length} ${puntos.length === 1 ? 'punto' : 'puntos'}, ` +
-    `desde ${distanciaEnPalabras(primero.distancia)} hasta ${distanciaEnPalabras(ultimo.distancia)}`
-  )
-}
+  function anadir() {
+    const limpia = nueva.trim()
+    if (limpia === '') return
 
-/**
- * La sección vista de frente: el eje al centro y cada punto colocado por su
- * distancia, a escala, con la palabra con la que se escribe en la hoja.
- *
- * El rótulo es la palabra y no el nombre largo porque a 0.15 m de separación
- * —un sardinel y su borde— dos nombres enteros se pisan; `palabraDePunto`
- * existe justo para estos rótulos, y cae al nombre largo si el punto todavía
- * no tiene ninguna palabra. Los rótulos van a dos alturas alternas por el
- * mismo motivo.
- *
- * Este dibujo **no** es el único portador del significado: no hay nada aquí
- * que no se pueda leer y cambiar en la lista de puntos.
- */
-function DibujoSeccion({ puntos }: { puntos: PuntoSeccion[] }) {
-  const alcance = Math.max(1, ...puntos.map((punto) => Math.abs(punto.distancia)))
-  const escala = (ANCHO / 2 - MARGEN) / alcance
-  const x = (distancia: number) => ANCHO / 2 + distancia * escala
+    if (esPalabraDe(palabras, limpia)) {
+      // Nada se descarta en silencio. Y lo escrito se queda en el campo: si
+      // desapareciera, no habría manera de saber qué fue lo que no entró.
+      setYaEstaba(true)
+      return
+    }
 
-  const paso = pasoDeBarra(escala)
-  const primero = puntos[0]
-  const ultimo = puntos[puntos.length - 1]
+    alAnadir(limpia)
+    setNueva('')
+    setYaEstaba(false)
+  }
 
   return (
-    <svg
-      viewBox={`0 0 ${ANCHO} ${ALTO}`}
-      role="img"
-      aria-label={etiquetaDelDibujo(puntos)}
-      className="w-full rounded border border-slate-200 dark:border-slate-800"
-    >
-      <text x={MARGEN} y={20} className="fill-slate-400 text-[10px]">
-        izquierda
-      </text>
-      <text x={ANCHO - MARGEN} y={20} textAnchor="end" className="fill-slate-400 text-[10px]">
-        derecha
-      </text>
-
-      <line
-        x1={x(0)}
-        x2={x(0)}
-        y1={30}
-        y2={SUELO + 30}
-        strokeDasharray="4 4"
-        className="stroke-slate-400 dark:stroke-slate-500"
-      />
-
-      {primero && ultimo && (
-        <line
-          x1={x(primero.distancia)}
-          x2={x(ultimo.distancia)}
-          y1={SUELO}
-          y2={SUELO}
-          strokeWidth={2}
-          className="stroke-marca"
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        {palabras.map((palabra) => (
+          <span
+            key={palabra}
+            className="flex items-center gap-1 rounded-full border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-700"
+          >
+            {palabra}
+            <button
+              type="button"
+              aria-label={`Quitar la palabra ${palabra} de ${nombre}`}
+              onClick={() => alQuitar(palabra)}
+              className="text-slate-400 hover:text-falla"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        {palabras.length === 0 && <span className="text-xs text-aviso">{avisoSinPalabras}</span>}
+        <input
+          type="text"
+          aria-label={`Palabra nueva para ${nombre}`}
+          placeholder="palabra nueva"
+          value={nueva}
+          onChange={(evento) => {
+            setNueva(evento.target.value)
+            setYaEstaba(false)
+          }}
+          onKeyDown={(evento) => {
+            if (evento.key === 'Enter') anadir()
+          }}
+          className="w-32 rounded border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900"
         />
-      )}
+        <button
+          type="button"
+          aria-label={`Añadir a ${nombre}`}
+          onClick={anadir}
+          disabled={nueva.trim() === ''}
+          className="rounded bg-marca px-2 py-1 text-xs font-medium text-white disabled:opacity-40"
+        >
+          Añadir
+        </button>
+      </div>
 
-      {puntos.map((punto, indice) => {
-        const arriba = indice % 2 === 0
-        const yPalabra = arriba ? SUELO - 24 : SUELO - 44
-        const yDistancia = arriba ? SUELO + 20 : SUELO + 36
-
-        return (
-          <g key={punto.id}>
-            <line
-              x1={x(punto.distancia)}
-              x2={x(punto.distancia)}
-              y1={yPalabra + 4}
-              y2={SUELO - 6}
-              className="stroke-slate-300 dark:stroke-slate-700"
-            />
-            <circle cx={x(punto.distancia)} cy={SUELO} r={4.5} className="fill-marca" />
-            <text
-              x={x(punto.distancia)}
-              y={yPalabra}
-              textAnchor="middle"
-              className="fill-slate-600 text-[10px] dark:fill-slate-300"
-            >
-              {palabraDePunto(punto)}
-            </text>
-            <text
-              x={x(punto.distancia)}
-              y={yDistancia}
-              textAnchor="middle"
-              className="fill-slate-400 text-[10px]"
-              style={{ fontVariantNumeric: 'tabular-nums' }}
-            >
-              {punto.distancia.toFixed(2)}
-            </text>
-          </g>
-        )
-      })}
-
-      <line
-        x1={MARGEN}
-        x2={MARGEN + paso * escala}
-        y1={ALTO - 14}
-        y2={ALTO - 14}
-        className="stroke-slate-400"
-      />
-      <line x1={MARGEN} x2={MARGEN} y1={ALTO - 18} y2={ALTO - 10} className="stroke-slate-400" />
-      <line
-        x1={MARGEN + paso * escala}
-        x2={MARGEN + paso * escala}
-        y1={ALTO - 18}
-        y2={ALTO - 10}
-        className="stroke-slate-400"
-      />
-      <text x={MARGEN + (paso * escala) / 2} y={ALTO - 20} textAnchor="middle" className="fill-slate-400 text-[10px]">
-        {paso} m
-      </text>
-    </svg>
+      {yaEstaba && <p className="text-xs text-aviso">Esa palabra ya está en {nombre}.</p>}
+    </div>
   )
 }
 
@@ -197,13 +164,7 @@ function FilaPunto({ calleId, punto }: { calleId: Id; punto: PuntoSeccion }) {
   const anadirPalabraAPunto = useAlmacen((s) => s.anadirPalabraAPunto)
   const quitarPalabraDePunto = useAlmacen((s) => s.quitarPalabraDePunto)
   const quitarPunto = useAlmacen((s) => s.quitarPunto)
-  const [palabraNueva, setPalabraNueva] = useState('')
-
-  function anadir() {
-    if (palabraNueva.trim() === '') return
-    anadirPalabraAPunto(calleId, punto.id, palabraNueva.trim())
-    setPalabraNueva('')
-  }
+  const esEje = punto.rol === 'eje'
 
   return (
     <li className="flex flex-col gap-2 rounded border border-slate-300 p-3 dark:border-slate-700">
@@ -212,7 +173,7 @@ function FilaPunto({ calleId, punto }: { calleId: Id; punto: PuntoSeccion }) {
         <span className="text-xs text-slate-500 dark:text-slate-400">
           {ETIQUETA_ROL[punto.rol]} · {sitioDelPunto(punto.distancia)}
         </span>
-        {punto.rol === 'eje' ? (
+        {esEje ? (
           <span className="ml-auto text-xs text-slate-500 dark:text-slate-400">
             El eje no se quita: es el que dice qué cae a cada lado.
           </span>
@@ -231,62 +192,48 @@ function FilaPunto({ calleId, punto }: { calleId: Id; punto: PuntoSeccion }) {
       <div className="flex flex-wrap items-end gap-3">
         <CampoNumero
           etiqueta="Distancia al eje"
-          ariaLabel={`Distancia de ${punto.nombre} al eje`}
+          ariaLabel={`Distancia al eje de ${punto.nombre}`}
           valor={punto.distancia}
           alCambiar={(valor) => cambiarDistancia(calleId, punto.id, valor)}
           decimales={2}
           sufijo="m"
           ancho="w-28"
+          // El eje es el origen: su distancia no se escribe, se confirma.
+          soloLectura={esEje}
+          // Medir es un acto: el cambio se cierra al salir del campo o con
+          // Enter, nunca por rozarlo. Marcar una distancia como medida no se
+          // deshace, y una tecla suelta no puede tener esa consecuencia.
+          confirmarAlSalir
         />
         <span className="pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-          Negativa a la izquierda, positiva a la derecha.
+          {esEje
+            ? 'El eje es el origen de las distancias: siempre 0.'
+            : 'Negativa a la izquierda, positiva a la derecha.'}
         </span>
         {punto.distanciaDeFabrica && (
-          <span className="pb-1.5 text-xs text-aviso">Puesta por la app, todavía sin medir.</span>
+          <>
+            <span className="pb-1.5 text-xs text-aviso">Puesta por la app, todavía sin medir.</span>
+            <button
+              type="button"
+              aria-label={`Confirmar la distancia de ${punto.nombre}`}
+              onClick={() => cambiarDistancia(calleId, punto.id, punto.distancia)}
+              className="rounded border border-slate-300 px-2 py-1 text-xs font-medium hover:border-marca dark:border-slate-700"
+            >
+              Confirmar
+            </button>
+          </>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">En la hoja:</span>
-        {punto.palabras.map((palabra) => (
-          <span
-            key={palabra}
-            className="flex items-center gap-1 rounded-full border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-700"
-          >
-            {palabra}
-            <button
-              type="button"
-              aria-label={`Quitar la palabra ${palabra} de ${punto.nombre}`}
-              onClick={() => quitarPalabraDePunto(calleId, punto.id, palabra)}
-              className="text-slate-400 hover:text-falla"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        {punto.palabras.length === 0 && (
-          <span className="text-xs text-aviso">Sin ninguna palabra no se le busca en la hoja.</span>
-        )}
-        <input
-          type="text"
-          aria-label={`Palabra nueva para ${punto.nombre}`}
-          placeholder="otra palabra"
-          value={palabraNueva}
-          onChange={(evento) => setPalabraNueva(evento.target.value)}
-          onKeyDown={(evento) => {
-            if (evento.key === 'Enter') anadir()
-          }}
-          className="w-32 rounded border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900"
+      <div className="flex flex-wrap items-start gap-2">
+        <span className="pt-1 text-xs font-medium text-slate-500 dark:text-slate-400">En la hoja:</span>
+        <FichasDePalabras
+          nombre={punto.nombre}
+          palabras={punto.palabras}
+          avisoSinPalabras="Sin ninguna palabra no se le busca en la hoja."
+          alAnadir={(palabra) => anadirPalabraAPunto(calleId, punto.id, palabra)}
+          alQuitar={(palabra) => quitarPalabraDePunto(calleId, punto.id, palabra)}
         />
-        <button
-          type="button"
-          aria-label={`Añadir a ${punto.nombre}`}
-          onClick={anadir}
-          disabled={palabraNueva.trim() === ''}
-          className="rounded bg-marca px-2 py-1 text-xs font-medium text-white disabled:opacity-40"
-        >
-          Añadir
-        </button>
       </div>
     </li>
   )
@@ -367,6 +314,51 @@ function FormularioPunto({ calleId, hayEje }: { calleId: Id; hayEje: boolean }) 
   )
 }
 
+/** Las tres palabras de la hoja que no se dibujan pero también hay que reconocer. */
+function PalabrasSueltas({ calleId }: { calleId: Id }) {
+  const seccion = useAlmacen((s) => s.proyecto.calles.find((c) => c.id === calleId)?.seccion)
+  const anadirPalabraSuelta = useAlmacen((s) => s.anadirPalabraSuelta)
+  const quitarPalabraSuelta = useAlmacen((s) => s.quitarPalabraSuelta)
+
+  if (!seccion) return null
+
+  const palabrasDe: Record<ListaDePalabras, string[]> = {
+    progresiva: seccion.palabrasProgresiva,
+    puntoControl: seccion.palabrasPuntoControl,
+    referencia: seccion.palabrasReferencia,
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h3 className="font-semibold">Palabras que no son puntos</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Estas tres no se dibujan en la sección, pero también están en la hoja y hay que reconocerlas.
+        </p>
+      </div>
+
+      {LISTAS_SUELTAS.map((grupo) => (
+        <div
+          key={grupo.lista}
+          className="flex flex-col gap-2 rounded border border-slate-300 p-3 dark:border-slate-700"
+        >
+          <div className="flex flex-wrap items-baseline gap-x-3">
+            <span className="font-semibold">{grupo.titulo}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">{grupo.ayuda}</span>
+          </div>
+          <FichasDePalabras
+            nombre={grupo.nombre}
+            palabras={palabrasDe[grupo.lista]}
+            avisoSinPalabras={grupo.avisoSinPalabras}
+            alAnadir={(palabra) => anadirPalabraSuelta(calleId, grupo.lista, palabra)}
+            alQuitar={(palabra) => quitarPalabraSuelta(calleId, grupo.lista, palabra)}
+          />
+        </div>
+      ))}
+    </section>
+  )
+}
+
 /**
  * La sección declarada de una calle: lo que Max mide a lo ancho, dibujado, y
  * con qué palabra escribe cada punto en su hoja. Se declara una vez y la
@@ -419,6 +411,8 @@ export default function VistaSeccion({ calleId }: Props) {
       </section>
 
       <FormularioPunto calleId={calleId} hayEje={calle.seccion.puntos.some((punto) => punto.rol === 'eje')} />
+
+      <PalabrasSueltas calleId={calleId} />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import {
   CAMARA_ISOMETRICA,
   calcularCampania,
   capaEnUso,
+  esPalabraDe,
   ETIQUETA_ROL,
   ladoDe,
   mismaPalabra,
@@ -36,6 +37,14 @@ import {
 } from './proyectoTomas'
 
 export type Vista = 'proyecto' | 'calle' | 'campanias' | 'libreta' | 'resultados'
+
+/**
+ * Las tres palabras de la hoja que no son puntos de la sección: la que
+ * encabeza las progresivas, la que marca la lectura al punto de control y la
+ * que abre una fila de referencia. No se dibujan, pero sin ellas la
+ * importación no sabe dónde está mirando.
+ */
+export type ListaDePalabras = 'progresiva' | 'puntoControl' | 'referencia'
 
 /** Qué manda el color en el visor 3D: el estado de la celda o la capa activa. */
 export type ModoVista3D = 'estado' | 'capas'
@@ -91,6 +100,8 @@ interface EstadoApp {
   quitarPalabraDePunto(calleId: Id, puntoId: Id, palabra: string): void
   anadirPunto(calleId: Id, rol: Rol, distancia: number): void
   quitarPunto(calleId: Id, puntoId: Id): void
+  anadirPalabraSuelta(calleId: Id, lista: ListaDePalabras, palabra: string): void
+  quitarPalabraSuelta(calleId: Id, lista: ListaDePalabras, palabra: string): void
 
   agregarCampania(datos: Omit<Toma, 'id' | 'estaciones'> & { calleId: Id }): Id
   actualizarCampania(id: Id, cambios: Partial<Omit<Toma, 'id'>> & { calleId?: Id }): void
@@ -141,6 +152,27 @@ function conSeccion(proyecto: Proyecto, calleId: Id, cambiar: (seccion: Seccion)
       calle.id === calleId ? { ...calle, seccion: cambiar(calle.seccion) } : calle,
     ),
   })
+}
+
+/**
+ * Cambia una de las tres listas de palabras que no son puntos y deja las
+ * otras dos como estaban. Escrito con un `switch` y no con una llave
+ * calculada para que sea el compilador, y no un `as`, quien garantice que la
+ * sección que sale sigue siendo una sección.
+ */
+function conListaDePalabras(
+  seccion: Seccion,
+  lista: ListaDePalabras,
+  cambiar: (palabras: string[]) => string[],
+): Seccion {
+  switch (lista) {
+    case 'progresiva':
+      return { ...seccion, palabrasProgresiva: cambiar(seccion.palabrasProgresiva) }
+    case 'puntoControl':
+      return { ...seccion, palabrasPuntoControl: cambiar(seccion.palabrasPuntoControl) }
+    case 'referencia':
+      return { ...seccion, palabrasReferencia: cambiar(seccion.palabrasReferencia) }
+  }
 }
 
 /** Los roles de nombre femenino: «Vereda izquierda», pero «Sardinel izquierdo». */
@@ -376,12 +408,23 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     set((s) => ({
       proyecto: conSeccion(s.proyecto, calleId, (seccion) => ({
         ...seccion,
-        puntos: seccion.puntos.map((punto) =>
+        puntos: seccion.puntos.map((punto) => {
+          if (punto.id !== puntoId) return punto
+
           // Escribir la distancia es medirla, aunque salga la misma cifra que
           // traía: la app deja de responder por ella y ya no la cuenta como
-          // suya en el aviso de las pendientes orientativas.
-          punto.id === puntoId ? { ...punto, distancia, distanciaDeFabrica: false } : punto,
-        ),
+          // suya en el aviso de las pendientes orientativas. Quien llama se
+          // encarga de que esto sea un acto y no un roce (`confirmarAlSalir`
+          // en el campo, o el botón de confirmar).
+          //
+          // El eje es la excepción: es el origen de las distancias y se queda
+          // en 0 pase lo que pase. Con el eje corrido, `ladoDe` lo daría por
+          // un punto de la derecha y el reparto de lados de la hoja —que
+          // cuelga entero de encontrar el eje— se vendría abajo por una
+          // errata. Confirmarlo sí cuenta, y por eso pasa por aquí.
+          const medida = punto.rol === 'eje' ? 0 : distancia
+          return { ...punto, distancia: medida, distanciaDeFabrica: false }
+        }),
       })),
     })),
 
@@ -406,23 +449,31 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     })),
 
   anadirPunto: (calleId, rol, distancia) =>
-    set((s) => ({
-      proyecto: conSeccion(s.proyecto, calleId, (seccion) => ({
-        ...seccion,
-        puntos: [
-          ...seccion.puntos,
-          {
-            id: nuevoId('p'),
-            rol,
-            nombre: nombreLibre(seccion, nombreDePunto(rol, distancia)),
-            distancia,
-            // La escribió Max al añadirlo, así que nace medida.
-            distanciaDeFabrica: false,
-            palabras: [],
-          },
-        ],
-      })),
-    })),
+    set((s) => {
+      const calle = s.proyecto.calles.find((c) => c.id === calleId)
+      // Hay un eje, y solo uno: es el que reparte los lados. La pantalla ya
+      // no lo ofrece mientras exista, pero un invariante que solo vive en una
+      // pantalla no es un invariante.
+      if (rol === 'eje' && calle?.seccion.puntos.some((punto) => punto.rol === 'eje')) return {}
+
+      return {
+        proyecto: conSeccion(s.proyecto, calleId, (seccion) => ({
+          ...seccion,
+          puntos: [
+            ...seccion.puntos,
+            {
+              id: nuevoId('p'),
+              rol,
+              nombre: nombreLibre(seccion, nombreDePunto(rol, distancia)),
+              distancia,
+              // La escribió Max al añadirlo, así que nace medida.
+              distanciaDeFabrica: false,
+              palabras: [],
+            },
+          ],
+        })),
+      }
+    }),
 
   quitarPunto: (calleId, puntoId) =>
     set((s) => {
@@ -440,6 +491,26 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         })),
       }
     }),
+
+  anadirPalabraSuelta: (calleId, lista, palabra) =>
+    set((s) => ({
+      proyecto: conSeccion(s.proyecto, calleId, (seccion) =>
+        conListaDePalabras(seccion, lista, (palabras) =>
+          // Ya normalizado, igual que en los puntos: `PROG` y `prog` son la
+          // misma palabra y no entran dos veces.
+          esPalabraDe(palabras, palabra) ? palabras : [...palabras, palabra],
+        ),
+      ),
+    })),
+
+  quitarPalabraSuelta: (calleId, lista, palabra) =>
+    set((s) => ({
+      proyecto: conSeccion(s.proyecto, calleId, (seccion) =>
+        conListaDePalabras(seccion, lista, (palabras) =>
+          palabras.filter((suya) => !mismaPalabra(suya, palabra)),
+        ),
+      ),
+    })),
 
   agregarCampania: (datos) => {
     const { calleId, ...restoDatos } = datos

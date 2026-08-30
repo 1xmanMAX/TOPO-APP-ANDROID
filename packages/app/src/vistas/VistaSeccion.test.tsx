@@ -44,24 +44,26 @@ function puntoDe(calleId: Id, puntoId: Id) {
   return seccionDe(calleId).puntos.find((p) => p.id === puntoId)!
 }
 
+/** Escribir la distancia y salir del campo, que es cuando se cierra el cambio. */
 async function cambiarDistanciaDe(nombre: string, valor: string) {
-  const campo = screen.getByLabelText(new RegExp(`distancia de ${nombre}`, 'i'))
+  const campo = screen.getByLabelText(new RegExp(`distancia al eje de ${nombre}`, 'i'))
   await userEvent.clear(campo)
   await userEvent.type(campo, valor)
   await userEvent.tab()
 }
 
-/**
- * Los siete puntos con su distancia medida. El orden de los cambios y los
- * valores están elegidos para que ningún punto adelante a otro mientras se
- * escribe: la lista va de izquierda a derecha y se recoloca en vivo, así que
- * cruzar a un vecino movería de sitio el campo que se está escribiendo.
- */
+/** Dar por buena la distancia que la app había supuesto, sin escribirla otra vez. */
+async function confirmarDistanciaDe(nombre: string) {
+  await userEvent.click(
+    screen.getByRole('button', { name: new RegExp(`confirmar la distancia de ${nombre}`, 'i') }),
+  )
+}
+
+/** Los seis puntos que se escriben a mano; el eje se confirma, porque siempre es 0. */
 const MEDIDAS: [string, string][] = [
   ['Vereda izquierda', '-6.5'],
   ['Sardinel izquierdo', '-4.6'],
   ['Borde izquierdo', '-4.4'],
-  ['Eje', '0'],
   ['Vereda derecha', '6.5'],
   ['Sardinel derecho', '4.6'],
   ['Borde derecho', '4.4'],
@@ -69,6 +71,7 @@ const MEDIDAS: [string, string][] = [
 
 async function cambiarTodasLasDistancias() {
   for (const [nombre, valor] of MEDIDAS) await cambiarDistanciaDe(nombre, valor)
+  await confirmarDistanciaDe('Eje')
 }
 
 async function anadirPalabraA(nombre: string, palabra: string) {
@@ -99,8 +102,8 @@ describe('VistaSeccion', () => {
   it('al cambiar una distancia, ese punto deja de ser de fábrica', async () => {
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.clear(screen.getByLabelText(/distancia de Vereda izquierda/i))
-    await userEvent.type(screen.getByLabelText(/distancia de Vereda izquierda/i), '-6.5')
+    await userEvent.clear(screen.getByLabelText(/distancia al eje de Vereda izquierda/i))
+    await userEvent.type(screen.getByLabelText(/distancia al eje de Vereda izquierda/i), '-6.5')
     await userEvent.tab()
 
     expect(puntoDe('c1', 'p-vereda-i').distancia).toBe(-6.5)
@@ -122,6 +125,56 @@ describe('VistaSeccion', () => {
     await cambiarTodasLasDistancias()
 
     expect(screen.queryByText(/las distancias son las de fábrica/i)).not.toBeInTheDocument()
+  })
+
+  it('rozar el campo de una distancia no la da por medida', async () => {
+    // Entrar y salir sin escribir no es medir. Si bastara, el aviso entero se
+    // apagaría con solo pasar por los campos con el tabulador.
+    render(<VistaSeccion calleId="c1" />)
+
+    await userEvent.click(screen.getByLabelText(/distancia al eje de Vereda izquierda/i))
+    await userEvent.tab()
+
+    expect(puntoDe('c1', 'p-vereda-i').distanciaDeFabrica).toBe(true)
+    expect(screen.getByText(/las distancias son las de fábrica/i)).toBeInTheDocument()
+  })
+
+  it('escribir algo y borrarlo antes de salir deja la distancia como estaba', async () => {
+    render(<VistaSeccion calleId="c1" />)
+
+    const campo = screen.getByLabelText(/distancia al eje de Vereda izquierda/i)
+    await userEvent.type(campo, '3')
+    await userEvent.clear(campo)
+    await userEvent.tab()
+
+    expect(puntoDe('c1', 'p-vereda-i').distancia).toBe(-5.15)
+    expect(puntoDe('c1', 'p-vereda-i').distanciaDeFabrica).toBe(true)
+  })
+
+  it('confirmar una distancia la da por medida sin cambiar la cifra', async () => {
+    // Comprobar que el sardinel está donde la app suponía es medirlo: a partir
+    // de ahí responde Max. Y no hay que escribir otra vez el mismo número.
+    render(<VistaSeccion calleId="c1" />)
+
+    await confirmarDistanciaDe('Vereda izquierda')
+
+    expect(puntoDe('c1', 'p-vereda-i').distancia).toBe(-5.15)
+    expect(puntoDe('c1', 'p-vereda-i').distanciaDeFabrica).toBe(false)
+    expect(
+      screen.queryByRole('button', { name: /confirmar la distancia de Vereda izquierda/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('el eje no se escribe a mano: es el origen y siempre vale 0', async () => {
+    render(<VistaSeccion calleId="c1" />)
+
+    expect(screen.getByLabelText(/distancia al eje de Eje/i)).toHaveAttribute('readOnly')
+    expect(screen.getByText(/el eje es el origen/i)).toBeInTheDocument()
+
+    await confirmarDistanciaDe('Eje')
+
+    expect(puntoDe('c1', 'p-eje').distancia).toBe(0)
+    expect(puntoDe('c1', 'p-eje').distanciaDeFabrica).toBe(false)
   })
 
   it('se le añade a un punto la palabra con la que Max lo escribe', async () => {
@@ -175,7 +228,9 @@ describe('VistaSeccion', () => {
 
     expect(screen.getAllByRole('listitem')).toHaveLength(7)
     for (const punto of seccionDe('c1').puntos) {
-      expect(screen.getByLabelText(new RegExp(`distancia de ${punto.nombre}`, 'i'))).toBeInTheDocument()
+      expect(
+        screen.getByLabelText(new RegExp(`distancia al eje de ${punto.nombre}`, 'i')),
+      ).toBeInTheDocument()
       expect(screen.getByLabelText(new RegExp(`palabra nueva para ${punto.nombre}`, 'i'))).toBeInTheDocument()
       for (const palabra of punto.palabras) {
         expect(
@@ -191,7 +246,7 @@ describe('VistaSeccion', () => {
     render(<VistaSeccion calleId="c1" />)
     expect(screen.getByText(/quedan 7 puntos/i)).toBeInTheDocument()
 
-    await cambiarDistanciaDe('Eje', '0')
+    await confirmarDistanciaDe('Eje')
 
     expect(screen.getByText(/quedan 6 puntos/i)).toBeInTheDocument()
   })
@@ -212,12 +267,16 @@ describe('VistaSeccion', () => {
     expect(screen.getByText(/el eje no se quita/i)).toBeInTheDocument()
   })
 
-  it('una palabra que el punto ya tenía no se duplica', async () => {
+  it('una palabra que el punto ya tenía se dice, y lo escrito no se pierde', async () => {
+    // Nada se descarta en silencio: si Max ve desaparecer lo que escribió sin
+    // una palabra de explicación, no sabe si entró.
     render(<VistaSeccion calleId="c1" />)
 
     await anadirPalabraA('Eje', 'eje')
 
     expect(puntoDe('c1', 'p-eje').palabras).toEqual(['EJE', 'CL', 'CENTRO'])
+    expect(screen.getByText(/esa palabra ya está en Eje/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/palabra nueva para Eje/i)).toHaveValue('eje')
   })
 
   it('un punto nuevo sin distancia no entra, y se dice por qué', async () => {
@@ -242,6 +301,34 @@ describe('VistaSeccion', () => {
     expect(seccionDe('c1').puntos.find((p) => p.rol === 'cuneta')!.nombre).toBe('Cuneta izquierda')
     const filas = screen.getAllByRole('listitem').map((n) => n.textContent)
     expect(filas.some((texto) => texto?.includes('Cuneta izquierda'))).toBe(true)
+  })
+
+  it('no se ofrece añadir un segundo eje', () => {
+    render(<VistaSeccion calleId="c1" />)
+
+    const opciones = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(opciones).not.toContain('Eje')
+    expect(opciones).toContain('Cuneta')
+  })
+
+  it('las tres palabras que no son puntos también se declaran aquí', async () => {
+    // La progresiva, el punto de control y la fila de referencia están en la
+    // hoja y no se dibujan: sin ellas la importación no sabe dónde mira.
+    render(<VistaSeccion calleId="c1" />)
+
+    await userEvent.type(screen.getByLabelText(/palabra nueva para la progresiva/i), 'km')
+    await userEvent.click(screen.getByRole('button', { name: /añadir a la progresiva/i }))
+
+    await userEvent.type(screen.getByLabelText(/palabra nueva para los puntos de control/i), 'estacion')
+    await userEvent.click(screen.getByRole('button', { name: /añadir a los puntos de control/i }))
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /quitar la palabra REF de las filas de referencia/i }),
+    )
+
+    expect(seccionDe('c1').palabrasProgresiva).toContain('km')
+    expect(seccionDe('c1').palabrasPuntoControl).toContain('estacion')
+    expect(seccionDe('c1').palabrasReferencia).not.toContain('REF')
   })
 
   it('una calle que ya no existe se dice con palabras', () => {

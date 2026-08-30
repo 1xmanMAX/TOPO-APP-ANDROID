@@ -508,5 +508,37 @@ describe('almacén', () => {
 
       expect(tomaDe('camp-1').estaciones[0]!.intermedias).toHaveLength(antes)
     })
+
+    it('el eje se queda en el origen aunque le manden otra distancia', () => {
+      // Una errata basta: con el eje fuera del 0, `ladoDe` lo daría por un
+      // punto de la derecha y el reparto de lados de la hoja se vendría abajo.
+      useAlmacen.getState().cambiarDistancia('c-1', 'p-eje', 2)
+
+      expect(puntoDe('c-1', 'p-eje').distancia).toBe(0)
+      // Pero confirmarla sí cuenta: la distancia del eje deja de ser suposición.
+      expect(puntoDe('c-1', 'p-eje').distanciaDeFabrica).toBe(false)
+    })
+
+    it('no entra un segundo eje', () => {
+      useAlmacen.getState().anadirPunto('c-1', 'eje', 3)
+
+      expect(seccionDe('c-1').puntos.filter((p) => p.rol === 'eje')).toHaveLength(1)
+    })
+
+    it('las palabras que no son puntos se añaden y se quitan', () => {
+      useAlmacen.getState().anadirPalabraSuelta('c-1', 'progresiva', 'km')
+      useAlmacen.getState().quitarPalabraSuelta('c-1', 'puntoControl', ' pc ')
+
+      expect(seccionDe('c-1').palabrasProgresiva).toContain('km')
+      expect(seccionDe('c-1').palabrasPuntoControl).not.toContain('PC')
+    })
+
+    it('una palabra suelta que ya estaba no entra dos veces', () => {
+      const antes = seccionDe('c-1').palabrasReferencia.length
+
+      useAlmacen.getState().anadirPalabraSuelta('c-1', 'referencia', 'existente')
+
+      expect(seccionDe('c-1').palabrasReferencia).toHaveLength(antes)
+    })
   })
 })
