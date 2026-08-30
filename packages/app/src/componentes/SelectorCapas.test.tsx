@@ -42,7 +42,7 @@ function proyectoConDosCalles(): Proyecto {
   proyecto.calles.push({
     id: 'c-2',
     nombre: 'Jr. Otra',
-    puntos: [],
+    seccion: { puntos: [], palabrasProgresiva: [], palabrasPuntoControl: [], palabrasReferencia: [] },
     rasante: null,
     nivelaciones: [
       {

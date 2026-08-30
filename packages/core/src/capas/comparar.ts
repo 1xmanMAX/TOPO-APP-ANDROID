@@ -4,7 +4,10 @@ import type { Aviso, CotaCelda, ResultadoCampania } from '../nivelacion/calcular
 export interface CeldaComparada {
   clave: string
   progresiva: number
+  /** El id del punto de la sección. Llave interna: no se enseña. */
   elementoClave: string
+  /** Cómo se llama el punto en pantalla, tal como venía en la cota comparada. */
+  elementoNombre: string
   offset: number
   /** Cota de la capa de abajo, o null si esa celda no se midió en ella. */
   cotaInferior: number | null
@@ -26,9 +29,10 @@ export interface ResultadoComparacion {
   avisos: Aviso[]
 }
 
+/** El aviso nombra el punto como se lee («Borde izquierdo»), nunca por su id. */
 function mensajeEspesorNegativo(celda: CeldaComparada, espesor: number): string {
   return (
-    `${formatearProgresiva(celda.progresiva)} ${celda.elementoClave}: la capa de arriba quedó ` +
+    `${formatearProgresiva(celda.progresiva)} ${celda.elementoNombre}: la capa de arriba quedó ` +
     `${Math.abs(espesor * 1000).toFixed(0)} mm por debajo de la de abajo. ` +
     'Revisa cuál es cuál, o si hubo una excavación.'
   )
@@ -64,6 +68,7 @@ export function compararCapas(
       clave,
       progresiva: base.progresiva,
       elementoClave: base.elementoClave,
+      elementoNombre: base.elementoNombre ?? base.elementoClave,
       offset: base.offset,
       cotaInferior,
       cotaSuperior,

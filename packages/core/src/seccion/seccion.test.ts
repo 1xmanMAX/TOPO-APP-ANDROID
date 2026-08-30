@@ -86,4 +86,10 @@ describe('anadirPalabra', () => {
       s.puntos.find((p) => p.id === eje.id)!.palabras,
     )
   })
+
+  it('con un punto que no existe no cambia nada, y no revienta', () => {
+    const antes = seccionDeFabrica()
+
+    expect(anadirPalabra(antes, 'p-que-no-existe', 'zkj').puntos).toEqual(antes.puntos)
+  })
 })

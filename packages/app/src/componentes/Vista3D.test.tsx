@@ -29,7 +29,7 @@ function conRasanteYMedidas(): void {
   useAlmacen.getState().cargarProyecto(proyectoEjemplo())
   useAlmacen.getState().fijarRasante('c-1', rasanteEjemplo())
   useAlmacen.getState().agregarIntermedia('camp-1', 1, {
-    destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } },
+    destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-i' } },
     valor: 2.52,
   })
 }
@@ -45,14 +45,14 @@ function conUnaSolaProgresivaMedida(): void {
   toma.estaciones[0]!.intermedias = [
     {
       id: 'l-14b',
-      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } },
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-i' } },
       valor: 1.931,
     },
   ]
   toma.estaciones[1]!.intermedias = [
     {
       id: 'l-29b',
-      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } },
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-d' } },
       valor: 1.943,
     },
   ]
@@ -90,10 +90,10 @@ function campaniaDos(): Toma {
         id: 'f-1',
         vistaAtras: { id: 'm-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.4 },
         intermedias: [
-          { id: 'm-2', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } }, valor: 2.0 },
-          { id: 'm-3', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } }, valor: 2.05 },
-          { id: 'm-4', destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'EJE' } }, valor: 2.1 },
-          { id: 'm-5', destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'BOR-I' } }, valor: 2.15 },
+          { id: 'm-2', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-eje' } }, valor: 2.0 },
+          { id: 'm-3', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-i' } }, valor: 2.05 },
+          { id: 'm-4', destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-eje' } }, valor: 2.1 },
+          { id: 'm-5', destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-borde-i' } }, valor: 2.15 },
         ],
         vistaAdelante: { id: 'm-6', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.4 },
       },
@@ -147,16 +147,16 @@ function campaniaSoloAlPrincipio(): Toma {
         id: 'f-2',
         vistaAtras: { id: 'm-10', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.4 },
         intermedias: [
-          { id: 'm-11', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } }, valor: 1.7 },
-          { id: 'm-12', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } }, valor: 1.85 },
-          { id: 'm-13', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.78 },
-          { id: 'm-14', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } }, valor: 1.86 },
-          { id: 'm-15', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } }, valor: 1.72 },
-          { id: 'm-16', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'SAR-I' } }, valor: 1.76 },
-          { id: 'm-17', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } }, valor: 1.94 },
-          { id: 'm-18', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } }, valor: 1.85 },
-          { id: 'm-19', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-D' } }, valor: 1.93 },
-          { id: 'm-20', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'SAR-D' } }, valor: 1.79 },
+          { id: 'm-11', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-i' } }, valor: 1.7 },
+          { id: 'm-12', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-i' } }, valor: 1.85 },
+          { id: 'm-13', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } }, valor: 1.78 },
+          { id: 'm-14', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-d' } }, valor: 1.86 },
+          { id: 'm-15', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-d' } }, valor: 1.72 },
+          { id: 'm-16', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-sardinel-i' } }, valor: 1.76 },
+          { id: 'm-17', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-i' } }, valor: 1.94 },
+          { id: 'm-18', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-eje' } }, valor: 1.85 },
+          { id: 'm-19', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-d' } }, valor: 1.93 },
+          { id: 'm-20', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-sardinel-d' } }, valor: 1.79 },
         ],
         vistaAdelante: { id: 'm-21', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.4 },
       },
@@ -198,10 +198,10 @@ function conMedidasSoloDesde60(): void {
         id: 'e-1',
         vistaAtras: { id: 'v-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
         intermedias: [
-          { id: 'i-1', destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'BOR-I' } }, valor: 1.5 },
-          { id: 'i-2', destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'EJE' } }, valor: 1.5 },
-          { id: 'i-3', destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'BOR-I' } }, valor: 1.5 },
-          { id: 'i-4', destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'EJE' } }, valor: 1.5 },
+          { id: 'i-1', destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-borde-i' } }, valor: 1.5 },
+          { id: 'i-2', destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-eje' } }, valor: 1.5 },
+          { id: 'i-3', destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-borde-i' } }, valor: 1.5 },
+          { id: 'i-4', destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-eje' } }, valor: 1.5 },
         ],
         vistaAdelante: { id: 'v-2', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
       },
@@ -215,10 +215,15 @@ function conMedidasSoloDesde60(): void {
       {
         id: 'c-1',
         nombre: 'Calle mínima',
-        puntos: [
-          { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -2 },
-          { concepto: 'eje', codigo: 'EJE', distancia: 0 },
-        ],
+        seccion: {
+          puntos: [
+            { id: 'p-borde-i', rol: 'bordeCalzada', nombre: 'Borde izquierdo', distancia: -2, distanciaDeFabrica: false, palabras: ['BOR-I'] },
+            { id: 'p-eje', rol: 'eje', nombre: 'Eje', distancia: 0, distanciaDeFabrica: false, palabras: ['EJE'] },
+          ],
+          palabrasProgresiva: [],
+          palabrasPuntoControl: [],
+          palabrasReferencia: [],
+        },
         nivelaciones: [{ id: 'niv-1', nombre: 'Nivelación', color: '#2563eb', tomas: [toma] }],
         rasante: rasanteEjemplo(),
       },
@@ -254,10 +259,10 @@ function conTodoConforme(): void {
         id: 'e-1',
         vistaAtras: { id: 'v-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
         intermedias: [
-          { id: 'i-1', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } }, valor: 1.5 },
-          { id: 'i-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.5 },
-          { id: 'i-3', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } }, valor: 1.5 },
-          { id: 'i-4', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } }, valor: 1.5 },
+          { id: 'i-1', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-i' } }, valor: 1.5 },
+          { id: 'i-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } }, valor: 1.5 },
+          { id: 'i-3', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-i' } }, valor: 1.5 },
+          { id: 'i-4', destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-eje' } }, valor: 1.5 },
         ],
         vistaAdelante: { id: 'v-2', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
       },
@@ -271,10 +276,15 @@ function conTodoConforme(): void {
       {
         id: 'c-1',
         nombre: 'Calle mínima',
-        puntos: [
-          { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -2 },
-          { concepto: 'eje', codigo: 'EJE', distancia: 0 },
-        ],
+        seccion: {
+          puntos: [
+            { id: 'p-borde-i', rol: 'bordeCalzada', nombre: 'Borde izquierdo', distancia: -2, distanciaDeFabrica: false, palabras: ['BOR-I'] },
+            { id: 'p-eje', rol: 'eje', nombre: 'Eje', distancia: 0, distanciaDeFabrica: false, palabras: ['EJE'] },
+          ],
+          palabrasProgresiva: [],
+          palabrasPuntoControl: [],
+          palabrasReferencia: [],
+        },
         nivelaciones: [{ id: 'niv-1', nombre: 'Nivelación', color: '#2563eb', tomas: [toma] }],
         rasante: {
           progresivaArranque: 0,

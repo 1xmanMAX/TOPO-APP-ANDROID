@@ -12,6 +12,10 @@ describe('normalizarPalabra', () => {
     expect(normalizarPalabra('eje')).toBe('eje')
   })
 
+  it('deja el vacío como vacío, sin inventar nada', () => {
+    expect(normalizarPalabra('   ')).toBe('')
+  })
+
   it('mismaPalabra compara ya normalizado por los dos lados', () => {
     expect(mismaPalabra('vereda ', 'VEREDA')).toBe(true)
     expect(mismaPalabra('vereda', 'veredas')).toBe(false)

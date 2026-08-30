@@ -1,11 +1,16 @@
 import { formatearProgresiva, type CeldaEvaluada, type Id } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
-import { useEvaluacionRasante, useResultado } from '../estado/derivados'
+import { useContexto, useEvaluacionRasante, useResultado } from '../estado/derivados'
 import { formatearCota } from '../formato'
 import MarcoGrafico from '../grafico/MarcoGrafico'
 
 interface Props {
+  /**
+   * Con qué clave se busca este elemento en la grilla: el id del punto de la
+   * sección. Es una llave, no un texto para leer — el nombre que se enseña
+   * sale de la sección de la calle, más abajo.
+   */
   elementoClave: string
   /**
    * Contra qué campaña se dibuja la rasante: la decide quien llama, nunca
@@ -23,8 +28,21 @@ interface Props {
 
 export default function PerfilLongitudinal({ elementoClave, idCampaniaReferencia }: Props) {
   const resultado = useResultado()
+  const contexto = useContexto()
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
+
+  /**
+   * Cómo se llama este elemento en pantalla: la palabra corta con la que Max
+   * lo escribe en su hoja («EJE»), no la clave con la que se identifica
+   * internamente. Sale de la sección de la calle de la campaña activa — la
+   * misma de la que sale el terreno que se dibuja (`useResultado`), así que
+   * es la sección que declaró esta clave. Si el punto se quedó sin palabras,
+   * cae al nombre; si la clave ya no corresponde a ningún punto (una lectura
+   * huérfana), se enseña tal cual: es lo único que quedó guardado de ella.
+   */
+  const punto = contexto?.calle.seccion.puntos.find((p) => p.id === elementoClave)
+  const nombreElemento = punto ? (punto.palabras[0] ?? punto.nombre) : elementoClave
 
   const puntos = useMemo(() => {
     if (!resultado) return []
@@ -65,7 +83,7 @@ export default function PerfilLongitudinal({ elementoClave, idCampaniaReferencia
   if (puntos.length === 0 && tramosRasante.length === 0) {
     return (
       <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-        {elementoClave} no tiene lecturas todavía.
+        {nombreElemento} no tiene lecturas todavía.
       </p>
     )
   }
@@ -81,7 +99,7 @@ export default function PerfilLongitudinal({ elementoClave, idCampaniaReferencia
       alto={240}
       rotuloX="progresiva"
       formatearX={(valor) => formatearProgresiva(valor)}
-      etiqueta={`Perfil longitudinal de ${elementoClave}`}
+      etiqueta={`Perfil longitudinal de ${nombreElemento}`}
     >
       {({ x, y }) => {
         const trazo = puntos
@@ -121,7 +139,7 @@ export default function PerfilLongitudinal({ elementoClave, idCampaniaReferencia
                   role="button"
                   tabIndex={0}
                   data-activo={activo}
-                  aria-label={`${formatearProgresiva(punto.progresiva)} ${punto.elementoClave} · cota ${formatearCota(punto.cota)}`}
+                  aria-label={`${formatearProgresiva(punto.progresiva)} ${nombreElemento} · cota ${formatearCota(punto.cota)}`}
                   onClick={() => seleccionar(punto.clave)}
                   onKeyDown={(evento) => {
                     if (evento.key === 'Enter' || evento.key === ' ') seleccionar(punto.clave)

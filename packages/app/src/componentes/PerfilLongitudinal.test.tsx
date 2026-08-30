@@ -11,7 +11,7 @@ describe('PerfilLongitudinal', () => {
   })
 
   it('dibuja un punto por progresiva medida del elemento', () => {
-    render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
+    render(<PerfilLongitudinal elementoClave="p-eje" idCampaniaReferencia="camp-1" />)
     // Entrega 3: el ejemplo mide EJE en las cinco progresivas de 0+000 a
     // 0+080, para que el visor 3D tenga con qué dibujar un modelo.
     expect(screen.getAllByRole('button', { name: /cota/ })).toHaveLength(5)
@@ -21,7 +21,7 @@ describe('PerfilLongitudinal', () => {
     // Sin rasante: con la del ejemplo, VER-D queda dentro de la sección
     // definida y el perfil dibujaría su recta aunque nadie lo haya medido.
     useAlmacen.getState().fijarRasante('c-1', null)
-    render(<PerfilLongitudinal elementoClave="VER-D" idCampaniaReferencia="camp-1" />)
+    render(<PerfilLongitudinal elementoClave="p-vereda-d" idCampaniaReferencia="camp-1" />)
     expect(screen.getByText(/no tiene lecturas/i)).toBeInTheDocument()
   })
 })
@@ -59,14 +59,14 @@ describe('PerfilLongitudinal con rasante', () => {
 
   it('dibuja la recta de la rasante junto al terreno medido', () => {
     fijarRasanteDeEjemplo()
-    render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
+    render(<PerfilLongitudinal elementoClave="p-eje" idCampaniaReferencia="camp-1" />)
 
     expect(screen.getByLabelText(/rasante de proyecto/i)).toBeInTheDocument()
   })
 
   it('la rasante del perfil usa el elemento que se está mirando, no siempre el eje', () => {
     fijarRasanteDeEjemplo()
-    render(<PerfilLongitudinal elementoClave="BOR-D" idCampaniaReferencia="camp-1" />)
+    render(<PerfilLongitudinal elementoClave="p-borde-d" idCampaniaReferencia="camp-1" />)
 
     // En BOR-D la rasante va 84 mm por debajo de la del eje en toda la calle,
     // y la cota teórica de SUBRASANTE resta además los 0.25 m de BASE +
@@ -77,7 +77,7 @@ describe('PerfilLongitudinal con rasante', () => {
 
   it('sin rasante definida el perfil se dibuja como hasta ahora', () => {
     useAlmacen.getState().fijarRasante('c-1', null)
-    render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia="camp-1" />)
+    render(<PerfilLongitudinal elementoClave="p-eje" idCampaniaReferencia="camp-1" />)
 
     expect(screen.queryByLabelText(/rasante de proyecto/i)).toBeNull()
   })
@@ -88,7 +88,7 @@ describe('PerfilLongitudinal con rasante', () => {
     // se le pasa como referencia: el perfil no puede caer solo en ella, o el
     // día que otra vista lo monte con una referencia distinta de la activa
     // dibujaría la rasante equivocada sin que ninguna prueba lo note.
-    render(<PerfilLongitudinal elementoClave="EJE" idCampaniaReferencia={null} />)
+    render(<PerfilLongitudinal elementoClave="p-eje" idCampaniaReferencia={null} />)
 
     expect(screen.queryByLabelText(/rasante de proyecto/i)).toBeNull()
   })

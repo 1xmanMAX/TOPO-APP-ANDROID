@@ -13,7 +13,7 @@ describe('useResultadoDe', () => {
   it('calcula la campaña que se le pida, sea la activa o no', () => {
     const { result } = renderHook(() => useResultadoDe('camp-1'))
 
-    expect(result.current?.cotasPorCelda.get('0|EJE')?.cota).toBeCloseTo(3244.5965, 6)
+    expect(result.current?.cotasPorCelda.get('0|p-eje')?.cota).toBeCloseTo(3244.5965, 6)
   })
 
   it('devuelve null si esa campaña no existe', () => {
@@ -115,7 +115,7 @@ describe('useEvaluacionRasante', () => {
     // redondeado a milímetros enteros da -334 (no -333: la resta exacta usa
     // la cota real sin redondear a milímetros, 3244.5965, no la cifra ya
     // redondeada a tres decimales que se muestra en pantalla).
-    const celda = result.current!.celdas.get('0|EJE')!
+    const celda = result.current!.celdas.get('0|p-eje')!
     expect(celda.cotaTeorica).toBe(3244.93)
     expect(celda.diferenciaMm).toBe(-334)
     expect(celda.estado).toBe('fuera')

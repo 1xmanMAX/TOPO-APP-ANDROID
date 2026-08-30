@@ -69,6 +69,10 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
   )
   const progresivas = esqueleto?.progresivas ?? []
   const elementos = esqueleto?.elementos ?? []
+  // Para rotular cada celda con la palabra corta del punto («BI»), nunca con
+  // el id interno de la sección (`p-borde-i`) que compone la mitad derecha
+  // de `clave`: ese id no se le enseña a nadie.
+  const palabrasPorClave = useMemo(() => new Map(elementos.map((e) => [e.clave, e.palabra])), [elementos])
 
   if (!contexto) return null
 
@@ -92,7 +96,9 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
     // `evaluarContraRasante` evalúa cada una, sin huecos.
     const celda = evaluacion!.celdas.get(clave)!
     const separador = clave.indexOf('|')
-    const etiqueta = `${formatearProgresiva(Number(clave.slice(0, separador)))} ${clave.slice(separador + 1)}`
+    const progresiva = Number(clave.slice(0, separador))
+    const elementoClave = clave.slice(separador + 1)
+    const etiqueta = `${formatearProgresiva(progresiva)} ${palabrasPorClave.get(elementoClave) ?? elementoClave}`
 
     return {
       simbolo: SIMBOLO_ESTADO[celda.estado],

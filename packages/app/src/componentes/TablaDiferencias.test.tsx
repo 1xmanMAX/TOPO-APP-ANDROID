@@ -49,7 +49,7 @@ function fijarRasanteEstrecha(): void {
     tramosIzquierda: null,
   })
   useAlmacen.getState().agregarIntermedia('camp-1', 0, {
-    destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'VER-I' } },
+    destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-vereda-i' } },
     valor: 1.5,
   })
 }
@@ -186,6 +186,6 @@ describe('TablaDiferencias', () => {
 
     await usuario.click(screen.getByLabelText(/0\+000 EJE/))
 
-    expect(useAlmacen.getState().seleccion.clave).toBe('0|EJE')
+    expect(useAlmacen.getState().seleccion.clave).toBe('0|p-eje')
   })
 })

@@ -174,7 +174,7 @@ export default function VistaLibreta() {
                   Celda activa:{' '}
                   <strong>
                     {celdaActiva
-                      ? `${formatearProgresiva(celdaActiva.progresiva)} ${celdaActiva.elementoClave}`
+                      ? `${formatearProgresiva(celdaActiva.progresiva)} ${celdaActiva.elementoNombre}`
                       : 'grilla completa'}
                   </strong>
                 </span>

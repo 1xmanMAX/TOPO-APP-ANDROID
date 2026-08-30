@@ -15,6 +15,13 @@ export interface CotaCelda {
   clave: string
   progresiva: number
   elementoClave: string
+  /**
+   * Cómo se llamaba el punto en la sección al calcular: es lo que se escribe
+   * cuando hay que nombrar esta celda por escrito, para no enseñar el id.
+   * Opcional porque un resultado armado a mano —una prueba— puede no traerlo;
+   * quien lo escriba cae de vuelta a la clave.
+   */
+  elementoNombre?: string
   offset: number
   cota: number
   cotaCruda: number
@@ -45,8 +52,22 @@ export interface ResultadoCampania {
   error: string | null
 }
 
+/**
+ * Cómo se nombra un elemento en los avisos: el nombre del punto de la sección
+ * («Vereda izquierda»), nunca su id, que es jerga de programador. Si la clave
+ * ya no corresponde a ningún punto —una lectura huérfana— se enseña tal cual:
+ * es lo único que queda guardado de ella.
+ */
+type NombreDeElemento = (elementoClave: string) => string
+
+function nombradorDeElementos(calle: Calle): NombreDeElemento {
+  const nombres = new Map(calle.seccion.puntos.map((punto) => [punto.id, punto.nombre]))
+  return (elementoClave) => nombres.get(elementoClave) ?? elementoClave
+}
+
 export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
   const { campania, calle, bms } = entrada
+  const nombreDe = nombradorDeElementos(calle)
 
   let grilla: CeldaGrilla[] = []
   let longitudKKm = campania.cierre.longitudK
@@ -80,6 +101,7 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
         clave: punto.claveDestino,
         progresiva: punto.destino.celda.progresiva,
         elementoClave: punto.destino.celda.elementoClave,
+        elementoNombre: nombreDe(punto.destino.celda.elementoClave),
         offset: offsetPorClave.get(punto.claveDestino) ?? 0,
         cota: punto.cota,
         cotaCruda: punto.cotaCruda,
@@ -88,11 +110,11 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
       })
     }
 
-    agregarAvisosDeLecturasNoUsables(campania, avisos)
-    agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos)
-    agregarAvisosDeApartamiento(cotasPorCelda, avisos)
+    agregarAvisosDeLecturasNoUsables(campania, avisos, nombreDe)
+    agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos, nombreDe)
+    agregarAvisosDeApartamiento(cotasPorCelda, avisos, nombreDe)
     agregarAvisosDeCierre(cierre, campania, bms, avisos)
-    agregarAvisosDeHuerfanas(grilla, cotasPorCelda, avisos)
+    agregarAvisosDeHuerfanas(grilla, cotasPorCelda, avisos, nombreDe)
 
     return {
       cotasPorCelda,
@@ -125,10 +147,10 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
   }
 }
 
-function descripcionLectura(destino: DestinoLectura): string {
+function descripcionLectura(destino: DestinoLectura, nombreDe: NombreDeElemento): string {
   switch (destino.tipo) {
     case 'celda':
-      return `${formatearProgresiva(destino.celda.progresiva)} ${destino.celda.elementoClave}`
+      return `${formatearProgresiva(destino.celda.progresiva)} ${nombreDe(destino.celda.elementoClave)}`
     case 'bm':
       return 'BM'
     case 'cambio':
@@ -150,7 +172,11 @@ function mensajeLecturaNoUsable(descripcion: string, valor: number): string {
  * Si la vista atrás de una estación no es usable, esa estación entera queda
  * pendiente: avisar además de sus intermedias sería ruido, así que se omiten.
  */
-function agregarAvisosDeLecturasNoUsables(campania: Toma, avisos: Aviso[]): void {
+function agregarAvisosDeLecturasNoUsables(
+  campania: Toma,
+  avisos: Aviso[],
+  nombreDe: NombreDeElemento,
+): void {
   campania.estaciones.forEach((estacion, indice) => {
     if (!esLecturaUsable(estacion.vistaAtras.valor)) {
       avisos.push({
@@ -166,7 +192,7 @@ function agregarAvisosDeLecturasNoUsables(campania: Toma, avisos: Aviso[]): void
       avisos.push({
         nivel: 'advertencia',
         clave: null,
-        mensaje: mensajeLecturaNoUsable(descripcionLectura(lectura.destino), lectura.valor),
+        mensaje: mensajeLecturaNoUsable(descripcionLectura(lectura.destino, nombreDe), lectura.valor),
       })
     }
 
@@ -187,6 +213,7 @@ function agregarAvisosDeRepeticion(
   cotasPorCelda: Map<string, CotaCelda>,
   compensados: { claveDestino: string; cota: number; destino: { tipo: string } }[],
   avisos: Aviso[],
+  nombreDe: NombreDeElemento,
 ): void {
   const cotasFinalesPorClave = new Map<string, number[]>()
   for (const punto of compensados) {
@@ -207,7 +234,7 @@ function agregarAvisosDeRepeticion(
       nivel,
       clave,
       mensaje:
-        `${formatearProgresiva(celda.progresiva)} ${celda.elementoClave}: ` +
+        `${formatearProgresiva(celda.progresiva)} ${nombreDe(celda.elementoClave)}: ` +
         `se midió ${celda.lecturas.length} veces, con ${diferenciaMm.toFixed(1)} mm de diferencia. ` +
         'Vale la última lectura.',
     })
@@ -217,6 +244,7 @@ function agregarAvisosDeRepeticion(
 function agregarAvisosDeApartamiento(
   cotasPorCelda: Map<string, CotaCelda>,
   avisos: Aviso[],
+  nombreDe: NombreDeElemento,
 ): void {
   const porProgresiva = new Map<number, CotaCelda[]>()
   for (const celda of cotasPorCelda.values()) {
@@ -240,7 +268,7 @@ function agregarAvisosDeApartamiento(
         nivel: 'advertencia',
         clave: celda.clave,
         mensaje:
-          `${formatearProgresiva(celda.progresiva)} ${celda.elementoClave} — lectura ${ultima.toFixed(3)}: ` +
+          `${formatearProgresiva(celda.progresiva)} ${nombreDe(celda.elementoClave)} — lectura ${ultima.toFixed(3)}: ` +
           `se aparta ${redondear3(desvio).toFixed(3)} m de sus vecinas de la misma progresiva. ` +
           '¿La anotaste bien?',
       })
@@ -249,9 +277,9 @@ function agregarAvisosDeApartamiento(
 }
 
 /**
- * Las lecturas apuntan a su elemento por la clave de texto, y esa clave puede
- * cambiar (renombrar el código de un punto de la calle) después de que ya se
- * tomaron lecturas. El dato crudo no se pierde, pero deja de caer en la
+ * Las lecturas apuntan a su elemento por la clave que quedó guardada con
+ * ellas, y ese punto puede desaparecer de la sección de la calle después de
+ * que ya se tomaron. El dato crudo no se pierde, pero deja de caer en la
  * grilla: desaparece de la tabla y de la exportación sin que nada lo diga.
  * Esto avisa.
  */
@@ -259,13 +287,14 @@ function agregarAvisosDeHuerfanas(
   grilla: CeldaGrilla[],
   cotasPorCelda: Map<string, CotaCelda>,
   avisos: Aviso[],
+  nombreDe: NombreDeElemento,
 ): void {
   const clavesDeLaGrilla = new Set(grilla.map((celda) => celda.clave))
   const huerfanas = [...cotasPorCelda.values()].filter((celda) => !clavesDeLaGrilla.has(celda.clave))
 
   if (huerfanas.length > 0) {
     const nombres = huerfanas.map(
-      (celda) => `${formatearProgresiva(celda.progresiva)} ${celda.elementoClave}`,
+      (celda) => `${formatearProgresiva(celda.progresiva)} ${nombreDe(celda.elementoClave)}`,
     )
 
     avisos.push({
@@ -275,7 +304,7 @@ function agregarAvisosDeHuerfanas(
         `Hay ${huerfanas.length} ${huerfanas.length === 1 ? 'lectura' : 'lecturas'} que ya no ` +
         'caen en la grilla de esta calle, así que no salen en la tabla ni en la exportación: ' +
         `${nombres.slice(0, 5).join(', ')}${nombres.length > 5 ? '…' : ''}. ` +
-        'Suele pasar al renombrar el código de un punto de la calle.',
+        'Suele pasar al quitar un punto de la sección de la calle.',
     })
   }
 }

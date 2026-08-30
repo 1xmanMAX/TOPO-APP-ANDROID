@@ -292,6 +292,31 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
 
   const resultados = useResultadosDe(idsVisibles)
 
+  /**
+   * Cómo se rotula cada elemento en el dibujo: la **palabra** con la que Max
+   * lo escribe («VI»), no la clave con la que la grilla lo identifica, que es
+   * un id y no se le enseña a nadie. Aquí va la palabra y no el nombre largo
+   * porque los rótulos son de 9 px pegados a su punto: «Vereda izquierda» no
+   * cabe y se pisaría con el vecino. Si el punto se quedó sin palabras, cae
+   * al nombre. Sale de la sección de las calles de las capas dibujadas; una
+   * clave que ya no corresponda a ningún punto se enseña tal cual, que es lo
+   * único que quedó guardado de ella.
+   */
+  const nombresDeElemento = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const id of idsVisibles) {
+      const calleId = buscarToma(proyecto, id)?.calleId
+      const calle = proyecto.calles.find((c) => c.id === calleId)
+      if (!calle) continue
+      for (const punto of calle.seccion.puntos) {
+        if (!mapa.has(punto.id)) mapa.set(punto.id, punto.palabras[0] ?? punto.nombre)
+      }
+    }
+    return mapa
+  }, [idsVisibles, proyecto])
+
+  const nombreDeElemento = (elementoClave: string) => nombresDeElemento.get(elementoClave) ?? elementoClave
+
   const series = useMemo(() => {
     const capasPorId = new Map(proyecto.capas.map((capa) => [capa.id, capa]))
     const lista: SerieCapa[] = []
@@ -564,9 +589,10 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
 
                 {serie.puntos.map((punto) => {
                   const activo = seleccion.clave === punto.clave
+                  const nombrePunto = nombreDeElemento(punto.elementoClave)
                   const nombreConCapa = variasCapas
-                    ? `${formatearProgresiva(punto.progresiva)} ${punto.elementoClave} · ${serie.nombreCapa} · cota ${formatearCota(punto.cota)} m`
-                    : `${formatearProgresiva(punto.progresiva)} ${punto.elementoClave} · cota ${formatearCota(punto.cota)} m`
+                    ? `${formatearProgresiva(punto.progresiva)} ${nombrePunto} · ${serie.nombreCapa} · cota ${formatearCota(punto.cota)} m`
+                    : `${formatearProgresiva(punto.progresiva)} ${nombrePunto} · cota ${formatearCota(punto.cota)} m`
 
                   return (
                     <g key={`${serie.campaniaId}-${punto.clave}`}>
@@ -582,7 +608,7 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                         textAnchor="middle"
                         className="fill-slate-500 text-[9px]"
                       >
-                        {punto.elementoClave}
+                        {nombrePunto}
                       </text>
                       <circle
                         cx={x(punto.offset)}
@@ -600,7 +626,7 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                         className="cursor-pointer outline-none"
                       >
                         <title>
-                          {punto.elementoClave} · offset {punto.offset.toFixed(2)} m · cota{' '}
+                          {nombrePunto} · offset {punto.offset.toFixed(2)} m · cota{' '}
                           {formatearCota(punto.cota)} m
                         </title>
                       </circle>

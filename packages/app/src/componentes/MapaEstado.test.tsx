@@ -62,7 +62,7 @@ describe('MapaEstado', () => {
 
     await userEvent.click(screen.getByLabelText(/0\+020 EJE/))
 
-    expect(useAlmacen.getState().seleccion.clave).toBe('20|EJE')
+    expect(useAlmacen.getState().seleccion.clave).toBe('20|p-eje')
   })
 
   it('la leyenda explica qué es cada símbolo', () => {

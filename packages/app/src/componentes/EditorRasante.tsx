@@ -3,7 +3,7 @@ import {
   desnivelTransversal,
   formatearProgresiva,
   type Id,
-  type PuntoCalle,
+  type PuntoSeccion,
   type Rasante,
   type TramoTransversal,
 } from '@topo/core'
@@ -19,8 +19,8 @@ const DISTANCIA_VISTA_PREVIA = 100
 
 interface Props {
   calleId: Id
-  /** Los de la calle: sin ellos el editor no puede saber qué deja fuera su sección ni fijar una escala estable. */
-  puntos: PuntoCalle[]
+  /** Los de la sección de la calle: sin ellos el editor no puede saber qué deja fuera su rasante ni fijar una escala estable. */
+  puntos: PuntoSeccion[]
 }
 
 type Lado = 'derecha' | 'izquierda'
@@ -77,17 +77,17 @@ function alcanceLado(rasante: Rasante, lado: Lado): number {
 }
 
 /**
- * La distancia más lejana entre los puntos de la calle, a cualquier lado.
+ * La distancia más lejana entre los puntos de la sección, a cualquier lado.
  * Sirve de ancho fijo para el corte tipo: así la escala del dibujo no salta
  * con cada tramo que se edita, y de paso se ve de un vistazo cuánto de la
- * calle cubre la sección.
+ * calle cubre la rasante.
  */
-function alcanceMaximoPuntos(puntos: PuntoCalle[]): number {
+function alcanceMaximoPuntos(puntos: PuntoSeccion[]): number {
   return Math.max(0, ...puntos.map((punto) => Math.abs(punto.distancia)))
 }
 
-/** Los puntos de la calle que la sección deja sin cota, del más cercano al eje al más lejano. */
-function puntosSinCota(rasante: Rasante, puntos: PuntoCalle[]): PuntoCalle[] {
+/** Los puntos de la sección que la rasante deja sin cota, del más cercano al eje al más lejano. */
+function puntosSinCota(rasante: Rasante, puntos: PuntoSeccion[]): PuntoSeccion[] {
   return puntos
     .filter((punto) => desnivelTransversal(rasante, punto.distancia) === null)
     .sort((a, b) => Math.abs(a.distancia) - Math.abs(b.distancia))
@@ -362,7 +362,7 @@ export default function EditorRasante({ calleId, puntos }: Props) {
       {faltantes.length > 0 && (
         <p className="text-sm text-aviso">
           {mensajeAlcance(rasante)} Estos puntos de la calle quedan sin cota de proyecto:{' '}
-          {faltantes.map((punto) => punto.codigo).join(', ')}.
+          {faltantes.map((punto) => punto.nombre).join(', ')}.
         </p>
       )}
 

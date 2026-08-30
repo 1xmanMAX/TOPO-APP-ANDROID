@@ -55,9 +55,9 @@ export default function TablaEspesores() {
           <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900">
             <tr>
               <th className="px-3 py-2 text-left font-medium text-slate-500">Progresiva</th>
-              {elementos.map((clave) => (
-                <th key={clave} className="px-3 py-2 text-right font-medium text-slate-500">
-                  {clave}
+              {elementos.map((elemento) => (
+                <th key={elemento.clave} className="px-3 py-2 text-right font-medium text-slate-500">
+                  {elemento.palabra}
                 </th>
               ))}
             </tr>
@@ -68,8 +68,8 @@ export default function TablaEspesores() {
                 <td className="numerico px-3 py-1.5 text-slate-600 dark:text-slate-300">
                   {formatearProgresiva(progresiva)}
                 </td>
-                {elementos.map((elementoClave) => {
-                  const clave = claveCelda(progresiva, elementoClave)
+                {elementos.map((elemento) => {
+                  const clave = claveCelda(progresiva, elemento.clave)
                   const celda = comparacionResultado.celdas.get(clave)
                   const espesor = celda?.espesor ?? null
                   const activa = seleccion.clave === clave
@@ -80,8 +80,8 @@ export default function TablaEspesores() {
                         type="button"
                         aria-label={
                           espesor !== null
-                            ? `Espesor en ${formatearProgresiva(progresiva)} ${elementoClave}: ${formatearCota(espesor)}`
-                            : `Espesor en ${formatearProgresiva(progresiva)} ${elementoClave}, sin comparar`
+                            ? `Espesor en ${formatearProgresiva(progresiva)} ${elemento.palabra}: ${formatearCota(espesor)}`
+                            : `Espesor en ${formatearProgresiva(progresiva)} ${elemento.palabra}, sin comparar`
                         }
                         onClick={() => seleccionar(clave)}
                         className={`numerico w-full rounded px-2 py-1 text-right ${

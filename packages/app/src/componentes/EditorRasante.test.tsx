@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { catalogoDeFabrica, type Proyecto, type PuntoCalle } from '@topo/core'
+import type { Proyecto, PuntoSeccion } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import EditorRasante from './EditorRasante'
@@ -11,15 +11,57 @@ import EditorRasante from './EditorRasante'
  * defecto (una calzada hasta 4.20) los cuatro puntos más lejanos —los dos
  * sardineles y las dos veredas— quedan sin cota de proyecto.
  */
-function puntosEjemplo(): PuntoCalle[] {
+function puntosEjemplo(): PuntoSeccion[] {
   return [
-    { concepto: 'veredaIzq', codigo: 'VER-I', distancia: -5.6 },
-    { concepto: 'sardinelIzq', codigo: 'SAR-I', distancia: -4.4 },
-    { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -4.2 },
-    { concepto: 'eje', codigo: 'EJE', distancia: 0 },
-    { concepto: 'bordeDer', codigo: 'BOR-D', distancia: 4.2 },
-    { concepto: 'sardinelDer', codigo: 'SAR-D', distancia: 4.4 },
-    { concepto: 'veredaDer', codigo: 'VER-D', distancia: 5.6 },
+    {
+      id: 'p-vereda-i',
+      rol: 'vereda',
+      nombre: 'Vereda izquierda',
+      distancia: -5.6,
+      distanciaDeFabrica: false,
+      palabras: ['VER-I'],
+    },
+    {
+      id: 'p-sardinel-i',
+      rol: 'sardinel',
+      nombre: 'Sardinel izquierdo',
+      distancia: -4.4,
+      distanciaDeFabrica: false,
+      palabras: ['SAR-I'],
+    },
+    {
+      id: 'p-borde-i',
+      rol: 'bordeCalzada',
+      nombre: 'Borde izquierdo',
+      distancia: -4.2,
+      distanciaDeFabrica: false,
+      palabras: ['BOR-I'],
+    },
+    { id: 'p-eje', rol: 'eje', nombre: 'Eje', distancia: 0, distanciaDeFabrica: false, palabras: ['EJE'] },
+    {
+      id: 'p-borde-d',
+      rol: 'bordeCalzada',
+      nombre: 'Borde derecho',
+      distancia: 4.2,
+      distanciaDeFabrica: false,
+      palabras: ['BOR-D'],
+    },
+    {
+      id: 'p-sardinel-d',
+      rol: 'sardinel',
+      nombre: 'Sardinel derecho',
+      distancia: 4.4,
+      distanciaDeFabrica: false,
+      palabras: ['SAR-D'],
+    },
+    {
+      id: 'p-vereda-d',
+      rol: 'vereda',
+      nombre: 'Vereda derecha',
+      distancia: 5.6,
+      distanciaDeFabrica: false,
+      palabras: ['VER-D'],
+    },
   ]
 }
 
@@ -36,13 +78,17 @@ function proyectoConCalle(): Proyecto {
       creado: '2026-08-19T00:00:00.000Z',
       modificado: '2026-08-19T00:00:00.000Z',
     },
-    catalogo: catalogoDeFabrica(),
     bms: [],
     calles: [
       {
         id: 'c-1',
         nombre: 'Calle 1',
-        puntos: puntosEjemplo(),
+        seccion: {
+          puntos: puntosEjemplo(),
+          palabrasProgresiva: ['PROG', 'PK', 'ABSCISA', 'EST', 'PROGRESIVA'],
+          palabrasPuntoControl: ['PC', 'BM', 'PUNTO DE CONTROL'],
+          palabrasReferencia: ['EXISTENTE', 'EXIST', 'REF'],
+        },
         nivelaciones: [],
         rasante: null,
       },
@@ -143,7 +189,7 @@ describe('EditorRasante', () => {
     // La rasante por defecto solo llega a 4.20: los dos sardineles (±4.40) y
     // las dos veredas (±5.60) quedan fuera.
     const aviso = screen.getByText(/quedan sin cota de proyecto/i)
-    expect(aviso).toHaveTextContent('SAR-I, SAR-D, VER-I, VER-D')
+    expect(aviso).toHaveTextContent('Sardinel izquierdo, Sardinel derecho, Vereda izquierda, Vereda derecha')
 
     const hasta = screen.getByLabelText('Hasta el metro 1')
     await userEvent.clear(hasta)

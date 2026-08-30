@@ -8,8 +8,8 @@ describe('claveDestino', () => {
     expect(claveDestino({ tipo: 'bm', bmId: 'bm-1' })).toBe('bm:bm-1')
     expect(claveDestino({ tipo: 'cambio', nombre: 'PC-1' })).toBe('cambio:PC-1')
     expect(
-      claveDestino({ tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } }),
-    ).toBe('20|EJE')
+      claveDestino({ tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-eje' } }),
+    ).toBe('20|p-eje')
     expect(
       claveDestino({ tipo: 'suelto', punto: { etiqueta: 'Buzón', offset: 1.2, notas: '' } }),
     ).toBe('suelto:Buzón')
@@ -26,9 +26,9 @@ describe('calcularCotas', () => {
   it('calcula la cota cruda de cada punto intermedio', () => {
     const resultado = calcularCotas(tomaEjemplo(), [BM_1])
     const porClave = new Map(resultado.puntos.map((p) => [p.claveDestino, p.cotaCruda]))
-    expect(porClave.get('0|EJE')).toBeCloseTo(3244.625, 6)
-    expect(porClave.get('0|BOR-I')).toBeCloseTo(3244.56, 6)
-    expect(porClave.get('20|EJE')).toBeCloseTo(3244.615, 6)
+    expect(porClave.get('0|p-eje')).toBeCloseTo(3244.625, 6)
+    expect(porClave.get('0|p-borde-i')).toBeCloseTo(3244.56, 6)
+    expect(porClave.get('20|p-eje')).toBeCloseTo(3244.615, 6)
   })
 
   it('calcula la cota del punto de cambio y la usa en la estación siguiente', () => {
@@ -44,14 +44,14 @@ describe('calcularCotas', () => {
 
   it('registra a qué estación pertenece cada punto', () => {
     const resultado = calcularCotas(tomaEjemplo(), [BM_1])
-    const punto = resultado.puntos.find((p) => p.claveDestino === '20|EJE')
+    const punto = resultado.puntos.find((p) => p.claveDestino === '20|p-eje')
     expect(punto?.estacionIndice).toBe(1)
   })
 
   it('recalcula todo cuando cambia la cota del BM', () => {
     const bmCorregido = { ...BM_1, cota: 3245.28 }
     const resultado = calcularCotas(tomaEjemplo(), [bmCorregido])
-    const punto = resultado.puntos.find((p) => p.claveDestino === '0|EJE')
+    const punto = resultado.puntos.find((p) => p.claveDestino === '0|p-eje')
     expect(punto?.cotaCruda).toBeCloseTo(3244.725, 6)
   })
 
@@ -114,14 +114,14 @@ describe('calcularCotas', () => {
     const campania = tomaEjemplo()
     campania.estaciones[0]!.intermedias[0]!.valor = 0
     const resultado = calcularCotas(campania, [BM_1])
-    expect(resultado.puntos.find((p) => p.claveDestino === '0|EJE')).toBeUndefined()
+    expect(resultado.puntos.find((p) => p.claveDestino === '0|p-eje')).toBeUndefined()
   })
 
   it('una lectura de 14.230 no produce punto', () => {
     const campania = tomaEjemplo()
     campania.estaciones[0]!.intermedias[0]!.valor = 14.23
     const resultado = calcularCotas(campania, [BM_1])
-    expect(resultado.puntos.find((p) => p.claveDestino === '0|EJE')).toBeUndefined()
+    expect(resultado.puntos.find((p) => p.claveDestino === '0|p-eje')).toBeUndefined()
   })
 
   it('una vista atrás no usable deja esa estación sin cotas, sin lanzar', () => {
@@ -148,8 +148,8 @@ describe('calcularCotas', () => {
 
     expect(Number.isNaN(resultado!.cotasInstrumento[1])).toBe(true)
     expect(resultado!.cotasInstrumento[0]).toBeCloseTo(3246.605, 6)
-    expect(resultado!.puntos.some((p) => p.claveDestino === '0|EJE')).toBe(true)
-    expect(resultado!.puntos.some((p) => p.claveDestino === '0|BOR-I')).toBe(true)
+    expect(resultado!.puntos.some((p) => p.claveDestino === '0|p-eje')).toBe(true)
+    expect(resultado!.puntos.some((p) => p.claveDestino === '0|p-borde-i')).toBe(true)
   })
 
   it('una vista atrás que apunta a un punto que nunca fue destino de nadie sí lanza', () => {

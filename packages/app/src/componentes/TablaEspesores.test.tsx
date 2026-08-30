@@ -20,8 +20,8 @@ const CIERRE_CERRADO = {
 /**
  * Campaña de TERRENO EXISTENTE sobre la misma calle (c-1) que camp-1
  * (SUBRASANTE). Mide EJE en 0 y 20, pero no BOR-I en 0: esa celda queda sin
- * pareja en la comparación. En 0|EJE la subrasante queda claramente por
- * encima (espesor positivo); en 20|EJE queda por debajo (espesor negativo),
+ * pareja en la comparación. En 0|p-eje la subrasante queda claramente por
+ * encima (espesor positivo); en 20|p-eje queda por debajo (espesor negativo),
  * para poder probar ambos casos con datos reales y no inventados a mano.
  */
 function campaniaTerreno(): Toma {
@@ -38,7 +38,7 @@ function campaniaTerreno(): Toma {
         intermedias: [
           {
             id: 'lt-2',
-            destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+            destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } },
             valor: 1.78,
           },
         ],
@@ -50,7 +50,7 @@ function campaniaTerreno(): Toma {
         intermedias: [
           {
             id: 'lt-5',
-            destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } },
+            destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-eje' } },
             valor: 1.53,
           },
         ],
@@ -85,7 +85,7 @@ function campaniaCero(id: string, fecha: string, capaId: string): Toma {
         intermedias: [
           {
             id: `${id}-int`,
-            destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'EJE' } },
+            destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-eje' } },
             valor: 2.68,
           },
         ],
@@ -130,7 +130,7 @@ describe('TablaEspesores', () => {
   it('muestra el espesor cuando hay ambas cotas', () => {
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
     const comparacion = comparacionEsperada(proyecto)
-    const espesor0 = comparacion.celdas.get('0|EJE')!.espesor!
+    const espesor0 = comparacion.celdas.get('0|p-eje')!.espesor!
 
     render(<TablaEspesores />)
 
@@ -142,7 +142,7 @@ describe('TablaEspesores', () => {
 
     render(<TablaEspesores />)
 
-    // 0|BOR-I solo se midió en camp-1 (SUBRASANTE): no tiene pareja en TERRENO.
+    // 0|p-borde-i solo se midió en camp-1 (SUBRASANTE): no tiene pareja en TERRENO.
     expect(screen.getByLabelText(/Espesor en 0\+000 BOR-I/).textContent).toBe('—')
   })
 
@@ -160,7 +160,7 @@ describe('TablaEspesores', () => {
 
     render(<TablaEspesores />)
 
-    // 0|BOR-I solo se midió en camp-1 (SUBRASANTE): no tiene pareja en TERRENO.
+    // 0|p-borde-i solo se midió en camp-1 (SUBRASANTE): no tiene pareja en TERRENO.
     const boton = screen.getByLabelText(/Espesor en 0\+000 BOR-I/)
     expect(boton.getAttribute('aria-label')).toContain('sin comparar')
     expect(boton.getAttribute('aria-label')).not.toMatch(/0\.000/)
@@ -169,7 +169,7 @@ describe('TablaEspesores', () => {
   it('un espesor negativo se distingue a la vista', () => {
     useAlmacen.getState().fijarComparacion('camp-terreno', 'camp-1')
     const comparacion = comparacionEsperada(proyecto)
-    const celda20 = comparacion.celdas.get('20|EJE')!
+    const celda20 = comparacion.celdas.get('20|p-eje')!
     expect(celda20.espesor!).toBeLessThan(0)
 
     render(<TablaEspesores />)
@@ -187,7 +187,7 @@ describe('TablaEspesores', () => {
     const boton = screen.getByLabelText(/Espesor en 0\+020 EJE/)
     await usuario.click(boton)
 
-    expect(useAlmacen.getState().seleccion.clave).toBe('20|EJE')
+    expect(useAlmacen.getState().seleccion.clave).toBe('20|p-eje')
     expect(boton.className).toMatch(/falla/)
   })
 
@@ -213,7 +213,7 @@ describe('TablaEspesores', () => {
 
     await usuario.click(screen.getByLabelText(/Espesor en 0\+000 EJE/))
 
-    expect(useAlmacen.getState().seleccion.clave).toBe('0|EJE')
+    expect(useAlmacen.getState().seleccion.clave).toBe('0|p-eje')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(0)
   })
 
@@ -239,7 +239,7 @@ describe('TablaEspesores', () => {
     useAlmacen.getState().fijarComparacion('camp-cero-a', 'camp-cero-b')
 
     const comparacion = comparacionEsperada(proyectoCero, 'camp-cero-a', 'camp-cero-b')
-    expect(comparacion.celdas.get('40|EJE')?.espesor).toBe(0)
+    expect(comparacion.celdas.get('40|p-eje')?.espesor).toBe(0)
 
     render(<TablaEspesores />)
 

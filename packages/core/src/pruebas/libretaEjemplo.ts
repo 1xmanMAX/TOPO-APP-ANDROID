@@ -1,4 +1,5 @@
 import type { BM, Calle, Capa, Toma } from '../modelo/tipos'
+import type { Seccion } from '../seccion/seccion'
 
 export const BM_1: BM = {
   id: 'bm-1',
@@ -8,14 +9,31 @@ export const BM_1: BM = {
   descripcion: 'clavo en vereda esq. Av. Sol / Jr. Lima',
 }
 
+/** La sección de Av. Sol: sus tres puntos, ya con las medidas puestas (no de fábrica). */
+const SECCION_EJEMPLO: Seccion = {
+  puntos: [
+    {
+      id: 'p-borde-i', rol: 'bordeCalzada', nombre: 'Borde izquierdo',
+      distancia: -4.2, distanciaDeFabrica: false, palabras: ['BOR-I'],
+    },
+    {
+      id: 'p-eje', rol: 'eje', nombre: 'Eje',
+      distancia: 0, distanciaDeFabrica: false, palabras: ['EJE'],
+    },
+    {
+      id: 'p-borde-d', rol: 'bordeCalzada', nombre: 'Borde derecho',
+      distancia: 4.2, distanciaDeFabrica: false, palabras: ['BOR-D'],
+    },
+  ],
+  palabrasProgresiva: ['PROG', 'PK', 'ABSCISA', 'EST', 'PROGRESIVA'],
+  palabrasPuntoControl: ['PC', 'BM', 'PUNTO DE CONTROL'],
+  palabrasReferencia: ['EXISTENTE', 'EXIST', 'REF'],
+}
+
 export const CALLE_EJEMPLO: Calle = {
   id: 'c-1',
   nombre: 'Av. Sol',
-  puntos: [
-    { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -4.2 },
-    { concepto: 'eje', codigo: 'EJE', distancia: 0 },
-    { concepto: 'bordeDer', codigo: 'BOR-D', distancia: 4.2 },
-  ],
+  seccion: SECCION_EJEMPLO,
   nivelaciones: [],
   rasante: null,
 }
@@ -58,12 +76,12 @@ export function tomaEjemplo(): Toma {
         intermedias: [
           {
             id: 'l-2',
-            destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+            destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } },
             valor: 1.98,
           },
           {
             id: 'l-3',
-            destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } },
+            destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-i' } },
             valor: 2.045,
           },
         ],
@@ -75,7 +93,7 @@ export function tomaEjemplo(): Toma {
         intermedias: [
           {
             id: 'l-6',
-            destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } },
+            destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-eje' } },
             valor: 2.47,
           },
         ],

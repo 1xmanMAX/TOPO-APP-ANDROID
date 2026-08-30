@@ -1,17 +1,27 @@
-import { claveCelda, formatearProgresiva, type DestinoLectura } from '@topo/core'
+import { claveCelda, formatearProgresiva, type Calle, type DestinoLectura } from '@topo/core'
 import { formatearCota } from '../formato'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultado } from '../estado/derivados'
 import CampoNumero from './CampoNumero'
 
-function describirDestino(destino: DestinoLectura): string {
+/**
+ * Cómo se nombra cada lectura en el panel de la estación: la palabra corta
+ * con la que Max escribe el punto en su hoja («BI»), nunca `elementoClave`
+ * — el id interno de la sección (`p-borde-i`), que no se le enseña a nadie.
+ * Si la clave ya no corresponde a ningún punto (una lectura huérfana), se
+ * enseña tal cual: es lo único que quedó guardado de ella.
+ */
+function describirDestino(destino: DestinoLectura, calle: Calle): string {
   switch (destino.tipo) {
     case 'bm':
       return 'BM'
     case 'cambio':
       return destino.nombre
-    case 'celda':
-      return `${formatearProgresiva(destino.celda.progresiva)} ${destino.celda.elementoClave}`
+    case 'celda': {
+      const punto = calle.seccion.puntos.find((p) => p.id === destino.celda.elementoClave)
+      const palabra = punto ? (punto.palabras[0] ?? punto.nombre) : destino.celda.elementoClave
+      return `${formatearProgresiva(destino.celda.progresiva)} ${palabra}`
+    }
     case 'suelto':
       return destino.punto.etiqueta
   }
@@ -77,9 +87,9 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
       </div>
 
       <div className="grid grid-cols-[1fr_6rem] items-center gap-2 text-sm">
-        <span className="text-slate-500">Vista atrás · {describirDestino(estacion.vistaAtras.destino)}</span>
+        <span className="text-slate-500">Vista atrás · {describirDestino(estacion.vistaAtras.destino, contexto.calle)}</span>
         <CampoNumero
-          ariaLabel={`Vista atrás a ${describirDestino(estacion.vistaAtras.destino)}`}
+          ariaLabel={`Vista atrás a ${describirDestino(estacion.vistaAtras.destino, contexto.calle)}`}
           valor={estacion.vistaAtras.valor}
           alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAtras.id, v)}
         />
@@ -104,10 +114,10 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
                 onClick={() => clave && seleccionar(clave)}
                 className="text-left text-slate-600 hover:text-marca dark:text-slate-300"
               >
-                {describirDestino(lectura.destino)}
+                {describirDestino(lectura.destino, contexto.calle)}
               </button>
               <CampoNumero
-                ariaLabel={`Lectura de ${describirDestino(lectura.destino)}`}
+                ariaLabel={`Lectura de ${describirDestino(lectura.destino, contexto.calle)}`}
                 valor={lectura.valor}
                 alCambiar={(v) => actualizarLectura(campania.id, lectura.id, v)}
               />
@@ -116,7 +126,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
               </span>
               <button
                 type="button"
-                aria-label={`Borrar lectura de ${describirDestino(lectura.destino)}`}
+                aria-label={`Borrar lectura de ${describirDestino(lectura.destino, contexto.calle)}`}
                 onClick={() => eliminarLectura(campania.id, lectura.id)}
                 className="px-1 text-slate-400 hover:text-falla"
               >
@@ -130,10 +140,10 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
       {estacion.vistaAdelante && (
         <div className="grid grid-cols-[1fr_6rem] items-center gap-2 text-sm">
           <span className="text-slate-500">
-            Vista adelante · {describirDestino(estacion.vistaAdelante.destino)}
+            Vista adelante · {describirDestino(estacion.vistaAdelante.destino, contexto.calle)}
           </span>
           <CampoNumero
-            ariaLabel={`Vista adelante a ${describirDestino(estacion.vistaAdelante.destino)}`}
+            ariaLabel={`Vista adelante a ${describirDestino(estacion.vistaAdelante.destino, contexto.calle)}`}
             valor={estacion.vistaAdelante.valor}
             alCambiar={(v) => actualizarLectura(campania.id, estacion.vistaAdelante!.id, v)}
           />

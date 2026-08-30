@@ -1,4 +1,4 @@
-import { catalogoDeFabrica, type Proyecto } from '@topo/core'
+import type { Proyecto } from '@topo/core'
 
 export function nuevoId(prefijo: string): string {
   return `${prefijo}-${Math.random().toString(36).slice(2, 10)}`
@@ -18,7 +18,6 @@ export function proyectoVacio(): Proyecto {
       creado: AHORA(),
       modificado: AHORA(),
     },
-    catalogo: catalogoDeFabrica(),
     bms: [],
     calles: [],
     capas: [
@@ -41,7 +40,6 @@ export function proyectoEjemplo(): Proyecto {
       creado: AHORA(),
       modificado: AHORA(),
     },
-    catalogo: catalogoDeFabrica(),
     bms: [
       {
         id: 'bm-1',
@@ -55,15 +53,20 @@ export function proyectoEjemplo(): Proyecto {
       {
         id: 'c-1',
         nombre: 'Av. Sol',
-        puntos: [
-          { concepto: 'veredaIzq', codigo: 'VER-I', distancia: -5.6 },
-          { concepto: 'sardinelIzq', codigo: 'SAR-I', distancia: -4.4 },
-          { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -4.2 },
-          { concepto: 'eje', codigo: 'EJE', distancia: 0 },
-          { concepto: 'bordeDer', codigo: 'BOR-D', distancia: 4.2 },
-          { concepto: 'sardinelDer', codigo: 'SAR-D', distancia: 4.4 },
-          { concepto: 'veredaDer', codigo: 'VER-D', distancia: 5.6 },
-        ],
+        seccion: {
+          puntos: [
+            { id: 'p-vereda-i', rol: 'vereda', nombre: 'Vereda izquierda', distancia: -5.6, distanciaDeFabrica: false, palabras: ['VER-I'] },
+            { id: 'p-sardinel-i', rol: 'sardinel', nombre: 'Sardinel izquierdo', distancia: -4.4, distanciaDeFabrica: false, palabras: ['SAR-I'] },
+            { id: 'p-borde-i', rol: 'bordeCalzada', nombre: 'Borde izquierdo', distancia: -4.2, distanciaDeFabrica: false, palabras: ['BOR-I'] },
+            { id: 'p-eje', rol: 'eje', nombre: 'Eje', distancia: 0, distanciaDeFabrica: false, palabras: ['EJE'] },
+            { id: 'p-borde-d', rol: 'bordeCalzada', nombre: 'Borde derecho', distancia: 4.2, distanciaDeFabrica: false, palabras: ['BOR-D'] },
+            { id: 'p-sardinel-d', rol: 'sardinel', nombre: 'Sardinel derecho', distancia: 4.4, distanciaDeFabrica: false, palabras: ['SAR-D'] },
+            { id: 'p-vereda-d', rol: 'vereda', nombre: 'Vereda derecha', distancia: 5.6, distanciaDeFabrica: false, palabras: ['VER-D'] },
+          ],
+          palabrasProgresiva: ['PROG', 'PK', 'ABSCISA', 'EST', 'PROGRESIVA'],
+          palabrasPuntoControl: ['PC', 'BM', 'PUNTO DE CONTROL'],
+          palabrasReferencia: ['EXISTENTE', 'EXIST', 'REF'],
+        },
         rasante: {
           progresivaArranque: 0,
           cotaArranque: 3244.85,
@@ -118,79 +121,79 @@ export function proyectoEjemplo(): Proyecto {
                     intermedias: [
                       {
                         id: 'l-14',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-i' } },
                         valor: 1.931,
                       },
                       {
                         id: 'l-15',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-i' } },
                         valor: 2.084,
                       },
                       {
                         id: 'l-16',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } },
                         valor: 2.011,
                       },
                       {
                         id: 'l-17',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-d' } },
                         valor: 2.079,
                       },
                       {
                         id: 'l-18',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-d' } },
                         valor: 1.943,
                       },
                       {
                         id: 'l-19',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-sardinel-i' } },
                         valor: 1.987,
                       },
                       {
                         id: 'l-20',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-i' } },
                         valor: 2.131,
                       },
                       {
                         id: 'l-21',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-eje' } },
                         valor: 2.056,
                       },
                       {
                         id: 'l-22',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-d' } },
                         valor: 2.16,
                       },
                       {
                         id: 'l-23',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-sardinel-d' } },
                         valor: 1.993,
                       },
                       {
                         id: 'l-24',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-sardinel-i' } },
                         valor: 2.044,
                       },
                       // El lomo del ejemplo: esta celda queda deliberadamente fuera
                       // de tolerancia, con las vecinas al límite alrededor.
                       {
                         id: 'l-25',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-borde-i' } },
                         valor: 2.157,
                       },
                       {
                         id: 'l-26',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-eje' } },
                         valor: 2.097,
                       },
                       {
                         id: 'l-27',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-borde-d' } },
                         valor: 2.217,
                       },
                       {
                         id: 'l-28',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-sardinel-d' } },
                         valor: 2.048,
                       },
                     ],
@@ -202,52 +205,52 @@ export function proyectoEjemplo(): Proyecto {
                     intermedias: [
                       {
                         id: 'l-29',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-sardinel-i' } },
                         valor: 2.592,
                       },
                       {
                         id: 'l-30',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-borde-i' } },
                         valor: 2.716,
                       },
                       {
                         id: 'l-31',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-eje' } },
                         valor: 2.651,
                       },
                       {
                         id: 'l-32',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-borde-d' } },
                         valor: 2.744,
                       },
                       {
                         id: 'l-33',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-sardinel-d' } },
                         valor: 2.608,
                       },
                       {
                         id: 'l-34',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-sardinel-i' } },
                         valor: 2.664,
                       },
                       {
                         id: 'l-35',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-borde-i' } },
                         valor: 2.8,
                       },
                       {
                         id: 'l-36',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-eje' } },
                         valor: 2.737,
                       },
                       {
                         id: 'l-37',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-borde-d' } },
                         valor: 2.802,
                       },
                       {
                         id: 'l-38',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-sardinel-d' } },
                         valor: 2.646,
                       },
                     ],
@@ -286,127 +289,127 @@ export function proyectoEjemplo(): Proyecto {
                     intermedias: [
                       {
                         id: 'l-40',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-i' } },
                         valor: 1.735,
                       },
                       {
                         id: 'l-41',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-i' } },
                         valor: 1.892,
                       },
                       {
                         id: 'l-42',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } },
                         valor: 1.799,
                       },
                       {
                         id: 'l-43',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-d' } },
                         valor: 1.887,
                       },
                       {
                         id: 'l-44',
-                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-d' } },
                         valor: 1.744,
                       },
                       {
                         id: 'l-45',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-sardinel-i' } },
                         valor: 1.792,
                       },
                       {
                         id: 'l-46',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-i' } },
                         valor: 1.957,
                       },
                       {
                         id: 'l-47',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-eje' } },
                         valor: 1.862,
                       },
                       {
                         id: 'l-48',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-borde-d' } },
                         valor: 1.944,
                       },
                       {
                         id: 'l-49',
-                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 20, elementoClave: 'p-sardinel-d' } },
                         valor: 1.801,
                       },
                       {
                         id: 'l-50',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-sardinel-i' } },
                         valor: 1.85,
                       },
                       {
                         id: 'l-51',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-borde-i' } },
                         valor: 1.997,
                       },
                       {
                         id: 'l-52',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-eje' } },
                         valor: 1.931,
                       },
                       {
                         id: 'l-53',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-borde-d' } },
                         valor: 2.005,
                       },
                       {
                         id: 'l-54',
-                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-sardinel-d' } },
                         valor: 1.851,
                       },
                       {
                         id: 'l-55',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-sardinel-i' } },
                         valor: 1.923,
                       },
                       {
                         id: 'l-56',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-borde-i' } },
                         valor: 2.063,
                       },
                       {
                         id: 'l-57',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-eje' } },
                         valor: 1.976,
                       },
                       {
                         id: 'l-58',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-borde-d' } },
                         valor: 2.076,
                       },
                       {
                         id: 'l-59',
-                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 60, elementoClave: 'p-sardinel-d' } },
                         valor: 1.916,
                       },
                       {
                         id: 'l-60',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'SAR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-sardinel-i' } },
                         valor: 1.974,
                       },
                       {
                         id: 'l-61',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'BOR-I' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-borde-i' } },
                         valor: 2.135,
                       },
                       {
                         id: 'l-62',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'EJE' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-eje' } },
                         valor: 2.043,
                       },
                       {
                         id: 'l-63',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'BOR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-borde-d' } },
                         valor: 2.121,
                       },
                       {
                         id: 'l-64',
-                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'SAR-D' } },
+                        destino: { tipo: 'celda', celda: { progresiva: 80, elementoClave: 'p-sardinel-d' } },
                         valor: 1.983,
                       },
                     ],

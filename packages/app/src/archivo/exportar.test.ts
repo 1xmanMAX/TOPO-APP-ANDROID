@@ -130,7 +130,7 @@ function evaluacionEjemplo(): ResultadoEvaluacion {
 function evaluacionEstrecha(): ResultadoEvaluacion {
   const { campania, calle, capas, capaId, resultado } = evaluacionBase()
   const cotasPorCelda = new Map(resultado.cotasPorCelda)
-  cotasPorCelda.set(claveCelda(0, 'VER-I'), celda(0, 'VER-I', 3244.0))
+  cotasPorCelda.set(claveCelda(0, 'p-vereda-i'), celda(0, 'p-vereda-i', 3244.0))
   const resultadoConVerI: ResultadoCampania = { ...resultado, cotasPorCelda }
   const rasanteEstrecha: Rasante = {
     progresivaArranque: 0,
@@ -147,14 +147,14 @@ function evaluacionEstrecha(): ResultadoEvaluacion {
 function evaluacionConCeroExacto(): ResultadoEvaluacion {
   const { campania, calle, capas, capaId, resultado } = evaluacionBase()
   const cotasPorCelda = new Map(resultado.cotasPorCelda)
-  cotasPorCelda.set(claveCelda(0, 'EJE'), celda(0, 'EJE', 3244.929))
+  cotasPorCelda.set(claveCelda(0, 'p-eje'), celda(0, 'p-eje', 3244.929))
   const resultadoAjustado: ResultadoCampania = { ...resultado, cotasPorCelda }
   return evaluarContraRasante({ resultado: resultadoAjustado, calle, toma: campania, rasante: rasantePlana(), capas, capaId })
 }
 
 /** ResultadoCampania de prueba cuyo circuito no cerró, para la cabecera de diferencias. */
 function resultadoSinCerrar(): ResultadoCampania {
-  return resultadoComparable([celda(0, 'EJE', 3244.6275)], false)
+  return resultadoComparable([celda(0, 'p-eje', 3244.6275)], false)
 }
 
 function datosEjemplo(): DatosDeCabeceraDiferencias {
@@ -253,8 +253,8 @@ describe('armarCabecera', () => {
 describe('armarTablaEspesores', () => {
   it('escribe el espesor con tres decimales en las celdas comparables', () => {
     const { calle } = resultadoEjemplo()
-    const inferior = resultadoComparable([celda(0, 'EJE', 3244.600)])
-    const superior = resultadoComparable([celda(0, 'EJE', 3244.848)])
+    const inferior = resultadoComparable([celda(0, 'p-eje', 3244.600)])
+    const superior = resultadoComparable([celda(0, 'p-eje', 3244.848)])
     const comparacion = compararCapas(inferior, superior)
 
     const tabla = armarTablaEspesores(comparacion, calle, [0])
@@ -266,8 +266,8 @@ describe('armarTablaEspesores', () => {
 
   it('deja vacía, y no en cero, la celda que no tiene pareja en la otra capa', () => {
     const { calle } = resultadoEjemplo()
-    const inferior = resultadoComparable([celda(0, 'EJE', 3244.600)])
-    const superior = resultadoComparable([celda(20, 'EJE', 3244.900)])
+    const inferior = resultadoComparable([celda(0, 'p-eje', 3244.600)])
+    const superior = resultadoComparable([celda(20, 'p-eje', 3244.900)])
     const comparacion = compararCapas(inferior, superior)
 
     const tabla = armarTablaEspesores(comparacion, calle, [0, 20])
@@ -295,14 +295,14 @@ describe('armarTablaEspesores', () => {
   // reporte justo los tramos que ya estaban listos.
   it('un espesor real de cero sale como 0.000, no vacío', () => {
     const { calle } = resultadoEjemplo()
-    const inferior = resultadoComparable([celda(0, 'EJE', 3244.600)])
-    const superior = resultadoComparable([celda(0, 'EJE', 3244.600)])
+    const inferior = resultadoComparable([celda(0, 'p-eje', 3244.600)])
+    const superior = resultadoComparable([celda(0, 'p-eje', 3244.600)])
     const comparacion = compararCapas(inferior, superior)
 
     const tabla = armarTablaEspesores(comparacion, calle, [0])
     const columnaEje = tabla[0]!.indexOf('EJE')
 
-    expect(comparacion.celdas.get('0|EJE')?.espesor).toBe(0)
+    expect(comparacion.celdas.get('0|p-eje')?.espesor).toBe(0)
     expect(tabla.find((f) => f[0] === '0+000')![columnaEje]).toBe('0.000')
   })
 })
@@ -315,8 +315,8 @@ describe('armarCabeceraComparacion', () => {
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10', capaId: capaInferior.id })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19', capaId: capaSuperior.id })
 
-    const resultadoInferior = resultadoComparable([celda(0, 'EJE', 3244.600), celda(20, 'EJE', 3244.610)])
-    const resultadoSuperior = resultadoComparable([celda(0, 'EJE', 3244.848), celda(20, 'EJE', 3244.910)])
+    const resultadoInferior = resultadoComparable([celda(0, 'p-eje', 3244.600), celda(20, 'p-eje', 3244.610)])
+    const resultadoSuperior = resultadoComparable([celda(0, 'p-eje', 3244.848), celda(20, 'p-eje', 3244.910)])
     const comparacion = compararCapas(resultadoInferior, resultadoSuperior)
 
     const cabecera = armarCabeceraComparacion({
@@ -349,8 +349,8 @@ describe('armarCabeceraComparacion', () => {
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10', capaId: capaInferior.id })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19', capaId: capaSuperior.id })
 
-    const resultadoInferior = resultadoComparable([celda(0, 'EJE', 3244.600)], false)
-    const resultadoSuperior = resultadoComparable([celda(0, 'EJE', 3244.848)], true)
+    const resultadoInferior = resultadoComparable([celda(0, 'p-eje', 3244.600)], false)
+    const resultadoSuperior = resultadoComparable([celda(0, 'p-eje', 3244.848)], true)
     const comparacion = compararCapas(resultadoInferior, resultadoSuperior)
 
     const cabecera = armarCabeceraComparacion({
@@ -377,8 +377,8 @@ describe('armarCabeceraComparacion', () => {
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10', capaId: capaInferior.id })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19', capaId: capaSuperior.id })
 
-    const resultadoInferior = resultadoComparable([celda(0, 'EJE', 3244.600)], true)
-    const resultadoSuperior = resultadoComparable([celda(0, 'EJE', 3244.848)], null)
+    const resultadoInferior = resultadoComparable([celda(0, 'p-eje', 3244.600)], true)
+    const resultadoSuperior = resultadoComparable([celda(0, 'p-eje', 3244.848)], null)
     const comparacion = compararCapas(resultadoInferior, resultadoSuperior)
 
     const cabecera = armarCabeceraComparacion({
@@ -405,8 +405,8 @@ describe('armarCabeceraComparacion', () => {
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10', capaId: capaInferior.id })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19', capaId: capaSuperior.id })
 
-    const resultadoInferior = resultadoComparable([celda(0, 'EJE', 3244.600)], false)
-    const resultadoSuperior = resultadoComparable([celda(0, 'EJE', 3244.848)], null)
+    const resultadoInferior = resultadoComparable([celda(0, 'p-eje', 3244.600)], false)
+    const resultadoSuperior = resultadoComparable([celda(0, 'p-eje', 3244.848)], null)
     const comparacion = compararCapas(resultadoInferior, resultadoSuperior)
 
     const cabecera = armarCabeceraComparacion({
@@ -430,8 +430,8 @@ describe('armarCabeceraComparacion', () => {
     const { calle, campania } = resultadoEjemplo()
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10' })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19' })
-    const resultadoInferior = resultadoComparable([celda(0, 'EJE', 3244.600)])
-    const resultadoSuperior = resultadoComparable([celda(0, 'EJE', 3244.848)])
+    const resultadoInferior = resultadoComparable([celda(0, 'p-eje', 3244.600)])
+    const resultadoSuperior = resultadoComparable([celda(0, 'p-eje', 3244.848)])
     const comparacion = compararCapas(resultadoInferior, resultadoSuperior)
 
     const cabecera = armarCabeceraComparacion({
@@ -456,8 +456,8 @@ describe('armarCabeceraComparacion', () => {
     const { calle, campania } = resultadoEjemplo()
     const campaniaInferior = campaniaEjemplo(campania, { id: 'camp-terreno', fecha: '2026-08-10' })
     const campaniaSuperior = campaniaEjemplo(campania, { id: 'camp-subrasante', fecha: '2026-08-19' })
-    const resultadoInferior = resultadoComparable([celda(0, 'EJE', 3244.600)], false)
-    const resultadoSuperior = resultadoComparable([celda(0, 'EJE', 3244.848)], true)
+    const resultadoInferior = resultadoComparable([celda(0, 'p-eje', 3244.600)], false)
+    const resultadoSuperior = resultadoComparable([celda(0, 'p-eje', 3244.848)], true)
     const comparacion = compararCapas(resultadoInferior, resultadoSuperior)
 
     const cabecera = armarCabeceraComparacion({

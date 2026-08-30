@@ -16,6 +16,13 @@ import { formatearCota } from '../formato'
 import { calcularEstadoComparacion, calcularEstadoRasante } from '../estadoComparacion'
 import { armarXlsx } from './xlsx'
 
+/**
+ * La cabecera de columna lleva la **palabra** del punto («BI»), no su nombre
+ * («Borde izquierdo»), y las tres tablas que se exportan hacen lo mismo: lo
+ * que la app saca tiene que poder volver a entrar. La palabra está declarada
+ * en la sección de la calle, así que reimportar el archivo la reconoce; el
+ * nombre no casaría con nada.
+ */
 export function armarTabla(
   resultado: ResultadoCampania,
   calle: Calle,
@@ -24,13 +31,13 @@ export function armarTabla(
   const esqueleto = armarEsqueletoTabla(calle, progresivas)
   const { progresivas: progresivasOrdenadas, elementos } = esqueleto
 
-  const filas: string[][] = [['Progresiva', ...elementos]]
+  const filas: string[][] = [['Progresiva', ...elementos.map((e) => e.palabra)]]
 
   for (const progresiva of progresivasOrdenadas) {
     filas.push([
       formatearProgresiva(progresiva),
-      ...elementos.map((elementoClave) => {
-        const celda = resultado.cotasPorCelda.get(claveCelda(progresiva, elementoClave))
+      ...elementos.map((elemento) => {
+        const celda = resultado.cotasPorCelda.get(claveCelda(progresiva, elemento.clave))
         return celda ? formatearCota(celda.cota) : ''
       }),
     ])
@@ -55,13 +62,13 @@ export function armarTablaEspesores(
   const esqueleto = armarEsqueletoTabla(calle, progresivas)
   const { progresivas: progresivasOrdenadas, elementos } = esqueleto
 
-  const filas: string[][] = [['Progresiva', ...elementos]]
+  const filas: string[][] = [['Progresiva', ...elementos.map((e) => e.palabra)]]
 
   for (const progresiva of progresivasOrdenadas) {
     filas.push([
       formatearProgresiva(progresiva),
-      ...elementos.map((elementoClave) => {
-        const celda = comparacion.celdas.get(claveCelda(progresiva, elementoClave))
+      ...elementos.map((elemento) => {
+        const celda = comparacion.celdas.get(claveCelda(progresiva, elemento.clave))
         return celda && celda.espesor !== null ? formatearCota(celda.espesor) : ''
       }),
     ])
@@ -97,13 +104,13 @@ export function armarTablaDiferencias(
   const esqueleto = armarEsqueletoTabla(calle, progresivas)
   const { progresivas: progresivasOrdenadas, elementos } = esqueleto
 
-  const filas: string[][] = [['Progresiva', ...elementos]]
+  const filas: string[][] = [['Progresiva', ...elementos.map((e) => e.palabra)]]
 
   for (const progresiva of progresivasOrdenadas) {
     filas.push([
       formatearProgresiva(progresiva),
-      ...elementos.map((elementoClave) => {
-        const celda = evaluacion.celdas.get(claveCelda(progresiva, elementoClave))
+      ...elementos.map((elemento) => {
+        const celda = evaluacion.celdas.get(claveCelda(progresiva, elemento.clave))
         return celda && celda.diferenciaMm !== null ? formatearDiferenciaExportada(celda.diferenciaMm) : ''
       }),
     ])

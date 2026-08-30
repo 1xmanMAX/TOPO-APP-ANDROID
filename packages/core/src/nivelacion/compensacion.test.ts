@@ -32,14 +32,14 @@ describe('compensarPuntos', () => {
     const compensados = compensarPuntos(cotas.puntos, correccionesAcumuladas(-5, 2))
     const porClave = new Map(compensados.map((p) => [p.claveDestino, p.cota]))
 
-    expect(porClave.get('0|EJE')).toBeCloseTo(3244.6275, 9)
-    expect(porClave.get('20|EJE')).toBeCloseTo(3244.62, 9)
+    expect(porClave.get('0|p-eje')).toBeCloseTo(3244.6275, 9)
+    expect(porClave.get('20|p-eje')).toBeCloseTo(3244.62, 9)
   })
 
   it('conserva la cota cruda intacta', () => {
     const cotas = calcularCotas(tomaEjemplo(), [BM_1])
     const compensados = compensarPuntos(cotas.puntos, correccionesAcumuladas(-5, 2))
-    const punto = compensados.find((p) => p.claveDestino === '0|EJE')
+    const punto = compensados.find((p) => p.claveDestino === '0|p-eje')
 
     expect(punto?.cotaCruda).toBeCloseTo(3244.625, 9)
     expect(punto?.correccion).toBeCloseTo(0.0025, 9)
@@ -48,7 +48,7 @@ describe('compensarPuntos', () => {
   it('deja las cotas sin tocar cuando no hay correcciones', () => {
     const cotas = calcularCotas(tomaEjemplo(), [BM_1])
     const compensados = compensarPuntos(cotas.puntos, [])
-    const punto = compensados.find((p) => p.claveDestino === '0|EJE')
+    const punto = compensados.find((p) => p.claveDestino === '0|p-eje')
 
     expect(punto?.cota).toBeCloseTo(3244.625, 9)
     expect(punto?.correccion).toBe(0)

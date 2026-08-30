@@ -185,9 +185,25 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
 
   const offsets = useMemo(() => {
     const mapa = new Map<string, number>()
-    if (contexto) for (const punto of contexto.calle.puntos) mapa.set(punto.codigo, punto.distancia)
+    if (contexto) for (const punto of contexto.calle.seccion.puntos) mapa.set(punto.id, punto.distancia)
     return mapa
   }, [contexto])
+
+  /**
+   * Cómo se llama cada elemento en pantalla: la palabra corta con la que Max
+   * lo escribe en su hoja («VI»), no la clave con la que la grilla lo
+   * identifica, que es un id interno y no se le enseña a nadie. Si el punto
+   * se quedó sin palabras, cae al nombre.
+   */
+  const nombresDeElemento = useMemo(() => {
+    const mapa = new Map<string, string>()
+    if (contexto) {
+      for (const punto of contexto.calle.seccion.puntos) mapa.set(punto.id, punto.palabras[0] ?? punto.nombre)
+    }
+    return mapa
+  }, [contexto])
+
+  const nombreDeElemento = (elementoClave: string) => nombresDeElemento.get(elementoClave) ?? elementoClave
 
   /**
    * Progresivas con al menos una celda medida, no todas las de la grilla —
@@ -248,7 +264,9 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
       })
       const caras = armarCaras({
         progresivas: esqueleto.progresivas,
-        elementos: esqueleto.elementos,
+        // La malla trabaja con llaves, no con texto: de cada columna se lleva
+        // el id, que es lo que compone la clave de celda.
+        elementos: esqueleto.elementos.map((elemento) => elemento.clave),
         offsets,
         cotaDe: (clave) => resultado.cotasPorCelda.get(clave)?.cota ?? null,
       })
@@ -264,7 +282,7 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
     if (modoVista3D !== 'estado' || !esqueleto || !evaluacion || progresivasConCotaReal.size < 2) return []
     return armarCaras({
       progresivas: esqueleto.progresivas,
-      elementos: esqueleto.elementos,
+      elementos: esqueleto.elementos.map((elemento) => elemento.clave),
       offsets,
       cotaDe: (clave) => evaluacion.celdas.get(clave)?.cotaReal ?? null,
     })
@@ -421,7 +439,7 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
       >
         {proyectadas.map(({ cara, puntos }: CaraProyectada) => {
           const puntosSvg = puntos.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ')
-          const etiquetaBase = `Entre ${formatearProgresiva(cara.progresivaDesde)} y ${formatearProgresiva(cara.progresivaHasta)}, de ${cara.elementoDesde} a ${cara.elementoHasta}`
+          const etiquetaBase = `Entre ${formatearProgresiva(cara.progresivaDesde)} y ${formatearProgresiva(cara.progresivaHasta)}, de ${nombreDeElemento(cara.elementoDesde)} a ${nombreDeElemento(cara.elementoHasta)}`
 
           if (modoVista3D === 'capas') {
             const dato = infoPorCara.get(cara)

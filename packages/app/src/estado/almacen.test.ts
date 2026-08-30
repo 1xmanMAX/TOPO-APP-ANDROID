@@ -37,24 +37,24 @@ describe('almacén', () => {
     useAlmacen.getState().actualizarBM(bmId, { cota: 3245.28 })
     const despues = useAlmacen.getState().calcular()!
 
-    expect(antes.cotasPorCelda.get('0|EJE')!.cota).toBeCloseTo(3244.5965, 6)
-    expect(despues.cotasPorCelda.get('0|EJE')!.cota).toBeCloseTo(3244.6965, 6)
+    expect(antes.cotasPorCelda.get('0|p-eje')!.cota).toBeCloseTo(3244.5965, 6)
+    expect(despues.cotasPorCelda.get('0|p-eje')!.cota).toBeCloseTo(3244.6965, 6)
   })
 
   it('agrega una lectura intermedia a la estación indicada', () => {
     const campaniaId = useAlmacen.getState().campaniaActivaId!
     useAlmacen.getState().agregarIntermedia(campaniaId, 1, {
-      destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'EJE' } },
+      destino: { tipo: 'celda', celda: { progresiva: 40, elementoClave: 'p-eje' } },
       valor: 2.5,
     })
     const resultado = useAlmacen.getState().calcular()!
-    expect(resultado.cotasPorCelda.has('40|EJE')).toBe(true)
+    expect(resultado.cotasPorCelda.has('40|p-eje')).toBe(true)
   })
 
   /** La lectura de 0+000 EJE en la primera estación de la campaña de ejemplo. */
   function lecturaDeEjeEnCero(): string {
     return tomaDe('camp-1').estaciones[0]!.intermedias.find(
-      (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'EJE',
+      (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'p-eje',
     )!.id
   }
 
@@ -63,7 +63,7 @@ describe('almacén', () => {
     const lecturaId = lecturaDeEjeEnCero()
     useAlmacen.getState().actualizarLectura(campaniaId, lecturaId, 1.88)
     const resultado = useAlmacen.getState().calcular()!
-    expect(resultado.cotasPorCelda.get('0|EJE')!.cotaCruda).toBeCloseTo(3244.725, 6)
+    expect(resultado.cotasPorCelda.get('0|p-eje')!.cotaCruda).toBeCloseTo(3244.725, 6)
   })
 
   it('elimina una lectura', () => {
@@ -71,12 +71,12 @@ describe('almacén', () => {
     const lecturaId = lecturaDeEjeEnCero()
     useAlmacen.getState().eliminarLectura(campaniaId, lecturaId)
     const resultado = useAlmacen.getState().calcular()!
-    expect(resultado.cotasPorCelda.has('0|EJE')).toBe(false)
+    expect(resultado.cotasPorCelda.has('0|p-eje')).toBe(false)
   })
 
   it('guarda la selección compartida entre vistas', () => {
-    useAlmacen.getState().seleccionar('20|EJE')
-    expect(useAlmacen.getState().seleccion.clave).toBe('20|EJE')
+    useAlmacen.getState().seleccionar('20|p-eje')
+    expect(useAlmacen.getState().seleccion.clave).toBe('20|p-eje')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(20)
   })
 
@@ -129,7 +129,7 @@ describe('almacén', () => {
     })
 
     useAlmacen.getState().agregarIntermedia(campaniaId, 0, {
-      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } },
       valor: 1.5,
     })
 

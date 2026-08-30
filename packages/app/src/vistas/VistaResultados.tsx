@@ -43,7 +43,9 @@ export default function VistaResultados() {
   const proyecto = useAlmacen((s) => s.proyecto)
   const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
   const capasVisibles = useAlmacen((s) => s.capasVisibles)
-  const [elementoPedido, setElementoPedido] = useState('EJE')
+  // Vacío mientras nadie elija: el desplegable arranca en el eje, que es el
+  // punto de la sección con ese rol (antes era el código «EJE»).
+  const [elementoPedido, setElementoPedido] = useState('')
 
   // Sin ninguna capa marcada en el selector, se dibuja la campaña activa: así
   // el corte no queda en blanco antes de que el topógrafo abra el panel de
@@ -194,13 +196,14 @@ export default function VistaResultados() {
 
   const progresivaActiva = seleccion.progresiva ?? progresivas[0] ?? 0
 
-  // Si los puntos de la calle cambiaron y el elegido ya no está, se cae al
-  // primero disponible en vez de dejar el desplegable apuntando a algo
-  // inexistente.
-  const clavesDisponibles = contexto.calle.puntos.map((punto) => punto.codigo)
-  const elementoPerfil = clavesDisponibles.includes(elementoPedido)
-    ? elementoPedido
-    : (clavesDisponibles[0] ?? '')
+  // Si los puntos de la sección cambiaron y el elegido ya no está, se cae al
+  // de arranque en vez de dejar el desplegable apuntando a algo inexistente.
+  // El elemento viaja por su id, que es la clave de la grilla; lo que se lee
+  // en la lista es el nombre del punto.
+  const puntosSeccion = contexto.calle.seccion.puntos
+  const clavesDisponibles = puntosSeccion.map((punto) => punto.id)
+  const claveDeArranque = puntosSeccion.find((punto) => punto.rol === 'eje')?.id ?? clavesDisponibles[0] ?? ''
+  const elementoPerfil = clavesDisponibles.includes(elementoPedido) ? elementoPedido : claveDeArranque
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -350,9 +353,9 @@ export default function VistaResultados() {
               onChange={(evento) => setElementoPedido(evento.target.value)}
               className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
             >
-              {contexto.calle.puntos.map((punto) => (
-                <option key={punto.codigo} value={punto.codigo}>
-                  {punto.codigo}
+              {puntosSeccion.map((punto) => (
+                <option key={punto.id} value={punto.id}>
+                  {punto.nombre}
                 </option>
               ))}
             </select>

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { claveCelda } from '../grilla/grilla'
-import type { Calle, Capa, PuntoCalle, Rasante, Toma } from '../modelo/tipos'
+import type { Calle, Capa, Rasante, Toma } from '../modelo/tipos'
 import type { CotaCelda, ResultadoCampania } from '../nivelacion/calcularCampania'
+import type { PuntoSeccion } from '../seccion/seccion'
 import { estadoDeDiferencia, evaluarContraRasante, type EstadoTolerancia } from './evaluar'
 
 describe('estadoDeDiferencia', () => {
@@ -66,15 +67,31 @@ function rasanteBase(): Rasante {
   }
 }
 
-function puntosDe(elementos: { clave: string; offset: number }[]): PuntoCalle[] {
-  return elementos.map((e) => ({ concepto: 'eje', codigo: e.clave, distancia: e.offset }))
+/**
+ * `e.clave` hace de id del punto: es lo que se usa como `elementoClave` en la
+ * celda medida (ver `celdaMedida`), así que las dos tienen que coincidir.
+ */
+function puntosDe(elementos: { clave: string; offset: number }[]): PuntoSeccion[] {
+  return elementos.map((e) => ({
+    id: e.clave,
+    rol: 'eje',
+    nombre: e.clave,
+    distancia: e.offset,
+    distanciaDeFabrica: false,
+    palabras: [e.clave],
+  }))
 }
 
-function calleDe(puntos: PuntoCalle[]): Calle {
+function calleDe(puntos: PuntoSeccion[]): Calle {
   return {
     id: 'calle-prueba',
     nombre: 'Calle de prueba',
-    puntos,
+    seccion: {
+      puntos,
+      palabrasProgresiva: [],
+      palabrasPuntoControl: [],
+      palabrasReferencia: [],
+    },
     nivelaciones: [],
     rasante: null,
   }

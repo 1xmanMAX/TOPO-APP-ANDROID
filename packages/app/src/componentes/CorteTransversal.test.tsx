@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Proyecto, PuntoCalle, Rasante, Toma } from '@topo/core'
+import type { Proyecto, PuntoSeccion, Rasante, Toma } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import { proyectoEjemplo } from '../estado/ejemplo'
@@ -28,11 +28,11 @@ describe('CorteTransversal', () => {
     const usuario = userEvent.setup()
     render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
     await usuario.click(screen.getByRole('button', { name: /0\+000 EJE/ }))
-    expect(useAlmacen.getState().seleccion.clave).toBe('0|EJE')
+    expect(useAlmacen.getState().seleccion.clave).toBe('0|p-eje')
   })
 
   it('marca el punto seleccionado', () => {
-    useAlmacen.getState().seleccionar('0|EJE')
+    useAlmacen.getState().seleccionar('0|p-eje')
     render(<CorteTransversal progresiva={0} idsVisibles={['camp-1']} idCampaniaReferencia="camp-1" />)
     expect(screen.getByRole('button', { name: /0\+000 EJE/ })).toHaveAttribute('data-activo', 'true')
   })
@@ -76,11 +76,11 @@ function campaniaTerreno(): Toma {
         id: 'et-1',
         vistaAtras: { id: 'lt-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
         intermedias: [
-          { id: 'lt-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'VER-I' } }, valor: 1.2 },
-          { id: 'lt-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } }, valor: 1.3 },
-          { id: 'lt-4', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } }, valor: 1.35 },
-          { id: 'lt-5', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.5 },
-          { id: 'lt-6', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } }, valor: 1.65 },
+          { id: 'lt-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-vereda-i' } }, valor: 1.2 },
+          { id: 'lt-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-i' } }, valor: 1.3 },
+          { id: 'lt-4', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-i' } }, valor: 1.35 },
+          { id: 'lt-5', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } }, valor: 1.5 },
+          { id: 'lt-6', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-d' } }, valor: 1.65 },
         ],
         vistaAdelante: { id: 'lt-7', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
       },
@@ -100,11 +100,11 @@ function campaniaSubrasante(): Toma {
         id: 'es-1',
         vistaAtras: { id: 'ls-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
         intermedias: [
-          { id: 'ls-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'VER-I' } }, valor: 1.0 },
-          { id: 'ls-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-I' } }, valor: 1.05 },
-          { id: 'ls-4', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.2 },
-          { id: 'ls-5', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } }, valor: 1.35 },
-          { id: 'ls-6', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } }, valor: 1.4 },
+          { id: 'ls-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-vereda-i' } }, valor: 1.0 },
+          { id: 'ls-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-i' } }, valor: 1.05 },
+          { id: 'ls-4', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } }, valor: 1.2 },
+          { id: 'ls-5', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-d' } }, valor: 1.35 },
+          { id: 'ls-6', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-d' } }, valor: 1.4 },
         ],
         vistaAdelante: { id: 'ls-7', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
       },
@@ -381,10 +381,24 @@ describe('CorteTransversal: contra qué capa se sombrea', () => {
  * caiga justo en el eje, un tramo con pareja puede unir un punto de cada
  * lado en una sola zona.
  */
-function puntosSinEje(): PuntoCalle[] {
+function puntosSinEje(): PuntoSeccion[] {
   return [
-    { concepto: 'bordeIzq', codigo: 'IZQ', distancia: -3.0 },
-    { concepto: 'bordeDer', codigo: 'DER', distancia: 2.0 },
+    {
+      id: 'p-izq',
+      rol: 'bordeCalzada',
+      nombre: 'Izquierda',
+      distancia: -3.0,
+      distanciaDeFabrica: false,
+      palabras: ['IZQ'],
+    },
+    {
+      id: 'p-der',
+      rol: 'bordeCalzada',
+      nombre: 'Derecha',
+      distancia: 2.0,
+      distanciaDeFabrica: false,
+      palabras: ['DER'],
+    },
   ]
 }
 
@@ -409,8 +423,8 @@ function proyectoSinEje(): Proyecto {
         id: 'e-1',
         vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
         intermedias: [
-          { id: 'l-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'IZQ' } }, valor: 1.148 },
-          { id: 'l-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'DER' } }, valor: 1.16 },
+          { id: 'l-2', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-izq' } }, valor: 1.148 },
+          { id: 'l-3', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-der' } }, valor: 1.16 },
         ],
         vistaAdelante: { id: 'l-4', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
       },
@@ -420,7 +434,12 @@ function proyectoSinEje(): Proyecto {
     {
       id: 'c-sin-eje',
       nombre: 'Calle sin eje',
-      puntos: puntosSinEje(),
+      seccion: {
+        puntos: puntosSinEje(),
+        palabrasProgresiva: ['PROG', 'PK', 'ABSCISA', 'EST', 'PROGRESIVA'],
+        palabrasPuntoControl: ['PC', 'BM', 'PUNTO DE CONTROL'],
+        palabrasReferencia: ['EXISTENTE', 'EXIST', 'REF'],
+      },
       nivelaciones: [{ id: 'niv-sin-eje', nombre: 'Nivelación', color: '#2563eb', tomas: [tomaSinEje] }],
       rasante: {
         progresivaArranque: 0,

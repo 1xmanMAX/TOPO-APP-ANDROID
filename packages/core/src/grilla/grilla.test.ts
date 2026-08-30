@@ -47,10 +47,21 @@ function calleDeEjemplo(): Calle {
   return {
     id: 'c-1',
     nombre: 'Av. Sol',
-    puntos: [
-      { concepto: 'bordeIzq', codigo: 'BOR-I', distancia: -4.2 },
-      { concepto: 'eje', codigo: 'EJE', distancia: 0 },
-    ],
+    seccion: {
+      puntos: [
+        {
+          id: 'p-borde-i', rol: 'bordeCalzada', nombre: 'Borde izquierdo',
+          distancia: -4.2, distanciaDeFabrica: false, palabras: ['BOR-I'],
+        },
+        {
+          id: 'p-eje', rol: 'eje', nombre: 'Eje',
+          distancia: 0, distanciaDeFabrica: false, palabras: ['EJE'],
+        },
+      ],
+      palabrasProgresiva: [],
+      palabrasPuntoControl: [],
+      palabrasReferencia: [],
+    },
     nivelaciones: [],
     rasante: null,
   }
@@ -104,7 +115,7 @@ function tomaDel21(): Toma {
 
 describe('construirGrilla', () => {
   it('la grilla sale de las progresivas medidas, no de un intervalo inventado', () => {
-    const calle = calleDeEjemplo() // puntos: bordeIzq a -4.2, eje a 0
+    const calle = calleDeEjemplo() // seccion.puntos: borde izquierdo a -4.2, eje a 0
 
     // Progresivas irregulares, como salen de una obra: un buzón a los 47 m.
     const celdas = construirGrilla(calle, [0, 20, 47])
@@ -116,24 +127,38 @@ describe('construirGrilla', () => {
   it('cada celda lleva la distancia real del punto en esa calle', () => {
     const celdas = construirGrilla(calleDeEjemplo(), [0])
 
-    expect(celdas.find((c) => c.elementoClave === 'BOR-I')!.offset).toBe(-4.2)
+    expect(celdas.find((c) => c.elementoClave === 'p-borde-i')!.offset).toBe(-4.2)
   })
 
   it('las columnas salen ordenadas por distancia, no por como se escribieron', () => {
     const calle = {
       ...calleDeEjemplo(),
-      puntos: [
-        { concepto: 'eje' as const, codigo: 'EJE', distancia: 0 },
-        { concepto: 'bordeIzq' as const, codigo: 'BOR-I', distancia: -4.2 },
-        { concepto: 'bordeDer' as const, codigo: 'BOR-D', distancia: 4.2 },
-      ],
+      seccion: {
+        ...calleDeEjemplo().seccion,
+        puntos: [
+          {
+            id: 'p-eje', rol: 'eje' as const, nombre: 'Eje',
+            distancia: 0, distanciaDeFabrica: false, palabras: ['EJE'],
+          },
+          {
+            id: 'p-borde-i', rol: 'bordeCalzada' as const, nombre: 'Borde izquierdo',
+            distancia: -4.2, distanciaDeFabrica: false, palabras: ['BOR-I'],
+          },
+          {
+            id: 'p-borde-d', rol: 'bordeCalzada' as const, nombre: 'Borde derecho',
+            distancia: 4.2, distanciaDeFabrica: false, palabras: ['BOR-D'],
+          },
+        ],
+      },
     }
 
-    expect(construirGrilla(calle, [0]).map((c) => c.elementoClave)).toEqual(['BOR-I', 'EJE', 'BOR-D'])
+    expect(construirGrilla(calle, [0]).map((c) => c.elementoClave)).toEqual(['p-borde-i', 'p-eje', 'p-borde-d'])
   })
 
   it('una calle sin puntos no arma ninguna celda, y no revienta', () => {
-    expect(construirGrilla({ ...calleDeEjemplo(), puntos: [] }, [0, 20])).toEqual([])
+    const calle = { ...calleDeEjemplo(), seccion: { ...calleDeEjemplo().seccion, puntos: [] } }
+
+    expect(construirGrilla(calle, [0, 20])).toEqual([])
   })
 
   it('sin progresivas medidas tampoco hay celdas', () => {

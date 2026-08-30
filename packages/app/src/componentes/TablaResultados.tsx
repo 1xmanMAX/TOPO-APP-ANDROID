@@ -27,9 +27,9 @@ export default function TablaResultados() {
         <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900">
           <tr>
             <th className="px-3 py-2 text-left font-medium text-slate-500">Progresiva</th>
-            {elementos.map((clave) => (
-              <th key={clave} className="px-3 py-2 text-right font-medium text-slate-500">
-                {clave}
+            {elementos.map((elemento) => (
+              <th key={elemento.clave} className="px-3 py-2 text-right font-medium text-slate-500">
+                {elemento.palabra}
               </th>
             ))}
           </tr>
@@ -40,8 +40,8 @@ export default function TablaResultados() {
               <td className="numerico px-3 py-1.5 text-slate-600 dark:text-slate-300">
                 {formatearProgresiva(progresiva)}
               </td>
-              {elementos.map((elementoClave) => {
-                const clave = claveCelda(progresiva, elementoClave)
+              {elementos.map((elemento) => {
+                const clave = claveCelda(progresiva, elemento.clave)
                 const celda = resultado.cotasPorCelda.get(clave)
                 const activa = seleccion.clave === clave
                 return (
@@ -50,8 +50,8 @@ export default function TablaResultados() {
                       type="button"
                       aria-label={
                         celda
-                          ? `Cota en ${formatearProgresiva(progresiva)} ${elementoClave}: ${formatearCota(celda.cota)}`
-                          : `Cota en ${formatearProgresiva(progresiva)} ${elementoClave}, sin medir`
+                          ? `Cota en ${formatearProgresiva(progresiva)} ${elemento.palabra}: ${formatearCota(celda.cota)}`
+                          : `Cota en ${formatearProgresiva(progresiva)} ${elemento.palabra}, sin medir`
                       }
                       onClick={() => seleccionar(clave)}
                       className={`numerico w-full rounded px-2 py-1 text-right ${

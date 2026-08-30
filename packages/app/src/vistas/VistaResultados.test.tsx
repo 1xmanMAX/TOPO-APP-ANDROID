@@ -54,7 +54,7 @@ function campaniaTerreno(): Toma {
         intermedias: [
           {
             id: 'lt-2',
-            destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+            destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } },
             valor: 1.78,
           },
         ],
@@ -116,7 +116,7 @@ describe('VistaResultados', () => {
     const usuario = userEvent.setup()
     render(<VistaResultados />)
 
-    await usuario.selectOptions(screen.getByLabelText('Elemento del perfil'), 'BOR-I')
+    await usuario.selectOptions(screen.getByLabelText('Elemento del perfil'), 'p-borde-i')
 
     expect(screen.getByRole('img', { name: /Perfil longitudinal de BOR-I/ })).toBeInTheDocument()
   })
@@ -145,12 +145,15 @@ describe('VistaResultados', () => {
     // act() para que React aplique el re-render antes de la aserción.
     act(() => {
       useAlmacen.getState().actualizarCalle(calle.id, {
-        puntos: calle.puntos.filter((punto) => punto.codigo !== 'EJE'),
+        seccion: {
+          ...calle.seccion,
+          puntos: calle.seccion.puntos.filter((punto) => punto.id !== 'p-eje'),
+        },
       })
     })
 
     expect(screen.queryByRole('img', { name: /Perfil longitudinal de EJE/ })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Elemento del perfil')).not.toHaveValue('EJE')
+    expect(screen.getByLabelText('Elemento del perfil')).not.toHaveValue('p-eje')
   })
 
   it('con una comparación elegida, la tabla de cotas y la de espesores conviven sin que sus nombres se confundan', () => {

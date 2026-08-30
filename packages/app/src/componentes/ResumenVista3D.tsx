@@ -1,6 +1,6 @@
 import { claveCelda, formatearProgresiva, type CaraMalla, type EstadoTolerancia, type Id } from '@topo/core'
 import type { ModoVista3D } from '../estado/almacen'
-import { useEvaluacionRasante } from '../estado/derivados'
+import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
 import { ETIQUETA_ESTADO, formatearDiferencia } from '../estadoRasante'
 
 /**
@@ -57,6 +57,7 @@ interface Props {
  */
 export default function ResumenVista3D({ idCampaniaReferencia, modoVista3D, caras, capas }: Props) {
   const evaluacion = useEvaluacionRasante(idCampaniaReferencia ?? '')
+  const contexto = useContextoDe(idCampaniaReferencia)
 
   if (modoVista3D === 'capas') {
     if (capas.length === 0) return null
@@ -76,6 +77,16 @@ export default function ResumenVista3D({ idCampaniaReferencia, modoVista3D, cara
 
   if (!evaluacion || caras.length === 0) return null
 
+  // El párrafo dice dónde está la peor diferencia, y eso se lee: nombra el
+  // punto con la palabra corta con la que Max lo escribe en su hoja («BI»),
+  // nunca por el id interno con el que la cara lo identifica. Si el punto se
+  // quedó sin palabras, cae al nombre; una clave que ya no corresponda a
+  // ningún punto se enseña tal cual, que es lo único que quedó guardado de
+  // ella.
+  const nombresDeElemento = new Map(
+    (contexto?.calle.seccion.puntos ?? []).map((punto) => [punto.id, punto.palabras[0] ?? punto.nombre]),
+  )
+
   const conteos: Partial<Record<EstadoTolerancia, number>> = {}
   let peor: { etiqueta: string; diferenciaMm: number } | null = null
 
@@ -91,7 +102,9 @@ export default function ResumenVista3D({ idCampaniaReferencia, modoVista3D, cara
     if ((celda.estado === 'fuera' || celda.estado === 'alLimite') && celda.diferenciaMm !== null) {
       if (!peor || Math.abs(celda.diferenciaMm) > Math.abs(peor.diferenciaMm)) {
         peor = {
-          etiqueta: `${formatearProgresiva(cara.progresivaDesde)} ${cara.elementoDesde}`,
+          etiqueta:
+            `${formatearProgresiva(cara.progresivaDesde)} ` +
+            `${nombresDeElemento.get(cara.elementoDesde) ?? cara.elementoDesde}`,
           diferenciaMm: celda.diferenciaMm,
         }
       }

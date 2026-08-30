@@ -26,7 +26,7 @@ describe('PanelEstacion', () => {
     await usuario.type(campo, '1.880')
 
     const resultado = useAlmacen.getState().calcular()!
-    expect(resultado.cotasPorCelda.get('0|EJE')!.cotaCruda).toBeCloseTo(3244.725, 6)
+    expect(resultado.cotasPorCelda.get('0|p-eje')!.cotaCruda).toBeCloseTo(3244.725, 6)
   })
 
   it('borra una lectura', async () => {
@@ -35,7 +35,7 @@ describe('PanelEstacion', () => {
     await usuario.click(screen.getByLabelText('Borrar lectura de 0+000 EJE'))
 
     const resultado = useAlmacen.getState().calcular()!
-    expect(resultado.cotasPorCelda.has('0|EJE')).toBe(false)
+    expect(resultado.cotasPorCelda.has('0|p-eje')).toBe(false)
   })
 
   it('vaciar el campo de una lectura no guarda un cero', async () => {
@@ -47,7 +47,7 @@ describe('PanelEstacion', () => {
 
     const lectura = buscarToma(useAlmacen.getState().proyecto, 'camp-1')!
       .toma.estaciones[0]!.intermedias.find(
-        (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'EJE',
+        (i) => i.destino.tipo === 'celda' && i.destino.celda.progresiva === 0 && i.destino.celda.elementoClave === 'p-eje',
       )!
     expect(lectura.valor).toBe(2.011)
   })
@@ -78,7 +78,7 @@ describe('PanelEstacion', () => {
     await usuario.click(screen.getByRole('button', { name: /trasladar el instrumento/i }))
 
     const resultado = useAlmacen.getState().calcular()!
-    expect(resultado.cotasPorCelda.has('0|EJE')).toBe(true)
+    expect(resultado.cotasPorCelda.has('0|p-eje')).toBe(true)
   })
 
   it('no ofrece cerrar el circuito cuando la estación ya tiene vista adelante', () => {

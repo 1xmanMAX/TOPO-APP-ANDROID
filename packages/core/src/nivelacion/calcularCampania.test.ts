@@ -9,13 +9,13 @@ function entrada(campania = tomaEjemplo()) {
 describe('calcularCampania', () => {
   it('entrega las cotas compensadas por celda', () => {
     const resultado = calcularCampania(entrada())
-    expect(resultado.cotasPorCelda.get('0|EJE')?.cota).toBeCloseTo(3244.6275, 9)
-    expect(resultado.cotasPorCelda.get('20|EJE')?.cota).toBeCloseTo(3244.62, 9)
+    expect(resultado.cotasPorCelda.get('0|p-eje')?.cota).toBeCloseTo(3244.6275, 9)
+    expect(resultado.cotasPorCelda.get('20|p-eje')?.cota).toBeCloseTo(3244.62, 9)
   })
 
   it('lleva el offset de cada celda desde los puntos de la calle', () => {
     const resultado = calcularCampania(entrada())
-    expect(resultado.cotasPorCelda.get('0|BOR-I')?.offset).toBe(-4.2)
+    expect(resultado.cotasPorCelda.get('0|p-borde-i')?.offset).toBe(-4.2)
   })
 
   it('calcula la longitud K automáticamente cuando está en automático', () => {
@@ -40,7 +40,7 @@ describe('calcularCampania', () => {
     // que son las que fijan el error de cierre) no se tocan.
     campania.estaciones[0]!.intermedias[1] = {
       ...campania.estaciones[0]!.intermedias[1]!,
-      destino: { tipo: 'celda', celda: { progresiva: 250, elementoClave: 'BOR-I' } },
+      destino: { tipo: 'celda', celda: { progresiva: 250, elementoClave: 'p-borde-i' } },
     }
 
     const resultado = calcularCampania(entrada(campania))
@@ -79,8 +79,8 @@ describe('calcularCampania', () => {
     const resultado = calcularCampania(entrada(campania))
 
     expect(resultado.cierre.pasa).toBe(false)
-    expect(resultado.cotasPorCelda.get('0|EJE')?.cota).toBeCloseTo(3244.625, 9)
-    expect(resultado.cotasPorCelda.get('0|EJE')?.correccion).toBe(0)
+    expect(resultado.cotasPorCelda.get('0|p-eje')?.cota).toBeCloseTo(3244.625, 9)
+    expect(resultado.cotasPorCelda.get('0|p-eje')?.correccion).toBe(0)
   })
 
   it('avisa cuando el cierre no pasa', () => {
@@ -107,11 +107,11 @@ describe('calcularCampania', () => {
     const campania = tomaEjemplo()
     campania.estaciones[1]!.intermedias.push({
       id: 'l-8',
-      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } },
       valor: 2.462,
     })
     const resultado = calcularCampania(entrada(campania))
-    const celda = resultado.cotasPorCelda.get('0|EJE')
+    const celda = resultado.cotasPorCelda.get('0|p-eje')
 
     expect(celda?.lecturas).toEqual([1.98, 2.462])
     expect(celda?.cotaCruda).toBeCloseTo(3244.623, 9)
@@ -121,11 +121,11 @@ describe('calcularCampania', () => {
     const campania = tomaEjemplo()
     campania.estaciones[1]!.intermedias.push({
       id: 'l-8',
-      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } },
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } },
       valor: 2.47,
     })
     const resultado = calcularCampania(entrada(campania))
-    const aviso = resultado.avisos.find((a) => a.clave === '0|EJE')
+    const aviso = resultado.avisos.find((a) => a.clave === '0|p-eje')
 
     expect(aviso?.nivel).toBe('advertencia')
     expect(aviso?.mensaje).toContain('se midió 2 veces')
@@ -135,11 +135,11 @@ describe('calcularCampania', () => {
     const campania = tomaEjemplo()
     campania.estaciones[0]!.intermedias.push({
       id: 'l-9',
-      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-D' } },
+      destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-d' } },
       valor: 2.45,
     })
     const resultado = calcularCampania(entrada(campania))
-    const aviso = resultado.avisos.find((a) => a.clave === '0|BOR-D')
+    const aviso = resultado.avisos.find((a) => a.clave === '0|p-borde-d')
 
     expect(aviso?.nivel).toBe('advertencia')
     expect(aviso?.mensaje).toContain('se aparta')
@@ -187,24 +187,36 @@ describe('calcularCampania', () => {
     expect(resultado.avisos.some((a) => a.mensaje.includes('fuera de tolerancia'))).toBe(false)
   })
 
-  it('avisa de las lecturas que quedan huérfanas al renombrar el código de un punto ya medido', () => {
-    const calleConCodigoRenombrado = {
+  // Con el modelo viejo, la clave de una celda era el codigo del punto
+  // ('EJE'), que era a la vez la llave interna y el texto en pantalla:
+  // renombrar el codigo dejaba huerfanas las lecturas que ya apuntaban a
+  // ese texto. Ahora la clave es punto.id, que Max nunca toca -las
+  // palabras que el ve y edita viven aparte, en punto.palabras-, asi que
+  // renombrar un punto ya no puede desconectar ninguna lectura. Ese
+  // gatillo dejo de existir, y es una mejora del modelo, no un relajo de
+  // la prueba: la capacidad que se vigila aqui sigue viva (avisar de
+  // lecturas cuyo elementoClave ya no corresponde a ningun punto de la
+  // seccion), solo que hoy se llega a ese estado borrando el punto de la
+  // seccion, no renombrandolo.
+  it('avisa de las lecturas que quedan huérfanas al borrar de la sección un punto ya medido', () => {
+    const calleSinEje = {
       ...CALLE_EJEMPLO,
-      puntos: CALLE_EJEMPLO.puntos.map((punto) =>
-        punto.codigo === 'EJE' ? { ...punto, codigo: 'EJE-C' } : punto,
-      ),
+      seccion: {
+        ...CALLE_EJEMPLO.seccion,
+        puntos: CALLE_EJEMPLO.seccion.puntos.filter((punto) => punto.id !== 'p-eje'),
+      },
     }
     const resultado = calcularCampania({
       campania: tomaEjemplo(),
-      calle: calleConCodigoRenombrado,
+      calle: calleSinEje,
       bms: [BM_1],
     })
 
     const aviso = resultado.avisos.find((a) => a.mensaje.includes('ya no caen en la grilla'))
     expect(aviso).toBeDefined()
     expect(aviso?.nivel).toBe('advertencia')
-    expect(aviso?.mensaje).toContain('0+000 EJE')
-    expect(aviso?.mensaje).toContain('0+020 EJE')
+    expect(aviso?.mensaje).toContain('0+000 p-eje')
+    expect(aviso?.mensaje).toContain('0+020 p-eje')
   })
 
   it('avisa si el banco de nivel de cierre ya no existe en el proyecto', () => {

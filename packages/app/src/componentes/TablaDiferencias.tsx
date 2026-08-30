@@ -160,9 +160,9 @@ export default function TablaDiferencias({ idCampaniaReferencia }: Props) {
           <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900">
             <tr>
               <th className="px-3 py-2 text-left font-medium text-slate-500">Progresiva</th>
-              {elementos.map((clave) => (
-                <th key={clave} className="px-3 py-2 text-right font-medium text-slate-500">
-                  {clave}
+              {elementos.map((elemento) => (
+                <th key={elemento.clave} className="px-3 py-2 text-right font-medium text-slate-500">
+                  {elemento.palabra}
                 </th>
               ))}
             </tr>
@@ -173,11 +173,11 @@ export default function TablaDiferencias({ idCampaniaReferencia }: Props) {
                 <td className="numerico px-3 py-1.5 text-slate-600 dark:text-slate-300">
                   {formatearProgresiva(progresiva)}
                 </td>
-                {elementos.map((elementoClave) => {
-                  const clave = claveCelda(progresiva, elementoClave)
+                {elementos.map((elemento) => {
+                  const clave = claveCelda(progresiva, elemento.clave)
                   const celda = evaluacion.celdas.get(clave)
                   const activa = seleccion.clave === clave
-                  const etiqueta = `${formatearProgresiva(progresiva)} ${elementoClave}`
+                  const etiqueta = `${formatearProgresiva(progresiva)} ${elemento.palabra}`
                   const { fondo, texto } = clasesCelda(celda, activa)
                   return (
                     <td key={clave} className="p-0.5">

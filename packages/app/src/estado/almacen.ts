@@ -5,6 +5,7 @@ import {
   moverCapa,
   partirClaveCelda,
   renumerarCapas,
+  seccionDeFabrica,
   type BM,
   type Calle,
   type Camara,
@@ -74,7 +75,7 @@ interface EstadoApp {
   eliminarCapa(id: Id): void
   moverCapa(capaId: Id, direccion: -1 | 1): void
 
-  agregarCalle(datos: Omit<Calle, 'id' | 'puntos' | 'nivelaciones'>): Id
+  agregarCalle(datos: Omit<Calle, 'id' | 'seccion' | 'nivelaciones'>): Id
   actualizarCalle(id: Id, cambios: Partial<Omit<Calle, 'id'>>): void
   eliminarCalle(id: Id): void
   fijarRasante(calleId: Id, rasante: Rasante | null): void
@@ -277,7 +278,10 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     set((s) => ({
       proyecto: marcarModificado({
         ...s.proyecto,
-        calles: [...s.proyecto.calles, { ...datos, id, puntos: [], nivelaciones: [] }],
+        // Una calle nueva nace con la sección urbana típica ya puesta, no
+        // vacía: es un punto de partida que se edita entero, y sin él no
+        // habría dónde caer las lecturas de la primera libreta.
+        calles: [...s.proyecto.calles, { ...datos, id, seccion: seccionDeFabrica(), nivelaciones: [] }],
       }),
     }))
     return id

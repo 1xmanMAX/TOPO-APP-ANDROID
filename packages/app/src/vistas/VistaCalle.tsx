@@ -5,8 +5,8 @@ import { useContexto } from '../estado/derivados'
 
 /**
  * La plantilla transversal y el rango de progresivas de una calle
- * desaparecieron de aquí: los puntos de la calle y sus distancias entran por
- * el archivo importado (catálogo de códigos), no se escriben a mano en esta
+ * desaparecieron de aquí: los puntos y sus distancias viven en la sección
+ * declarada de la calle (`calle.seccion`), no se escriben a mano en esta
  * pantalla. Lo que sigue viviendo aquí es lo que no cambió con ese rediseño:
  * el nombre de la calle y su rasante de proyecto.
  */
@@ -28,7 +28,7 @@ export default function VistaCalle() {
 
       <section className="flex flex-col gap-2">
         <h3 className="font-semibold">Rasante de proyecto</h3>
-        <EditorRasante calleId={calle.id} puntos={calle.puntos} />
+        <EditorRasante calleId={calle.id} puntos={calle.seccion.puntos} />
       </section>
     </div>
   )

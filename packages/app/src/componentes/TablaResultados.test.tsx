@@ -28,7 +28,7 @@ describe('TablaResultados', () => {
     const usuario = userEvent.setup()
     render(<TablaResultados />)
     await usuario.click(screen.getByLabelText(/Cota en 0\+020 EJE/))
-    expect(useAlmacen.getState().seleccion.clave).toBe('20|EJE')
+    expect(useAlmacen.getState().seleccion.clave).toBe('20|p-eje')
     expect(useAlmacen.getState().seleccion.progresiva).toBe(20)
   })
 
