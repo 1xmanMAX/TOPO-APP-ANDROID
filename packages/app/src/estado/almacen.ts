@@ -1,7 +1,11 @@
 import {
+  anadirPalabra,
   CAMARA_ISOMETRICA,
   calcularCampania,
   capaEnUso,
+  ETIQUETA_ROL,
+  ladoDe,
+  mismaPalabra,
   moverCapa,
   partirClaveCelda,
   renumerarCapas,
@@ -15,6 +19,8 @@ import {
   type Proyecto,
   type Rasante,
   type ResultadoCampania,
+  type Rol,
+  type Seccion,
   type Toma,
 } from '@topo/core'
 import { create } from 'zustand'
@@ -80,6 +86,12 @@ interface EstadoApp {
   eliminarCalle(id: Id): void
   fijarRasante(calleId: Id, rasante: Rasante | null): void
 
+  cambiarDistancia(calleId: Id, puntoId: Id, distancia: number): void
+  anadirPalabraAPunto(calleId: Id, puntoId: Id, palabra: string): void
+  quitarPalabraDePunto(calleId: Id, puntoId: Id, palabra: string): void
+  anadirPunto(calleId: Id, rol: Rol, distancia: number): void
+  quitarPunto(calleId: Id, puntoId: Id): void
+
   agregarCampania(datos: Omit<Toma, 'id' | 'estaciones'> & { calleId: Id }): Id
   actualizarCampania(id: Id, cambios: Partial<Omit<Toma, 'id'>> & { calleId?: Id }): void
   activarCampania(id: Id | null): void
@@ -115,6 +127,53 @@ interface EstadoApp {
 
 function marcarModificado(proyecto: Proyecto): Proyecto {
   return { ...proyecto, meta: { ...proyecto.meta, modificado: new Date().toISOString() } }
+}
+
+/**
+ * Cambia la sección de una calle y deja el resto del proyecto como estaba.
+ * Las cinco acciones de la sección pasan por aquí para no repetir cinco
+ * veces el mismo recorrido de calles.
+ */
+function conSeccion(proyecto: Proyecto, calleId: Id, cambiar: (seccion: Seccion) => Seccion): Proyecto {
+  return marcarModificado({
+    ...proyecto,
+    calles: proyecto.calles.map((calle) =>
+      calle.id === calleId ? { ...calle, seccion: cambiar(calle.seccion) } : calle,
+    ),
+  })
+}
+
+/** Los roles de nombre femenino: «Vereda izquierda», pero «Sardinel izquierdo». */
+const ROLES_FEMENINOS: readonly Rol[] = ['vereda', 'cuneta']
+
+/**
+ * Cómo se llama un punto nuevo: su elemento y el lado donde cayó, escrito en
+ * español de verdad. El lado sale del signo de la distancia, igual que en el
+ * resto de la app; un punto en el eje no lleva lado porque no lo tiene.
+ */
+function nombreDePunto(rol: Rol, distancia: number): string {
+  const lado = ladoDe(distancia)
+  if (lado === 'eje') return ETIQUETA_ROL[rol]
+
+  const femenino = ROLES_FEMENINOS.includes(rol)
+  const izquierda = femenino ? 'izquierda' : 'izquierdo'
+  const derecha = femenino ? 'derecha' : 'derecho'
+
+  return `${ETIQUETA_ROL[rol]} ${lado === 'izquierda' ? izquierda : derecha}`
+}
+
+/**
+ * El nombre con el que el punto entra sin confundirse con otro que ya esté.
+ * Dos cunetas del mismo lado son posibles —Max declara lo que mide—, pero
+ * dos puntos llamados igual dejarían dos campos indistinguibles para quien
+ * navega con lector de pantalla.
+ */
+function nombreLibre(seccion: Seccion, base: string): string {
+  if (!seccion.puntos.some((punto) => punto.nombre === base)) return base
+
+  let numero = 2
+  while (seccion.puntos.some((punto) => punto.nombre === `${base} ${numero}`)) numero += 1
+  return `${base} ${numero}`
 }
 
 /**
@@ -312,6 +371,75 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         ),
       }),
     })),
+
+  cambiarDistancia: (calleId, puntoId, distancia) =>
+    set((s) => ({
+      proyecto: conSeccion(s.proyecto, calleId, (seccion) => ({
+        ...seccion,
+        puntos: seccion.puntos.map((punto) =>
+          // Escribir la distancia es medirla, aunque salga la misma cifra que
+          // traía: la app deja de responder por ella y ya no la cuenta como
+          // suya en el aviso de las pendientes orientativas.
+          punto.id === puntoId ? { ...punto, distancia, distanciaDeFabrica: false } : punto,
+        ),
+      })),
+    })),
+
+  anadirPalabraAPunto: (calleId, puntoId, palabra) =>
+    set((s) => ({
+      // `anadirPalabra` compara ya normalizado: la misma palabra escrita de
+      // otra manera no entra dos veces, y la misma palabra en los dos lados
+      // del eje sí, que es justo lo que Max pidió.
+      proyecto: conSeccion(s.proyecto, calleId, (seccion) => anadirPalabra(seccion, puntoId, palabra)),
+    })),
+
+  quitarPalabraDePunto: (calleId, puntoId, palabra) =>
+    set((s) => ({
+      proyecto: conSeccion(s.proyecto, calleId, (seccion) => ({
+        ...seccion,
+        puntos: seccion.puntos.map((punto) =>
+          punto.id === puntoId
+            ? { ...punto, palabras: punto.palabras.filter((suya) => !mismaPalabra(suya, palabra)) }
+            : punto,
+        ),
+      })),
+    })),
+
+  anadirPunto: (calleId, rol, distancia) =>
+    set((s) => ({
+      proyecto: conSeccion(s.proyecto, calleId, (seccion) => ({
+        ...seccion,
+        puntos: [
+          ...seccion.puntos,
+          {
+            id: nuevoId('p'),
+            rol,
+            nombre: nombreLibre(seccion, nombreDePunto(rol, distancia)),
+            distancia,
+            // La escribió Max al añadirlo, así que nace medida.
+            distanciaDeFabrica: false,
+            palabras: [],
+          },
+        ],
+      })),
+    })),
+
+  quitarPunto: (calleId, puntoId) =>
+    set((s) => {
+      const calle = s.proyecto.calles.find((c) => c.id === calleId)
+      const punto = calle?.seccion.puntos.find((p) => p.id === puntoId)
+      // El eje no se quita: es el que dice qué cae a la izquierda y qué a la
+      // derecha, tanto al dibujar la sección como al repartir las columnas de
+      // una hoja. Sin él no habría con qué deducir el lado de nada.
+      if (!punto || punto.rol === 'eje') return {}
+
+      return {
+        proyecto: conSeccion(s.proyecto, calleId, (seccion) => ({
+          ...seccion,
+          puntos: seccion.puntos.filter((p) => p.id !== puntoId),
+        })),
+      }
+    }),
 
   agregarCampania: (datos) => {
     const { calleId, ...restoDatos } = datos

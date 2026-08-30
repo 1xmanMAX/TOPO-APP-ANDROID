@@ -274,8 +274,10 @@ Además de las del spec anterior, que siguen:
 - **La palabra en los dos lados.** Una hoja con `bobo` a izquierda y derecha del
   eje reparte los dos bordes bien.
 - **Sin columna de eje**, la app lo dice y no adivina el lado.
-- **Distancias de fábrica**: el aviso aparece; en cuanto se cambia una, deja de
-  aparecer para esa calle.
+- **Distancias de fábrica**: el aviso aparece, y **sigue mientras quede una sola
+  sin medir**. Solo desaparece cuando ya no queda ninguna. La pendiente entre dos
+  puntos únicamente es fiable si los dos están medidos, así que corregir la
+  vereda no hace fiable su pendiente contra un borde que sigue puesto por la app.
 
 ---
 

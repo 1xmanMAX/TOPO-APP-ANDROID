@@ -1,3 +1,4 @@
+import { hayDistanciasDeFabrica } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from './almacen'
 import { proyectoEjemplo } from './ejemplo'
@@ -421,6 +422,91 @@ describe('almacén', () => {
 
       expect('camara' in proyecto).toBe(false)
       expect('modoVista3D' in proyecto).toBe(false)
+    })
+  })
+
+  describe('la sección de la calle', () => {
+    /** La sección de la calle indicada, tal como está en el almacén ahora mismo. */
+    function seccionDe(calleId: string) {
+      return useAlmacen.getState().proyecto.calles.find((c) => c.id === calleId)!.seccion
+    }
+
+    function puntoDe(calleId: string, puntoId: string) {
+      return seccionDe(calleId).puntos.find((p) => p.id === puntoId)!
+    }
+
+    it('escribir una distancia la marca medida, y las demás siguen siendo de fábrica', () => {
+      const calleId = useAlmacen.getState().agregarCalle({ nombre: 'Detrás del colegio', rasante: null })
+      expect(hayDistanciasDeFabrica(seccionDe(calleId))).toBe(true)
+
+      useAlmacen.getState().cambiarDistancia(calleId, 'p-vereda-i', -6.5)
+
+      expect(puntoDe(calleId, 'p-vereda-i').distancia).toBe(-6.5)
+      expect(puntoDe(calleId, 'p-vereda-i').distanciaDeFabrica).toBe(false)
+      expect(hayDistanciasDeFabrica(seccionDe(calleId))).toBe(true)
+    })
+
+    it('escribir la misma cifra también cuenta como medirla', () => {
+      // Confirmar que el sardinel está justo donde la app suponía es una
+      // medida como cualquier otra: a partir de ahí responde Max, no la app.
+      const calleId = useAlmacen.getState().agregarCalle({ nombre: 'Calle nueva', rasante: null })
+      const antes = puntoDe(calleId, 'p-sardinel-d').distancia
+
+      useAlmacen.getState().cambiarDistancia(calleId, 'p-sardinel-d', antes)
+
+      expect(puntoDe(calleId, 'p-sardinel-d').distanciaDeFabrica).toBe(false)
+    })
+
+    it('quitar una palabra no repara en mayúsculas ni en tildes', () => {
+      useAlmacen.getState().quitarPalabraDePunto('c-1', 'p-eje', ' eje ')
+
+      expect(puntoDe('c-1', 'p-eje').palabras).toEqual([])
+    })
+
+    it('la misma palabra vale para los dos lados del eje', () => {
+      useAlmacen.getState().anadirPalabraAPunto('c-1', 'p-borde-i', 'bobo')
+      useAlmacen.getState().anadirPalabraAPunto('c-1', 'p-borde-d', 'bobo')
+
+      expect(puntoDe('c-1', 'p-borde-i').palabras).toContain('bobo')
+      expect(puntoDe('c-1', 'p-borde-d').palabras).toContain('bobo')
+    })
+
+    it('un punto nuevo se llama por su elemento y su lado, sin repetir nombre', () => {
+      useAlmacen.getState().anadirPunto('c-1', 'cuneta', -4.9)
+      useAlmacen.getState().anadirPunto('c-1', 'vereda', 6)
+
+      const nombres = seccionDe('c-1').puntos.map((p) => p.nombre)
+      expect(nombres).toContain('Cuneta izquierda')
+      // «Vereda derecha» ya estaba: dos puntos con el mismo nombre dejarían dos
+      // campos indistinguibles para quien navega con lector de pantalla.
+      expect(nombres).toContain('Vereda derecha 2')
+    })
+
+    it('un punto nuevo nace medido y sin palabras', () => {
+      useAlmacen.getState().anadirPunto('c-1', 'peloAgua', -2.8)
+
+      const punto = seccionDe('c-1').puntos.find((p) => p.rol === 'peloAgua')!
+      expect(punto.distanciaDeFabrica).toBe(false)
+      expect(punto.palabras).toEqual([])
+    })
+
+    it('el eje no se quita, los demás puntos sí', () => {
+      useAlmacen.getState().quitarPunto('c-1', 'p-eje')
+      useAlmacen.getState().quitarPunto('c-1', 'p-vereda-d')
+
+      const ids = seccionDe('c-1').puntos.map((p) => p.id)
+      expect(ids).toContain('p-eje')
+      expect(ids).not.toContain('p-vereda-d')
+    })
+
+    it('quitar un punto de la sección no borra ninguna lectura', () => {
+      // Las lecturas son el dato crudo: cambiar la sección no las toca. La que
+      // se quede sin su punto se sigue viendo, que es lo que manda el spec.
+      const antes = tomaDe('camp-1').estaciones[0]!.intermedias.length
+
+      useAlmacen.getState().quitarPunto('c-1', 'p-borde-i')
+
+      expect(tomaDe('camp-1').estaciones[0]!.intermedias).toHaveLength(antes)
     })
   })
 })
