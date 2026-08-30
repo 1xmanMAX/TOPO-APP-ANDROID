@@ -260,6 +260,7 @@ describe('reglas generales', () => {
 
     expect(interpretarHoja(hoja, seccionDeFabrica()).sinAsignar[0]!.traeNumeros).toBe(false)
   })
+
   it('una hoja sin ninguna palabra conocida no se interpreta, y lo dice con palabras', () => {
     const c = interpretarHoja(conCabecera([['nada', 'de', 'nada'], ['1', '2', '3']]), seccionDeFabrica())
 

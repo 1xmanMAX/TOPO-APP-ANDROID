@@ -232,6 +232,18 @@ describe('la pantalla de subir datos', () => {
     expect(puntoDe(calleImportada(), 'p-borde-i').palabras).toContain('IZQ')
   })
 
+  it('colocar una columna en el lado que no es no la pinta dos veces, y se dice', async () => {
+    render(<VistaSubirDatos />)
+    await elegirArchivo(archivoDetrasDelColegio())
+
+    // IZQ cae a la izquierda del eje y el borde derecho está al otro lado, así
+    // que esa colocación no puede cuajar: el intérprete devuelve la columna a
+    // las que no reconoce mientras aquí sigue elegida.
+    await userEvent.selectOptions(screen.getByLabelText(/dónde va la columna IZQ/i), 'p-borde-d')
+
+    expect(screen.getAllByLabelText(/dónde va la columna IZQ/i)).toHaveLength(1)
+    expect(screen.getByText(/no llegó a colocarse/i)).toBeInTheDocument()
+  })
   it('no deja importar mientras quede una columna medida sin colocar', async () => {
     render(<VistaSubirDatos />)
     await elegirArchivo(archivoDetrasDelColegio())
@@ -369,6 +381,7 @@ describe('la pantalla de subir datos', () => {
 
     expect(screen.getByLabelText(/a qué calle/i)).toHaveValue('Av. Sol')
   })
+
   it('nada entra en el proyecto hasta que se confirma', async () => {
     const antes = useAlmacen.getState().proyecto
     render(<VistaSubirDatos />)

@@ -13,7 +13,7 @@ import { leerCsv, leerPegado, leerXlsx, type HojaLeida } from '../archivo/leerTa
 import { letraDeColumna } from '../archivo/xlsx'
 import VistaPreviaHoja from '../componentes/VistaPreviaHoja'
 import { useAlmacen } from '../estado/almacen'
-import { cuenta } from '../formato'
+import { cuenta, formatearCota } from '../formato'
 import { agruparNoImportado } from '../importar/agrupar'
 import { interpretarHoja, type ColumnaSinAsignar } from '../importar/interpretar'
 
@@ -56,6 +56,8 @@ interface PropsColumnas {
   sinColocar: ColumnaSinAsignar[]
   /** Las que ya se colocaron a mano y por eso él sí reconoce. */
   asignaciones: Asignacion[]
+  /** Los índices de las columnas que el intérprete acabó colocando de verdad. */
+  indicesColocados: number[]
   alColocar: (columna: ColumnaSinAsignar, puntoId: Id) => void
 }
 
@@ -68,11 +70,24 @@ interface PropsColumnas {
  * clic en el punto equivocado no tendría vuelta atrás: la columna desaparece de
  * la lista en cuanto se coloca, y la palabra se guardaría mal al aceptar.
  */
-function ColumnasSinColocar({ seccion, sinColocar, asignaciones, alColocar }: PropsColumnas) {
+function ColumnasSinColocar({
+  seccion,
+  sinColocar,
+  asignaciones,
+  indicesColocados,
+  alColocar,
+}: PropsColumnas) {
   const puntos = [...seccion.puntos].sort((a, b) => a.distancia - b.distancia)
-  const todas = [...asignaciones.map((a) => a.columna), ...sinColocar].sort(
-    (a, b) => a.indice - b.indice,
-  )
+  const yaElegidas = new Set(asignaciones.map((puesta) => puesta.columna.indice))
+
+  // Una colocación puede no cuajar —el punto elegido está al otro lado del eje,
+  // o ya cayó otra columna en él—, y entonces el intérprete devuelve la columna
+  // a las que no reconoce mientras aquí sigue elegida. Sin este filtro saldría
+  // dos veces, con dos desplegables llamados igual y dos llaves repetidas.
+  const todas = [
+    ...asignaciones.map((puesta) => puesta.columna),
+    ...sinColocar.filter((columna) => !yaElegidas.has(columna.indice)),
+  ].sort((a, b) => a.indice - b.indice)
 
   return (
     <section className="flex flex-col gap-2">
@@ -101,6 +116,15 @@ function ColumnasSinColocar({ seccion, sinColocar, asignaciones, alColocar }: Pr
               {!columna.traeNumeros && (
                 <span className="text-xs text-slate-500 dark:text-slate-400">
                   Sin ningún número dentro: no impide aceptar la hoja.
+                </span>
+              )}
+              {puesta && !indicesColocados.includes(columna.indice) && (
+                // El motivo no se deduce aquí para no reescribir por segunda vez
+                // la regla de los lados, que es del intérprete: se dice el hecho,
+                // que es cierto, y las dos causas que lo explican.
+                <span className="text-xs text-aviso">
+                  Con ese punto la columna no llegó a colocarse. Suele ser porque el punto está al
+                  otro lado del eje que la columna, o porque otra columna ya cayó en él.
                 </span>
               )}
 
@@ -500,6 +524,7 @@ export default function VistaSubirDatos() {
               seccion={seccion}
               sinColocar={leida.sinAsignar}
               asignaciones={asignaciones}
+              indicesColocados={leida.columnas.map((columna) => columna.indice)}
               alColocar={colocarColumna}
             />
           )}
@@ -521,7 +546,7 @@ export default function VistaSubirDatos() {
 
             {bm && (
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Las cotas de esta hoja se cuelgan de {bm.nombre}, cota {bm.cota.toFixed(3)}. Es el
+                Las cotas de esta hoja se cuelgan de {bm.nombre}, cota {formatearCota(bm.cota)}. Es el
                 primer banco de nivel del proyecto: la app todavía no deja elegir otro.
               </p>
             )}
