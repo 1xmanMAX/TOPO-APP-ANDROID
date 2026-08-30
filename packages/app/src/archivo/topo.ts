@@ -1,5 +1,30 @@
-import type { Proyecto } from '@topo/core'
+import {
+  anadirPalabra,
+  esPalabraDe,
+  ETIQUETA_ROL,
+  ladoDe,
+  normalizarPalabra,
+  seccionDeFabrica,
+  type BM,
+  type Calle,
+  type Capa,
+  type ConfiguracionCierre,
+  type Estacion,
+  type Id,
+  type Lado,
+  type Lectura,
+  type MetaProyecto,
+  type Nivelacion,
+  type Proyecto,
+  type PuntoSeccion,
+  type Rasante,
+  type Rol,
+  type Seccion,
+  type Toma,
+} from '@topo/core'
 import { unzipSync, zipSync } from 'fflate'
+import { nuevoId } from '../estado/ejemplo'
+import { agregarTomaComoNivelacion } from '../estado/proyectoTomas'
 
 const NOMBRE_INTERNO = 'proyecto.json'
 const VERSION_SOPORTADA = 1
@@ -62,7 +87,7 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
  * indefinido) y las cuentas que dependen de ellos se rompieran en silencio.
  */
 export function migrarProyecto(proyecto: Proyecto): Proyecto {
-  return migrarCamposDe2B(migrarCapasSinOrden(proyecto))
+  return migrarASeccion(migrarCamposDe2B(migrarCapasSinOrden(proyecto)))
 }
 
 /**
@@ -112,6 +137,434 @@ function migrarCamposDe2B(proyecto: Proyecto): Proyecto {
       rasante: calle.rasante ?? null,
     })),
   }
+}
+
+// ---------- Migración a la sección declarada ----------
+//
+// La rama vivió dos formas anteriores a la sección, no una:
+//
+// 1. La más vieja: la calle no tenía sus propios puntos, apuntaba por
+//    `plantillaId` a una `Plantilla` compartida del proyecto, y cada salida a
+//    campo era una `Campania` suelta de `proyecto.campanias`, no de su calle.
+// 2. La intermedia, entre el catálogo de conceptos y la sección declarada: la
+//    calle ya tenía sus propios `puntos: PuntoCalle[]` (concepto, código,
+//    distancia) y sus `nivelaciones` ya en la forma de hoy —no es hipotética,
+//    es la forma que tuvo el modelo en esta misma rama entre dos commits, y
+//    la app se llegó a abrir con ella—.
+//
+// Las dos podían convivir con un `proyecto.catalogo` de códigos que el
+// usuario hubiera enseñado a mano, aparte de sus puntos declarados. Ninguno
+// de estos tipos existe ya en el modelo en marcha (`@topo/core`): se
+// declaran aquí, sueltos, solo para poder leer con seguridad de tipos un
+// `.topo` guardado con alguna de esas dos formas.
+
+interface ElementoPlantillaAntiguo {
+  clave: string
+  etiqueta?: string
+  /** Metros desde el eje. Negativo = izquierda. */
+  offset: number
+}
+
+interface PlantillaAntigua {
+  id: Id
+  nombre: string
+  elementos: ElementoPlantillaAntiguo[]
+}
+
+interface CampaniaAntigua {
+  id: Id
+  fecha: string
+  calleId: Id
+  capaId: Id
+  bmInicialId: Id
+  estaciones: Estacion[]
+  cierre: ConfiguracionCierre
+}
+
+/** `codigos` va normalizado, código → concepto, igual que lo dejaba el catálogo viejo. */
+interface CatalogoAntiguo {
+  codigos: Record<string, string>
+}
+
+/** La forma más vieja: sin puntos propios, con una plantilla compartida por id. */
+interface CalleConPlantilla {
+  id: Id
+  nombre: string
+  plantillaId?: Id
+  rasante: Rasante | null
+}
+
+/** Un punto de la calle en el modelo intermedio: concepto ya lleva el lado dentro (`bordeIzq`). */
+interface PuntoCalleAntiguo {
+  concepto: string
+  codigo: string
+  distancia: number
+}
+
+/** La forma intermedia: puntos y nivelaciones propios, sin `seccion` todavía. */
+interface CalleConPuntos {
+  id: Id
+  nombre: string
+  puntos: PuntoCalleAntiguo[]
+  nivelaciones: Nivelacion[]
+  rasante: Rasante | null
+}
+
+type CalleVieja = CalleConPlantilla | CalleConPuntos
+
+interface ProyectoAntiguo {
+  version: 1
+  meta: MetaProyecto
+  bms: BM[]
+  plantillas?: PlantillaAntigua[]
+  calles: (Calle | CalleVieja)[]
+  capas: Capa[]
+  campanias?: CampaniaAntigua[]
+  catalogo?: CatalogoAntiguo
+}
+
+/** Una calle sin `seccion` es una calle de alguna de las dos formas anteriores: se detecta por forma, no por versión. */
+function esCalleVieja(calle: Calle | CalleVieja): calle is CalleVieja {
+  return !('seccion' in calle)
+}
+
+/** Entre las viejas, la que ya tenía sus propios puntos declarados (el modelo intermedio). */
+function esCalleConPuntos(calle: CalleVieja): calle is CalleConPuntos {
+  return Array.isArray((calle as Partial<CalleConPuntos>).puntos)
+}
+
+/**
+ * A qué punto de la sección va cada concepto viejo —el de un `PuntoCalle` o
+ * el que el catálogo hubiera aprendido para un código—: el lado salía del
+ * propio concepto (`bordeIzq` es izquierda), a diferencia de hoy, que sale
+ * del signo de la distancia. `progresiva` no tiene punto: su código va a las
+ * palabras de la progresiva de la sección.
+ */
+const DESTINO_DE_CONCEPTO: Record<string, { rol: Rol; lado: Lado } | 'progresiva'> = {
+  progresiva: 'progresiva',
+  eje: { rol: 'eje', lado: 'eje' },
+  bordeIzq: { rol: 'bordeCalzada', lado: 'izquierda' },
+  bordeDer: { rol: 'bordeCalzada', lado: 'derecha' },
+  sardinelIzq: { rol: 'sardinel', lado: 'izquierda' },
+  sardinelDer: { rol: 'sardinel', lado: 'derecha' },
+  veredaIzq: { rol: 'vereda', lado: 'izquierda' },
+  veredaDer: { rol: 'vereda', lado: 'derecha' },
+}
+
+/** Los roles de nombre femenino: «Vereda izquierda», pero «Sardinel izquierdo». Igual criterio que `estado/almacen.ts`. */
+const ROLES_FEMENINOS: readonly Rol[] = ['vereda', 'cuneta']
+
+/** Cómo se llama un punto migrado sin nombre propio: su rol y el lado donde cayó, en español. */
+function nombreDePuntoMigrado(rol: Rol, distancia: number): string {
+  const lado = ladoDe(distancia)
+  if (lado === 'eje') return ETIQUETA_ROL[rol]
+
+  const femenino = ROLES_FEMENINOS.includes(rol)
+  const izquierda = femenino ? 'izquierda' : 'izquierdo'
+  const derecha = femenino ? 'derecha' : 'derecho'
+  return `${ETIQUETA_ROL[rol]} ${lado === 'izquierda' ? izquierda : derecha}`
+}
+
+/**
+ * Construye la sección de una calle con plantilla, y de paso el mapa que van
+ * a necesitar sus lecturas guardadas: de la clave de cada elemento de la
+ * plantilla al id del punto nuevo que le corresponde. Sin ese mapa, las
+ * lecturas quedarían apuntando a una columna que ya no existe.
+ */
+function construirSeccionDesdePlantilla(
+  calle: CalleConPlantilla,
+  proyecto: ProyectoAntiguo,
+): { seccion: Seccion; claveANuevoId: Map<string, string> } {
+  const claveANuevoId = new Map<string, string>()
+  const plantilla = proyecto.plantillas?.find((p) => p.id === calle.plantillaId)
+
+  if (!plantilla) {
+    // Antes se quedaba sin puntos: una distancia inventada movería todas las
+    // cotas teóricas de la calle. Ahora arranca de fábrica porque el aviso de
+    // «distancias de fábrica» ya impide que se lean como medidas.
+    console.warn(
+      `La calle "${calle.nombre}" no tenía una plantilla guardada: arranca con la sección de fábrica,` +
+        ' con todas sus distancias orientativas hasta que se midan de nuevo.',
+    )
+    return { seccion: seccionDeFabrica(), claveANuevoId }
+  }
+
+  const fabrica = seccionDeFabrica()
+  const puntos: PuntoSeccion[] = plantilla.elementos.map((elemento) => {
+    const id = nuevoId('p')
+    const puntoDeFabricaCoincidente = fabrica.puntos.find((p) => esPalabraDe(p.palabras, elemento.clave))
+
+    if (!puntoDeFabricaCoincidente) {
+      console.warn(
+        `La calle "${calle.nombre}" tenía un punto de plantilla con la clave "${elemento.clave}"` +
+          ' que no se reconoce como ningún punto conocido: entra como «Otro» en vez de adivinar cuál es.',
+      )
+    }
+
+    claveANuevoId.set(normalizarPalabra(elemento.clave), id)
+
+    return {
+      id,
+      rol: puntoDeFabricaCoincidente?.rol ?? 'otro',
+      nombre: elemento.etiqueta || elemento.clave,
+      distancia: elemento.offset,
+      // Son medidas que Max puso en su plantilla: decir que las puso la app
+      // sería mentir en pantalla.
+      distanciaDeFabrica: false,
+      palabras: [elemento.clave],
+    }
+  })
+
+  const seccion: Seccion = {
+    puntos,
+    palabrasProgresiva: fabrica.palabrasProgresiva,
+    palabrasPuntoControl: fabrica.palabrasPuntoControl,
+    palabrasReferencia: fabrica.palabrasReferencia,
+  }
+
+  return { seccion, claveANuevoId }
+}
+
+/**
+ * Construye la sección de una calle del modelo intermedio —la que ya tenía
+ * sus propios `puntos: PuntoCalle[]`— y el mapa de cada código viejo al id
+ * del punto nuevo que le corresponde. El rol sale del concepto quitándole el
+ * lado (`bordeIzq` y `bordeDer` son los dos `bordeCalzada`); el lado ya lo
+ * lleva el signo de `distancia`, que se conserva tal cual.
+ */
+function construirSeccionDesdePuntos(
+  calle: CalleConPuntos,
+): { seccion: Seccion; claveANuevoId: Map<string, string> } {
+  const claveANuevoId = new Map<string, string>()
+
+  const puntos: PuntoSeccion[] = calle.puntos.map((puntoViejo) => {
+    const id = nuevoId('p')
+    const destino = DESTINO_DE_CONCEPTO[puntoViejo.concepto]
+    const rolReconocido = destino && destino !== 'progresiva' ? destino.rol : null
+
+    if (!rolReconocido) {
+      console.warn(
+        `La calle "${calle.nombre}" tenía un punto con el concepto "${puntoViejo.concepto}", que no` +
+          ' corresponde a ningún rol de la sección: entra como «Otro» en vez de adivinar cuál es.',
+      )
+    }
+
+    const rol: Rol = rolReconocido ?? 'otro'
+    claveANuevoId.set(normalizarPalabra(puntoViejo.codigo), id)
+
+    return {
+      id,
+      rol,
+      nombre: nombreDePuntoMigrado(rol, puntoViejo.distancia),
+      distancia: puntoViejo.distancia,
+      // Son medidas que Max puso: decir que las puso la app sería mentir en pantalla.
+      distanciaDeFabrica: false,
+      palabras: [puntoViejo.codigo],
+    }
+  })
+
+  const fabrica = seccionDeFabrica()
+  const seccion: Seccion = {
+    puntos,
+    palabrasProgresiva: fabrica.palabrasProgresiva,
+    palabrasPuntoControl: fabrica.palabrasPuntoControl,
+    palabrasReferencia: fabrica.palabrasReferencia,
+  }
+
+  return { seccion, claveANuevoId }
+}
+
+/**
+ * Reparte los códigos que el catálogo viejo hubiera aprendido como palabras
+ * de sus puntos (o de la progresiva, si el concepto es ese), y extiende
+ * `claveANuevoId` con ellos. Vale para las dos formas antiguas: las dos
+ * podían convivir con un `proyecto.catalogo`.
+ */
+function aplicarCatalogoAntiguo(
+  seccion: Seccion,
+  claveANuevoId: Map<string, string>,
+  catalogo: CatalogoAntiguo | undefined,
+  nombreCalle: string,
+): Seccion {
+  if (!catalogo) return seccion
+
+  let resultado = seccion
+  for (const [codigo, concepto] of Object.entries(catalogo.codigos)) {
+    const destino = DESTINO_DE_CONCEPTO[concepto]
+
+    if (destino === 'progresiva') {
+      // No es la clave de ningún punto: no entra en claveANuevoId. Una
+      // lectura no apunta jamás a la columna de progresivas.
+      if (!esPalabraDe(resultado.palabrasProgresiva, codigo)) {
+        resultado = { ...resultado, palabrasProgresiva: [...resultado.palabrasProgresiva, codigo] }
+      }
+      continue
+    }
+
+    const punto = destino
+      ? resultado.puntos.find((p) => p.rol === destino.rol && ladoDe(p.distancia) === destino.lado)
+      : undefined
+
+    if (!punto) {
+      // No se pierde en silencio: se anota y se sigue. Si alguna lectura
+      // guardada usaba este código, se conserva igual y avisa aparte, al
+      // remapear la lectura.
+      console.warn(
+        `La calle "${nombreCalle}" tenía en su catálogo el código "${codigo}" aprendido, pero el punto` +
+          ' al que pertenece ya no está en la sección migrada: su palabra no se pudo colocar en ningún punto.',
+      )
+      continue
+    }
+
+    resultado = anadirPalabra(resultado, punto.id, codigo)
+    claveANuevoId.set(codigo, punto.id)
+  }
+  return resultado
+}
+
+/** Traslada una lectura al modelo nuevo: solo cambia a qué columna apunta, nunca cuánto vale. */
+function remaparLectura(lectura: Lectura, claveANuevoId: Map<string, string>, nombreCalle: string): Lectura {
+  if (lectura.destino.tipo !== 'celda') return lectura
+
+  const claveVieja = lectura.destino.celda.elementoClave
+  const nuevoIdDePunto = claveANuevoId.get(normalizarPalabra(claveVieja))
+
+  if (!nuevoIdDePunto) {
+    // Ni se tira ni se inventa un punto: se deja con su clave vieja y se
+    // anota. Perder una lectura de campo en silencio es lo peor que puede
+    // pasar aquí.
+    console.warn(
+      `La calle "${nombreCalle}" tiene una lectura guardada que apuntaba a la columna "${claveVieja}",` +
+        ' que ya no se reconoce como ningún punto de la sección migrada. Se conserva con su valor,' +
+        ' pero hay que revisar a qué punto pertenece.',
+    )
+    return lectura
+  }
+
+  return {
+    ...lectura,
+    destino: { tipo: 'celda', celda: { ...lectura.destino.celda, elementoClave: nuevoIdDePunto } },
+  }
+}
+
+/** Remapea las lecturas de un grupo de estaciones. Común a las tomas que nacen de una campaña y a las que ya eran tomas. */
+function remaparEstaciones(estaciones: Estacion[], claveANuevoId: Map<string, string>, nombreCalle: string): Estacion[] {
+  return estaciones.map((estacion) => ({
+    ...estacion,
+    vistaAtras: remaparLectura(estacion.vistaAtras, claveANuevoId, nombreCalle),
+    intermedias: estacion.intermedias.map((lectura) => remaparLectura(lectura, claveANuevoId, nombreCalle)),
+    ...(estacion.vistaAdelante
+      ? { vistaAdelante: remaparLectura(estacion.vistaAdelante, claveANuevoId, nombreCalle) }
+      : {}),
+  }))
+}
+
+/** Una campaña vieja, con sus lecturas ya apuntando a los puntos nuevos, es una toma. */
+function construirTomaMigrada(
+  campania: CampaniaAntigua,
+  claveANuevoId: Map<string, string>,
+  nombreCalle: string,
+): Toma {
+  return {
+    id: campania.id,
+    fecha: campania.fecha,
+    capaId: campania.capaId,
+    bmInicialId: campania.bmInicialId,
+    cierre: campania.cierre,
+    estaciones: remaparEstaciones(campania.estaciones, claveANuevoId, nombreCalle),
+  }
+}
+
+/** Una toma que ya era toma (modelo intermedio): se conserva entera, solo con sus lecturas remapeadas. */
+function remaparToma(toma: Toma, claveANuevoId: Map<string, string>, nombreCalle: string): Toma {
+  return { ...toma, estaciones: remaparEstaciones(toma.estaciones, claveANuevoId, nombreCalle) }
+}
+
+/**
+ * Trae al modelo de la sección un proyecto guardado con alguna de las dos
+ * formas anteriores. Con plantilla: la plantilla compartida de la calle se
+ * convierte en su propia sección, y cada campaña —antes suelta en
+ * `proyecto.campanias`— pasa a ser una nivelación de una sola toma de su
+ * calle. Con puntos propios (el modelo intermedio): sus `PuntoCalle` se
+ * convierten en `PuntoSeccion` y sus nivelaciones, que ya tenían la forma de
+ * hoy, se conservan con las lecturas remapeadas. En los dos casos, el
+ * catálogo de códigos aprendidos —si lo hay— se reparte como palabras de sus
+ * puntos.
+ *
+ * Se detecta por forma, no por número de versión, igual que
+ * `migrarCapasSinOrden` y `migrarCamposDe2B`: una calle sin `seccion` es una
+ * calle vieja, y entre las viejas, la que trae `puntos` es la intermedia.
+ *
+ * La regla que manda en toda la función: si algo no se puede traducir, se
+ * anota con `console.warn` —que es lo único disponible aquí para avisar sin
+ * tirar el dato— y nunca se tira ni se inventa.
+ */
+function migrarASeccion(proyectoBruto: Proyecto): Proyecto {
+  const proyecto = proyectoBruto as unknown as ProyectoAntiguo
+  if (!proyecto.calles.some(esCalleVieja)) return proyectoBruto
+
+  const campanias = proyecto.campanias ?? []
+  let resultado: Proyecto = {
+    version: proyectoBruto.version,
+    meta: proyectoBruto.meta,
+    bms: proyectoBruto.bms,
+    capas: proyectoBruto.capas,
+    calles: [],
+  }
+
+  for (const calleBruta of proyecto.calles) {
+    if (!esCalleVieja(calleBruta)) {
+      resultado = { ...resultado, calles: [...resultado.calles, calleBruta] }
+      continue
+    }
+
+    if (esCalleConPuntos(calleBruta)) {
+      const construida = construirSeccionDesdePuntos(calleBruta)
+      const seccion = aplicarCatalogoAntiguo(
+        construida.seccion,
+        construida.claveANuevoId,
+        proyecto.catalogo,
+        calleBruta.nombre,
+      )
+
+      const calleNueva: Calle = {
+        id: calleBruta.id,
+        nombre: calleBruta.nombre,
+        seccion,
+        nivelaciones: calleBruta.nivelaciones.map((nivelacion) => ({
+          ...nivelacion,
+          tomas: nivelacion.tomas.map((toma) => remaparToma(toma, construida.claveANuevoId, calleBruta.nombre)),
+        })),
+        rasante: calleBruta.rasante ?? null,
+      }
+      resultado = { ...resultado, calles: [...resultado.calles, calleNueva] }
+      continue
+    }
+
+    const construida = construirSeccionDesdePlantilla(calleBruta, proyecto)
+    const seccion = aplicarCatalogoAntiguo(
+      construida.seccion,
+      construida.claveANuevoId,
+      proyecto.catalogo,
+      calleBruta.nombre,
+    )
+
+    const calleNueva: Calle = {
+      id: calleBruta.id,
+      nombre: calleBruta.nombre,
+      seccion,
+      nivelaciones: [],
+      rasante: calleBruta.rasante ?? null,
+    }
+    resultado = { ...resultado, calles: [...resultado.calles, calleNueva] }
+
+    for (const campania of campanias.filter((c) => c.calleId === calleBruta.id)) {
+      const toma = construirTomaMigrada(campania, construida.claveANuevoId, calleBruta.nombre)
+      resultado = agregarTomaComoNivelacion(resultado, calleBruta.id, toma, nuevoId('niv'))
+    }
+  }
+
+  return resultado
 }
 
 export function descargarTopo(proyecto: Proyecto): void {
