@@ -17,6 +17,7 @@ import {
   type Capa,
   type DestinoLectura,
   type Id,
+  type Lectura,
   type Proyecto,
   type Rasante,
   type ResultadoCampania,
@@ -25,6 +26,7 @@ import {
   type Toma,
 } from '@topo/core'
 import { create } from 'zustand'
+import type { HojaInterpretada, ReferenciaLeida } from '../importar/interpretar'
 import { nuevoId, proyectoEjemplo, proyectoVacio } from './ejemplo'
 import {
   buscarToma,
@@ -36,7 +38,7 @@ import {
   agregarTomaComoNivelacion,
 } from './proyectoTomas'
 
-export type Vista = 'proyecto' | 'calle' | 'campanias' | 'libreta' | 'resultados'
+export type Vista = 'proyecto' | 'calle' | 'seccion' | 'subir' | 'campanias' | 'libreta' | 'resultados'
 
 /**
  * Las tres palabras de la hoja que no son puntos de la sección: la que
@@ -102,6 +104,8 @@ interface EstadoApp {
   quitarPunto(calleId: Id, puntoId: Id): void
   anadirPalabraSuelta(calleId: Id, lista: ListaDePalabras, palabra: string): void
   quitarPalabraSuelta(calleId: Id, lista: ListaDePalabras, palabra: string): void
+
+  importarHoja(calleId: Id, hoja: HojaInterpretada, fecha: string, capaId: Id): void
 
   agregarCampania(datos: Omit<Toma, 'id' | 'estaciones'> & { calleId: Id }): Id
   actualizarCampania(id: Id, cambios: Partial<Omit<Toma, 'id'>> & { calleId?: Id }): void
@@ -214,6 +218,87 @@ function nombreLibre(seccion: Seccion, base: string): string {
  */
 function ultimaEstacion(campania: Toma | undefined): number {
   return Math.max(0, (campania?.estaciones.length ?? 0) - 1)
+}
+
+/**
+ * Cómo se llama en la libreta una lectura sobre algo existente y fijo: el
+ * elemento tal como se escribió en la hoja —«cuneta», «calzada»— y de qué
+ * lado del eje cayó.
+ *
+ * El lado va en el nombre porque la misma cosa se mide a los dos lados de la
+ * calle, y dos lecturas llamadas igual no se distinguirían ni en la libreta
+ * ni de oído.
+ */
+function nombreDeReferencia(referencia: ReferenciaLeida): string {
+  const lado = ladoDe(referencia.distancia)
+  if (lado === 'eje') return `${referencia.elemento} en el eje`
+  return `${referencia.elemento} a la ${lado}`
+}
+
+/**
+ * La toma que sale de una hoja ya interpretada.
+ *
+ * Una sola estación, porque la hoja trae una sola lectura al punto de control:
+ * el instrumento se plantó una vez. Y el circuito nace **abierto**, que es lo
+ * que de verdad es —un punto de control y ninguna vuelta—, así que las cotas
+ * salen pero quedan sin comprobar en vez de aparentar estarlo.
+ *
+ * Las referencias entran como puntos sueltos y no como celdas de la grilla:
+ * no pertenecen a ninguna progresiva, pero sí se calculan desde esta misma
+ * estación, que es justo lo que Max pidió para ellas.
+ */
+function tomaDesdeHoja(hoja: HojaInterpretada, fecha: string, capaId: Id, bmInicialId: Id): Toma {
+  const deLaGrilla: Lectura[] = hoja.lecturas.map((lectura) => ({
+    id: nuevoId('l'),
+    destino: {
+      tipo: 'celda',
+      celda: { progresiva: lectura.progresiva, elementoClave: lectura.puntoId },
+    },
+    valor: lectura.valor,
+  }))
+
+  const deReferencia: Lectura[] = hoja.referencias.map((referencia) => ({
+    id: nuevoId('l'),
+    destino: {
+      tipo: 'suelto',
+      punto: {
+        etiqueta: nombreDeReferencia(referencia),
+        offset: referencia.distancia,
+        notas: 'Leída de la hoja como algo existente y fijo.',
+      },
+    },
+    valor: referencia.valor,
+  }))
+
+  return {
+    id: nuevoId('camp'),
+    fecha,
+    capaId,
+    bmInicialId,
+    cierre: {
+      tipo: 'abierto',
+      longitudK: 0,
+      longitudKAuto: true,
+      clase: 'tercerOrden',
+      coeficiente: 12,
+    },
+    estaciones: [
+      {
+        id: nuevoId('e'),
+        // La vista atrás de la hoja es la lectura al punto de control, y se
+        // enlaza con el banco de nivel del proyecto, que es lo que le da cota.
+        // Si la hoja no la traía, queda en 0: el motor no da por usable una
+        // lectura de 0, así que las cotas quedan pendientes en vez de salir
+        // inventadas desde una altura de instrumento que nadie midió.
+        vistaAtras: {
+          id: nuevoId('l'),
+          destino: { tipo: 'bm', bmId: bmInicialId },
+          valor: hoja.vistaAtras ?? 0,
+        },
+        intermedias: [...deLaGrilla, ...deReferencia],
+      },
+    ],
+  }
 }
 
 const SIN_COMPARACION: Comparacion = { inferior: null, superior: null }
@@ -511,6 +596,36 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         ),
       ),
     })),
+
+  importarHoja: (calleId, hoja, fecha, capaId) =>
+    set((s) => {
+      const bm = s.proyecto.bms[0]
+      const calleExiste = s.proyecto.calles.some((calle) => calle.id === calleId)
+
+      // La pantalla no deja llegar hasta aquí sin banco de nivel ni sin calle.
+      // Si algún camino futuro lo hiciera, se dice en voz alta: una hoja de
+      // campo que desaparece sin dejar rastro es lo peor que puede pasar aquí.
+      if (!bm || !calleExiste) {
+        console.error(
+          'No se pudo importar la hoja: hace falta una calle de destino y un banco de nivel en el proyecto.',
+        )
+        return {}
+      }
+
+      const toma = tomaDesdeHoja(hoja, fecha, capaId, bm.id)
+      const calleAnterior = calleDeToma(s.proyecto, s.campaniaActivaId)
+
+      return {
+        // Importar añade y nunca pisa: la hoja entra como una nivelación más
+        // de la calle, junto a las que ya estaban.
+        proyecto: marcarModificado(
+          agregarTomaComoNivelacion(s.proyecto, calleId, toma, nuevoId('niv')),
+        ),
+        campaniaActivaId: toma.id,
+        estacionActiva: 0,
+        ...seleccionDeCapasTrasCambio(calleAnterior, calleId, s),
+      }
+    }),
 
   agregarCampania: (datos) => {
     const { calleId, ...restoDatos } = datos

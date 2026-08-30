@@ -3,11 +3,35 @@ import { borrarBorrador, contarLecturas, leerBorrador, type Borrador } from './a
 import { useAutoguardado } from './archivo/useAutoguardado'
 import BarraSuperior from './componentes/BarraSuperior'
 import { useAlmacen } from './estado/almacen'
+import { calleDeToma } from './estado/proyectoTomas'
 import VistaProyecto from './vistas/VistaProyecto'
 import VistaCalle from './vistas/VistaCalle'
 import VistaCampanias from './vistas/VistaCampanias'
 import VistaLibreta from './vistas/VistaLibreta'
 import VistaResultados from './vistas/VistaResultados'
+import VistaSeccion from './vistas/VistaSeccion'
+import VistaSubirDatos from './vistas/VistaSubirDatos'
+
+/**
+ * La sección es de una calle, así que hay que decir de cuál: la de la toma
+ * abierta, y si no hay ninguna, la primera de la obra. Al importar una hoja se
+ * abre su toma, así que esta pestaña enseña la calle que se acaba de subir.
+ */
+function PantallaSeccion() {
+  const calleId = useAlmacen(
+    (s) => calleDeToma(s.proyecto, s.campaniaActivaId) ?? s.proyecto.calles[0]?.id ?? null,
+  )
+
+  if (!calleId) {
+    return (
+      <p className="p-6 text-sm text-slate-500">
+        Todavía no hay ninguna calle. Sube una hoja de campo y la calle nace con ella.
+      </p>
+    )
+  }
+
+  return <VistaSeccion calleId={calleId} />
+}
 
 export default function App() {
   const vista = useAlmacen((s) => s.vista)
@@ -68,6 +92,8 @@ export default function App() {
       <div className="flex-1 overflow-auto">
         {vista === 'proyecto' && <VistaProyecto />}
         {vista === 'calle' && <VistaCalle />}
+        {vista === 'seccion' && <PantallaSeccion />}
+        {vista === 'subir' && <VistaSubirDatos />}
         {vista === 'campanias' && <VistaCampanias />}
         {vista === 'libreta' && <VistaLibreta />}
         {vista === 'resultados' && <VistaResultados />}

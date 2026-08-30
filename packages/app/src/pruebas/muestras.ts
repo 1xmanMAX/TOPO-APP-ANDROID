@@ -38,17 +38,28 @@ function rutaDeLaMuestra(archivos: ArchivosDeNode): string {
 }
 
 /**
- * El archivo real que Max mandó el 2026-08-29, tal como salió de Google Sheets.
- * Es la prueba de que la app lee su hoja y no una hoja de laboratorio.
+ * Los bytes crudos del archivo real que Max mandó el 2026-08-29, tal como
+ * salió de Google Sheets. Son los que necesita quien quiera armar un `File`
+ * de verdad y meterlo por el campo de subir archivo de la pantalla.
  *
  * Node se pide aquí dentro y no en el cuerpo del módulo: si una pantalla
  * importara este archivo por error, reventaría al llamar a esta función —donde
  * se ve qué se estaba haciendo— y no al cargarse, con un «process no existe»
  * que no dice nada.
  */
-export function hojaDetrasDelColegio(): HojaLeida {
+export function bytesDetrasDelColegio(): Uint8Array<ArrayBuffer> {
   const archivos = process.getBuiltinModule('node:fs') as ArchivosDeNode
-  return leerXlsx(new Uint8Array(archivos.readFileSync(rutaDeLaMuestra(archivos))))[0]!
+  // La copia no es de adorno: fija que los bytes viven en un ArrayBuffer
+  // normal, que es lo único que acepta el constructor de `File`.
+  return new Uint8Array(archivos.readFileSync(rutaDeLaMuestra(archivos)))
+}
+
+/**
+ * El archivo real que Max mandó el 2026-08-29, ya leído como tabla de celdas.
+ * Es la prueba de que la app lee su hoja y no una hoja de laboratorio.
+ */
+export function hojaDetrasDelColegio(): HojaLeida {
+  return leerXlsx(bytesDetrasDelColegio())[0]!
 }
 
 /** La sección que Max habría declarado para esa calle: sus palabras sobre la de fábrica. */

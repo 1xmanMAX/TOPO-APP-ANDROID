@@ -5,6 +5,10 @@ import BotonTema from './BotonTema'
 const PESTANAS: { vista: Vista; texto: string }[] = [
   { vista: 'proyecto', texto: 'Proyecto' },
   { vista: 'calle', texto: 'Calle' },
+  // Estas dos van juntas y antes de la libreta porque es el orden en que se
+  // trabaja: se declara la sección de la calle y con ella se sube la hoja.
+  { vista: 'seccion', texto: 'Sección' },
+  { vista: 'subir', texto: 'Subir datos' },
   { vista: 'campanias', texto: 'Campañas' },
   { vista: 'libreta', texto: 'Libreta' },
   { vista: 'resultados', texto: 'Resultados' },

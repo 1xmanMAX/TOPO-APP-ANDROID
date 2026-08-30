@@ -1,5 +1,7 @@
 import { hayDistanciasDeFabrica } from '@topo/core'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { interpretarHoja, type HojaInterpretada } from '../importar/interpretar'
+import { hojaDetrasDelColegio, seccionDeMax } from '../pruebas/muestras'
 import { useAlmacen } from './almacen'
 import { proyectoEjemplo } from './ejemplo'
 import { buscarToma } from './proyectoTomas'
@@ -539,6 +541,83 @@ describe('almacén', () => {
       useAlmacen.getState().anadirPalabraSuelta('c-1', 'referencia', 'existente')
 
       expect(seccionDe('c-1').palabrasReferencia).toHaveLength(antes)
+    })
+  })
+
+  describe('importar una hoja', () => {
+    /** La hoja real de Max, ya interpretada con su sección: 35 lecturas y 3 referencias. */
+    function hojaDeMax(): HojaInterpretada {
+      return interpretarHoja(hojaDetrasDelColegio(), seccionDeMax())
+    }
+
+    /** La toma que acaba de entrar: importar la deja abierta para seguir trabajando. */
+    function tomaImportada() {
+      return tomaDe(useAlmacen.getState().campaniaActivaId!)
+    }
+
+    it('añade una nivelación a la calle sin tocar las que ya estaban', () => {
+      const antes = useAlmacen.getState().proyecto.calles[0]!.nivelaciones
+
+      useAlmacen.getState().importarHoja('c-1', hojaDeMax(), '2026-08-30', 'cap-base')
+      const despues = useAlmacen.getState().proyecto.calles[0]!.nivelaciones
+
+      expect(despues).toHaveLength(antes.length + 1)
+      expect(despues.slice(0, antes.length)).toEqual(antes)
+    })
+
+    it('cada lectura entra apuntando a su progresiva y a su punto de la sección', () => {
+      useAlmacen.getState().importarHoja('c-1', hojaDeMax(), '2026-08-30', 'cap-base')
+      const resultado = useAlmacen.getState().calcular()!
+
+      expect(resultado.cotasPorCelda.size).toBe(35)
+      // Cota instrumento = 3245.18 (BM-1) + 1.45 (vista atrás); menos el 2.24
+      // que Max leyó en el borde izquierdo de la progresiva 6.
+      expect(resultado.cotasPorCelda.get('6|p-borde-i')!.cota).toBeCloseTo(3244.39, 3)
+    })
+
+    it('las referencias entran como puntos sueltos, con su lado en el nombre', () => {
+      useAlmacen.getState().importarHoja('c-1', hojaDeMax(), '2026-08-30', 'cap-base')
+
+      const sueltos = tomaImportada()
+        .estaciones[0]!.intermedias.map((lectura) => lectura.destino)
+        .filter((destino) => destino.tipo === 'suelto')
+
+      expect(sueltos).toHaveLength(3)
+      expect(sueltos.map((destino) => destino.punto.etiqueta)).toContain('cuneta a la izquierda')
+      expect(sueltos.map((destino) => destino.punto.etiqueta)).toContain('calzada a la derecha')
+    })
+
+    it('la toma importada nace abierta: sus cotas salen sin comprobar', () => {
+      useAlmacen.getState().importarHoja('c-1', hojaDeMax(), '2026-08-30', 'cap-base')
+      const resultado = useAlmacen.getState().calcular()!
+
+      // Un punto de control y ninguna vuelta: eso es un circuito abierto, y
+      // decir otra cosa daría por verificadas unas cotas que nadie comprobó.
+      expect(tomaImportada().cierre.tipo).toBe('abierto')
+      expect(resultado.cierre.pasa).toBeNull()
+    })
+
+    it('sin banco de nivel no entra nada, y se dice en voz alta', () => {
+      const aviso = vi.spyOn(console, 'error').mockImplementation(() => {})
+      useAlmacen.getState().cargarProyecto({ ...proyectoEjemplo(), bms: [] })
+      const antes = useAlmacen.getState().proyecto
+
+      useAlmacen.getState().importarHoja('c-1', hojaDeMax(), '2026-08-30', 'cap-base')
+
+      expect(useAlmacen.getState().proyecto).toBe(antes)
+      expect(aviso).toHaveBeenCalled()
+      aviso.mockRestore()
+    })
+
+    it('una calle que no existe no se traga la hoja en silencio', () => {
+      const aviso = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const antes = useAlmacen.getState().proyecto
+
+      useAlmacen.getState().importarHoja('c-que-no-esta', hojaDeMax(), '2026-08-30', 'cap-base')
+
+      expect(useAlmacen.getState().proyecto).toBe(antes)
+      expect(aviso).toHaveBeenCalled()
+      aviso.mockRestore()
     })
   })
 })
