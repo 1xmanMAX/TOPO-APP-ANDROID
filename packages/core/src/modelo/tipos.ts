@@ -1,7 +1,7 @@
-import type { Catalogo } from '../catalogo/catalogo'
-import type { Concepto } from '../catalogo/conceptos'
+import type { Id } from './ids'
+import type { Seccion } from '../seccion/seccion'
 
-export type Id = string
+export type { Id }
 
 // ---------- Banco de nivel ----------
 
@@ -55,25 +55,17 @@ export interface Rasante {
 // ---------- Calle ----------
 
 /**
- * Un punto que se mide a lo ancho de esta calle.
+ * Una calle, con su sección transversal declarada.
  *
- * Las distancias son **de cada calle**, no de una plantilla compartida: la
- * misma obra puede tener una avenida de 4.20 m de media calzada y un jirón de
- * 3.10 m, y las dos usan el mismo código para el borde. Max señaló que atarlas
- * a una plantilla global era justo lo que no servía.
+ * La sección es **de cada calle**, no de una plantilla compartida: la misma
+ * obra puede tener una avenida de 4.20 m de media calzada y un jirón de
+ * 3.10 m, y las dos usan la misma palabra para el borde. Max señaló que
+ * atarlas a una plantilla global era justo lo que no servía.
  */
-export interface PuntoCalle {
-  concepto: Concepto
-  /** El código tal como venía en la hoja, para poder enseñarlo igual que se escribió. */
-  codigo: string
-  /** Metros desde el eje. Negativo a la izquierda, positivo a la derecha. */
-  distancia: number
-}
-
 export interface Calle {
   id: Id
   nombre: string
-  puntos: PuntoCalle[]
+  seccion: Seccion
   nivelaciones: Nivelacion[]
   /** Null mientras la calle no tenga proyecto cargado: la app funciona igual, sin cota teórica. */
   rasante: Rasante | null
@@ -196,7 +188,6 @@ export interface MetaProyecto {
 export interface Proyecto {
   version: 1
   meta: MetaProyecto
-  catalogo: Catalogo
   bms: BM[]
   calles: Calle[]
   capas: Capa[]
