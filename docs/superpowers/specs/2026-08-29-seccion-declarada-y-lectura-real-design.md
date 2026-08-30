@@ -164,8 +164,14 @@ respecto a la columna del eje: `C` (vereda) a la izquierda → vereda izquierda;
 
 **6. Columnas que no son de nadie.** La H no tiene título y no coincide con
 ninguna palabra: **no entra**. Pero aparece en la vista previa como columna no
-importada, **con sus valores**. Que una lectura se pierda en silencio es la peor
-cosa que puede pasar aquí, y sigue siendo la regla que manda.
+importada, **con sus valores**, y **ahí mismo se le puede asignar un punto de la
+sección**, lo que guarda su palabra para siempre. Que una lectura se pierda en
+silencio es la peor cosa que puede pasar aquí, y sigue siendo la regla que manda:
+declarar antes no significa descartar después lo que no se declaró.
+
+Esto es lo que hace que la primera importación de una hoja nueva funcione. En la
+muestra, con la sección de fábrica solo casarían `EJE` y `vereda`; `IZQ` y `DER`
+salen como columnas sin asignar —no como datos perdidos— y se colocan de un clic.
 
 **7. Filas que no son filas de datos.** Una fila sin progresiva y sin ninguna
 lectura bajo una columna de puntos no es un punto medido, **aunque tenga
@@ -185,8 +191,10 @@ aparte de la grilla, con su cota calculada desde la misma estación.
 Una fila es de referencia cuando su primera celda lleva la palabra declarada para
 ello (`existente`). Entonces:
 
-- **La segunda celda dice qué elemento es** (`cuneta`, `calzada`). Si esa palabra
-  no está declarada, la app **lo dice y deja añadirla**; no la descarta.
+- **La segunda celda dice qué elemento es** (`cuneta`, `calzada`), y es **texto
+  libre**: no hace falta declararlo en la sección. Se guarda tal como se escribió
+  y se enseña así. Exigir que estuviera declarado añadiría un paso sin ganar
+  nada — una referencia no se dibuja en la sección, se anota.
 - **La columna solo dice el lado y la distancia; el elemento lo dice la fila.**
   En la fila 20, el `2.185` de `D` es la cuneta izquierda y el `1.955` de `F` es
   la cuneta derecha.
