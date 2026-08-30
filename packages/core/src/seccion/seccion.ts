@@ -1,6 +1,6 @@
 import type { Id } from '../modelo/ids'
 import { mismaPalabra } from './palabras'
-import type { Rol } from './roles'
+import { ETIQUETA_ROL, type Rol } from './roles'
 
 export type Lado = 'izquierda' | 'eje' | 'derecha'
 
@@ -74,6 +74,54 @@ export function ladoDe(distancia: number): Lado {
   if (distancia < 0) return 'izquierda'
   if (distancia > 0) return 'derecha'
   return 'eje'
+}
+
+/** Los roles de nombre femenino: «Vereda izquierda», pero «Sardinel izquierdo». */
+const ROLES_FEMENINOS: readonly Rol[] = ['vereda', 'cuneta']
+
+/**
+ * Con qué palabra empieza el nombre de un punto cuando su rol no se llama
+ * igual de corto en los dos sitios donde se escribe.
+ *
+ * `ETIQUETA_ROL` nombra el **rol** cuando va solo —el selector de la pantalla
+ * de la sección—, y ahí «Borde de calzada» dice exactamente lo que es. Pero al
+ * **punto** se le llama «Borde izquierdo» en toda la app: es el nombre de los
+ * siete de fábrica, el que viaja en cada celda de la grilla, y el que sale en
+ * las tablas, en el corte y en lo que se exporta. Sin esta excepción, un punto
+ * añadido a mano se llamaría «Borde de calzada izquierdo» y el mismo punto de
+ * fábrica «Borde izquierdo»: dos nombres para lo mismo, que es justo lo que
+ * esta función vino a impedir. Los demás roles no la necesitan —su etiqueta ya
+ * es la palabra con la que se nombra el punto—, así que no se duplica la tabla
+ * entera: solo se anota lo que de verdad se aparta.
+ */
+const PALABRA_DE_ROL: Partial<Record<Rol, string>> = {
+  bordeCalzada: 'Borde',
+}
+
+/**
+ * Cómo se llama un punto por su rol y el lado donde cayó, escrito en español
+ * de verdad: el lado sale del signo de la distancia, igual que en el resto
+ * del modelo, y un punto en el eje no lleva lado porque no lo tiene.
+ *
+ * Vive aquí por lo mismo que `palabraDePunto`: llegó a estar copiado
+ * literalmente en dos sitios —el que bautiza un punto recién añadido en la
+ * pantalla de la sección y el que bautiza un punto migrado de un `.topo`
+ * guardado con el modelo viejo—, así que un cambio de criterio en el género o
+ * en la palabra del lado habría hecho que la misma vereda se llamara de dos
+ * maneras según por dónde hubiera entrado. Y tiene que dar el mismo nombre
+ * que ya traen los puntos de `seccionDeFabrica`, o el punto de fábrica y el
+ * añadido a mano se llamarían distinto en la misma tabla.
+ */
+export function nombreDePunto(rol: Rol, distancia: number): string {
+  const palabra = PALABRA_DE_ROL[rol] ?? ETIQUETA_ROL[rol]
+  const lado = ladoDe(distancia)
+  if (lado === 'eje') return palabra
+
+  const femenino = ROLES_FEMENINOS.includes(rol)
+  const izquierda = femenino ? 'izquierda' : 'izquierdo'
+  const derecha = femenino ? 'derecha' : 'derecho'
+
+  return `${palabra} ${lado === 'izquierda' ? izquierda : derecha}`
 }
 
 /** Si alguna de las palabras de la lista nombra este texto, ya normalizado. */

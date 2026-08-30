@@ -16,9 +16,18 @@ const CIERRE_CERRADO = {
 }
 
 /**
- * TERRENO mide BOR-I y EJE; SUBRASANTE mide EJE y SAR-D. BOR-I es exclusivo
- * de TERRENO, SAR-D exclusivo de SUBRASANTE: sirven para distinguir sin
- * ambigüedad qué campaña dibujó el corte.
+ * TERRENO mide el borde izquierdo y el eje; SUBRASANTE mide el eje y el
+ * sardinel derecho. El borde izquierdo es exclusivo de TERRENO, el sardinel
+ * derecho exclusivo de SUBRASANTE: sirven para distinguir sin ambigüedad qué
+ * campaña dibujó el corte.
+ *
+ * Las lecturas apuntan a su punto por el **id** de la sección de la calle
+ * (`p-borde-i`…), que es la llave que queda guardada en el proyecto, no por
+ * la palabra con la que Max lo escribe. Escritas con la palabra —como
+ * estuvieron hasta la tarea D7a, herencia del modelo anterior— no casaban con
+ * ningún punto de la calle: caían fuera de la grilla, salían con offset cero
+ * y el corte las rotulaba con la clave cruda de respaldo. La prueba pasaba,
+ * pero por el camino de los puntos que ya no existen, no por el que vigila.
  */
 function tomaTerreno(): Toma {
   return {
@@ -32,8 +41,8 @@ function tomaTerreno(): Toma {
         id: 'et-1',
         vistaAtras: { id: 'lt-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
         intermedias: [
-          { id: 'lt-4', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'BOR-I' } }, valor: 1.35 },
-          { id: 'lt-5', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.5 },
+          { id: 'lt-4', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-borde-i' } }, valor: 1.35 },
+          { id: 'lt-5', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } }, valor: 1.5 },
         ],
         vistaAdelante: { id: 'lt-7', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
       },
@@ -53,8 +62,8 @@ function tomaSubrasante(): Toma {
         id: 'es-1',
         vistaAtras: { id: 'ls-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
         intermedias: [
-          { id: 'ls-4', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'EJE' } }, valor: 1.2 },
-          { id: 'ls-6', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'SAR-D' } }, valor: 1.4 },
+          { id: 'ls-4', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-eje' } }, valor: 1.2 },
+          { id: 'ls-6', destino: { tipo: 'celda', celda: { progresiva: 0, elementoClave: 'p-sardinel-d' } }, valor: 1.4 },
         ],
         vistaAdelante: { id: 'ls-7', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.0 },
       },
@@ -199,10 +208,10 @@ describe('VistaLibreta', () => {
       const nombres = screen
         .getAllByRole('button', { name: /^0\+000 .*cota/ })
         .map((b) => b.getAttribute('aria-label'))
-      // BOR-I solo lo midió TERRENO, la campaña activa: tiene que aparecer.
-      expect(nombres.some((n) => n?.includes('BOR-I'))).toBe(true)
-      // SAR-D solo lo midió SUBRASANTE, que no es la activa: no debe aparecer.
-      expect(nombres.some((n) => n?.includes('SAR-D'))).toBe(false)
+      // El borde izquierdo solo lo midió TERRENO, la campaña activa: tiene que aparecer.
+      expect(nombres.some((n) => n?.includes('Borde izquierdo'))).toBe(true)
+      // El sardinel derecho solo lo midió SUBRASANTE, que no es la activa: no debe aparecer.
+      expect(nombres.some((n) => n?.includes('Sardinel derecho'))).toBe(false)
     })
 
     it('sigue dibujando la campaña activa si además no hay ninguna capa marcada en Resultados', () => {
@@ -211,8 +220,8 @@ describe('VistaLibreta', () => {
       const nombres = screen
         .getAllByRole('button', { name: /^0\+000 .*cota/ })
         .map((b) => b.getAttribute('aria-label'))
-      expect(nombres.some((n) => n?.includes('BOR-I'))).toBe(true)
-      expect(nombres.some((n) => n?.includes('SAR-D'))).toBe(false)
+      expect(nombres.some((n) => n?.includes('Borde izquierdo'))).toBe(true)
+      expect(nombres.some((n) => n?.includes('Sardinel derecho'))).toBe(false)
     })
   })
 })

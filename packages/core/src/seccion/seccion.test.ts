@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   anadirPalabra, esPalabraDe, hayDistanciasDeFabrica, ladoDe,
-  palabraDePunto, palabrasDeSeccion,
+  nombreDePunto, palabraDePunto, palabrasDeSeccion,
   puntoPorPalabraYLado, puntosConPalabra, seccionDeFabrica,
   type PuntoSeccion,
 } from './seccion'
@@ -142,5 +142,45 @@ describe('la palabra con la que se enseña un punto', () => {
 
   it('un id que ya no está en la sección no tiene entrada: la llave no se enseña', () => {
     expect(palabrasDeSeccion(seccionDeFabrica()).get('p-borrado')).toBeUndefined()
+  })
+})
+
+describe('cómo se bautiza un punto por su rol y su lado', () => {
+  it('el lado sale del signo de la distancia y se escribe con palabras', () => {
+    expect(nombreDePunto('sardinel', -3.65)).toBe('Sardinel izquierdo')
+    expect(nombreDePunto('sardinel', 3.65)).toBe('Sardinel derecho')
+  })
+
+  it('los roles de nombre femenino concuerdan: «Vereda izquierda», no «Vereda izquierdo»', () => {
+    // Es la única razón de que esta función exista en vez de pegar el lado
+    // detrás de la etiqueta: en español el lado concuerda con el nombre.
+    expect(nombreDePunto('vereda', -5.15)).toBe('Vereda izquierda')
+    expect(nombreDePunto('vereda', 5.15)).toBe('Vereda derecha')
+    expect(nombreDePunto('cuneta', -4.9)).toBe('Cuneta izquierda')
+  })
+
+  it('un punto en el eje no lleva lado, porque no lo tiene', () => {
+    expect(nombreDePunto('eje', 0)).toBe('Eje')
+    expect(nombreDePunto('otro', 0)).toBe('Otro')
+  })
+
+  it('vive aquí para que los dos sitios que bautizan puntos digan lo mismo', () => {
+    // La pantalla de la sección (al añadir un punto) y la migración de un
+    // `.topo` guardado con el modelo viejo llaman los dos a esta función. Si
+    // cada una llevara su copia, la misma vereda podría acabar con dos
+    // nombres según por dónde hubiera entrado al proyecto.
+    expect(nombreDePunto('peloAgua', -2.8)).toBe('Pelo de agua izquierdo')
+  })
+
+  it('bautiza igual que la sección de fábrica: el mismo punto no puede tener dos nombres', () => {
+    // Un punto añadido a mano sale en la misma tabla, el mismo corte y el
+    // mismo Excel que el de fábrica del mismo rol y lado. Si uno se llamara
+    // «Borde de calzada izquierdo» y el otro «Borde izquierdo», nadie sabría
+    // si son el mismo punto. Por eso la etiqueta del rol —la del selector,
+    // que va sola y tiene que ser inequívoca— no siempre sirve tal cual para
+    // nombrar el punto.
+    for (const punto of seccionDeFabrica().puntos) {
+      expect(nombreDePunto(punto.rol, punto.distancia)).toBe(punto.nombre)
+    }
   })
 })

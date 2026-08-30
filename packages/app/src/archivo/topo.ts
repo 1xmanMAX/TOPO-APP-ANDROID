@@ -1,8 +1,8 @@
 import {
   anadirPalabra,
   esPalabraDe,
-  ETIQUETA_ROL,
   ladoDe,
+  nombreDePunto,
   normalizarPalabra,
   seccionDeFabrica,
   type BM,
@@ -25,6 +25,7 @@ import {
 import { unzipSync, zipSync } from 'fflate'
 import { nuevoId } from '../estado/ejemplo'
 import { agregarTomaComoNivelacion } from '../estado/proyectoTomas'
+import { bytesDelArchivo } from './bytes'
 
 const NOMBRE_INTERNO = 'proyecto.json'
 const VERSION_SOPORTADA = 1
@@ -251,20 +252,6 @@ const DESTINO_DE_CONCEPTO: Record<string, { rol: Rol; lado: Lado } | 'progresiva
   veredaDer: { rol: 'vereda', lado: 'derecha' },
 }
 
-/** Los roles de nombre femenino: «Vereda izquierda», pero «Sardinel izquierdo». Igual criterio que `estado/almacen.ts`. */
-const ROLES_FEMENINOS: readonly Rol[] = ['vereda', 'cuneta']
-
-/** Cómo se llama un punto migrado sin nombre propio: su rol y el lado donde cayó, en español. */
-function nombreDePuntoMigrado(rol: Rol, distancia: number): string {
-  const lado = ladoDe(distancia)
-  if (lado === 'eje') return ETIQUETA_ROL[rol]
-
-  const femenino = ROLES_FEMENINOS.includes(rol)
-  const izquierda = femenino ? 'izquierda' : 'izquierdo'
-  const derecha = femenino ? 'derecha' : 'derecho'
-  return `${ETIQUETA_ROL[rol]} ${lado === 'izquierda' ? izquierda : derecha}`
-}
-
 /**
  * Construye la sección de una calle con plantilla, y de paso el mapa que van
  * a necesitar sus lecturas guardadas: de la clave de cada elemento de la
@@ -391,7 +378,7 @@ function construirSeccionDesdePuntos(
     return {
       id,
       rol,
-      nombre: nombreDePuntoMigrado(rol, puntoViejo.distancia),
+      nombre: nombreDePunto(rol, puntoViejo.distancia),
       distancia: puntoViejo.distancia,
       // Son medidas que Max puso: decir que las puso la app sería mentir en pantalla.
       distanciaDeFabrica: false,
@@ -655,7 +642,16 @@ export function descargarTopo(proyecto: Proyecto): void {
   URL.revokeObjectURL(url)
 }
 
+/**
+ * Abre un `.topo` elegido en el navegador: es la puerta por la que vuelve
+ * cada proyecto guardado del usuario.
+ *
+ * Los bytes se piden a `bytesDelArchivo` —`FileReader`— y no a
+ * `archivo.arrayBuffer()`, que es lo que había antes: ese método no existe
+ * en el entorno donde corren las pruebas, así que ninguna podía cruzar esta
+ * función y la puerta entera se quedaba sin vigilancia. Hacen lo mismo, y
+ * este camino sí se puede probar.
+ */
 export async function abrirTopo(archivo: File): Promise<Proyecto> {
-  const datos = new Uint8Array(await archivo.arrayBuffer())
-  return desempaquetarProyecto(datos)
+  return desempaquetarProyecto(await bytesDelArchivo(archivo))
 }

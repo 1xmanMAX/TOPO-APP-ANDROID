@@ -1,25 +1,15 @@
 import { redondear3 } from '../numero'
 
-export function generarProgresivas(
-  inicio: number,
-  fin: number,
-  intervalo: number,
-  extras: number[],
-): number[] {
-  if (intervalo <= 0) throw new Error('El intervalo debe ser mayor que cero')
-  if (fin < inicio) throw new Error('La progresiva final no puede ser menor que la inicial')
-
-  const valores = new Set<number>()
-  for (let p = inicio; p < fin; p += intervalo) valores.add(redondear3(p))
-  valores.add(redondear3(fin))
-
-  for (const extra of extras) {
-    const valor = redondear3(extra)
-    if (valor >= inicio && valor <= fin) valores.add(valor)
-  }
-
-  return [...valores].sort((a, b) => a - b)
-}
+/*
+ * Este archivo tuvo también `generarProgresivas(inicio, fin, intervalo, extras)`,
+ * que fabricaba de un tirón la serie de progresivas de una calle a partir de
+ * un rango configurado. Se retiró con sus ocho pruebas: la grilla sale de las
+ * progresivas que de verdad se midieron —`progresivasMedidas` alimentando a
+ * `construirGrilla`—, y de la hoja de campo cada progresiva entra fila a
+ * fila por `parsearProgresiva`. Ni `Calle` ni ninguna pantalla guardan ya el
+ * rango ni el intervalo de los que salían sus cuatro argumentos, así que no
+ * había forma de llamarla sin inventárselos.
+ */
 
 export function formatearProgresiva(metros: number): string {
   const negativa = metros < 0

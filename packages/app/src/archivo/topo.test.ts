@@ -1,7 +1,7 @@
 import { calcularCampania, type Proyecto } from '@topo/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { proyectoEjemplo } from '../estado/ejemplo'
-import { desempaquetarProyecto, empaquetarProyecto } from './topo'
+import { abrirTopo, descargarTopo, desempaquetarProyecto, empaquetarProyecto } from './topo'
 
 // ---------- Fixtures del modelo anterior a la sección declarada ----------
 //
@@ -951,5 +951,150 @@ describe('migración de calles del modelo anterior a la sección declarada', () 
     const recuperado = desempaquetarProyecto(empaquetarProyecto(proyectoAnteriorConNivelacionesSueltas()))
 
     expect(recuperado.calles[0]!.nivelaciones.map((n) => n.id)).toContain('niv-suelta')
+  })
+})
+
+describe('abrir un .topo elegido en el navegador', () => {
+  // `abrirTopo` es por donde entra cada proyecto guardado, y hasta ahora
+  // ninguna prueba la cruzaba: leía los bytes con `archivo.arrayBuffer()`,
+  // que jsdom no trae. Con `bytesDelArchivo` (FileReader) sí se puede armar
+  // un archivo de verdad, abrirlo, y comprobar qué sale por el otro lado.
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('un .topo recién guardado se vuelve a abrir con el proyecto entero', async () => {
+    const original = proyectoEjemplo()
+    const archivo = new File([empaquetarProyecto(original)], 'Av. Sol.topo')
+
+    const recuperado = await abrirTopo(archivo)
+
+    expect(recuperado).toEqual(original)
+  })
+
+  it('las lecturas de campo llegan con su valor exacto, no aproximadas', async () => {
+    // El viaje entero —comprimir, escribir el archivo, leerlo byte a byte y
+    // descomprimir— no puede tocar ni un milímetro de lo que Max anotó.
+    const archivo = new File([empaquetarProyecto(proyectoEjemplo())], 'Av. Sol.topo')
+
+    const recuperado = await abrirTopo(archivo)
+
+    expect(
+      recuperado.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones[0]!.intermedias[0]!.valor,
+    ).toBe(1.931)
+  })
+
+  it('un archivo que no es un .topo avisa en cristiano en vez de reventar', async () => {
+    const archivo = new File([new Uint8Array([1, 2, 3])], 'foto.topo')
+
+    await expect(abrirTopo(archivo)).rejects.toThrow(
+      'No se pudo leer el archivo .topo: parece estar dañado o no ser un archivo de la app.',
+    )
+  })
+
+  it('un .topo del modelo anterior entra ya migrado a la sección declarada, no crudo', async () => {
+    // Abrir un archivo es uno de los dos caminos por los que un proyecto
+    // viejo vuelve a la app: si `abrirTopo` se saltara la migración, la
+    // calle entraría sin sección, y todo lo que cuelga de ella se rompería.
+    const archivo = new File([empaquetarProyecto(proyectoAnterior())], 'Jr. Viejo.topo')
+
+    const recuperado = await abrirTopo(archivo)
+
+    expect(recuperado.calles[0]!.seccion.puntos.map((p) => p.rol)).toEqual(['bordeCalzada', 'eje'])
+    expect(recuperado.calles[0]!.seccion.puntos[0]!.distancia).toBe(-4.2)
+  })
+})
+
+describe('guardar un .topo en el disco', () => {
+  // `descargarTopo` es la puerta de salida —lo que graba es lo único que le
+  // queda al topógrafo de su día de campo— y no la cruzaba ninguna prueba.
+  // Dos piezas del navegador hay que ponerlas a mano para poder mirar qué se
+  // graba, y ninguna de las dos toca el código de producción:
+  //
+  // - `URL.createObjectURL` y `URL.revokeObjectURL`: jsdom no las trae.
+  //   Puestas aquí, dejan quedarse con el Blob que se le entrega al
+  //   navegador, que es exactamente lo que acabaría en el disco.
+  // - el `click()` del enlace: jsdom lo convierte en una navegación de verdad
+  //   y escupe «Not implemented: navigation» por la salida —encima tarde, por
+  //   un temporizador, así que mancharía la prueba siguiente—. Se sustituye
+  //   por un doble que anota el nombre del archivo, que es todo lo que ese
+  //   click tiene de observable.
+  const blobs: Blob[] = []
+  const nombres: string[] = []
+  const urlsCreadas: string[] = []
+  const urlsSoltadas: string[] = []
+
+  function conNombre(nombre: string): Proyecto {
+    const proyecto = proyectoEjemplo()
+    return { ...proyecto, meta: { ...proyecto.meta, nombre } }
+  }
+
+  beforeEach(() => {
+    blobs.length = 0
+    nombres.length = 0
+    urlsCreadas.length = 0
+    urlsSoltadas.length = 0
+
+    const crearUrl: typeof URL.createObjectURL = (objeto) => {
+      blobs.push(objeto as Blob)
+      const url = `blob:prueba/${blobs.length}`
+      urlsCreadas.push(url)
+      return url
+    }
+    const soltarUrl: typeof URL.revokeObjectURL = (url) => {
+      urlsSoltadas.push(url)
+    }
+
+    URL.createObjectURL = crearUrl
+    URL.revokeObjectURL = soltarUrl
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      nombres.push(this.download)
+    })
+  })
+
+  afterEach(() => {
+    Reflect.deleteProperty(URL, 'createObjectURL')
+    Reflect.deleteProperty(URL, 'revokeObjectURL')
+    vi.restoreAllMocks()
+  })
+
+  it('lo que se graba se vuelve a abrir entero', async () => {
+    const original = proyectoEjemplo()
+
+    descargarTopo(original)
+
+    expect(blobs).toHaveLength(1)
+    // Se abre por la misma puerta de entrada que usa la app, no por un
+    // atajo: lo grabado tiene que servirle a `abrirTopo` tal cual.
+    const recuperado = await abrirTopo(new File([blobs[0]!], 'Av. Sol.topo'))
+
+    expect(recuperado).toEqual(original)
+  })
+
+  it('el archivo se llama como el proyecto, sin lo que no vale en un nombre', () => {
+    descargarTopo(conNombre('Jr. Lima / 2'))
+
+    expect(nombres).toEqual(['Jr Lima  2.topo'])
+  })
+
+  it('un nombre que se queda en nada no da un archivo llamado solo «.topo»', () => {
+    // En la carpeta de descargas, un archivo llamado «.topo» no le dice nada
+    // a nadie —y el siguiente lo pisaría—.
+    descargarTopo(conNombre('///'))
+
+    expect(nombres).toEqual(['proyecto.topo'])
+  })
+
+  it('suelta el objeto que creó: no deja el archivo colgado en memoria', () => {
+    descargarTopo(proyectoEjemplo())
+
+    expect(urlsCreadas).toHaveLength(1)
+    expect(urlsSoltadas).toEqual(urlsCreadas)
   })
 })

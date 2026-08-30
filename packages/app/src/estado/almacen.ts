@@ -4,10 +4,10 @@ import {
   calcularCampania,
   capaEnUso,
   esPalabraDe,
-  ETIQUETA_ROL,
   ladoDe,
   mismaPalabra,
   moverCapa,
+  nombreDePunto,
   partirClaveCelda,
   renumerarCapas,
   seccionDeFabrica,
@@ -177,25 +177,6 @@ function conListaDePalabras(
     case 'referencia':
       return { ...seccion, palabrasReferencia: cambiar(seccion.palabrasReferencia) }
   }
-}
-
-/** Los roles de nombre femenino: «Vereda izquierda», pero «Sardinel izquierdo». */
-const ROLES_FEMENINOS: readonly Rol[] = ['vereda', 'cuneta']
-
-/**
- * Cómo se llama un punto nuevo: su elemento y el lado donde cayó, escrito en
- * español de verdad. El lado sale del signo de la distancia, igual que en el
- * resto de la app; un punto en el eje no lleva lado porque no lo tiene.
- */
-function nombreDePunto(rol: Rol, distancia: number): string {
-  const lado = ladoDe(distancia)
-  if (lado === 'eje') return ETIQUETA_ROL[rol]
-
-  const femenino = ROLES_FEMENINOS.includes(rol)
-  const izquierda = femenino ? 'izquierda' : 'izquierdo'
-  const derecha = femenino ? 'derecha' : 'derecho'
-
-  return `${ETIQUETA_ROL[rol]} ${lado === 'izquierda' ? izquierda : derecha}`
 }
 
 /**
