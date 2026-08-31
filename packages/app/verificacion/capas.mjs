@@ -40,9 +40,11 @@ await vistaAtras.fill('1.425')
 await vistaAtras.blur()
 
 // 3. Ahora sí, una lectura en la misma celda que midió la campaña anterior.
-// En la libreta la celda pertenece al mapa de grilla, que conserva su nombre
-// corto: ahí la celda muestra si está medida o no, no una cifra.
-await pagina.getByRole('button', { name: '0+000 EJE', exact: true }).first().click()
+// En la libreta la celda pertenece al mapa de grilla: ahí la celda muestra si
+// está medida o no, no una cifra. Se nombra con el nombre completo del punto
+// («Eje»), no con la palabra corta de la cabecera, porque la sección permite
+// la misma palabra a los dos lados del eje.
+await pagina.getByRole('button', { name: '0+000 Eje', exact: true }).first().click()
 const campo = pagina.getByLabel('Lectura de mira')
 await campo.click()
 await campo.type('2.230', { delay: 20 })
@@ -54,7 +56,7 @@ comprobar('con la vista atrás escrita, la lectura produce cota',
 
 // Una segunda celda de la misma progresiva, también medida por la campaña
 // anterior: hacen falta dos puntos en común para que haya área que rellenar.
-await pagina.getByRole('button', { name: '0+000 BOR-I', exact: true }).first().click()
+await pagina.getByRole('button', { name: '0+000 Borde izquierdo', exact: true }).first().click()
 await campo.click()
 await campo.type('2.290', { delay: 20 })
 await campo.press('Enter')
@@ -175,15 +177,16 @@ comprobar('el corte de la libreta no rotula la capa (una sola serie, como antes 
   etiquetaCapaEnLibreta === 0, `${etiquetaCapaEnLibreta} etiquetas de capa`)
 
 // Contar un solo trazo no basta: hay que comprobar que ese trazo es el de la
-// campaña ACTIVA y no el de la otra. La celda 0+000 BOR-I la midió la campaña
-// nueva (la activa) y no la del ejemplo, así que su presencia en el corte de
-// la libreta es la firma de que se está dibujando la campaña correcta.
+// campaña ACTIVA y no el de la otra. La celda del borde izquierdo en 0+000 la
+// midió la campaña nueva (la activa) y no la del ejemplo, así que su presencia
+// en el corte de la libreta es la firma de que se dibuja la campaña correcta.
 const puntosLibreta = await pagina
   .locator('svg [aria-label]')
   .evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
 
 comprobar('el corte de la libreta dibuja los puntos de la campaña que se está midiendo',
-  puntosLibreta.some((n) => n?.includes('BOR-I')), puntosLibreta.join(' | ') || '(ningún punto)')
+  puntosLibreta.some((n) => n?.includes('Borde izquierdo')),
+  puntosLibreta.join(' | ') || '(ningún punto)')
 
 await navegador.close()
 

@@ -2,7 +2,7 @@
 
 Aplicación de topografía para **campo y gabinete**, con núcleo en el **control de niveles por capas** en pavimentación urbana y veredas.
 
-**Estado:** Entregas 1, 2A, 2B y 3 funcionando — nivelación de una calle por progresivas con verificación de cierre, comparación de capas con el espesor realmente colocado, comparación contra la rasante de proyecto con semáforo de tolerancia, y un visor 3D de la calle con las capas apiladas y el corte en vivo.
+**Estado:** Entregas 1, 2A, 2B y 3 funcionando, y la entrada de datos rehecha alrededor de cómo se anota de verdad en campo — se declara la sección de la calle con las palabras del propio topógrafo y su hoja de Excel entra sola, con nivelación por progresivas y verificación de cierre, comparación de capas con el espesor realmente colocado, comparación contra la rasante de proyecto con semáforo de tolerancia, y un visor 3D de la calle con las capas apiladas y el corte en vivo.
 
 ## Cómo usarla
 
@@ -20,7 +20,10 @@ Funciona **sin internet**. Guía completa: [docs/uso.md](docs/uso.md).
 - **Verificación de cierre** contra la tolerancia `T = e·√K`, con los tres casos reales: cerrado, enlace a otro banco de nivel, y abierto sin verificación.
 - **Compensación** proporcional del error, conservando siempre la cota cruda al lado de la compensada.
 - **Avisos** de lectura que se aparta de sus vecinas, celda medida dos veces, punto de cambio repetido y cierre fuera de tolerancia.
-- **Plantilla transversal configurable** por calle: con vereda o sin ella, con pelo de agua, con los puntos existentes de amarre que hagan falta.
+- **Sección declarada** por calle, dibujada: un punto por cada cosa que se mide a lo ancho —con vereda o sin ella, con pelo de agua, con los puntos existentes de amarre que hagan falta—, cada uno con su distancia al eje y **con las palabras con las que el topógrafo lo escribe en su hoja**. La misma palabra puede valer para los dos lados: el lado sale de la posición de la columna respecto a la del eje.
+- **Entrada de la hoja de campo** por archivo `.xlsx`, `.csv` o pegando las celdas — los tres caminos dan el mismo resultado. Encuentra la cabecera aunque la tabla no empiece arriba a la izquierda, saca la vista atrás del preámbulo, deduce la columna de progresivas aunque no tenga título, y guarda como referencias las filas de cosas existentes que no pertenecen a ninguna progresiva.
+- **Nada entra hasta confirmar**, y lo que no se entendió se enseña con su contenido: columnas sin colocar (que se colocan de un clic y su palabra queda guardada), filas que quedaron fuera y valores sueltos del preámbulo. Cuando hay dos lecturas del mismo lado en una fila de existentes, la app **no elige**: las enseña y pide que se resuelva.
+- **Avisos que no se apagan solos**: las distancias puestas por la app siguen señaladas mientras quede **una sola** sin medir, y una toma sin vuelta se marca como no comprobada.
 - **Campañas apiladas** por fecha, calle y capa. Nunca se pisan entre sí.
 - **Corte transversal con deslizador** y perfil longitudinal, ligados a la tabla: eliges una celda y el corte salta a esa progresiva.
 - **Archivo `.topo` portable** y autoguardado con recuperación.
@@ -35,9 +38,9 @@ Funciona **sin internet**. Guía completa: [docs/uso.md](docs/uso.md).
 ## Verificación
 
 ```
-npm test                                   # 468 pruebas: 157 del motor + 311 de la interfaz
+npm test                                   # 668 pruebas: 184 del motor + 484 de la interfaz
 npm run typecheck --workspaces             # tipos
-npm run build --workspace packages/app     # 332 kB, 101 kB comprimido
+npm run build --workspace packages/app     # 373 kB, 113 kB comprimido
 npm audit --omit=dev                       # sin vulnerabilidades
 ```
 
@@ -46,14 +49,15 @@ Y la verificación en un navegador real, que comprueba lo que un entorno simulad
 ```
 npm run build --workspace packages/app
 npx vite preview --port 4173                 # desde packages/app, en otra ventana
-node packages/app/verificacion/recorrido.mjs <carpeta-de-salida>   # 14 comprobaciones
+node packages/app/verificacion/importar.mjs <carpeta-de-salida>    # 34 comprobaciones: la hoja real de campo, por archivo y pegada
+node packages/app/verificacion/recorrido.mjs <carpeta-de-salida>   # 15 comprobaciones
 node packages/app/verificacion/capas.mjs <carpeta-de-salida>       # 17 comprobaciones
 node packages/app/verificacion/rasante.mjs <carpeta-de-salida>     # 19 comprobaciones
 node packages/app/verificacion/visor3d.mjs <carpeta-de-salida>     # el visor en modo Capas: capas apiladas y corte vivo
 node packages/app/verificacion/vista3d.mjs <carpeta-de-salida>     # el visor en modo Estado: se dibuja, gira arrastrando, secciona y resume la peor zona
 ```
 
-El de capas descarga el Excel de espesores de verdad, y el de rasante el de diferencias: los dos lo descomprimen y comprueban lo que solo se ve dentro del archivo. Los dos del visor 3D comprueban con un arrastre real de ratón que girar cambia el dibujo — eso no se puede simular fuera de un navegador de verdad.
+El de importar sube el archivo real de campo por el mismo campo por el que lo subiría el topógrafo, coloca las columnas de un clic, acepta la hoja y comprueba que salen cotas, perfil y modelo — y repite el recorrido entero pegando las mismas celdas. El de capas descarga el Excel de espesores de verdad, y el de rasante el de diferencias: los dos lo descomprimen y comprueban lo que solo se ve dentro del archivo. Los dos del visor 3D comprueban con un arrastre real de ratón que girar cambia el dibujo — eso no se puede simular fuera de un navegador de verdad.
 
 ## Estructura
 
@@ -75,11 +79,14 @@ El motor no sabe que existe una pantalla: recibe números y devuelve números. L
 - [Plan de implementación de la Entrega 2B](docs/superpowers/plans/2026-08-20-entrega-2b-rasante-de-proyecto.md)
 - [Diseño del visor 3D](docs/superpowers/specs/2026-08-21-visor-3d-design.md)
 - [Plan de implementación de la Entrega 3](docs/superpowers/plans/2026-08-21-entrega-3-visor-3d.md)
+- [Diseño de la sección declarada y la lectura de una hoja real](docs/superpowers/specs/2026-08-29-seccion-declarada-y-lectura-real-design.md)
+- [Plan de implementación de la sección declarada](docs/superpowers/plans/2026-08-29-seccion-declarada.md)
 - [Guía de uso](docs/uso.md)
 - [Decisiones tomadas durante la Entrega 1](docs/decisiones-entrega-1.md)
 - [Decisiones tomadas durante la Entrega 2A](docs/decisiones-entrega-2a.md)
 - [Decisiones tomadas durante la Entrega 2B](docs/decisiones-entrega-2b.md)
 - [Decisiones tomadas durante la Entrega 3](docs/decisiones-entrega-3.md)
+- [Decisiones tomadas al rehacer la entrada de datos](docs/decisiones-seccion-declarada.md)
 
 ## Lo que viene
 

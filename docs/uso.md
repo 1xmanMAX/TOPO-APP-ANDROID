@@ -1,6 +1,6 @@
 # Cómo usar la app
 
-Nivelación de una calle por progresivas: escribes las lecturas de mira, la app calcula las cotas, verifica si tu circuito cierra, compensa el error y te deja recorrer la calle corte por corte.
+Nivelación de una calle por progresivas: **subes tu hoja de campo tal como la anotas** —o escribes las lecturas de mira aquí dentro—, la app calcula las cotas, verifica si tu circuito cierra, compensa el error y te deja recorrer la calle corte por corte.
 
 Y una vez tienes dos capas niveladas, te dice **cuánto material hay entre ellas**, celda por celda. Si además defines la rasante de proyecto, te dice **cuánto sobra o falta contra el diseño**, con semáforo de tolerancia.
 
@@ -25,8 +25,10 @@ Para dejarla, `Ctrl+C` en la ventana de comandos.
 ## El orden de trabajo
 
 ```
-Proyecto  →  Plantilla  →  Calle  →  Campañas  →  Libreta  →  Resultados
+Proyecto  →  Sección  →  Subir datos  →  Libreta  →  Resultados
 ```
+
+Hay dos pantallas más — **Calle** y **Campañas** — que se usan de vez en cuando; van al final de este apartado.
 
 ### 1. Proyecto
 
@@ -38,39 +40,115 @@ El **orden manda**: es el que decide qué capa queda debajo de cuál al calcular
 
 > Si corriges la cota de un banco de nivel, **todas las cotas del proyecto se recalculan solas**. La app no guarda cotas: guarda tus lecturas y deriva todo lo demás cada vez.
 
-### 2. Plantilla
+> Cuando subes una hoja, sus cotas se cuelgan del **primer banco de nivel del proyecto**: todavía no se puede elegir otro para una hoja subida. La pantalla te dice de cuál cuelgan, con su cota, antes de que aceptes nada.
 
-Qué puntos tomas a lo ancho de la calle, y a qué distancia del eje está cada uno. Negativo hacia la izquierda, positivo hacia la derecha.
+### 2. Sección: los puntos de tu calle, con tus palabras
 
-Es libre: pones vereda si la hay, pelo de agua si lo tomas, un punto existente al que tienes que llegar. La guardas con nombre y la reutilizas en la siguiente calle.
+**Cada calle tiene su sección**, y es lo primero que se declara. Aquí ves tu calle dibujada de lado a lado, con un punto por cada cosa que mides a lo ancho, y debajo una ficha por punto.
 
-### 3. Calle
+Cada punto lleva tres cosas:
 
-El tramo: desde qué progresiva hasta cuál, y cada cuántos metros tomas una sección. Puedes añadir **progresivas extra** donde el terreno lo pida: un buzón, una entrada de garaje, un quiebre.
+| Lo que lleva | Qué se pone ahí |
+|---|---|
+| **Qué es** | eje, borde de calzada, sardinel, vereda, cuneta, pelo de agua, u otro |
+| **A qué distancia del eje** | en metros: **negativa a la izquierda, positiva a la derecha**. El eje es siempre 0 |
+| **En la hoja** | la palabra —o las palabras— con las que escribes ese punto en tu Excel |
 
-Abajo ves cuántas celdas te va a tocar llenar. Útil para dimensionar la jornada antes de salir.
+Esa tercera es la que hace el trabajo: **tú le dices a la app cómo escribes tú**, y luego ella busca esas palabras en tu hoja. Si en tu Excel el eje lo escribes «ejito» y los bordes «bobo», pones eso y listo. No hay que cambiar cómo anotas.
 
-### 4. Campañas
+Cuatro cosas que conviene saber:
 
-Una campaña es **una jornada de nivelación**: una fecha, una calle, una capa y el banco de nivel donde arrancas.
+- **La misma palabra puede valer para los dos lados.** Si escribes «vereda» dos veces, una a cada lado del eje, las dos entran bien: el lado no sale de la palabra, sale de **dónde cae la columna respecto a la del eje** — lo que está a su izquierda es lado izquierdo, y lo que está a su derecha, derecho.
+- **No importan mayúsculas, tildes ni espacios de sobra.** `vereda `, `VEREDA` y `Vereda` son la misma palabra.
+- **La sección nace rellenada** —vereda, sardinel, borde, eje, borde, sardinel, vereda— para no arrancar de cero. Quitas lo que no midas, añades lo que sí, y ya.
+- **Las distancias vienen puestas por la app** hasta que las midas tú. Mientras quede una sola sin medir, arriba se lee un aviso: las pendientes y el bombeo que salgan de ahí son orientativos. Cuando midas una, escríbela; si la cifra que puso la app ya era la buena, pulsa **Confirmar** y cuenta como medida.
 
-Las campañas se apilan y **nunca se pisan**. Hoy nivelas Av. Sol en subrasante; mañana Jr. Lima; pasado, la base de Av. Sol. Cada una guarda su libreta completa, y puedes volver a cualquiera y encontrarla como la dejaste.
+Abajo del todo hay **tres palabras que no son puntos** pero también están en tu hoja, y también se declaran aquí:
 
-### 5. Libreta
+- la de la **columna de progresivas** (`PROG`, `PK`, `ABSCISA`…),
+- la del **punto de control**, que es lo que escribes junto a la vista atrás (`PC`, `BM`…),
+- la que abre una **fila de algo existente** (`existente`, `REF`…).
 
-Donde pasas el tiempo. Escribes la lectura que leíste en la mira, pulsas **Enter**, y el cursor salta solo a la siguiente celda pendiente.
+### 3. Subir datos: tu hoja entra tal como la anotas
+
+Aquí entra el trabajo de campo. Subes el archivo (`.xlsx` o `.csv`) o **pegas las celdas** copiadas de Excel o de Google Sheets: los dos caminos se leen igual y dan lo mismo.
+
+Antes de aceptar nada, la app te enseña **qué entendió y qué no**. Nada entra en el proyecto hasta que pulsas Importar.
+
+#### Un ejemplo trabajado, con una hoja de verdad
+
+Esta es una hoja real, tal como se anotó. Se llama `Detrás del colegio` y esto es todo lo que tiene:
+
+| | B | C | D | E | F | G | H |
+|---|---|---|---|---|---|---|---|
+| **2** | PC | 1.45 | | | | | |
+| **3** | | | | 2.11 | | | |
+| **4** | | vereda | IZQ | EJE | DER | vereda | |
+| **5** | 6 | 2.12 | 2.24 | 2.27 | 2.12 | 1.93 | |
+| **6** | 10 | 2.07 | 2.17 | 2.14 | 2.15 | 1.84 | |
+| **7** | 20 | 1.88 | 2.135 | 2.07 | 2.02 | 1.755 | 0.125 |
+| … | … | … | … | … | … | … | … |
+| **11** | 60 | 1.56 | 1.52 | 1.49 | 1.38 | 1.42 | 0.14 |
+| **12–19** | | | | | | | 0 |
+| **20** | existente | cuneta | 2.185 | | 1.955 | 0.23 | |
+| **21** | existente | calzada | 2.41 | | 2.06 | | |
+
+Fíjate en lo que **no** tiene: la tabla no empieza arriba a la izquierda, la columna de progresivas no tiene título, `vereda` está dos veces, y no hay ni una distancia al eje escrita. Y en lo que tiene de más: la columna H es una resta arrastrada, y las filas 12 a 19 son el cero que dejó esa fórmula.
+
+**Qué entiende la app de ella:**
+
+1. **La cabecera es la fila 4**, la primera donde reconoce alguna de tus palabras. Todo lo de encima es preámbulo.
+2. **La vista atrás es el 1.45**, porque va justo detrás de `PC`, que es tu palabra para el punto de control.
+3. **Las progresivas salen de la columna B**, aunque no tenga título: es la columna de números que va pegada a la izquierda de la primera columna de puntos.
+4. **`vereda` de la columna C es la vereda izquierda y la de la G es la derecha**, porque una cae a la izquierda de `EJE` y la otra a la derecha.
+5. **Las filas 20 y 21 son puntos de referencia**: no pertenecen a ninguna progresiva, se guardan aparte y se les calcula su cota desde la misma estación. La segunda celda dice qué son —cuneta, calzada— y eso es texto libre: no hace falta declararlo en la sección.
+
+**Qué te pregunta:**
+
+- **`IZQ` y `DER`** no las reconoce, y con razón: son etiquetas de lado, no de elemento, y nadie sabe si en tu hoja significan el borde o el sardinel. Salen en **«Columnas que no reconocí»**, con sus valores a la vista y un desplegable para decir a qué punto van. Un clic en cada una. **Al aceptar la hoja, esas dos palabras quedan guardadas en tu sección, y la próxima hoja igual entra sola.**
+- **En la fila de la cuneta hay dos lecturas del lado derecho**: el 1.955 de la columna `DER` y el 0.23 de la vereda —que en realidad es la resta, no una lectura—. Una cosa existente solo tiene una por lado, así que **la app no elige**: te enseña las dos y espera a que digas cuál vale. Por eso salen **tres** referencias y no cuatro.
+
+Y hay dos cosas que te dice sin que preguntes: que **las distancias son las de fábrica** hasta que las midas, y que **esta toma no cierra** —trae un punto de control y ninguna vuelta—, así que las cotas salen pero quedan sin comprobar.
+
+**Qué queda fuera, dicho con su contenido:** el 2.11 suelto del preámbulo, la columna H entera y los ceros de las filas 12 a 19. Salen listados en **«Lo que no importé»** con sus valores: si algo de eso era una lectura tuya, lo ves ahí antes de aceptar y le asignas su punto.
+
+**Qué sale al final:** una jornada de nivelación con **7 progresivas × 5 puntos = 35 lecturas**, la vista atrás 1.45 colgada del primer banco de nivel del proyecto, y **3 puntos de referencia**. Nada más: ni la columna H, ni las filas de ceros, ni el 2.11.
+
+> Si no reconoce **ninguna** de tus palabras, no importa nada a ciegas: te lo dice y te manda a la pantalla de Sección a escribirlas.
+
+> Tampoco te deja aceptar una hoja con una **columna sin colocar que tenga números dentro**. Dejar fuera una columna medida es perder trabajo de campo sin que se note, y eso no puede pasar en silencio. Una columna de puras notas, en cambio, no estorba: te avisa de que no trae números y sigue.
+
+### 4. Libreta
+
+Donde pasas el tiempo cuando anotas dentro de la app en vez de en la hoja. Escribes la lectura que leíste en la mira, pulsas **Enter**, y el cursor salta solo a la siguiente celda pendiente.
 
 - **Trasladar el instrumento**: cierra la estación con un punto de cambio y abre la siguiente leyendo hacia atrás a ese mismo punto.
 - **Cerrar el circuito**: remata contra el banco de nivel para que la app pueda verificar tu trabajo.
-- Puedes **corregir o borrar** cualquier lectura ya escrita. Todo se recalcula al instante: cota, corte y cierre.
+- Puedes **corregir o borrar** cualquier lectura ya escrita, venga de donde venga. Todo se recalcula al instante: cota, corte y cierre.
 
-### 6. Resultados
+Una hoja importada se abre aquí igual que si la hubieras escrito a mano, y sus puntos de referencia aparecen en la estación con su nombre y su lado: «cuneta a la izquierda», «calzada a la derecha».
+
+### 5. Resultados
 
 La tabla de cotas compensadas, el corte transversal con su deslizador y el perfil longitudinal.
 
 Al hacer clic en una celda de la tabla, el corte salta a esa progresiva. Al hacer clic en un punto del corte, se marca su celda. Todo está ligado.
 
 Desde aquí exportas a **Excel**, a **CSV** o **copias la tabla** para pegarla en una hoja ya abierta.
+
+En las cabeceras de las tablas y en los rótulos de los dibujos se lee **tu palabra**, la corta, la que escribiste en la sección — es la que cabe, y es la que reconoces. Lo que exportas también sale con tu palabra, y por eso **se puede volver a importar** sin tocar nada.
+
+### La pantalla de Calle
+
+Dos cosas: el **nombre** de la calle y su **rasante de proyecto** (más abajo hay un apartado entero sobre ella). Los puntos y sus distancias ya no se escriben aquí — viven en la sección.
+
+### La pantalla de Campañas
+
+Una campaña es **una jornada de nivelación**: una fecha, una calle, una capa y el banco de nivel donde arrancas. Cada hoja que importas crea la suya.
+
+Las campañas se apilan y **nunca se pisan**. Hoy nivelas Av. Sol en subrasante; mañana Jr. Lima; pasado, la base de Av. Sol. Cada una guarda su libreta completa, y puedes volver a cualquiera y encontrarla como la dejaste. Subir dos veces una hoja de la misma calle añade una jornada más, no pisa la anterior.
+
+La libreta de una jornada se arma con las progresivas que trae su hoja. Por eso hoy una jornada entra **subiendo datos**: el botón de «Nueva campaña» de esta pantalla crea la jornada, pero su libreta abre sin ninguna progresiva y no acepta lecturas hasta que tenga alguna.
 
 ## Comparar capas: el espesor colocado
 
@@ -132,7 +210,7 @@ Si la calle no es simétrica —una vereda solo de un lado, por ejemplo— hay u
 Esto es lo que cuesta agarrarle la mano, así que léelo mirando el dibujo:
 
 ```
-            EJE (offset 0)
+            EJE (distancia 0)
     izquierda  |  derecha
                 |
   VER-I  SAR-I  |  SAR-D  VER-D
@@ -152,13 +230,13 @@ Esto es lo que cuesta agarrarle la mano, así que léelo mirando el dibujo:
 
 Con la calzada al `+2.0 %` y el borde a 4.20 m del eje, el borde queda **84 mm por debajo del eje** (4.20 × 2.0 % = 0.084 m). Es la cuenta que usa el perfil longitudinal cuando miras un elemento que no es el eje.
 
-### Si la sección no cubre toda la plantilla, la app te lo dice
+### Si los tramos no llegan a toda la calle, la app te lo dice
 
-La plantilla puede tener puntos —un sardinel, una vereda, un punto de amarre— más allá de donde llegan tus tramos. Si eso pasa, el editor avisa:
+La sección de la calle puede tener puntos —un sardinel, una vereda, un punto de amarre— más allá de donde llegan tus tramos. Si eso pasa, el editor avisa:
 
-> La sección definida llega hasta 4.20 m del eje. Estos puntos de la plantilla quedan sin cota de proyecto: SAR-I, SAR-D, VER-I, VER-D.
+> La sección definida llega hasta 4.20 m del eje. Estos puntos de la calle quedan sin cota de proyecto: Sardinel izquierdo, Sardinel derecho, Vereda izquierda, Vereda derecha.
 
-Esos puntos no van a tener nunca una diferencia contra el proyecto, midas lo que midas ahí: el proyecto simplemente no define nada en ese offset. No es un error tuyo — es información que necesitabas antes de salir a medir esos puntos por gusto.
+Esos puntos no van a tener nunca una diferencia contra el proyecto, midas lo que midas ahí: el proyecto simplemente no define nada a esa distancia del eje. No es un error tuyo — es información que necesitabas antes de salir a medir esos puntos por gusto.
 
 ### Las cuatro vistas, en Resultados
 
@@ -176,7 +254,7 @@ Una vez hay rasante, en Resultados aparecen cuatro formas de ver lo mismo. Todas
 
 **Tabla de diferencias.** Un interruptor cambia entre **cota real**, **cota teórica** y **diferencia**. La diferencia va en milímetros con signo: positivo es que sobra material (toca **cortar**), negativo es que falta (toca **rellenar**), cero es que está clavado en la cota del proyecto.
 
-**Mapa de la calle.** Toda la calle de un vistazo: una fila por elemento de la plantilla, una columna por progresiva, cada celda con su color y su símbolo. Es la vista para ver de un salto dónde está el problema, sin recorrer la tabla progresiva por progresiva.
+**Mapa de la calle.** Toda la calle de un vistazo: una fila por punto de la sección, una columna por progresiva, cada celda con su color y su símbolo. Es la vista para ver de un salto dónde está el problema, sin recorrer la tabla progresiva por progresiva.
 
 **Corte transversal.** Dibuja la rasante junto al terreno medido, y sombrea entre las dos: una trama para **corte** (donde el terreno sobra frente a la rasante) y otra para **relleno** (donde falta), con su leyenda al lado — la trama distingue una de otra incluso en blanco y negro. El sombreado **solo cubre donde mediste**: si tu nivelación no llegó hasta la vereda, ahí no hay sombreado, aunque la rasante sí esté definida.
 

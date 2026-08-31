@@ -60,13 +60,15 @@ const encabezadoDiferencias = pagina.getByRole('heading', { name: /^Diferencias/
 comprobar('la sección de diferencias aparece con su encabezado',
   await encabezadoDiferencias.count() > 0)
 
-const etiquetaEje = await pagina.getByLabel(/0\+000 EJE: [+\-−]?\d+ mm/).first().getAttribute('aria-label')
-comprobar('la celda 0+000 EJE de la tabla lleva milímetros con signo, verbo y estado',
+// El nombre accesible de la celda lleva el nombre completo del punto («Eje»),
+// no la palabra corta que se lee en la cabecera de la columna.
+const etiquetaEje = await pagina.getByLabel(/0\+000 Eje: [+\-−]?\d+ mm/).first().getAttribute('aria-label')
+comprobar('la celda 0+000 del eje lleva milímetros con signo, verbo y estado',
   /mm/.test(etiquetaEje ?? '') && /(cortar|rellenar)/.test(etiquetaEje ?? ''), etiquetaEje ?? '(no encontrada)')
 
 // Con la cota de arranque elegida, las tres clases de estado deben
-// aparecer a la vez: conforme (0+020 EJE), al límite (0+000 EJE) y fuera
-// (0+000 BOR-I). Que salgan las tres es justo lo que hace útil esta
+// aparecer a la vez: conforme (0+020 en el eje), al límite (0+000 en el eje)
+// y fuera (0+000 en el borde izquierdo). Que salgan las tres es lo que hace útil esta
 // comprobación: no basta con ver un semáforo en un solo color. (El texto
 // de cada estado termina la etiqueta, así que "$" evita que "al límite de
 // tolerancia" o "fuera de tolerancia" cuenten como "conforme".)

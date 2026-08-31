@@ -26,31 +26,38 @@ await pagina.goto(BASE, { waitUntil: 'networkidle' })
 comprobar('la app arranca y muestra la navegación',
   await pagina.getByRole('button', { name: 'Libreta', exact: true }).isVisible())
 
-// 2. RIESGO ABIERTO: el foco al reordenar la plantilla por distancia
-await pagina.getByRole('button', { name: 'Plantilla', exact: true }).click()
-const distancias = pagina.getByLabel('Distancia')
-const primera = distancias.first()
-await primera.click()
-await primera.fill('')
-await primera.type('10', { delay: 40 })
+// 2. RIESGO ABIERTO: el foco al reordenar la sección por distancia.
+// La pantalla «Plantilla» ya no existe: los puntos y sus distancias viven en
+// la sección declarada de la calle, y es esa lista la que se reordena sola.
+await pagina.getByRole('button', { name: 'Sección', exact: true }).click()
+const distanciaVereda = pagina.getByLabel('Distancia al eje de Vereda izquierda')
+await distanciaVereda.click()
+await distanciaVereda.fill('')
+await distanciaVereda.type('10', { delay: 40 })
+// Aquí el campo cierra el cambio, y la vereda izquierda salta a ser el punto
+// más a la derecha de la lista: es el momento en que el foco se puede perder.
+await distanciaVereda.press('Enter')
 const foco = await pagina.evaluate(() => document.activeElement?.getAttribute('aria-label'))
-const valorTrasEscribir = await primera.inputValue()
-comprobar('el foco se mantiene al reordenar la plantilla en un navegador real',
-  foco === 'Distancia', `foco en "${foco}", valor "${valorTrasEscribir}"`)
+const valorTrasEscribir = await distanciaVereda.inputValue()
+comprobar('el foco se mantiene al reordenar la sección en un navegador real',
+  foco === 'Distancia al eje de Vereda izquierda', `foco en "${foco}", valor "${valorTrasEscribir}"`)
 
-// Devolver la plantilla a su estado
-await primera.fill('-5.60')
+// Devolver la sección a su estado: salir del campo es lo que cierra el cambio.
+await distanciaVereda.fill('-5.60')
 await pagina.getByRole('button', { name: 'Proyecto', exact: true }).click()
 
 // 3. Corregir la cota de un BM recalcula
 await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
-const cotaAntes = await pagina.getByRole('button', { name: /^Cota en 0\+000 EJE/ }).textContent()
+// El nombre accesible de la celda lleva el nombre completo del punto («Eje»),
+// no la palabra corta de la cabecera: la sección permite la misma palabra a
+// los dos lados, y dos celdas anunciadas igual no se distinguirían de oído.
+const cotaAntes = await pagina.getByRole('button', { name: /^Cota en 0\+000 Eje/ }).textContent()
 await pagina.getByRole('button', { name: 'Proyecto', exact: true }).click()
 const campoCota = pagina.getByLabel('Cota').first()
 await campoCota.fill('3245.280')
 await campoCota.blur()
 await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
-const cotaDespues = await pagina.getByRole('button', { name: /^Cota en 0\+000 EJE/ }).textContent()
+const cotaDespues = await pagina.getByRole('button', { name: /^Cota en 0\+000 Eje/ }).textContent()
 comprobar('corregir la cota del BM recalcula todo el proyecto',
   cotaAntes !== cotaDespues && cotaDespues.startsWith('3244.697'),
   `${cotaAntes} -> ${cotaDespues}`)
@@ -88,14 +95,29 @@ await deslizador.press('ArrowRight')
 const corteTras = await pagina.getByRole('img', { name: /Corte transversal/ }).getAttribute('aria-label')
 comprobar('el deslizador mueve el corte de progresiva', /0\+0[24]0/.test(corteTras), corteTras)
 
-// 8. Clic en una celda sin medir: lo dice en vez de dibujar un corte vacío
-await pagina.getByRole('button', { name: /^Cota en 0\+100 EJE/ }).click()
-const avisoVacio = await pagina.getByText(/todavía no tiene lecturas/).textContent()
-comprobar('elegir una celda sin medir avisa en vez de dibujar un corte vacío',
-  /0\+100/.test(avisoVacio), avisoVacio?.trim())
+// 8. Una celda sin medir se enseña como tal, y el corte no se la inventa.
+//    Esto pulsaba 0+100, una progresiva que la calle traía configurada y que
+//    nadie había medido, para ver el aviso de «no tiene lecturas». Ya no hay
+//    forma de llegar ahí desde la tabla: se arma con las progresivas MEDIDAS,
+//    así que una progresiva entera vacía no llega a salir en ella. Lo que sí
+//    queda —y es lo mismo que se vigilaba: que no se enseñe un dato que no
+//    existe— es la celda sin medir dentro de una progresiva que sí se midió.
+const celdaSinMedir = pagina.getByRole('button', { name: /^Cota en 0\+080 Vereda derecha/ })
+const etiquetaSinMedir = await celdaSinMedir.getAttribute('aria-label')
+await celdaSinMedir.click()
+comprobar('una celda sin medir se anuncia como sin medir, no con un número',
+  /sin medir$/.test(etiquetaSinMedir ?? ''), etiquetaSinMedir)
+
+const puntosDelCorte = await pagina
+  .getByRole('img', { name: /Corte transversal/ })
+  .locator('circle[role="button"]')
+  .evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
+comprobar('el corte no dibuja ningún punto para la celda sin medir',
+  puntosDelCorte.length > 0 && !puntosDelCorte.some((n) => n?.includes('Vereda derecha')),
+  puntosDelCorte.join(' | '))
 
 // 8b. Volver a una progresiva medida devuelve el corte
-await pagina.getByRole('button', { name: /^Cota en 0\+020 EJE/ }).click()
+await pagina.getByRole('button', { name: /^Cota en 0\+020 Eje/ }).click()
 const corteVuelta = await pagina.getByRole('img', { name: /Corte transversal/ }).getAttribute('aria-label')
 comprobar('volver a una progresiva medida devuelve el corte', /0\+020/.test(corteVuelta), corteVuelta)
 
@@ -128,9 +150,12 @@ const rutaTopo = `${SALIDA}/proyecto.topo`
 await descargaTopo.saveAs(rutaTopo)
 const contenidoTopo = unzipSync(new Uint8Array(readFileSync(rutaTopo)))
 const proyecto = JSON.parse(strFromU8(contenidoTopo['proyecto.json']))
+// Las tomas ya no cuelgan del proyecto: cuelgan de la nivelación de su calle,
+// que es lo que las agrupa desde que una calle puede tener varias.
+const tomas = proyecto.calles.flatMap((calle) => calle.nivelaciones.flatMap((n) => n.tomas))
 comprobar('el .topo guarda el proyecto con sus lecturas',
-  proyecto.campanias[0].estaciones[0].intermedias.length >= 2,
-  `${proyecto.campanias[0].estaciones.length} estaciones, ${proyecto.meta.nombre}`)
+  tomas.length > 0 && tomas[0].estaciones[0].intermedias.length >= 2,
+  `${tomas.length} tomas, ${tomas[0]?.estaciones.length} estaciones, ${proyecto.meta.nombre}`)
 
 // 11. Modo oscuro
 const botonTema = pagina.getByRole('button', { name: 'Cambiar tema' })

@@ -1,6 +1,6 @@
 # Verificación en un navegador real
 
-Estas comprobaciones existen porque el entorno de pruebas (`jsdom`) no es un navegador: no reproduce fielmente el foco cuando un elemento cambia de posición, no descarga archivos, y no dibuja nada. Dos riesgos del proyecto solo podían cerrarse aquí.
+Estas comprobaciones existen porque el entorno de pruebas (`jsdom`) no es un navegador: no reproduce fielmente el foco cuando un elemento cambia de posición, no descarga archivos, no dibuja nada, y ni siquiera lee un archivo elegido igual que un navegador de verdad. Dos riesgos del proyecto solo podían cerrarse aquí.
 
 ## Cómo ejecutarlas
 
@@ -14,14 +14,38 @@ npm run verificar --workspace packages/app
 
 La primera vez hace falta el navegador: `npx playwright install chromium`.
 
+`npm run verificar` corre solo `recorrido.mjs`. Los demás se lanzan a mano, con la carpeta donde dejar las capturas:
+
+```
+node verificacion/importar.mjs <carpeta-de-salida>
+```
+
+## Qué comprueba `importar.mjs`
+
+El camino por el que entra hoy el trabajo de campo: **el archivo real de Max**, `src/pruebas/muestras/detras-del-colegio.xlsx`, subido por el mismo campo por el que lo subiría él.
+
+Treinta y cuatro comprobaciones. Entre ellas:
+
+- Que de una hoja que no empieza arriba a la izquierda saca la vista atrás del preámbulo (1.45) y la columna de progresivas (la B), que no tiene título.
+- Que `IZQ` y `DER` salen como columnas sin colocar —no como datos perdidos—, que **no deja importar mientras queden ahí**, y que se colocan de un clic.
+- Que colocarlas vuelve a leer la hoja entera: las lecturas pasan de 21 a 35 y aparece el conflicto de las dos lecturas del mismo lado, que es el que deja la hoja en **tres** referencias y no cuatro.
+- Que al aceptar, **la palabra queda guardada en la sección de la calle**: se comprueba en la pantalla de Sección, con su nombre.
+- Que el aviso de las distancias de fábrica **no se apaga al medir una**: baja de siete puntos a seis y sigue ahí.
+- Que después de importar hay **cotas** (la del eje en la primera progresiva, calculada desde la vista atrás de la hoja), **perfil longitudinal** con un punto por progresiva y **modelo en volumen** — que sin rasante dice por qué no dibuja en modo Estado, y sí levanta la superficie medida en modo Capas.
+- **El camino del pegado**, que es el que más fácil se queda sin probar: las mismas celdas por el portapapeles, con la sección ya declarada, entran sin colocar nada y dan las mismas cuentas.
+- Que las dos hojas fueron **a una sola calle y como dos jornadas**, comprobado dentro del `.topo` descargado: importar añade y nunca pisa.
+
+Deja capturas de pantalla en la carpeta que se le pase como argumento.
+
 ## Qué comprueba `recorrido.mjs`
 
-Catorce cosas de punta a punta, entre ellas:
+Quince cosas de punta a punta, entre ellas:
 
+- Que el foco se mantiene al escribir una distancia en la pantalla de Sección, que reordena sola la lista por distancia.
 - Que corregir la cota de un banco de nivel recalcula todo el proyecto.
 - Que escribir una lectura y pulsar Enter la registra y avanza.
 - Que la barra de cierre da el veredicto correcto.
-- Que el deslizador mueve el corte, y que elegir una celda sin medir avisa en vez de dibujar un gráfico vacío.
+- Que el deslizador mueve el corte, y que una celda sin medir se anuncia como tal —sin inventarle un número— y no aparece dibujada en el corte.
 - **Que el `.xlsx` descargado es un archivo válido de verdad**, con sus cinco partes y las cotas escritas como número.
 - Que el `.topo` descargado contiene el proyecto con sus lecturas.
 - Que no hay ni un error en la consola del navegador.
