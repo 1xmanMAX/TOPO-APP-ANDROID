@@ -1,4 +1,4 @@
-import type { Calle, Estacion } from '../modelo/tipos'
+import type { Calle, Estacion, Toma } from '../modelo/tipos'
 import { redondear3 } from '../numero'
 import { palabraDePunto } from '../seccion/seccion'
 
@@ -82,9 +82,35 @@ export function construirGrilla(calle: Calle, progresivas: number[]): CeldaGrill
 }
 
 /**
+ * Las filas que tiene esta jornada: la unión de las progresivas que declaró
+ * y las que ya midió, sin repetir y ordenadas. Es lo que alimenta a
+ * `construirGrilla` desde una toma — nunca un rango inventado.
+ *
+ * Las dos mitades hacen falta. Solo las medidas, una jornada recién creada no
+ * tendría ni una celda donde escribir su primera lectura, que es justo lo que
+ * la dejaba muerta. Solo las declaradas, una hoja importada perdería de vista
+ * las progresivas que trajo y que nadie declaró a mano.
+ *
+ * Se redondean las dos a la misma precisión que `claveCelda`: si no, una
+ * progresiva declarada y la misma ya medida podrían salir como dos filas que
+ * comparten una sola celda.
+ */
+export function progresivasDeLaToma(toma: Toma): number[] {
+  const valores = new Set<number>()
+  for (const medida of progresivasMedidas(toma.estaciones)) valores.add(redondear3(medida))
+  for (const declarada of toma.progresivasDeclaradas ?? []) valores.add(redondear3(declarada))
+  return [...valores].sort((a, b) => a - b)
+}
+
+/**
  * Las progresivas que de verdad se midieron en estas estaciones: las de cada
- * lectura cuyo destino es una celda de grilla, sin repetir y ordenadas. Es lo
- * que alimenta a `construirGrilla` desde una toma — nunca un rango inventado.
+ * lectura cuyo destino es una celda de grilla, sin repetir y ordenadas.
+ *
+ * No es lo que arma la tabla —eso es `progresivasDeLaToma`, que le suma las
+ * declaradas—, sino lo que de verdad se recorrió: por eso es esto, y no la
+ * unión, lo que mide el circuito en `calcularLongitudKAuto`. Declarar una
+ * progresiva donde todavía no se ha medido no alarga el recorrido ni afloja
+ * la tolerancia del cierre.
  */
 export function progresivasMedidas(estaciones: Estacion[]): number[] {
   const valores = new Set<number>()

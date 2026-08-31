@@ -2,7 +2,7 @@ import {
   calcularCampania,
   construirGrilla,
   evaluarContraRasante,
-  progresivasMedidas,
+  progresivasDeLaToma,
   type Calle,
   type Capa,
   type Id,
@@ -121,17 +121,18 @@ export function useEvaluacionRasante(campaniaId?: Id): ResultadoEvaluacion | nul
 }
 
 /**
- * Progresivas de la campaña activa, las que de verdad se midieron: ya no
- * salen de un rango configurado en la calle (que no existe), así que no hay
- * «progresivas pendientes» que enseñar antes de haber tomado la primera
- * lectura ahí. Es el mismo criterio que `construirGrilla` en todo lo demás.
+ * Progresivas de la campaña activa: las que declaró y las que ya midió. No
+ * salen de un rango configurado en la calle (que no existe), sino de la misma
+ * unión que arma la tabla de la libreta — el mismo criterio que
+ * `construirGrilla` en todo lo demás, para que el deslizador del corte y las
+ * flechas recorran exactamente las filas que se ven.
  */
 export function useProgresivas(): number[] {
   const contexto = useContexto()
 
   return useMemo(() => {
     if (!contexto) return []
-    const celdas = construirGrilla(contexto.calle, progresivasMedidas(contexto.campania.estaciones))
+    const celdas = construirGrilla(contexto.calle, progresivasDeLaToma(contexto.campania))
     return [...new Set(celdas.map((celda) => celda.progresiva))].sort((a, b) => a - b)
   }, [contexto])
 }

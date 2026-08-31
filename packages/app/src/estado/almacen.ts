@@ -9,6 +9,8 @@ import {
   moverCapa,
   nombreDePunto,
   partirClaveCelda,
+  progresivasMedidas,
+  redondear3,
   renumerarCapas,
   seccionDeFabrica,
   type BM,
@@ -125,6 +127,8 @@ interface EstadoApp {
   ): void
   actualizarLectura(campaniaId: Id, lecturaId: Id, valor: number): void
   eliminarLectura(campaniaId: Id, lecturaId: Id): void
+  declararProgresiva(campaniaId: Id, progresiva: number): void
+  quitarProgresivaDeclarada(campaniaId: Id, progresiva: number): void
 
   seleccionar(clave: string | null): void
   irAProgresiva(progresiva: number | null): void
@@ -256,6 +260,10 @@ function tomaDesdeHoja(hoja: HojaInterpretada, fecha: string, capaId: Id, bmInic
     fecha,
     capaId,
     bmInicialId,
+    // Las progresivas de la hoja llegan dentro de sus lecturas, así que la
+    // tabla ya las tiene por medidas: declararlas aquí además sería guardar
+    // dos veces lo mismo. Queda vacía, lista para las que Max añada a mano.
+    progresivasDeclaradas: [],
     cierre: {
       tipo: 'abierto',
       longitudK: 0,
@@ -616,6 +624,11 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       const toma: Toma = {
         ...restoDatos,
         id,
+        // Nace sin ninguna progresiva declarada, salvo que quien la crea traiga
+        // las suyas: las declara el topógrafo en la libreta según va midiendo,
+        // una a una. No se inventa aquí una serie «cada 20 m» porque las suyas
+        // son 6, 10, 20, 30… — irregulares al principio y regulares después.
+        progresivasDeclaradas: restoDatos.progresivasDeclaradas ?? [],
         // Toda nivelación empieza plantando el nivel y leyendo hacia atrás al
         // banco de nivel. Sin esa primera estación no hay dónde escribir, y la
         // toma nace inutilizable.
@@ -796,6 +809,56 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         })),
       ),
     })),
+
+  declararProgresiva: (campaniaId, progresiva) =>
+    set((s) => {
+      const hallado = buscarToma(s.proyecto, campaniaId)
+      if (!hallado) return {}
+
+      // Se guarda ya redondeada, igual que la clave de cada celda: así la
+      // fila declarada y la celda que va a recibir la lectura son la misma.
+      const valor = redondear3(progresiva)
+      const declaradas = hallado.toma.progresivasDeclaradas ?? []
+      // Declarar dos veces la misma no es un error, pero tampoco es un
+      // cambio: no tiene por qué marcar el proyecto como modificado.
+      if (declaradas.some((suya) => redondear3(suya) === valor)) return {}
+
+      return {
+        proyecto: marcarModificado(
+          conToma(s.proyecto, campaniaId, (toma) => ({
+            ...toma,
+            progresivasDeclaradas: [...declaradas, valor].sort((a, b) => a - b),
+          })),
+        ),
+      }
+    }),
+
+  quitarProgresivaDeclarada: (campaniaId, progresiva) =>
+    set((s) => {
+      const hallado = buscarToma(s.proyecto, campaniaId)
+      if (!hallado) return {}
+
+      const valor = redondear3(progresiva)
+      // Una progresiva con lecturas no se quita. La lectura seguiría
+      // guardada, pero fuera de la tabla: desaparecería de la pantalla y de
+      // lo exportado sin que nada lo dijera, que es la manera más silenciosa
+      // de perder un dato de campo. La pantalla lo explica antes de llegar
+      // aquí; esto es la red por si algún camino futuro no lo hace.
+      if (progresivasMedidas(hallado.toma.estaciones).some((medida) => redondear3(medida) === valor)) {
+        return {}
+      }
+
+      return {
+        proyecto: marcarModificado(
+          conToma(s.proyecto, campaniaId, (toma) => ({
+            ...toma,
+            progresivasDeclaradas: (toma.progresivasDeclaradas ?? []).filter(
+              (suya) => redondear3(suya) !== valor,
+            ),
+          })),
+        ),
+      }
+    }),
 
   seleccionar: (clave) =>
     set(() => {

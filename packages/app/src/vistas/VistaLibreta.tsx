@@ -1,4 +1,12 @@
-import { construirGrilla, esLecturaUsable, formatearProgresiva, progresivasMedidas } from '@topo/core'
+import {
+  construirGrilla,
+  esLecturaUsable,
+  formatearProgresiva,
+  parsearProgresiva,
+  progresivasDeLaToma,
+  progresivasMedidas,
+  redondear3,
+} from '@topo/core'
 import { useEffect, useMemo, useState } from 'react'
 import BarraCierre from '../componentes/BarraCierre'
 import CorteTransversal from '../componentes/CorteTransversal'
@@ -17,27 +25,45 @@ export default function VistaLibreta() {
   const agregarIntermedia = useAlmacen((s) => s.agregarIntermedia)
   const agregarEstacion = useAlmacen((s) => s.agregarEstacion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
+  const declararProgresiva = useAlmacen((s) => s.declararProgresiva)
+  const quitarProgresivaDeclarada = useAlmacen((s) => s.quitarProgresivaDeclarada)
 
   const estacionActiva = useAlmacen((s) => s.estacionActiva)
   const activarEstacion = useAlmacen((s) => s.activarEstacion)
   const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
   const [claveActiva, setClaveActiva] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
+  const [textoProgresiva, setTextoProgresiva] = useState('')
+  const [avisoProgresiva, setAvisoProgresiva] = useState<string | null>(null)
 
   const celdas = useMemo(() => {
     if (!contexto) return []
-    return construirGrilla(contexto.calle, progresivasMedidas(contexto.campania.estaciones))
+    return construirGrilla(contexto.calle, progresivasDeLaToma(contexto.campania))
   }, [contexto])
   const llenas = useMemo(
     () => new Set(resultado ? [...resultado.cotasPorCelda.keys()] : []),
     [resultado],
+  )
+  /** Las filas de la tabla: las declaradas y las medidas, que es lo que se ve. */
+  const progresivasDeLaTabla = useMemo(
+    () => (contexto ? progresivasDeLaToma(contexto.campania) : []),
+    [contexto],
+  )
+  /**
+   * Las que ya tienen alguna lectura. Son las que no se pueden quitar:
+   * sacarlas de la tabla escondería un dato de campo que sigue guardado.
+   */
+  const progresivasConLecturas = useMemo(
+    () =>
+      new Set(contexto ? progresivasMedidas(contexto.campania.estaciones).map(redondear3) : []),
+    [contexto],
   )
   // Mismo orden de columnas que las tablas de Resultados y la exportación:
   // si cada rejilla lo calculara por su cuenta, un empate de offset podría
   // desalinearlas sin que nada lo avisara.
   const esqueleto = useMemo(
     () =>
-      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(contexto.campania)) : null,
     [contexto],
   )
 
@@ -84,6 +110,48 @@ export default function VistaLibreta() {
   const indiceSeguro = Math.min(estacionActiva, Math.max(0, contexto.campania.estaciones.length - 1))
 
   const celdaActiva = celdas.find((c) => c.clave === claveActiva) ?? null
+
+  /**
+   * Declara una progresiva más para esta jornada: la fila aparece con todos
+   * los puntos de la sección de la calle, lista para recibir lecturas. Es lo
+   * que hace posible la primera lectura de una libreta recién creada.
+   */
+  function anadirProgresiva() {
+    const progresiva = parsearProgresiva(textoProgresiva)
+
+    if (progresiva === null) {
+      setAvisoProgresiva(
+        `No se entiende «${textoProgresiva.trim()}» como progresiva. Escríbela como 0+006 o como 6.`,
+      )
+      return
+    }
+
+    if (progresivasDeLaTabla.includes(redondear3(progresiva))) {
+      setAvisoProgresiva(`${formatearProgresiva(progresiva)} ya está en la tabla.`)
+      return
+    }
+
+    declararProgresiva(contexto!.campania.id, progresiva)
+    setAvisoProgresiva(null)
+    setTextoProgresiva('')
+  }
+
+  /**
+   * Quita una progresiva de la tabla, y solo si está vacía. Con lecturas
+   * dentro no se quita: se dice por qué, en vez de tirarlas.
+   */
+  function quitarProgresiva(progresiva: number) {
+    if (progresivasConLecturas.has(redondear3(progresiva))) {
+      setAvisoProgresiva(
+        `${formatearProgresiva(progresiva)} ya tiene lecturas anotadas: no se quita, para no ` +
+          'perderlas. Bórralas una a una si de verdad quieres sacarla de la tabla.',
+      )
+      return
+    }
+
+    quitarProgresivaDeclarada(contexto!.campania.id, progresiva)
+    setAvisoProgresiva(null)
+  }
 
   function registrarLectura() {
     const valor = Number(texto.replace(',', '.'))
@@ -198,6 +266,60 @@ export default function VistaLibreta() {
         </section>
 
         <section className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-500">Añadir progresiva</span>
+              <input
+                aria-label="Añadir progresiva"
+                inputMode="text"
+                value={textoProgresiva}
+                onChange={(evento) => setTextoProgresiva(evento.target.value)}
+                onKeyDown={(evento) => {
+                  if (evento.key === 'Enter') anadirProgresiva()
+                }}
+                placeholder="0+006"
+                className="numerico w-28 rounded border border-slate-300 px-2 py-1.5 text-right text-sm dark:border-slate-700 dark:bg-slate-900"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={anadirProgresiva}
+              className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+            >
+              Añadir
+            </button>
+            <p className="text-xs text-slate-500">
+              Escríbela como 0+006 o como 6: entra con todos los puntos de la calle.
+            </p>
+          </div>
+
+          {avisoProgresiva && (
+            <p role="status" className="rounded border border-aviso px-3 py-2 text-xs text-aviso">
+              {avisoProgresiva}
+            </p>
+          )}
+
+          {progresivasDeLaTabla.length > 0 && (
+            <ul className="flex flex-wrap gap-1">
+              {progresivasDeLaTabla.map((progresiva) => (
+                <li
+                  key={progresiva}
+                  className="flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800"
+                >
+                  <span className="numerico">{formatearProgresiva(progresiva)}</span>
+                  <button
+                    type="button"
+                    aria-label={`Quitar ${formatearProgresiva(progresiva)}`}
+                    onClick={() => quitarProgresiva(progresiva)}
+                    className="text-slate-400 hover:text-falla"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
           <p className="text-sm text-slate-500">
             llenadas {resultado.celdasLlenas} de {resultado.celdasTotales}
           </p>

@@ -156,6 +156,25 @@ export interface Toma {
   bmInicialId: Id
   estaciones: Estacion[]
   cierre: ConfiguracionCierre
+  /**
+   * Las progresivas que el topógrafo declaró en esta jornada, midiera o no
+   * en ellas. Son las filas que quiere tener delante para anotar: las suyas
+   * de verdad son 6, 10, 20, 30, 40, 50, 60 —irregulares al principio y cada
+   * 10 después—, así que se declaran una a una, no con un intervalo.
+   *
+   * Se guardan con la jornada y no solo en la pantalla: si declara diez y
+   * mide seis, al volver siguen ahí las cuatro que faltan.
+   *
+   * La tabla sale de la **unión** de estas y las medidas (`progresivasDeLaToma`),
+   * nunca de estas solas: una hoja importada trae progresivas que nadie
+   * declaró y tienen que seguir apareciendo. Declarar no borra lo importado,
+   * e importar no pisa lo declarado.
+   *
+   * Ausente es lo mismo que vacía —es lo que trae un archivo guardado antes
+   * de que esto existiera—: entonces la tabla sale de lo medido, exactamente
+   * como salía antes.
+   */
+  progresivasDeclaradas?: number[]
 }
 
 /**

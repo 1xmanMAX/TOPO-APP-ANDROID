@@ -1,4 +1,4 @@
-import { claveCelda, compararCapas, formatearProgresiva, progresivasMedidas } from '@topo/core'
+import { claveCelda, compararCapas, formatearProgresiva, progresivasDeLaToma } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContexto, useResultadoDe } from '../estado/derivados'
@@ -18,7 +18,7 @@ export default function TablaEspesores() {
 
   const esqueleto = useMemo(
     () =>
-      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(contexto.campania)) : null,
     [contexto],
   )
   const progresivas = esqueleto?.progresivas ?? []

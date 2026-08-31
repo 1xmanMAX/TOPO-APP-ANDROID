@@ -4,7 +4,7 @@ import {
   claveCelda,
   formatearProgresiva,
   palabrasDeSeccion,
-  progresivasMedidas,
+  progresivasDeLaToma,
   proyectarCaras,
   type CaraMalla,
   type CaraProyectada,
@@ -180,7 +180,7 @@ export default function Vista3D({ idCampaniaReferencia }: Props) {
 
   const esqueleto = useMemo(
     () =>
-      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(contexto.campania)) : null,
     [contexto],
   )
 

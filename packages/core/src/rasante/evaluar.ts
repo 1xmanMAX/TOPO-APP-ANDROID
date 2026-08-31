@@ -1,4 +1,4 @@
-import { claveCelda, construirGrilla, progresivasMedidas, type CeldaGrilla } from '../grilla/grilla'
+import { claveCelda, construirGrilla, progresivasDeLaToma, type CeldaGrilla } from '../grilla/grilla'
 import type { Calle, Capa, Id, Rasante, Toma } from '../modelo/tipos'
 import type { ResultadoCampania } from '../nivelacion/calcularCampania'
 import { aMilimetros, redondear3 } from '../numero'
@@ -71,7 +71,7 @@ export interface EntradaEvaluacion {
 export function evaluarContraRasante(entrada: EntradaEvaluacion): ResultadoEvaluacion {
   const { resultado, calle, toma, rasante, capas, capaId } = entrada
 
-  const grilla = construirGrilla(calle, progresivasMedidas(toma.estaciones))
+  const grilla = construirGrilla(calle, progresivasDeLaToma(toma))
   const error: string | null = null
 
   const toleranciaMm = capas.find((capa) => capa.id === capaId)?.toleranciaMm ?? 0

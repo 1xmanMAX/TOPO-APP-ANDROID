@@ -187,6 +187,80 @@ describe('VistaLibreta', () => {
     expect(useAlmacen.getState().proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones).toHaveLength(1)
   })
 
+  describe('declarar las progresivas donde se va a medir', () => {
+    /** El campo de la libreta con el que se declara dónde se va a medir. */
+    function campoProgresiva(): HTMLElement {
+      return screen.getByLabelText(/añadir progresiva/i)
+    }
+
+    it('acepta la progresiva escrita con kilómetro o sin él', async () => {
+      const usuario = userEvent.setup()
+      render(<VistaLibreta />)
+
+      // La toma del ejemplo mide 5 progresivas × 7 puntos de la calle = 35.
+      expect(screen.getByText(/llenadas 25 de 35/)).toBeInTheDocument()
+
+      await usuario.type(campoProgresiva(), '0+100')
+      await usuario.click(screen.getByRole('button', { name: 'Añadir' }))
+
+      expect(screen.getByText(/llenadas 25 de 42/)).toBeInTheDocument()
+      // El campo queda limpio para la siguiente, que es como se declaran en
+      // serie las progresivas de una jornada.
+      expect(campoProgresiva()).toHaveValue('')
+
+      await usuario.type(campoProgresiva(), '120')
+      await usuario.click(screen.getByRole('button', { name: 'Añadir' }))
+
+      expect(screen.getByText(/llenadas 25 de 49/)).toBeInTheDocument()
+    })
+
+    it('una progresiva que no se entiende lo dice, en vez de no hacer nada', async () => {
+      const usuario = userEvent.setup()
+      render(<VistaLibreta />)
+
+      await usuario.type(campoProgresiva(), 'por la esquina')
+      await usuario.click(screen.getByRole('button', { name: 'Añadir' }))
+
+      expect(screen.getByText(/no se entiende/i)).toBeInTheDocument()
+      expect(screen.getByText(/llenadas 25 de 35/)).toBeInTheDocument()
+    })
+
+    it('declarar una progresiva que ya está en la tabla no la duplica y lo dice', async () => {
+      const usuario = userEvent.setup()
+      render(<VistaLibreta />)
+
+      await usuario.type(campoProgresiva(), '0+020')
+      await usuario.click(screen.getByRole('button', { name: 'Añadir' }))
+
+      expect(screen.getByText(/ya está en la tabla/i)).toBeInTheDocument()
+      expect(screen.getByText(/llenadas 25 de 35/)).toBeInTheDocument()
+    })
+
+    it('quita una progresiva declarada mientras siga vacía', async () => {
+      const usuario = userEvent.setup()
+      render(<VistaLibreta />)
+
+      await usuario.type(campoProgresiva(), '0+100')
+      await usuario.click(screen.getByRole('button', { name: 'Añadir' }))
+      expect(screen.getByText(/llenadas 25 de 42/)).toBeInTheDocument()
+
+      await usuario.click(screen.getByRole('button', { name: 'Quitar 0+100' }))
+
+      expect(screen.getByText(/llenadas 25 de 35/)).toBeInTheDocument()
+    })
+
+    it('no quita una progresiva que ya tiene lecturas: lo dice en vez de tirarlas', async () => {
+      const usuario = userEvent.setup()
+      render(<VistaLibreta />)
+
+      await usuario.click(screen.getByRole('button', { name: 'Quitar 0+000' }))
+
+      expect(screen.getByText(/ya tiene lecturas/i)).toBeInTheDocument()
+      expect(screen.getByText(/llenadas 25 de 35/)).toBeInTheDocument()
+      expect(useAlmacen.getState().calcular()!.cotasPorCelda.has('0|p-eje')).toBe(true)
+    })
+  })
+
   describe('el corte de la libreta dibuja la campaña activa', () => {
     beforeEach(() => {
       useAlmacen.getState().cargarProyecto(proyectoDosCapas())

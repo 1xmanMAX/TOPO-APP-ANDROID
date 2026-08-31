@@ -1,4 +1,4 @@
-import { calcularCampania, type Proyecto } from '@topo/core'
+import { calcularCampania, progresivasMedidas, type Proyecto } from '@topo/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { proyectoEjemplo } from '../estado/ejemplo'
 import { abrirTopo, descargarTopo, desempaquetarProyecto, empaquetarProyecto } from './topo'
@@ -622,6 +622,48 @@ describe('archivo .topo', () => {
 
     expect(recuperado.capas[1]!.espesor).toBe(0.25)
     expect(recuperado.capas[1]!.toleranciaMm).toBe(15)
+  })
+
+  // `progresivasDeclaradas` es nueva: hasta ahora las filas de la libreta
+  // solo podían salir de lo ya medido. Un .topo guardado antes no la trae, y
+  // se deduce de lo medido para que se abra exactamente igual que antes: ni
+  // una fila de más ni una de menos.
+  it('un proyecto guardado sin progresivas declaradas las deduce de lo que midió', () => {
+    const original = proyectoEjemplo()
+    const viejo = {
+      ...original,
+      calles: original.calles.map((calle) => ({
+        ...calle,
+        nivelaciones: calle.nivelaciones.map((nivelacion) => ({
+          ...nivelacion,
+          tomas: nivelacion.tomas.map(({ progresivasDeclaradas: _p, ...resto }) => resto),
+        })),
+      })),
+    } as never
+
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(viejo))
+    const toma = recuperado.calles[0]!.nivelaciones[0]!.tomas[0]!
+
+    expect(toma.progresivasDeclaradas).toEqual(progresivasMedidas(toma.estaciones))
+    // Y la libreta sale con la misma tabla de siempre: 5 progresivas medidas
+    // por los 7 puntos de la calle del ejemplo.
+    const resultado = calcularCampania({
+      campania: toma,
+      calle: recuperado.calles[0]!,
+      bms: recuperado.bms,
+    })
+    expect(resultado.celdasTotales).toBe(35)
+  })
+
+  it('un proyecto que ya declara progresivas sin medir no las pierde al abrirse', () => {
+    const original = proyectoEjemplo()
+    // 0+100 no la midió nadie: si la migración recalculara desde lo medido,
+    // se la llevaría por delante.
+    original.calles[0]!.nivelaciones[0]!.tomas[0]!.progresivasDeclaradas = [0, 100]
+
+    const recuperado = desempaquetarProyecto(empaquetarProyecto(original))
+
+    expect(recuperado.calles[0]!.nivelaciones[0]!.tomas[0]!.progresivasDeclaradas).toEqual([0, 100])
   })
 })
 

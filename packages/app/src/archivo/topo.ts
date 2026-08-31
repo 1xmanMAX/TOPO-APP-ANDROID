@@ -4,6 +4,7 @@ import {
   ladoDe,
   nombreDePunto,
   normalizarPalabra,
+  progresivasMedidas,
   seccionDeFabrica,
   type BM,
   type Calle,
@@ -88,7 +89,39 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
  * indefinido) y las cuentas que dependen de ellos se rompieran en silencio.
  */
 export function migrarProyecto(proyecto: Proyecto): Proyecto {
-  return migrarASeccion(migrarCamposDe2B(migrarCapasSinOrden(proyecto)))
+  return migrarProgresivasDeclaradas(migrarASeccion(migrarCamposDe2B(migrarCapasSinOrden(proyecto))))
+}
+
+/**
+ * `progresivasDeclaradas` es nueva: hasta ahora las filas de la libreta solo
+ * podían salir de lo ya medido, y por eso una jornada recién creada no tenía
+ * ni una celda donde escribir.
+ *
+ * Una toma guardada antes no la trae, y se deduce de lo que midió: así el
+ * proyecto se abre con exactamente la misma tabla que tenía —ni una fila de
+ * más ni una de menos— y desde ahí ya se pueden declarar las que falten.
+ *
+ * Va después de `migrarASeccion` a propósito: las campañas del modelo más
+ * viejo se convierten allí en tomas, y también necesitan sus declaradas. Y
+ * solo toca las tomas que no traen el campo: una que ya lo trae puede haber
+ * declarado progresivas donde todavía no midió, y recalcularlo se las
+ * llevaría por delante.
+ */
+function migrarProgresivasDeclaradas(proyecto: Proyecto): Proyecto {
+  return {
+    ...proyecto,
+    calles: proyecto.calles.map((calle) => ({
+      ...calle,
+      nivelaciones: calle.nivelaciones.map((nivelacion) => ({
+        ...nivelacion,
+        tomas: nivelacion.tomas.map((toma) =>
+          Array.isArray(toma.progresivasDeclaradas)
+            ? toma
+            : { ...toma, progresivasDeclaradas: progresivasMedidas(toma.estaciones) },
+        ),
+      })),
+    })),
+  }
 }
 
 /**

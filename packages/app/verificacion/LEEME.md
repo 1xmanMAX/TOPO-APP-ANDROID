@@ -59,6 +59,7 @@ El recorrido completo de la Entrega 2A: registrar una segunda campaña sobre la 
 Entre otras cosas:
 
 - Que la libreta nueva avisa de que falta la vista atrás antes de aceptar lecturas.
+- Que una jornada recién creada **declara la progresiva donde va a medir** y ahí recibe su primera lectura: sin eso, la libreta nueva no tendría ni una celda donde escribir.
 - Que comparar dos capas muestra el espesor colocado celda por celda, y cuántas celdas son comparables.
 - Que el corte con las capas superpuestas sombrea solo donde las dos tienen medida.
 - **Que el `.xlsx` de espesores descargado es un archivo válido de verdad**, con las dos capas nombradas en la cabecera, el aviso de que los espesores no están comprobados cuando la campaña no cierra, los espesores como número, y la progresiva sin pareja en la otra capa vacía en vez de en cero.

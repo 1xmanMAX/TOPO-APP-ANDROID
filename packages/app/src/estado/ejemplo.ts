@@ -92,6 +92,9 @@ export function proyectoEjemplo(): Proyecto {
                 fecha: '2026-08-19',
                 capaId: 'cap-subrasante',
                 bmInicialId: 'bm-1',
+                // Las mismas que midió: esta jornada quedó cerrada, sin
+                // ninguna fila pendiente de llenar.
+                progresivasDeclaradas: [0, 20, 40, 60, 80],
                 cierre: {
                   tipo: 'cerrado',
                   bmFinalId: 'bm-1',
@@ -273,6 +276,7 @@ export function proyectoEjemplo(): Proyecto {
                 fecha: '2026-08-20',
                 capaId: 'cap-base',
                 bmInicialId: 'bm-1',
+                progresivasDeclaradas: [0, 20, 40, 60, 80],
                 cierre: {
                   tipo: 'cerrado',
                   bmFinalId: 'bm-1',

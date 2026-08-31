@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { Calle, ConfiguracionCierre, Estacion, Lectura, Nivelacion, Toma } from '../modelo/tipos'
-import { claveCelda, construirGrilla, partirClaveCelda, progresivasMedidas } from './grilla'
+import {
+  claveCelda,
+  construirGrilla,
+  partirClaveCelda,
+  progresivasDeLaToma,
+  progresivasMedidas,
+} from './grilla'
 
 describe('claveCelda', () => {
   it('combina progresiva y elemento', () => {
@@ -275,6 +281,61 @@ describe('progresivasMedidas', () => {
     ]
 
     expect(progresivasMedidas(estaciones)).toEqual([0, 40, 60])
+  })
+})
+
+/** Una jornada recién creada: su estación todavía no tiene ninguna lectura. */
+function tomaNueva(progresivasDeclaradas?: number[]): Toma {
+  return {
+    id: 'toma-nueva',
+    fecha: '2026-08-29',
+    capaId: 'cap-1',
+    bmInicialId: 'bm-1',
+    estaciones: [],
+    cierre: cierreDeEjemplo(),
+    ...(progresivasDeclaradas ? { progresivasDeclaradas } : {}),
+  }
+}
+
+describe('progresivasDeLaToma', () => {
+  it('una jornada sin ninguna lectura tiene las progresivas que declaró', () => {
+    // Es el defecto que cierra esta función: sin esto, una jornada nueva no
+    // tiene ni una celda donde escribir la primera lectura.
+    expect(progresivasDeLaToma(tomaNueva([6, 10]))).toEqual([6, 10])
+  })
+
+  it('junta lo declarado con lo medido, sin repetir y en orden', () => {
+    const toma: Toma = {
+      ...tomaNueva([10, 6]),
+      estaciones: [estacionDeEjemplo('e-1', 20), estacionDeEjemplo('e-2', 6)],
+    }
+
+    expect(progresivasDeLaToma(toma)).toEqual([6, 10, 20])
+  })
+
+  it('conserva una progresiva medida que nadie declaró: lo importado no se pierde', () => {
+    // La hoja de campo trajo el 0+040 y nadie lo había declarado a mano.
+    const toma: Toma = { ...tomaNueva([6]), estaciones: [estacionDeEjemplo('e-1', 40)] }
+
+    expect(progresivasDeLaToma(toma)).toEqual([6, 40])
+  })
+
+  it('quitar todas las declaradas no borra las que ya tienen lectura', () => {
+    const toma: Toma = { ...tomaNueva([]), estaciones: [estacionDeEjemplo('e-1', 40)] }
+
+    expect(progresivasDeLaToma(toma)).toEqual([40])
+  })
+
+  it('una toma guardada antes de que se declararan progresivas sale con las medidas de siempre', () => {
+    // Sin el campo: es lo que trae un `.topo` anterior a esta tarea, y se
+    // abre exactamente igual que antes.
+    expect(progresivasDeLaToma(tomaDel20())).toEqual([0])
+  })
+
+  it('la misma progresiva declarada y medida sale una sola vez', () => {
+    const toma: Toma = { ...tomaNueva([6]), estaciones: [estacionDeEjemplo('e-1', 6)] }
+
+    expect(progresivasDeLaToma(toma)).toEqual([6])
   })
 })
 

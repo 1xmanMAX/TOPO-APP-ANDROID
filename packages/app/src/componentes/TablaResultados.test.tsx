@@ -44,11 +44,19 @@ describe('TablaResultados', () => {
   // `progresivaInicio`/`progresivaFin`: no hay forma de reproducir ese
   // escenario. Se anota una sola vez en el informe de la tarea.
 
-  it('con una toma sin lecturas, no revienta y no inventa filas ni columnas', () => {
+  it('con una toma sin lecturas ni progresivas declaradas, no revienta y no inventa filas ni columnas', () => {
     // Es justo lo que deja crear una campaña nueva: una estación con la vista
-    // atrás al banco de nivel y ninguna lectura todavía. progresivasMedidas()
-    // devuelve [] y la grilla queda vacía.
+    // atrás al banco de nivel, ninguna lectura y ninguna progresiva declarada
+    // todavía. `progresivasDeLaToma()` devuelve [] y la grilla queda vacía.
+    //
+    // La toma se vacía entera —lecturas y declaradas— porque desde la tarea
+    // E1 son dos cosas distintas: una jornada puede declarar dónde va a medir
+    // antes de medir. Esas filas declaradas SÍ tienen que salir (es lo que
+    // hace posible la primera lectura), así que dejarlas puestas aquí
+    // convertiría esta prueba en otra cosa. Lo que sigue vigilando es lo
+    // mismo: sin nada que dibujar, no se inventa nada.
     const proyecto = proyectoEjemplo()
+    proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!.progresivasDeclaradas = []
     proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones = [
       {
         id: 'e-nueva',

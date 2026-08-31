@@ -1,4 +1,4 @@
-import { claveCelda, formatearProgresiva, progresivasMedidas, type CeldaEvaluada, type Id } from '@topo/core'
+import { claveCelda, formatearProgresiva, progresivasDeLaToma, type CeldaEvaluada, type Id } from '@topo/core'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
@@ -111,7 +111,7 @@ export default function TablaDiferencias({ idCampaniaReferencia }: Props) {
 
   const esqueleto = useMemo(
     () =>
-      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(contexto.campania)) : null,
     [contexto],
   )
   const progresivas = esqueleto?.progresivas ?? []

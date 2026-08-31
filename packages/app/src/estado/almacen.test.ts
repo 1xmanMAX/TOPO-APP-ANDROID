@@ -1,4 +1,4 @@
-import { hayDistanciasDeFabrica } from '@topo/core'
+import { hayDistanciasDeFabrica, progresivasDeLaToma } from '@topo/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { interpretarHoja, type HojaInterpretada } from '../importar/interpretar'
 import { hojaDetrasDelColegio, seccionDeMax } from '../pruebas/muestras'
@@ -208,6 +208,95 @@ describe('almacén', () => {
     // (dos progresivas por cinco puntos). Quitar la vista adelante no toca
     // las intermedias.
     expect(estacion.intermedias).toHaveLength(10)
+  })
+
+  describe('progresivas declaradas', () => {
+    /** Una jornada recién creada, la que abre el botón «Nueva campaña». */
+    function jornadaNueva(): string {
+      return useAlmacen.getState().agregarCampania({
+        fecha: '2026-08-29',
+        calleId: 'c-1',
+        capaId: 'cap-subrasante',
+        bmInicialId: 'bm-1',
+        cierre: {
+          tipo: 'abierto',
+          longitudK: 0,
+          longitudKAuto: true,
+          clase: 'tercerOrden',
+          coeficiente: 12,
+        },
+      })
+    }
+
+    it('declarar una progresiva la guarda con la jornada, no solo en la pantalla', () => {
+      const id = jornadaNueva()
+      useAlmacen.getState().declararProgresiva(id, 6)
+
+      expect(tomaDe(id).progresivasDeclaradas).toEqual([6])
+    })
+
+    it('las declaradas salen ordenadas y sin repetir, se escriban como se escriban', () => {
+      const id = jornadaNueva()
+      useAlmacen.getState().declararProgresiva(id, 10)
+      useAlmacen.getState().declararProgresiva(id, 6)
+      useAlmacen.getState().declararProgresiva(id, 10)
+
+      expect(tomaDe(id).progresivasDeclaradas).toEqual([6, 10])
+    })
+
+    it('declarar siete y medir tres deja las cuatro que faltan', () => {
+      const id = jornadaNueva()
+      // Las progresivas reales de Max: irregular al principio y luego cada 10.
+      for (const progresiva of [6, 10, 20, 30, 40, 50, 60]) {
+        useAlmacen.getState().declararProgresiva(id, progresiva)
+      }
+      for (const progresiva of [6, 10, 20]) {
+        useAlmacen.getState().agregarIntermedia(id, 0, {
+          destino: { tipo: 'celda', celda: { progresiva, elementoClave: 'p-eje' } },
+          valor: 1.5,
+        })
+      }
+
+      expect(progresivasDeLaToma(tomaDe(id))).toEqual([6, 10, 20, 30, 40, 50, 60])
+    })
+
+    it('quita una progresiva declarada mientras esté vacía', () => {
+      const id = jornadaNueva()
+      useAlmacen.getState().declararProgresiva(id, 6)
+      useAlmacen.getState().declararProgresiva(id, 10)
+      useAlmacen.getState().quitarProgresivaDeclarada(id, 6)
+
+      expect(tomaDe(id).progresivasDeclaradas).toEqual([10])
+    })
+
+    it('no quita una progresiva que ya tiene lecturas: un dato de campo no se pierde en silencio', () => {
+      const id = jornadaNueva()
+      useAlmacen.getState().declararProgresiva(id, 6)
+      useAlmacen.getState().agregarIntermedia(id, 0, {
+        destino: { tipo: 'celda', celda: { progresiva: 6, elementoClave: 'p-eje' } },
+        valor: 1.5,
+      })
+
+      useAlmacen.getState().quitarProgresivaDeclarada(id, 6)
+
+      expect(tomaDe(id).progresivasDeclaradas).toEqual([6])
+      expect(tomaDe(id).estaciones[0]!.intermedias).toHaveLength(1)
+    })
+
+    it('quitar una progresiva declarada no toca las lecturas de las demás', () => {
+      const id = jornadaNueva()
+      useAlmacen.getState().declararProgresiva(id, 6)
+      useAlmacen.getState().declararProgresiva(id, 10)
+      useAlmacen.getState().agregarIntermedia(id, 0, {
+        destino: { tipo: 'celda', celda: { progresiva: 6, elementoClave: 'p-eje' } },
+        valor: 1.5,
+      })
+
+      useAlmacen.getState().quitarProgresivaDeclarada(id, 10)
+
+      expect(progresivasDeLaToma(tomaDe(id))).toEqual([6])
+      expect(tomaDe(id).estaciones[0]!.intermedias).toHaveLength(1)
+    })
   })
 
   describe('selector de capas', () => {

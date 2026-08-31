@@ -1,4 +1,4 @@
-import { compararCapas, progresivasMedidas } from '@topo/core'
+import { compararCapas, progresivasDeLaToma } from '@topo/core'
 import { useMemo, useState } from 'react'
 import {
   armarCabecera,
@@ -61,7 +61,7 @@ export default function VistaResultados() {
   const tabla = useMemo(
     () =>
       resultado && contexto
-        ? armarTabla(resultado, contexto.calle, progresivasMedidas(contexto.campania.estaciones))
+        ? armarTabla(resultado, contexto.calle, progresivasDeLaToma(contexto.campania))
         : [],
     [resultado, contexto],
   )
@@ -98,7 +98,7 @@ export default function VistaResultados() {
     return armarTablaEspesores(
       comparacion,
       contextoInferior.calle,
-      progresivasMedidas(contextoInferior.campania.estaciones),
+      progresivasDeLaToma(contextoInferior.campania),
     )
   }, [comparacion, contextoInferior])
 
@@ -155,7 +155,7 @@ export default function VistaResultados() {
   const tablaDiferencias = useMemo(
     () =>
       evaluacionRasante && contexto
-        ? armarTablaDiferencias(evaluacionRasante, contexto.calle, progresivasMedidas(contexto.campania.estaciones))
+        ? armarTablaDiferencias(evaluacionRasante, contexto.calle, progresivasDeLaToma(contexto.campania))
         : [],
     [evaluacionRasante, contexto],
   )

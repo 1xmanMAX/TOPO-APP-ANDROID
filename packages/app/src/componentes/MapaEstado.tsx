@@ -1,4 +1,4 @@
-import { formatearProgresiva, progresivasMedidas, type EstadoTolerancia, type Id } from '@topo/core'
+import { formatearProgresiva, progresivasDeLaToma, type EstadoTolerancia, type Id } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
 import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
@@ -64,7 +64,7 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
 
   const esqueleto = useMemo(
     () =>
-      contexto ? armarEsqueletoTabla(contexto.calle, progresivasMedidas(contexto.campania.estaciones)) : null,
+      contexto ? armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(contexto.campania)) : null,
     [contexto],
   )
   const progresivas = esqueleto?.progresivas ?? []
@@ -90,7 +90,7 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
 
   function pintarCelda(clave: string): CeldaPintada {
     // `clave` sale de `progresivas`/`elementos`, que a su vez salen de
-    // `armarEsqueletoTabla(contexto.calle, progresivasMedidas(...))` — la
+    // `armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(...))` — la
     // misma calle y las mismas progresivas medidas que `useEvaluacionRasante`
     // usó para construir `evaluacion.celdas` (ambos cuelgan ahora del mismo
     // `idCampaniaReferencia`,

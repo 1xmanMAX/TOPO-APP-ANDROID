@@ -1,4 +1,4 @@
-import { construirGrilla, progresivasMedidas, type CeldaGrilla } from '../grilla/grilla'
+import { construirGrilla, progresivasDeLaToma, type CeldaGrilla } from '../grilla/grilla'
 import { formatearProgresiva } from '../grilla/progresivas'
 import type { BM, Calle, Toma, DestinoLectura } from '../modelo/tipos'
 import { aMilimetros, redondear3 } from '../numero'
@@ -79,7 +79,7 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
   let longitudKKm = campania.cierre.longitudK
 
   try {
-    grilla = construirGrilla(calle, progresivasMedidas(campania.estaciones))
+    grilla = construirGrilla(calle, progresivasDeLaToma(campania))
     longitudKKm = campania.cierre.longitudKAuto
       ? calcularLongitudKAuto(campania, campania.cierre.tipo)
       : campania.cierre.longitudK

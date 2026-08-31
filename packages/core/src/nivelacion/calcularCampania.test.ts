@@ -73,6 +73,18 @@ describe('calcularCampania', () => {
     expect(resultado.celdasLlenas).toBe(3)
   })
 
+  it('el total cuenta también las progresivas declaradas y todavía sin medir', () => {
+    // Es lo que devuelve al contador su sentido: hasta ahora el total solo
+    // podía ser lo ya medido, así que nunca decía cuánto faltaba.
+    const campania = tomaEjemplo()
+    campania.progresivasDeclaradas = [0, 20, 40]
+    const resultado = calcularCampania(entrada(campania))
+
+    // Tres progresivas (0 y 20 medidas, 40 solo declarada) × 3 puntos = 9.
+    expect(resultado.celdasTotales).toBe(9)
+    expect(resultado.celdasLlenas).toBe(3)
+  })
+
   it('no compensa cuando el cierre no pasa', () => {
     const campania = tomaEjemplo()
     campania.estaciones[1]!.vistaAdelante!.valor = 1.887

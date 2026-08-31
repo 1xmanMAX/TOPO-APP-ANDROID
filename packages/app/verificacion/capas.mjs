@@ -39,6 +39,17 @@ const vistaAtras = pagina.getByLabel(/Vista atrás|^Lectura de BM$/).first()
 await vistaAtras.fill('1.425')
 await vistaAtras.blur()
 
+// 2b. La jornada nueva nace sin ninguna fila: las progresivas ya no salen de
+// un rango de la calle, se declaran según se mide. Se declaran las dos donde
+// va a trabajar esta campaña de terreno — 0+000, que va a medir, y 0+020, que
+// deja declarada y sin medir a propósito, para comprobar más abajo que una
+// progresiva sin pareja sale vacía en el Excel y no en cero.
+const campoProgresiva = pagina.getByLabel('Añadir progresiva')
+for (const progresiva of ['0+000', '0+020']) {
+  await campoProgresiva.fill(progresiva)
+  await pagina.getByRole('button', { name: 'Añadir', exact: true }).click()
+}
+
 // 3. Ahora sí, una lectura en la misma celda que midió la campaña anterior.
 // En la libreta la celda pertenece al mapa de grilla: ahí la celda muestra si
 // está medida o no, no una cifra. Se nombra con el nombre completo del punto
@@ -146,10 +157,11 @@ comprobar('el Excel lleva los espesores como número',
   /<c r="[A-Z]+\d+"><v>0\.2\d{2}<\/v><\/c>/.test(hoja),
   (hoja.match(/<v>0\.2\d{2}<\/v>/g) ?? []).join(' '))
 
-// La progresiva 0+020 solo la midió la campaña de subrasante (la del
-// ejemplo): la campaña nueva de terreno no pasó de 0+000. Esa fila tiene que
-// salir vacía en el archivo real, no en 0.000 — un cero ahí diría que no se
-// colocó material, cuando lo que pasa es que no hay con qué compararla.
+// La progresiva 0+020 la midió la campaña de subrasante (la del ejemplo), y
+// la campaña nueva de terreno la dejó declarada sin medir: la fila está en la
+// tabla, pero de esta capa no hay cota. Tiene que salir vacía en el archivo
+// real, no en 0.000 — un cero ahí diría que no se colocó material, cuando lo
+// que pasa es que no hay con qué compararla.
 // Se parte la hoja por filas antes de buscar: un regex de <row> a </row>
 // sobre la hoja entera empieza en la primera fila y se traga todas las de
 // en medio, con sus cifras dentro.
