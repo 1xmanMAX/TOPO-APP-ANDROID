@@ -1,9 +1,29 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
 import { seccionDeFabrica, type Id, type Proyecto } from '@topo/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../estado/almacen'
 import VistaSeccion from './VistaSeccion'
+
+/**
+ * Quien teclea en esta pantalla, uno por prueba.
+ *
+ * `delay: null` quita la espera que `userEvent` mete entre tecla y tecla. No
+ * cambia ningún evento ni su orden: solo deja de pagar un turno de reloj por
+ * pulsación, que en jsdom es lo que más cuesta. Importa porque estas pruebas
+ * escriben siete distancias seguidas y llegaban a rozar el límite de tiempo de
+ * Vitest; y una prueba que se pasa del límite no se detiene —Vitest la da por
+ * fallada pero su cuerpo sigue tecleando sobre el elemento que tenga el foco,
+ * que para entonces ya es de la prueba siguiente—.
+ *
+ * `PointerEventsCheckLevel.Never` quita la otra espera cara: antes de cada
+ * clic, `userEvent` comprueba que el elemento no esté tapado por un
+ * `pointer-events: none`, y para saberlo pregunta el estilo calculado de cada
+ * antepasado. Aquí esa comprobación no puede decir nunca que no: jsdom no
+ * carga ninguna hoja de estilo, así que ningún elemento tiene ese `pointer-
+ * events` que buscar. Es coste sin señal. Tampoco cambia ningún evento.
+ */
+let usuario: ReturnType<typeof userEvent.setup>
 
 /**
  * Una calle recién nacida: la sección de fábrica entera, con las siete
@@ -47,14 +67,14 @@ function puntoDe(calleId: Id, puntoId: Id) {
 /** Escribir la distancia y salir del campo, que es cuando se cierra el cambio. */
 async function cambiarDistanciaDe(nombre: string, valor: string) {
   const campo = screen.getByLabelText(new RegExp(`distancia al eje de ${nombre}`, 'i'))
-  await userEvent.clear(campo)
-  await userEvent.type(campo, valor)
-  await userEvent.tab()
+  await usuario.clear(campo)
+  await usuario.type(campo, valor)
+  await usuario.tab()
 }
 
 /** Dar por buena la distancia que la app había supuesto, sin escribirla otra vez. */
 async function confirmarDistanciaDe(nombre: string) {
-  await userEvent.click(
+  await usuario.click(
     screen.getByRole('button', { name: new RegExp(`confirmar la distancia de ${nombre}`, 'i') }),
   )
 }
@@ -75,13 +95,17 @@ async function cambiarTodasLasDistancias() {
 }
 
 async function anadirPalabraA(nombre: string, palabra: string) {
-  await userEvent.type(screen.getByLabelText(new RegExp(`palabra nueva para ${nombre}`, 'i')), palabra)
-  await userEvent.click(screen.getByRole('button', { name: new RegExp(`añadir a ${nombre}`, 'i') }))
+  await usuario.type(screen.getByLabelText(new RegExp(`palabra nueva para ${nombre}`, 'i')), palabra)
+  await usuario.click(screen.getByRole('button', { name: new RegExp(`añadir a ${nombre}`, 'i') }))
 }
 
 describe('VistaSeccion', () => {
   beforeEach(() => {
     useAlmacen.getState().cargarProyecto(proyectoConCalleNueva())
+    usuario = userEvent.setup({
+      delay: null,
+      pointerEventsCheck: PointerEventsCheckLevel.Never,
+    })
   })
 
   it('dibuja la sección con sus puntos colocados por distancia', () => {
@@ -102,9 +126,9 @@ describe('VistaSeccion', () => {
   it('al cambiar una distancia, ese punto deja de ser de fábrica', async () => {
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.clear(screen.getByLabelText(/distancia al eje de Vereda izquierda/i))
-    await userEvent.type(screen.getByLabelText(/distancia al eje de Vereda izquierda/i), '-6.5')
-    await userEvent.tab()
+    await usuario.clear(screen.getByLabelText(/distancia al eje de Vereda izquierda/i))
+    await usuario.type(screen.getByLabelText(/distancia al eje de Vereda izquierda/i), '-6.5')
+    await usuario.tab()
 
     expect(puntoDe('c1', 'p-vereda-i').distancia).toBe(-6.5)
     expect(puntoDe('c1', 'p-vereda-i').distanciaDeFabrica).toBe(false)
@@ -132,8 +156,8 @@ describe('VistaSeccion', () => {
     // apagaría con solo pasar por los campos con el tabulador.
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.click(screen.getByLabelText(/distancia al eje de Vereda izquierda/i))
-    await userEvent.tab()
+    await usuario.click(screen.getByLabelText(/distancia al eje de Vereda izquierda/i))
+    await usuario.tab()
 
     expect(puntoDe('c1', 'p-vereda-i').distanciaDeFabrica).toBe(true)
     expect(screen.getByText(/las distancias son las de fábrica/i)).toBeInTheDocument()
@@ -143,9 +167,9 @@ describe('VistaSeccion', () => {
     render(<VistaSeccion calleId="c1" />)
 
     const campo = screen.getByLabelText(/distancia al eje de Vereda izquierda/i)
-    await userEvent.type(campo, '3')
-    await userEvent.clear(campo)
-    await userEvent.tab()
+    await usuario.type(campo, '3')
+    await usuario.clear(campo)
+    await usuario.tab()
 
     expect(puntoDe('c1', 'p-vereda-i').distancia).toBe(-5.15)
     expect(puntoDe('c1', 'p-vereda-i').distanciaDeFabrica).toBe(true)
@@ -180,8 +204,8 @@ describe('VistaSeccion', () => {
   it('se le añade a un punto la palabra con la que Max lo escribe', async () => {
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.type(screen.getByLabelText(/palabra nueva para Eje/i), 'ejito')
-    await userEvent.click(screen.getByRole('button', { name: /añadir a Eje/i }))
+    await usuario.type(screen.getByLabelText(/palabra nueva para Eje/i), 'ejito')
+    await usuario.click(screen.getByRole('button', { name: /añadir a Eje/i }))
 
     expect(puntoDe('c1', 'p-eje').palabras).toContain('ejito')
   })
@@ -199,7 +223,7 @@ describe('VistaSeccion', () => {
   it('se puede quitar una palabra', async () => {
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.click(screen.getByRole('button', { name: /quitar la palabra CL/i }))
+    await usuario.click(screen.getByRole('button', { name: /quitar la palabra CL/i }))
 
     expect(puntoDe('c1', 'p-eje').palabras).not.toContain('CL')
   })
@@ -207,9 +231,9 @@ describe('VistaSeccion', () => {
   it('se puede añadir un punto que no venía de fábrica', async () => {
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.selectOptions(screen.getByLabelText(/qué es el punto nuevo/i), 'peloAgua')
-    await userEvent.type(screen.getByLabelText(/a qué distancia/i), '-2.8')
-    await userEvent.click(screen.getByRole('button', { name: /añadir punto/i }))
+    await usuario.selectOptions(screen.getByLabelText(/qué es el punto nuevo/i), 'peloAgua')
+    await usuario.type(screen.getByLabelText(/a qué distancia/i), '-2.8')
+    await usuario.click(screen.getByRole('button', { name: /añadir punto/i }))
 
     expect(seccionDe('c1').puntos.some((p) => p.rol === 'peloAgua' && p.distancia === -2.8)).toBe(true)
   })
@@ -254,7 +278,7 @@ describe('VistaSeccion', () => {
   it('un punto quitado desaparece de la sección', async () => {
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.click(screen.getByRole('button', { name: /quitar Sardinel izquierdo de la sección/i }))
+    await usuario.click(screen.getByRole('button', { name: /quitar Sardinel izquierdo de la sección/i }))
 
     expect(seccionDe('c1').puntos.some((p) => p.id === 'p-sardinel-i')).toBe(false)
     expect(screen.getAllByRole('listitem')).toHaveLength(6)
@@ -282,8 +306,8 @@ describe('VistaSeccion', () => {
   it('un punto nuevo sin distancia no entra, y se dice por qué', async () => {
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.selectOptions(screen.getByLabelText(/qué es el punto nuevo/i), 'cuneta')
-    await userEvent.click(screen.getByRole('button', { name: /añadir punto/i }))
+    await usuario.selectOptions(screen.getByLabelText(/qué es el punto nuevo/i), 'cuneta')
+    await usuario.click(screen.getByRole('button', { name: /añadir punto/i }))
 
     expect(seccionDe('c1').puntos).toHaveLength(7)
     expect(screen.getByText(/a qué distancia del eje está/i)).toBeInTheDocument()
@@ -292,9 +316,9 @@ describe('VistaSeccion', () => {
   it('el punto nuevo se llama por su lado, con el nombre bien escrito', async () => {
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.selectOptions(screen.getByLabelText(/qué es el punto nuevo/i), 'cuneta')
-    await userEvent.type(screen.getByLabelText(/a qué distancia/i), '-4.9')
-    await userEvent.click(screen.getByRole('button', { name: /añadir punto/i }))
+    await usuario.selectOptions(screen.getByLabelText(/qué es el punto nuevo/i), 'cuneta')
+    await usuario.type(screen.getByLabelText(/a qué distancia/i), '-4.9')
+    await usuario.click(screen.getByRole('button', { name: /añadir punto/i }))
 
     // «Cuneta izquierda», no «Cuneta izquierdo»: el nombre se escribe en
     // español, y el género lo pone el elemento.
@@ -316,13 +340,13 @@ describe('VistaSeccion', () => {
     // hoja y no se dibujan: sin ellas la importación no sabe dónde mira.
     render(<VistaSeccion calleId="c1" />)
 
-    await userEvent.type(screen.getByLabelText(/palabra nueva para la progresiva/i), 'km')
-    await userEvent.click(screen.getByRole('button', { name: /añadir a la progresiva/i }))
+    await usuario.type(screen.getByLabelText(/palabra nueva para la progresiva/i), 'km')
+    await usuario.click(screen.getByRole('button', { name: /añadir a la progresiva/i }))
 
-    await userEvent.type(screen.getByLabelText(/palabra nueva para los puntos de control/i), 'estacion')
-    await userEvent.click(screen.getByRole('button', { name: /añadir a los puntos de control/i }))
+    await usuario.type(screen.getByLabelText(/palabra nueva para los puntos de control/i), 'estacion')
+    await usuario.click(screen.getByRole('button', { name: /añadir a los puntos de control/i }))
 
-    await userEvent.click(
+    await usuario.click(
       screen.getByRole('button', { name: /quitar la palabra REF de las filas de referencia/i }),
     )
 
