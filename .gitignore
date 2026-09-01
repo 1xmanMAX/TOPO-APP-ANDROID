@@ -38,3 +38,8 @@ coverage/
 
 # Vite
 .vite/
+
+# Lo que dejan los guiones de verificacion al correr
+/*.png
+/*.xlsx
+/*.topo
