@@ -1,13 +1,19 @@
 import type { FeatureModule } from '@/app/feature';
-import { Screen } from '@/ui/kit';
+import HomeRoot from './Home';
+import Projects from './Projects';
+import ProjectEdit from './ProjectEdit';
+import Benchmarks from './Benchmarks';
+import Settings from './Settings';
+import Search from './Search';
 
-function Root() {
-  return (
-    <Screen title="Home">
-      <p className="muted">En construcción.</p>
-    </Screen>
-  );
-}
-
-const mod: FeatureModule = { Root, screens: {} };
+const mod: FeatureModule = {
+  Root: HomeRoot,
+  screens: {
+    projects: Projects,
+    'project-edit': ProjectEdit,
+    benchmarks: Benchmarks,
+    settings: Settings,
+    search: Search,
+  },
+};
 export default mod;

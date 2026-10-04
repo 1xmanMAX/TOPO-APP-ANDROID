@@ -1,0 +1,18 @@
+For M5|Adr     1|TO  BFFB01.DAT                 |                      |                      |                      |
+For M5|Adr     2|TO  Start-Line         BFFB   1|                      |                      |                      |
+For M5|Adr     3|KD1     BM10               1   |                      |                      |Z       250.00000 m   |
+For M5|Adr     4|KD1     BM10  09:00:011    1   |Rb        1.62345 m   |HD         22.500 m   |                      |
+For M5|Adr     5|KD1       A1  09:00:452    1   |Rf        1.10220 m   |HD         22.800 m   |                      |
+For M5|Adr     6|KD1       A1  09:01:103    1   |Rf        1.10232 m   |HD         22.800 m   |                      |
+For M5|Adr     7|KD1     BM10  09:01:354    1   |Rb        1.62351 m   |HD         22.500 m   |                      |
+For M5|Adr     8|KD1       A1               1   |                      |                      |Z       250.52122 m   |
+For M5|Adr     9|KD1       A1  09:04:101    1   |Rb        1.31010 m   |HD         27.100 m   |                      |
+For M5|Adr    10|KD1     BM11  09:04:402    1   |Rf        1.95900 m   |HD         26.700 m   |                      |
+For M5|Adr    11|TO  Measurement repeated       |                      |                      |                      |
+For M5|Adr    12|KD1     BM11  09:05:012    1   |Rf        1.95544 m   |HD         26.700 m   |                      |
+For M5|Adr    13|KD1     BM11  09:05:333    1   |Rf        1.95540 m   |HD         26.700 m   |                      |
+For M5|Adr    14|KD1       A1  09:06:004    1   |Rb        1.31018 m   |HD         27.100 m   |                      |
+For M5|Adr    15|KD1     BM11               1   |                      |                      |Z       249.87594 m   |
+For M5|Adr    16|TO  End-Line                  1|                      |                      |                      |
+For M5|Adr    17|KD1     BM11               1   |Sh       -0.12406 m   |dz        0.00000 m   |Z       249.87594 m   |
+For M5|Adr    18|KD1     BM11               1   |Db         99.200 m   |Df         99.000 m   |Z       249.87594 m   |
