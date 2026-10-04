@@ -21,12 +21,6 @@ export function LayersEditor({ layers, onChange }: { layers: PavementLayer[]; on
   let depth = 0;
   return (
     <div className="stack">
-      <div className="lc-layer-head xs faint">
-        <span>Capa (de arriba hacia abajo)</span>
-        <span>Espesor</span>
-        <span>Tol. ±</span>
-        <span />
-      </div>
       {layers.map((l, i) => {
         const top = depth;
         depth += l.thickness || 0;
@@ -37,8 +31,8 @@ export function LayersEditor({ layers, onChange }: { layers: PavementLayer[]; on
               <input className="input" value={l.name} onChange={(e) => upd(i, { name: e.target.value })} aria-label="Nombre de la capa" />
               <span className="xs faint lc-depth">−{top.toFixed(2)} m</span>
             </div>
-            <NumberInput value={l.thickness} suffix="m" onChange={(v) => upd(i, { thickness: v ?? 0 })} />
-            <NumberInput value={Math.round(l.tolerance * 10000) / 10} suffix="mm" onChange={(v) => upd(i, { tolerance: (v ?? 0) / 1000 })} />
+            <NumberInput label="Espesor" value={l.thickness} suffix="m" onChange={(v) => upd(i, { thickness: v ?? 0 })} />
+            <NumberInput label="Tolerancia ±" value={Math.round(l.tolerance * 10000) / 10} suffix="mm" onChange={(v) => upd(i, { tolerance: (v ?? 0) / 1000 })} />
             <div className="lc-layer-btns">
               <button className="icon-btn" aria-label="Subir" disabled={i === 0} onClick={() => move(i, -1)}>
                 <ArrowUp size={17} />
@@ -68,10 +62,10 @@ export function GradeEditor({ grade, onChange }: { grade: DesignGrade; onChange:
   return (
     <div className="stack">
       <div className="grid-2">
-        <NumberInput label="Cota inicial (eje, sup. terminada)" suffix="m" value={grade.startElevation} onChange={(v) => set('startElevation', v ?? 0)} />
+        <NumberInput label="Cota inicial del eje" hint="Superficie terminada" suffix="m" value={grade.startElevation} onChange={(v) => set('startElevation', v ?? 0)} />
         <NumberInput label="Progresiva inicial" suffix="m" value={grade.startStation} onChange={(v) => set('startStation', v ?? 0)} />
         <NumberInput label="Pendiente longitudinal" suffix="%" value={grade.longSlope} onChange={(v) => set('longSlope', v ?? 0)} hint="+ sube, − baja" />
-        <NumberInput label="Bombeo / transversal" suffix="%" value={grade.crossSlope} onChange={(v) => set('crossSlope', v ?? 0)} />
+        <NumberInput label="Bombeo" hint="Pendiente transversal" suffix="%" value={grade.crossSlope} onChange={(v) => set('crossSlope', v ?? 0)} />
       </div>
       <Field label="Tipo de sección">
         <Segmented<DesignGrade['crossType']>

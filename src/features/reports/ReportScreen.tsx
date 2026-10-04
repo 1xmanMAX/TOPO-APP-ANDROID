@@ -281,8 +281,7 @@ function LayerSummaryView({ project, controlId, layerId }: { project: Project; c
             <table className="table">
               <thead>
                 <tr>
-                  <th>Prog.</th>
-                  <th>Desplaz.</th>
+                  <th>Prog. / desp.</th>
                   <th>Proyecto</th>
                   <th>Medida</th>
                   <th>Desv. mm</th>
@@ -291,8 +290,10 @@ function LayerSummaryView({ project, controlId, layerId }: { project: Project; c
               <tbody>
                 {detail.checks.map((c) => (
                   <tr key={c.pointId}>
-                    <td>{station(c.station)}</td>
-                    <td>{fs(c.offset, 2)}</td>
+                    <td>
+                      {station(c.station, 0)}
+                      <span className="rp-sub-num">{fs(c.offset, 2)}</span>
+                    </td>
                     <td>{f(c.design, dec)}</td>
                     <td>{f(c.measured, dec)}</td>
                     <td className={c.status === 'ok' ? 'c-ok' : c.status === 'warn' ? 'c-warn' : c.status === 'fail' ? 'c-fail' : ''}>
@@ -413,33 +414,27 @@ function ProjectSummary({ project }: { project: Project }) {
       {runs.length > 0 && (
         <div className="card flush">
           <h3 className="rp-table-title">Cierres de nivelación</h3>
-          <div className="table-wrap rp-table-flat">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th className="text left">Libreta</th>
-                  <th>Error mm</th>
-                  <th>Tol. mm</th>
-                  <th className="text left">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map((r) => (
-                  <tr key={r.run.id}>
-                    <td className="text left">{r.run.name}</td>
-                    <td>{r.summary.misclosureMm === undefined ? '—' : fs(r.summary.misclosureMm, 1)}</td>
-                    <td>{r.summary.toleranceMm === undefined ? '—' : f(r.summary.toleranceMm, 1)}</td>
-                    <td className="text left">
-                      <StatusBadge
-                        status={r.verdict === 'pass' ? 'ok' : r.verdict === 'fail' ? 'fail' : 'pending'}
-                        label={VERDICT_TEXT[r.verdict]}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {runs.map((r) => (
+            <div key={r.run.id} className="rp-layer-row">
+              <div className="grow">
+                <strong className="rp-ellipsis">{r.run.name}</strong>
+                <span className="muted small">
+                  {r.summary.misclosureMm === undefined ? (
+                    'Sin control de cierre'
+                  ) : (
+                    <>
+                      Error <span className="num">{fs(r.summary.misclosureMm, 1)} mm</span> · tol.{' '}
+                      <span className="num">±{f(r.summary.toleranceMm, 1)} mm</span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <StatusBadge
+                status={r.verdict === 'pass' ? 'ok' : r.verdict === 'fail' ? 'fail' : 'pending'}
+                label={VERDICT_TEXT[r.verdict]}
+              />
+            </div>
+          ))}
         </div>
       )}
     </>

@@ -185,7 +185,7 @@ export function ImportScreen() {
 
   const doImport = () => {
     const r = useStore.getState().applyImport(merged);
-    toast(`Importado: ${plural(r.points, 'punto', 'puntos')} · ${plural(r.runs, 'libreta', 'libretas')}`);
+    toast(`Importado: ${importLabel(r.points, r.runs)}`);
     setDone({ points: r.points, runs: merged.levelRuns });
     setSources([]);
   };
@@ -224,7 +224,7 @@ export function ImportScreen() {
           </div>
           <h2>Datos importados</h2>
           <p className="muted">
-            {plural(done.points, 'punto', 'puntos')} y {plural(done.runs.length, 'libreta', 'libretas')} agregados a{' '}
+            {importLabel(done.points, done.runs.length)} agregados a{' '}
             <strong>{project?.name ?? 'el proyecto'}</strong>.
           </p>
         </div>
@@ -651,8 +651,8 @@ function RunPreview({
           onChange={(v) => onChange({ closure: v })}
           options={[
             { value: 'open', label: 'Abierta' },
-            { value: 'loop', label: `Circuito (vuelve a ${orig.startBM.name || 'BM'})` },
-            { value: 'known-bm', label: `Llega a BM conocido` },
+            { value: 'loop', label: 'Circuito' },
+            { value: 'known-bm', label: 'A BM conocido' },
           ]}
         />
       </Field>
