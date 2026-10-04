@@ -55,10 +55,10 @@ const project = (page) => page.evaluate(() => {
   return s.projects.find((p) => p.id === s.activeProjectId);
 });
 
-async function shot(page, name, before) {
+async function shot(page, name, before, keepScroll = name === 'herramienta') {
   if (before) await before();
   await page.waitForTimeout(700);
-  await page.evaluate(() => window.scrollTo(0, 0));
+  if (!keepScroll) await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `${OUT}/${name}.png` });
   console.log('✓', name);
 }
@@ -93,7 +93,13 @@ async function shot(page, name, before) {
     await page.getByRole('tab', { name: /Planta/i }).first().click().catch(() => {});
   });
   await shot(page, 'calculos', () => tab(page, 'tools'));
-  await shot(page, 'herramienta', () => nav(page, 'tool', { id: 'peg-test' }, 'tools'));
+  await shot(page, 'herramienta', async () => {
+    await nav(page, 'tool', { id: 'peg-test' }, 'tools');
+    await page.waitForTimeout(300);
+    await page.getByRole('button', { name: 'Cargar ejemplo' }).click().catch(() => {});
+    await page.waitForTimeout(3200); // espera a que se oculte el aviso
+    await page.evaluate(() => window.scrollTo(0, 560));
+  });
   await shot(page, 'informes', () => tab(page, 'reports'));
   await shot(page, 'importar', () => nav(page, 'import', {}, 'reports'));
   await shot(page, 'superficie', () => nav(page, 'surface', {}, 'points'));

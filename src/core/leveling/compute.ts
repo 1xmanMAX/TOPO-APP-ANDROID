@@ -209,21 +209,30 @@ export function computeLevelRun(run: LevelRun): LevelRunResult {
     lengthKm,
     setups,
   };
+  // El cierre solo se evalúa cuando la libreta termina (última observación
+  // = vista adelante) sobre el BM de cierre. Si no, está "en curso": sin
+  // error ni compensación, para no repartir un falso error en campo.
+  const sameName = (a?: string, b?: string) =>
+    (a ?? '').trim().toUpperCase() === (b ?? '').trim().toUpperCase();
+  const lastObs = run.observations[run.observations.length - 1];
+  const endsOnFs = lastObs?.kind === 'FS' && lastFsIdx === rows.length - 1;
   let knownEnd: number | undefined;
+  let closingName: string | undefined;
   if (run.closure === 'loop') {
+    closingName = run.startBM?.name;
     knownEnd = startElev;
-    if (lastFsIdx >= 0 && rows[lastFsIdx].pointName !== run.startBM?.name) {
-      issues.push(`Circuito cerrado: el último punto (${rows[lastFsIdx].pointName}) no es el BM de inicio (${run.startBM?.name})`);
-    }
   } else if (run.closure === 'known-bm') {
     if (run.endBM && isNum(run.endBM.elevation)) {
+      closingName = run.endBM.name;
       knownEnd = run.endBM.elevation;
-      if (lastFsIdx >= 0 && rows[lastFsIdx].pointName !== run.endBM.name) {
-        issues.push(`El último punto (${rows[lastFsIdx].pointName}) no es el BM de llegada (${run.endBM.name})`);
-      }
     } else {
       issues.push('Cierre a BM conocido sin BM de llegada válido: se trata como nivelación abierta');
     }
+  }
+  if (knownEnd !== undefined && lastFsIdx >= 0 && !(endsOnFs && sameName(rows[lastFsIdx].pointName, closingName))) {
+    closure.inProgress = true;
+    issues.push(`Libreta en curso: aún no se cierra en ${closingName}. El cierre se calcula al leer la vista adelante sobre ${closingName}.`);
+    knownEnd = undefined;
   }
 
   let errorM = NaN;

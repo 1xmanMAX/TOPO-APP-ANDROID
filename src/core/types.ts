@@ -178,6 +178,8 @@ export interface LevelClosureResult {
   passes?: boolean;
   /** Precisión relativa o calidad: |error| / tolerancia (0..∞). */
   ratio?: number;
+  /** La libreta aún no llega al BM de cierre (sin error ni compensación). */
+  inProgress?: boolean;
 }
 
 export interface LevelRunResult {
