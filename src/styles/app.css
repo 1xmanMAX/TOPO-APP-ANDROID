@@ -222,7 +222,7 @@ p {
   padding-bottom: env(safe-area-inset-bottom);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  background: color-mix(in srgb, var(--bg-elev) 97%, transparent);
   backdrop-filter: saturate(1.4) blur(16px);
   -webkit-backdrop-filter: saturate(1.4) blur(16px);
   border-top: 1px solid var(--border);
@@ -5186,3 +5186,16 @@ table.table {
   text-align: left;
 }
 /* === fin módulo nivelación === */
+
+/* === integración final === */
+/* Captura de campo a pantalla completa: sin barra inferior para que el teclado quede libre. */
+.app:has(.lv-entry, .lc-entry) .bottom-nav {
+  display: none;
+}
+.app:has(.lv-entry, .lc-entry) .content {
+  padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
+}
+/* Sombra sutil para separar la barra inferior del contenido. */
+.bottom-nav {
+  box-shadow: 0 -6px 18px -12px rgba(15, 23, 41, 0.18);
+}

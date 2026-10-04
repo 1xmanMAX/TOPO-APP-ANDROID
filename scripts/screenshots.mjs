@@ -72,7 +72,14 @@ async function shot(page, name, before) {
 
   await shot(page, 'inicio', () => tab(page, 'home'));
   await shot(page, 'nivelacion', () => tab(page, 'leveling'));
-  await shot(page, 'captura', () => nav(page, 'level-entry', { runId: run.id }, 'leveling'));
+  // Libreta a medio llenar para mostrar la captura en curso
+  const wipId = await page.evaluate((src) => {
+    const s = window.__topo.useStore.getState();
+    const { id, ...rest } = src;
+    return s.createLevelRun({ ...rest, name: 'Nivelación eje 0+000 – 0+060', observations: src.observations.slice(0, 7).map((o) => ({ ...o })) });
+  }, run);
+  await shot(page, 'captura', () => nav(page, 'level-entry', { runId: wipId }, 'leveling'));
+  await page.evaluate((id) => window.__topo.useStore.getState().deleteLevelRun(id), wipId);
   await shot(page, 'resultado', () => nav(page, 'level-run', { runId: run.id }, 'leveling'));
   await shot(page, 'perfil', async () => {
     await nav(page, 'level-run', { runId: run.id }, 'leveling');

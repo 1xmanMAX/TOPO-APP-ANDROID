@@ -332,6 +332,7 @@ export function ToolActions({
               <span>N {n(single.y)}</span>
               {single.z !== undefined && <span>Z {n(single.z)}</span>}
             </div>
+            {project && <p className="xs muted">Se guardará en el proyecto “{project.name}”.</p>}
             {project?.points.some((p) => p.name === name.trim()) && (
               <Notice>Ya existe un punto llamado “{name.trim()}”. Se guardará igualmente.</Notice>
             )}
@@ -343,7 +344,7 @@ export function ToolActions({
                 setOpen(false);
               }}
             >
-              <MapPinPlus size={20} /> Guardar en {project?.name ?? 'el proyecto'}
+              <MapPinPlus size={20} /> Guardar punto
             </button>
           </div>
         )}
