@@ -251,39 +251,29 @@ function LayerSummaryView({ project, controlId, layerId }: { project: Project; c
   const detail = layerId ? shown[0] : undefined;
   return (
     <>
-      <div className="card flush">
-        <div className="table-wrap rp-table-flat">
-          <table className="table">
-            <thead>
-              <tr>
-                <th className="text left">Capa</th>
-                <th>Medidos</th>
-                <th>% conf.</th>
-                <th>Desv. máx</th>
-                <th className="text left">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((r) => {
-                const v = layerVerdict(r.summary);
-                const mx = Math.abs(r.summary.maxHigh) > Math.abs(r.summary.maxLow) ? r.summary.maxHigh : r.summary.maxLow;
-                return (
-                  <tr key={r.layer.id}>
-                    <td className="text left">{r.layer.name}</td>
-                    <td>
-                      {r.summary.measured}/{r.summary.total}
-                    </td>
-                    <td>{r.summary.measured ? f(r.summary.pctOk, 0) : '—'}</td>
-                    <td>{r.summary.measured ? `${fs(mx * 1000, 0)} mm` : '—'}</td>
-                    <td className="text left">
-                      <StatusBadge status={v} label={STATUS_TEXT[v]} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      <div className="card flush rp-layer-list">
+        {shown.map((r) => {
+          const v = layerVerdict(r.summary);
+          const mx = Math.abs(r.summary.maxHigh) > Math.abs(r.summary.maxLow) ? r.summary.maxHigh : r.summary.maxLow;
+          return (
+            <div key={r.layer.id} className="rp-layer-row">
+              <div className="grow">
+                <strong>{r.layer.name}</strong>
+                <span className="muted small">
+                  {r.summary.measured}/{r.summary.total} medidos
+                  {r.summary.measured > 0 && (
+                    <>
+                      {' · '}
+                      <span className="num">{f(r.summary.pctOk, 0)} %</span> conformes · máx{' '}
+                      <span className="num">{fs(mx * 1000, 0)} mm</span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <StatusBadge status={v} label={STATUS_TEXT[v]} />
+            </div>
+          );
+        })}
       </div>
       {detail && (
         <div className="card flush">

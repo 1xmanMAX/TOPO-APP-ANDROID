@@ -10,7 +10,7 @@
  * redondo y `vector-effect: non-scaling-stroke`), así 2000+ puntos cuestan
  * una docena de nodos SVG.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Maximize, Minus, Plus } from 'lucide-react';
 
 export interface PlanPoint {
@@ -540,6 +540,12 @@ export function PlanView({
   const scaleM = W ? niceStep((W * 0.28) / s) : 0;
   const scalePx = scaleM * s;
 
+  // Tamaño de punto según densidad en pantalla (más pequeños si hay muchos juntos).
+  const nPts = Math.max(1, points.length);
+  const spacing = Math.sqrt((4 * data.halfW * data.halfH * s * s) / nPts);
+  const dot = Math.max(4, Math.min(8, spacing * 0.4));
+  const svgStyle = { '--pv-dot': `${dot.toFixed(1)}px`, '--pv-halo': `${(dot + 2).toFixed(1)}px` } as CSSProperties;
+
   const gradId = useMemo(() => `pvg${Math.random().toString(36).slice(2, 8)}`, []);
 
   return (
@@ -547,6 +553,7 @@ export function PlanView({
       <svg
         ref={svgRef}
         className="pv-svg"
+        style={svgStyle}
         width={W || undefined}
         height={H || undefined}
         role="img"

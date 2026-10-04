@@ -37,15 +37,18 @@ function load<T extends object>(id: string, defaults: T): T {
 export function useToolState<T extends object>(defaults: T): [T, (patch: Partial<T>) => void] {
   const id = useContext(ToolIdContext);
   const [state, setState] = useState<T>(() => load(id, defaults));
+  const first = useRef(true);
   useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        localStorage.setItem(storageKey(id), JSON.stringify(state));
-      } catch {
-        /* sin almacenamiento */
-      }
-    }, 250);
-    return () => clearTimeout(t);
+    // No escribe en el montaje: así "Limpiar" deja la clave vacía.
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem(storageKey(id), JSON.stringify(state));
+    } catch {
+      /* sin almacenamiento */
+    }
   }, [id, state]);
   const patch = useCallback((p: Partial<T>) => setState((s) => ({ ...s, ...p })), []);
   return [state, patch];

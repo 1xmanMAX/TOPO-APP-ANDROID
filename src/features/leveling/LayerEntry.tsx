@@ -191,7 +191,7 @@ function Entry({ control, layer }: { control: LayerControl; layer: PavementLayer
             <ChevronLeft size={26} />
           </button>
           <div className="grow lc-point-body">
-            <div className="lc-point-sta num">{station(pt.station)}</div>
+            <div className="lc-point-sta num">{station(pt.station, Math.abs(pt.station - Math.round(pt.station)) < 1e-6 ? 0 : 2)}</div>
             <div className="small muted">
               {offLabel(pt.offset)}
               {pt.label && !/^(Eje|Izq|Der)/.test(pt.label) ? ` · ${pt.label}` : ''}
@@ -238,7 +238,7 @@ function Entry({ control, layer }: { control: LayerControl; layer: PavementLayer
           </div>
         )}
 
-        <div className={`reading-display lc-display s-${dev === undefined ? 'pending' : status}`}>
+        <div className={`reading-display lv-display lc-display s-${dev === undefined ? 'pending' : status}`}>
           <span className="lv-display-label">{mode === 'direct' ? 'Cota medida' : 'Lectura de mira'}</span>
           <span>
             {val || <span className="faint">{mode === 'direct' ? '0.000' : '0.000'}</span>}
@@ -250,9 +250,13 @@ function Entry({ control, layer }: { control: LayerControl; layer: PavementLayer
           {dev !== undefined ? (
             <>
               <StatusBadge status={status} />
-              <span className="num">
-                {mode === 'level' && <>Cota {f(measured)} · </>}
-                <b className={status === 'ok' ? 'c-ok' : status === 'warn' ? 'c-warn' : 'c-fail'}>{fs(dev * 1000, 0)} mm</b>
+              <span>
+                {mode === 'level' && (
+                  <>
+                    Cota <b className="num">{f(measured)}</b> ·{' '}
+                  </>
+                )}
+                <b className={`num ${status === 'ok' ? 'c-ok' : status === 'warn' ? 'c-warn' : 'c-fail'}`}>{fs(dev * 1000, 0)} mm</b>
                 <span className="faint"> {dev > 0 ? 'alto (cortar)' : dev < 0 ? 'bajo (rellenar)' : ''}</span>
               </span>
             </>

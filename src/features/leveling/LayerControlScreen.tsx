@@ -13,7 +13,9 @@ import { GradeEditor, LayersEditor, gradeText } from './LayerParts';
 import { NoProject, NotFound, useControl } from './shared';
 import { exportLayerPdf, exportLayerXlsx } from './exports';
 
-const offLabel = (o: number) => (Math.abs(o) < 1e-9 ? 'Eje' : `${o < 0 ? 'Izq' : 'Der'} ${Math.abs(o).toFixed(2)}`);
+const offLabel = (o: number) => (Math.abs(o) < 1e-9 ? 'Eje' : `${o < 0 ? 'Izq' : 'Der'} ${+Math.abs(o).toFixed(2)}`);
+/** Progresiva sin decimales si es entera. */
+const sta = (m: number) => station(m, Math.abs(m - Math.round(m)) < 1e-6 ? 0 : 2);
 const devClass = (c: LayerCheck) => (c.deviation === undefined ? '' : c.status === 'ok' ? 'c-ok' : c.status === 'warn' ? 'c-warn' : 'c-fail');
 
 /** Capa preferida: la más alta con mediciones (capa en ejecución) o la primera. */
@@ -162,7 +164,7 @@ function ControlView({ project, control, initialLayer }: { project: Project; con
               <tbody>
                 {checks.map((c) => (
                   <tr key={c.pointId} className="clickable" onClick={() => setEditPt(control.points.find((p) => p.id === c.pointId) ?? null)}>
-                    <td>{station(c.station)}</td>
+                    <td>{sta(c.station)}</td>
                     <td className="text faint">{offLabel(c.offset)}</td>
                     <td>{f(c.design)}</td>
                     <td>
@@ -171,7 +173,7 @@ function ControlView({ project, control, initialLayer }: { project: Project; con
                     <td className={devClass(c)}>
                       <b>{c.deviation !== undefined ? fs(c.deviation * 1000, 0) : ''}</b>
                     </td>
-                    <td className="text">
+                    <td className="text lc-st">
                       <StatusBadge status={c.status} />
                     </td>
                   </tr>

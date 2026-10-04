@@ -122,11 +122,13 @@ export default function Surface(_: ScreenProps) {
           <Kpi label="Área en planta" value={area(stats.area)} />
           <Kpi label="Cota mínima" value={f(zr.min, 3)} unit="m" sub={`Media ${f(zr.mean, 3)} m`} />
           <Kpi label="Cota máxima" value={f(zr.max, 3)} unit="m" sub={`Desnivel ${f(zr.max - zr.min, 2)} m`} />
+          <Kpi label="Pendiente media" value={f(stats.ss.areaWeightedMean, 1)} unit="%" sub="Ponderada por área" />
           <Kpi
-            label="Pendiente media / máx"
-            value={`${f(stats.ss.areaWeightedMean, 1)} / ${f(stats.ss.max, 1)}`}
+            label="Pendiente máxima"
+            value={stats.ss.max >= 100 ? thousands(stats.ss.max, 0) : f(stats.ss.max, 1)}
             unit="%"
-            sub="Media ponderada por área"
+            tone={stats.ss.max > 50 ? 'warn' : undefined}
+            sub={`Mínima ${f(stats.ss.min, 2)} %`}
           />
         </div>
 

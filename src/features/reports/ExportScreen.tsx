@@ -206,6 +206,52 @@ export function ExportScreen() {
     }
   };
 
+  const options = (
+    <>
+        {curFmt === 'csv' && what !== 'runs' && (
+          <div className="card stack">
+            <Field label="Orden de columnas" hint={order === 'PENZD' ? 'Punto, Este, Norte, Cota, Descripción' : 'Punto, Norte, Este, Cota, Descripción (Civil 3D)'}>
+              <Chips
+                value={order}
+                onChange={setOrder}
+                options={[
+                  { value: 'PENZD', label: 'PENZD' },
+                  { value: 'PNEZD', label: 'PNEZD' },
+                ]}
+              />
+            </Field>
+            <Field label="Separador" hint={delim === ';' ? 'Excel en español suele usar punto y coma' : undefined}>
+              <Chips
+                value={delim}
+                onChange={setDelim}
+                options={[
+                  { value: ',', label: 'Coma ,' },
+                  { value: ';', label: 'Punto y coma ;' },
+                  { value: '\t', label: 'Tabulador' },
+                ]}
+              />
+            </Field>
+          </div>
+        )}
+
+        {curFmt === 'landxml' && (
+          <div className="card stack">
+            <Toggle checked={withTin} onChange={setWithTin} label="Incluir superficie TIN" />
+            <p className="small muted">
+              <Triangle size={14} /> Triangulación de {withZ} puntos con cota
+              {withZ < 3 ? ' (se necesitan al menos 3)' : ''}.
+            </p>
+          </div>
+        )}
+        {curFmt === 'kml' && (
+          <p className="small muted">
+            <Box size={14} /> Coordenadas UTM {project.crs.zone}
+            {project.crs.hemisphere} convertidas a WGS84 geográficas.
+          </p>
+        )}
+    </>
+  );
+
   return (
     <Page title="Exportar" subtitle={project.name} back>
       <section className="stack">
@@ -252,7 +298,7 @@ export function ExportScreen() {
           {available.map((id) => {
             const d = FORMATS[id];
             const on = id === curFmt;
-            return (
+            return [
               <button
                 key={id}
                 role="radio"
@@ -270,52 +316,12 @@ export function ExportScreen() {
                     <Check size={16} strokeWidth={3} />
                   </span>
                 )}
-              </button>
-            );
+              </button>,
+              on ? <div key={`${id}-opts`} className="rp-fmt-opts">{options}</div> : null,
+            ];
           })}
         </div>
 
-        {curFmt === 'csv' && what !== 'runs' && (
-          <div className="card stack">
-            <Field label="Orden de columnas" hint={order === 'PENZD' ? 'Punto, Este, Norte, Cota, Descripción' : 'Punto, Norte, Este, Cota, Descripción (Civil 3D)'}>
-              <Chips
-                value={order}
-                onChange={setOrder}
-                options={[
-                  { value: 'PENZD', label: 'PENZD' },
-                  { value: 'PNEZD', label: 'PNEZD' },
-                ]}
-              />
-            </Field>
-            <Field label="Separador" hint={delim === ';' ? 'Excel en español suele usar punto y coma' : undefined}>
-              <Chips
-                value={delim}
-                onChange={setDelim}
-                options={[
-                  { value: ',', label: 'Coma ,' },
-                  { value: ';', label: 'Punto y coma ;' },
-                  { value: '\t', label: 'Tabulador' },
-                ]}
-              />
-            </Field>
-          </div>
-        )}
-
-        {curFmt === 'landxml' && (
-          <div className="card stack">
-            <Toggle checked={withTin} onChange={setWithTin} label="Incluir superficie TIN" />
-            <p className="small muted">
-              <Triangle size={14} /> Triangulación de {withZ} puntos con cota
-              {withZ < 3 ? ' (se necesitan al menos 3)' : ''}.
-            </p>
-          </div>
-        )}
-        {curFmt === 'kml' && (
-          <p className="small muted">
-            <Box size={14} /> Coordenadas UTM {project.crs.zone}
-            {project.crs.hemisphere} convertidas a WGS84 geográficas.
-          </p>
-        )}
       </section>
 
       <div className="rp-sticky">

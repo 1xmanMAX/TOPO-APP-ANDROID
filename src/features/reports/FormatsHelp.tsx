@@ -19,30 +19,19 @@ export function FormatsHelp() {
         <span className="grow">Formatos soportados y cómo descargar el nivel</span>
       </summary>
       <div className="stack">
-        <div className="table-wrap">
-          <table className="table rp-help-table">
-            <thead>
-              <tr>
-                <th className="text left">Formato</th>
-                <th className="text left">Equipos</th>
-                <th className="text left">Extensión</th>
-                <th className="text left">Trae</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((r) => (
-                <tr key={r.fmt}>
-                  <td className="text left">
-                    <strong>{r.fmt}</strong>
-                  </td>
-                  <td className="text left">{r.equip}</td>
-                  <td className="text left mono">{r.ext}</td>
-                  <td className="text left">{r.data}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="rp-fmt-help">
+          {ROWS.map((r) => (
+            <li key={r.fmt}>
+              <div className="row-between">
+                <strong>{r.fmt}</strong>
+                <span className="mono xs muted">{r.ext}</span>
+              </div>
+              <span className="small muted">
+                {r.equip} · <em>{r.data}</em>
+              </span>
+            </li>
+          ))}
+        </ul>
 
         <h4 className="rp-h4">Cómo descargar los datos del nivel</h4>
         <ol className="rp-steps">

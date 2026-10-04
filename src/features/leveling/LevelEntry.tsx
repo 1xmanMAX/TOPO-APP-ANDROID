@@ -13,6 +13,14 @@ import { KIND_LABEL, KIND_SHORT, NoProject, NotFound, closureStatus, nextName, n
 
 type Slot = 'upper' | 'reading' | 'lower' | 'dist' | 'design';
 
+const SLOT_SHORT: Record<Slot, string> = {
+  upper: 'Superior',
+  reading: 'Medio',
+  lower: 'Inferior',
+  dist: 'Distancia',
+  design: 'Cota proy.',
+};
+
 const SLOT_LABEL: Record<Slot, string> = {
   upper: 'Hilo superior',
   reading: 'Hilo medio',
@@ -234,7 +242,8 @@ function Entry({ run }: { run: LevelRun }) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      const typing = t && ((t.tagName === 'INPUT' && (t as HTMLInputElement).type !== 'checkbox') || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+      if (typing) return;
       if (editIdx !== null || e.ctrlKey || e.metaKey || e.altKey) return;
       const v = vals[slot];
       if (/^[0-9]$/.test(e.key)) setVal(slot, v + e.key);
@@ -271,6 +280,11 @@ function Entry({ run }: { run: LevelRun }) {
   const lastSavedRow = lastSaved ? rows.find((r) => r.obsId === lastSaved) : undefined;
   const lastCF = cutFillText(lastSavedRow?.cutFill);
 
+  // Incidencias reales (se omiten las propias de una libreta aún sin cerrar).
+  const liveIssues = result.issues.filter(
+    (t) => !/no termina con una vista adelante|Circuito cerrado: el último punto|no es el BM de llegada|no se puede calcular el cierre/i.test(t),
+  );
+
   const goResult = () => useNav.getState().replace({ name: 'level-run', params: { runId: run.id } });
 
   return (
@@ -285,7 +299,7 @@ function Entry({ run }: { run: LevelRun }) {
             <Settings2 size={21} />
           </button>
           <button className="btn sm primary" onClick={goResult}>
-            <CheckCheck size={17} /> Resultado
+            <CheckCheck size={17} /> <span className="lv-hide-narrow">Resultado</span>
           </button>
         </>
       }
@@ -386,9 +400,9 @@ function Entry({ run }: { run: LevelRun }) {
               )}
             </div>
           </div>
-          {result.issues.length > 0 && rows.length > 2 && (
+          {liveIssues.length > 0 && (
             <p className="xs c-warn lv-issue-line">
-              <AlertTriangle size={13} /> {result.issues[result.issues.length - 1]}
+              <AlertTriangle size={13} /> {liveIssues[liveIssues.length - 1]}
             </p>
           )}
         </div>
@@ -440,7 +454,7 @@ function Entry({ run }: { run: LevelRun }) {
           <div className="lv-slots">
             {slots.map((s) => (
               <button key={s} className={`lv-slot${slot === s ? ' active' : ''}`} onClick={() => setSlot(s)}>
-                <span>{s === 'reading' && !threads ? 'Lectura' : SLOT_LABEL[s]}</span>
+                <span>{s === 'reading' && !threads ? 'Lectura' : SLOT_SHORT[s]}</span>
                 <b className="num">{vals[s] || (s === 'dist' || s === 'design' ? 'opc.' : '—')}</b>
               </button>
             ))}
@@ -522,7 +536,7 @@ function Entry({ run }: { run: LevelRun }) {
               <Undo2 size={18} /> Borrar última
             </button>
             <button className="btn accent" onClick={goResult}>
-              <CheckCheck size={18} /> Cerrar y ver resultado
+              <CheckCheck size={18} /> <span className="lv-wrap-label">Cerrar y ver resultado</span>
             </button>
           </div>
           <p className="xs faint lv-kbd-hint">

@@ -9,7 +9,7 @@ import { computeLevelRun, levelRunSummary } from '@/core/leveling';
 import { checkLayer, layerSummary } from '@/core/pavement';
 import { EmptyState, Fab, QuickAction, Screen, Segmented, StatusBadge } from '@/ui/kit';
 import { dateShort, f, fs } from '@/ui/format';
-import { CLOSURE_LABEL, METHOD_SHORT, NoProject, closureStatus } from './shared';
+import { CLOSURE_LABEL, METHOD_LABEL, NoProject, closureStatus } from './shared';
 import { LevelNew, LevelEdit } from './RunForm';
 import { LevelEntry } from './LevelEntry';
 import { LevelRunScreen } from './LevelRunScreen';
@@ -114,7 +114,7 @@ function RunCard({ run }: { run: LevelRun }) {
             <span>
               <CalendarDays size={13} /> {dateShort(run.date)}
             </span>
-            <span>{METHOD_SHORT[run.method]}</span>
+            <span>{METHOD_LABEL[run.method]}</span>
             <span>{CLOSURE_LABEL[run.closure]}</span>
           </div>
         </div>
