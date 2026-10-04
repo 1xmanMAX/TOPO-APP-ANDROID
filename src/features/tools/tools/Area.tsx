@@ -137,6 +137,12 @@ export default function Area() {
       ) : (
         <InputCard title={`Vértices en orden (${pts.length})`}>
           <div className="tl-rows">
+            <div className="tl-row tl-row-head tl-row-head-xy" aria-hidden="true">
+              <span>#</span>
+              <span>Este (E)</span>
+              <span>Norte (N)</span>
+              <span />
+            </div>
             {s.rows.map((row, i) => (
               <div key={i} className="tl-row">
                 <span className="tl-leg-num">{i + 1}</span>
@@ -164,7 +170,7 @@ export default function Area() {
           <div className="grid-3 tl-kpis">
             <Kpi label="Perímetro" value={n(r.perimeter, 2)} unit="m" />
             <Kpi label="Vértices" value={pts.length} />
-            <Kpi label="Sentido" value={<span className="tl-kpi-text">{r.clockwise ? 'Horario' : 'Antihorario'}</span>} />
+            <Kpi label="Sentido" value={<span className="tl-kpi-text tl-kpi-word">{r.clockwise ? 'Horario' : 'Antihorario'}</span>} />
           </div>
           <div className="card flush">
             <PlanSketch points={pts.map((p) => ({ ...p, kind: 'known' as const }))} polygon={pts} height={240} />

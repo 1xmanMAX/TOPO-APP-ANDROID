@@ -4,7 +4,7 @@ import { Kpi, NumberInput, Segmented, toast } from '@/ui/kit';
 import { useProject } from '@/app/store';
 import { getPhonePosition } from '@/app/platform';
 import { centralMeridian, combinedScaleFactor, elevationFactor, latLonToUtm, utmToLatLon, zoneFromLon } from '@/core/geo';
-import { AngleInput, Formula, HowTo, InputCard, Notice, ResultCard, ToolActions, Waiting, angValue, dms, n, toAng, useToolState, type Ang } from '../ui/shared';
+import { AngleInput, Formula, HowTo, InputCard, Notice, ResultCard, ToolActions, Waiting, angValue, dms, n, ns, toAng, useToolState, type Ang } from '../ui/shared';
 
 type Zone = '17' | '18' | '19';
 
@@ -22,8 +22,8 @@ interface S {
 export const utmDefaults: S = { dir: 'geo', zoneMode: 'auto', lat: { neg: true }, lon: { neg: true } };
 export const utmExample: S = {
   dir: 'geo',
-  lat: { d: 12, m: 2, s: 46.95, neg: true },
-  lon: { d: 77, m: 2, s: 34.05, neg: true },
+  lat: { d: 12.046374, neg: true },
+  lon: { d: 77.042793, neg: true },
   zoneMode: 'auto',
   h: 150,
 };
@@ -187,7 +187,7 @@ export default function Utm() {
             <Kpi label="Factor de escala k" value={n(out.k, 8)} sub={`MC ${centralMeridian(out.zone)}°`} />
             <Kpi label="Convergencia γ" value={dms(out.conv, 1)} sub="Norte geográfico → cuadrícula" />
             {kh !== undefined && <Kpi label="Factor elevación" value={n(kh, 8)} sub="R / (R + h)" />}
-            {csf !== undefined && <Kpi label="Factor combinado" value={n(csf, 8)} sub={`${n((csf - 1) * 1e6, 0)} ppm · ${n((csf - 1) * 1000, 1)} mm/km`} tone="brand" />}
+            {csf !== undefined && <Kpi label="Factor combinado" value={n(csf, 8)} sub={`${ns((csf - 1) * 1e6, 0)} ppm = mm por km`} tone="brand" />}
           </div>
           {out.kind === 'utm' && <p className="small muted mono">{latLonText(out.lat, out.lon)}</p>}
         </>

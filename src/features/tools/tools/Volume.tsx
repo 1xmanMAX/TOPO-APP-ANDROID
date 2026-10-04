@@ -29,6 +29,8 @@ export const volumeExample: S = {
   ],
 };
 
+const stFmt = (m: number) => stationFormat(m, Number.isInteger(Math.round(m * 1000) / 1000) ? 0 : 2);
+
 export default function Volume() {
   const [s, set] = useToolState<S>(volumeDefaults);
   const setRow = (i: number, p: Partial<Row>) => set({ rows: s.rows.map((r, j) => (j === i ? { ...r, ...p } : r)) });
@@ -51,7 +53,7 @@ export default function Volume() {
     const last = parsed.filter((p) => p.st !== null).map((p) => p.st as number);
     const prev = last.length ? Math.max(...last) : -20;
     const step = last.length >= 2 ? last[last.length - 1] - last[last.length - 2] || 20 : 20;
-    set({ rows: [...s.rows, { st: stationFormat(prev + Math.abs(step), 0).replace(/\.$/, '') }] });
+    set({ rows: [...s.rows, { st: stFmt(prev + Math.abs(step)) }] });
   };
 
   const copy = res
@@ -60,7 +62,7 @@ export default function Volume() {
         `Corte = ${n(res.cut, 2)} m³ · Relleno = ${n(res.fill, 2)} m³ · Neto = ${n(res.net, 2)} m³`,
         loose !== undefined ? `Corte esponjado (×${s.swell}) = ${n(loose, 2)} m³` : '',
         '\nTramo\tCorte m³\tRelleno m³',
-        ...res.segments.map((g) => `${stationFormat(g.from)} – ${stationFormat(g.to)}\t${n(g.cut, 2)}\t${n(g.fill, 2)}`),
+        ...res.segments.map((g) => `${stFmt(g.from)} – ${stFmt(g.to)}\t${n(g.cut, 2)}\t${n(g.fill, 2)}`),
       ]
         .filter((l) => l !== '')
         .join('\n')
@@ -137,7 +139,7 @@ export default function Volume() {
                   {res.segments.map((g, i) => (
                     <tr key={i}>
                       <td>
-                        {stationFormat(g.from)} – {stationFormat(g.to)}
+                        {stFmt(g.from)} – {stFmt(g.to)}
                       </td>
                       <td className="c-cut">{n(g.cut, 2)}</td>
                       <td className="c-fill">{n(g.fill, 2)}</td>

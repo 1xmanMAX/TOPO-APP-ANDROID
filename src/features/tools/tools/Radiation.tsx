@@ -179,7 +179,7 @@ export default function Radiation() {
             </div>
           </ResultCard>
           <div className="grid-3 tl-kpis">
-            <Kpi label="Azimut" value={<span className="tl-kpi-text">{dms(result.az, 0)}</span>} />
+            <Kpi label="Azimut" value={<span className="tl-kpi-text">{dms(result.az, 0).replace("'", "′").replace('"', '″')}</span>} />
             <Kpi label="Dist. horiz." value={n(result.dh)} unit="m" />
             <Kpi label="ΔZ" value={result.dz !== undefined ? ns(result.dz) : '—'} unit={result.dz !== undefined ? 'm' : undefined} />
           </div>

@@ -127,12 +127,14 @@ export function ResultCard({
         <span className="tl-result-label">{label}</span>
         {extra}
       </div>
-      <div className="tl-result-value">
-        {value}
-        {unit && <small>{unit}</small>}
-      </div>
-      {sub && <div className="tl-result-sub">{sub}</div>}
+      {value !== null && (
+        <div className="tl-result-value">
+          {value}
+          {unit && <small>{unit}</small>}
+        </div>
+      )}
       {children}
+      {sub && <div className="tl-result-sub">{sub}</div>}
     </section>
   );
 }

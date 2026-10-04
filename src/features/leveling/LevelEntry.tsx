@@ -40,7 +40,7 @@ function parseReading(txt: string, label = 'la lectura'): Parsed {
   if (!txt.trim()) return { error: `Ingresa ${label}` };
   const n = parseNum(txt);
   if (n === undefined) return { error: `Valor no válido en ${label}` };
-  if (!txt.includes('.') && !txt.includes(',') && n > 5 && n <= 5000 && Number.isInteger(n)) {
+  if (/^\d{3,4}$/.test(txt.trim()) && n > 5 && n <= 5000) {
     return { value: n / 1000, note: `${txt} → ${f(n / 1000)} m (mm)` };
   }
   if (n < 0 || n > 5) return { error: `Lectura fuera de rango (0–5 m): ${txt}` };
@@ -282,7 +282,7 @@ function Entry({ run }: { run: LevelRun }) {
 
   // Incidencias reales (se omiten las propias de una libreta aún sin cerrar).
   const liveIssues = result.issues.filter(
-    (t) => !/no termina con una vista adelante|Circuito cerrado: el último punto|no es el BM de llegada|no se puede calcular el cierre/i.test(t),
+    (t) => !/no termina con una vista adelante|Comprobación aritmética|Circuito cerrado: el último punto|no es el BM de llegada|no se puede calcular el cierre/i.test(t),
   );
 
   const goResult = () => useNav.getState().replace({ name: 'level-run', params: { runId: run.id } });

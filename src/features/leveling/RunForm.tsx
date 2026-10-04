@@ -110,7 +110,7 @@ function RunForm({ initial, mode, onSubmit, onDelete, quick }: {
       <BMPicker bms={bms} label="BM de inicio" value={d.start} onChange={(v) => set('start', v)} />
 
       {!more && (
-        <button className="btn ghost block" onClick={() => setMore(true)}>
+        <button className="btn ghost block lv-more-btn" onClick={() => setMore(true)}>
           <ChevronDown size={18} /> Ajustar nombre, cierre, clase y método
           <span className="faint small">({CLOSURE_LABEL[d.closure]} · {ORDER_SHORT[d.order]})</span>
         </button>

@@ -32,7 +32,7 @@ function SlopeTriangle({ r }: { r: number }) {
   const p1 = up ? [x0, y0] : [x0, y0 - h];
   const p2 = up ? [x0 + w, y0 - h] : [x0 + w, y0];
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="tl-diagram" role="img" aria-label="Esquema de la pendiente">
+    <svg viewBox={`0 ${y0 - h - 12} ${W} ${h + 28}`} className="tl-diagram tl-sl-svg" role="img" aria-label="Esquema de la pendiente">
       <polygon points={`${x0},${y0} ${x0 + w},${y0} ${up ? `${x0 + w},${y0 - h}` : `${x0},${y0 - h}`}`} className="tl-sl-fill" />
       <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} className="tl-sl-line" />
       <text x={x0 + w / 2} y={H - 1} textAnchor="middle" className="tl-sl-txt">

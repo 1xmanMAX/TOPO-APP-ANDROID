@@ -154,10 +154,10 @@ function ControlView({ project, control, initialLayer }: { project: Project; con
               <thead>
                 <tr>
                   <th>Progresiva</th>
-                  <th>Desplaz.</th>
+                  <th>Despl.</th>
                   <th>Diseño</th>
                   <th>Medida</th>
-                  <th>Dif. mm</th>
+                  <th>Dif mm</th>
                   <th>Estado</th>
                 </tr>
               </thead>

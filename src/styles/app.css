@@ -4380,6 +4380,21 @@ table.table {
 .lc-table th {
   padding: 8px 10px;
 }
+@media (max-width: 520px) {
+  .lc-table td,
+  .lc-table th {
+    padding: 8px 5px;
+    font-size: 13px;
+  }
+  .lc-table th {
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+  }
+  .lc-table td:first-child,
+  .lc-table th:first-child {
+    padding-left: 12px;
+  }
+}
 .lc-entry {
   display: flex;
   flex-direction: column;
@@ -4838,8 +4853,13 @@ table.table {
 /* Acciones */
 .tl-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-3);
+}
+@media (min-width: 560px) {
+  .tl-actions {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  }
 }
 .tl-coords {
   display: flex;
@@ -4986,6 +5006,13 @@ table.table {
   letter-spacing: 0.04em;
   color: var(--text-3);
 }
+.tl-row-head-xy {
+  grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 44px;
+}
+.tl-kpi-word {
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
 .tl-row .input.num {
   padding: 0 10px;
 }
@@ -5125,6 +5152,10 @@ table.table {
   stroke-width: 1.6;
   fill: none;
 }
+.tl-sl-svg {
+  max-height: 150px;
+  margin: var(--s-2) 0;
+}
 .tl-sl-fill {
   fill: color-mix(in srgb, var(--brand) 12%, transparent);
 }
@@ -5145,3 +5176,13 @@ table.table {
   font-size: 11.5px;
   color: var(--text-3);
 }
+.lv-more-btn {
+  white-space: normal;
+  flex-wrap: wrap;
+  height: auto;
+  padding: 10px 14px;
+  line-height: 1.3;
+  justify-content: flex-start;
+  text-align: left;
+}
+/* === fin módulo nivelación === */

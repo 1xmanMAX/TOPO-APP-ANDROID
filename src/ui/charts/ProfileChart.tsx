@@ -88,7 +88,7 @@ export function ProfileChart({
   const hasY = pts.some((d) => isNum(d.y));
 
   const geo = useMemo(() => {
-    const m = { l: 58, r: 14, t: showLabels ? 26 : 14, b: 40 };
+    const m = { l: 58, r: 14, t: showLabels ? 30 : 24, b: 40 };
     const iw = Math.max(40, width - m.l - m.r);
     const ih = Math.max(40, height - m.t - m.b);
     const xs = pts.map((d) => d.x);
@@ -109,7 +109,7 @@ export function ProfileChart({
     }
     const pad = (y1 - y0) * 0.12;
     const yt = niceTicks(y0 - pad, y1 + pad, Math.max(3, Math.round(ih / 48)));
-    const xt = niceTicks(x0, x1, Math.max(2, Math.round(iw / 80)));
+    const xt = niceTicks(x0, x1, Math.max(2, Math.round(iw / 64)));
     // El eje x no se extiende más allá de los datos: ticks dentro del rango.
     const xTicks = xt.ticks.filter((v) => v >= x0 - 1e-9 && v <= x1 + 1e-9);
     const sx = (v: number) => m.l + ((v - x0) / (x1 - x0)) * iw;
