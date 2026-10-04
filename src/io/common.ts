@@ -39,7 +39,11 @@ export function parseNum(s: string | undefined | null): number {
 export const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 export const nowIso = (): string => new Date().toISOString();
-export const todayIso = (): string => nowIso().slice(0, 10);
+/** Fecha local (AAAA-MM-DD). No usa UTC: en Perú (UTC−5) desde las 19:00 daría el día siguiente. */
+export function todayIso(d = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 /** Nombre base de archivo sin extensión. */
 export function baseName(filename?: string): string {

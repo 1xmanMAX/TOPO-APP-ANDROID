@@ -4,7 +4,7 @@
  */
 import * as XLSX from 'xlsx';
 import type { ID, LayerControl, LevelRun, Project } from '@/core/types';
-import { ORDER_LABEL } from '@/core/leveling';
+import { DEFAULT_SETUP_LENGTH_M, ORDER_LABEL, toleranceLengthKm } from '@/core/leveling';
 import {
   bookRows,
   findControl,
@@ -122,7 +122,7 @@ function runSheet(project: Project, run: LevelRun, name?: string): SheetSpec {
       ? ['BM final', run.endBM.name, n(run.endBM.elevation)]
       : ['BM final', run.closure === 'loop' ? run.startBM.name : '—', run.closure === 'loop' ? n(run.startBM.elevation) : null],
     [],
-    ['Punto', 'VA (+)', 'AI / HI', 'VI', 'VAd (−)', 'Dist. adelante/VI (m)', 'Dist. atrás PC (m)', 'Subida', 'Bajada', 'Cota', 'Corrección', 'Cota compensada', 'Cota proyecto', 'Corte(+)/Relleno(−)', 'Punto de cambio', 'Nota'],
+    ['Punto', 'VA (+)', 'AI / HI', 'VI', 'VAd (−)', 'Dist. VAd/VI (VA en el BM inicial) (m)', 'Dist. VA en PC (m)', 'Subida', 'Bajada', 'Cota', 'Corrección', 'Cota compensada', 'Cota proyecto', 'Corte(+)/Relleno(−)', 'Punto de cambio', 'Nota'],
   );
   for (const b of bookRows(run, result)) {
     rows.push([
@@ -143,7 +143,7 @@ function runSheet(project: Project, run: LevelRun, name?: string): SheetSpec {
     ['Cota final calculada (m)', n(cl.computedEnd)],
     ['Cota conocida (m)', n(cl.knownEnd)],
     ['Error de cierre (mm)', n(cl.misclosureMm, F1, 3)],
-    ['Longitud K (km)', n(cl.lengthKm, F3)],
+    ['Longitud K (km)', n(toleranceLengthKm(cl.lengthKm, cl.setups).km, F3), toleranceLengthKm(cl.lengthKm, cl.setups).assumed ? `supuesta: ${DEFAULT_SETUP_LENGTH_M} m por estación (sin distancias)` : null],
     ['Tolerancia T = e·√K (mm)', n(cl.toleranceMm, F1, 3)],
     ['Estaciones', cl.setups],
     ['Veredicto', VERDICT_TEXT[rep.verdict]],
@@ -260,7 +260,7 @@ function summarySheet(project: Project): SheetSpec {
   for (const x of project.levelRuns.map(runReport)) {
     rows.push([
       x.run.name, dmy(x.run.date), ORDER_LABEL[x.run.order], CLOSURE_LABEL[x.run.closure], n(x.result.closure.k, '0'),
-      n(x.result.closure.lengthKm), n(x.summary.misclosureMm, F1, 3), n(x.summary.toleranceMm, F1, 3), VERDICT_TEXT[x.verdict],
+      n(toleranceLengthKm(x.result.closure.lengthKm, x.result.closure.setups).km), n(x.summary.misclosureMm, F1, 3), n(x.summary.toleranceMm, F1, 3), VERDICT_TEXT[x.verdict],
     ]);
   }
   rows.push([], ['CONTROL DE CAPAS'], ['Control', 'Capa', 'Tolerancia (± mm)', 'Medidos', 'Total', '% conforme', 'Máx. + (mm)', 'Máx. − (mm)', 'Estado']);

@@ -41,6 +41,15 @@ export function kFor(run: Pick<LevelRun, 'order' | 'customK'>): number {
 }
 
 /**
+ * K (km) con el que se evalúa la tolerancia: la longitud nivelada o, sin
+ * distancias, DEFAULT_SETUP_LENGTH_M por estación (`assumed` = true).
+ */
+export function toleranceLengthKm(lengthKm: number, setups = 0): { km: number; assumed: boolean } {
+  if (Number.isFinite(lengthKm) && lengthKm > 0) return { km: lengthKm, assumed: false };
+  return { km: setups > 0 ? (setups * DEFAULT_SETUP_LENGTH_M) / 1000 : 0, assumed: setups > 0 };
+}
+
+/**
  * Tolerancia de cierre en mm.
  *  - Con longitud (km) > 0: T = k·√K.
  *  - Sin distancias (lengthKm <= 0) y con n estaciones: se supone
@@ -48,7 +57,6 @@ export function kFor(run: Pick<LevelRun, 'order' | 'customK'>): number {
  *  - Sin longitud ni estaciones: 0 (no hay criterio).
  */
 export function toleranceMm(k: number, lengthKm: number, setups = 0): number {
-  if (Number.isFinite(lengthKm) && lengthKm > 0) return k * Math.sqrt(lengthKm);
-  if (setups > 0) return k * Math.sqrt((setups * DEFAULT_SETUP_LENGTH_M) / 1000);
-  return 0;
+  const { km } = toleranceLengthKm(lengthKm, setups);
+  return km > 0 ? k * Math.sqrt(km) : 0;
 }

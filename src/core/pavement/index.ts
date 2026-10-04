@@ -141,11 +141,16 @@ export function generateControlGrid(o: ControlGridOptions): ControlPoint[] {
   const out: ControlPoint[] = [];
   for (const st of stations) {
     for (const off of o.offsets) {
-      const side = off === 0 ? 'Eje' : `${off < 0 ? 'Izq' : 'Der'} ${trimNum(Math.abs(off), 2)}`;
-      out.push({ id: uid('cp'), station: st, offset: off, label: `${stationFormat(st)} ${side}`, measured: {} });
+      out.push({ id: uid('cp'), station: st, offset: off, label: gridLabel(st, off), measured: {} });
     }
   }
   return out;
+}
+
+/** Etiqueta automática de un punto de control: "0+020.00 Izq 3.6". */
+export function gridLabel(station: number, offset: number): string {
+  const side = offset === 0 ? 'Eje' : `${offset < 0 ? 'Izq' : 'Der'} ${trimNum(Math.abs(offset), 2)}`;
+  return `${stationFormat(station)} ${side}`;
 }
 
 /* ------------------------------- Plantillas -------------------------------- */

@@ -5,7 +5,7 @@ import type { ScreenProps } from '@/app/feature';
 import { go, useNav } from '@/app/nav';
 import { useStore } from '@/app/store';
 import type { LevelRow, LevelRun, LevelRunResult, Project } from '@/core/types';
-import { ORDER_LABEL, computeLevelRun, levelRunSummary, profileFromRun } from '@/core/leveling';
+import { ORDER_LABEL, computeLevelRun, levelRunSummary, profileFromRun, toleranceLengthKm } from '@/core/leveling';
 import { Kpi, ListItem, Screen, Segmented, Sheet, StatusBadge, confirmDialog, toast } from '@/ui/kit';
 import { dateShort, f, fs } from '@/ui/format';
 import { ProfileChart, type ProfileDatum } from '@/ui/charts/ProfileChart';
@@ -399,6 +399,9 @@ function Check({ run, result, status }: { run: LevelRun; result: LevelRunResult;
   const { checks, closure, issues } = result;
   const startElev = run.startBM.elevation;
   const dH = closure.computedEnd - startElev;
+  const kLen = toleranceLengthKm(closure.lengthKm, closure.setups);
+  // computeLevelRun compensa por distancia solo si todas las VA/VAd la tienen.
+  const byDist = closure.lengthKm > 0 && result.rows.every((r) => r.kind === 'IS' || r.distance !== undefined);
   const Row = ({ ok, children }: { ok: boolean; children: ReactNode }) => (
     <div className={`lv-check-row ${ok ? 'c-ok' : 'c-fail'}`}>
       {ok ? <CircleCheck size={18} /> : <CircleX size={18} />}
@@ -436,7 +439,7 @@ function Check({ run, result, status }: { run: LevelRun; result: LevelRunResult;
           </div>
           <KV k="Clase" v={<span className="lv-kv-text">{ORDER_LABEL[run.order]}</span>} />
           <KV k="Coeficiente e" v={`${closure.k} mm`} />
-          <KV k="Longitud K" v={`${closure.lengthKm.toFixed(3)} km`} />
+          <KV k="Longitud K" v={`${kLen.km.toFixed(3)} km${kLen.assumed ? ' (supuesta)' : ''}`} />
           <KV k="Cota calculada de llegada" v={f(closure.computedEnd)} />
           <KV k="Cota conocida de llegada" v={closure.knownEnd !== undefined ? f(closure.knownEnd) : '—'} />
           <KV k="Error de cierre" v={closure.misclosureMm !== undefined ? `${fs(closure.misclosureMm, 1)} mm` : '—'} tone={status === 'pending' ? '' : `c-${status}`} />
@@ -444,7 +447,7 @@ function Check({ run, result, status }: { run: LevelRun; result: LevelRunResult;
           {closure.misclosureMm !== undefined && closure.toleranceMm !== undefined && (
             <p className="small" style={{ color: statusColor(status) }}>
               |e| = {Math.abs(closure.misclosureMm).toFixed(1)} mm {closure.passes ? '≤' : '>'} T = {closure.toleranceMm.toFixed(1)} mm
-              {closure.passes ? ' → se compensa proporcional a la distancia.' : ' → repetir la nivelación.'}
+              {closure.passes ? ` → se compensa proporcional ${byDist ? 'a la distancia' : 'al número de estaciones'}.` : ' → repetir la nivelación.'}
             </p>
           )}
         </div>

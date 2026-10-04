@@ -2,12 +2,18 @@
  * Informe de control topográfico: resumen de todo el proyecto (PDF).
  */
 import type { Project } from '@/core/types';
-import { ORDER_LABEL } from '@/core/leveling';
+import { ORDER_LABEL, toleranceLengthKm } from '@/core/leveling';
 import { C, ReportDoc, statusCell, type RGB } from './base';
 import { TONE } from './layers';
 import { bmTable } from './points';
 import { layerReports, layerVerdict, projectKpis, runReport, STATUS_TEXT, VERDICT_TEXT } from '../data';
 import { CLOSURE_LABEL, crsText, dmy, isNum, nf, nfs, type ReportHeader } from '../format';
+
+/** K con el que se evaluó T (supuesto a 100 m por estación si no hay distancias). */
+const kText = (lengthKm: number, setups: number): string => {
+  const K = toleranceLengthKm(lengthKm, setups);
+  return K.assumed ? `${nf(K.km, 3)} (sup.)` : nf(K.km, 3);
+};
 
 const pct = (v: number | undefined) => (isNum(v) ? `${nf(v, 0)} %` : '—');
 const toneFor = (v: number | undefined): RGB => (!isNum(v) ? C.grey : v >= 99.95 ? C.ok : v >= 80 ? C.warn : C.fail);
@@ -50,7 +56,7 @@ export async function projectSummaryPdf(project: Project, h: ReportHeader): Prom
         dmy(x.run.date),
         `${ORDER_LABEL[x.run.order].split(' (')[0]} · e=${nf(x.result.closure.k, 0)}`,
         CLOSURE_LABEL[x.run.closure],
-        nf(x.result.closure.lengthKm, 3),
+        kText(x.result.closure.lengthKm, x.result.closure.setups),
         nfs(x.summary.misclosureMm, 1),
         nf(x.summary.toleranceMm, 1),
         VERDICT_TEXT[x.verdict],

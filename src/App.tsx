@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { House, Ruler, MapPin, Calculator, FileText } from 'lucide-react';
 import { useNav, useCurrentRoute, type TabId } from '@/app/nav';
 import { ROOTS, SCREENS } from '@/app/screens';
@@ -30,6 +30,18 @@ function useTheme() {
   }, [theme]);
 }
 
+/** Al cambiar de proyecto activo, las pilas de las otras pestañas apuntan a datos del anterior: se vacían. */
+function useResetStacksOnProjectChange() {
+  const activeId = useStore((s) => s.activeProjectId);
+  const prev = useRef(activeId);
+  useEffect(() => {
+    if (prev.current === activeId) return;
+    prev.current = activeId;
+    const nav = useNav.getState();
+    for (const t of TABS) if (t.id !== nav.tab) nav.resetTab(t.id);
+  }, [activeId]);
+}
+
 function NavItems() {
   const tab = useNav((s) => s.tab);
   const setTab = useNav((s) => s.setTab);
@@ -52,6 +64,7 @@ function NavItems() {
 
 export default function App() {
   useTheme();
+  useResetStacksOnProjectChange();
   const tab = useNav((s) => s.tab);
   const route = useCurrentRoute();
   const Root = ROOTS[tab];

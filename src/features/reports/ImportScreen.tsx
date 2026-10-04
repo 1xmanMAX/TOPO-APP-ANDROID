@@ -609,7 +609,7 @@ function RunPreview({
           <div style={{ minWidth: 0 }}>
             <strong className="rp-ellipsis">{run.name}</strong>
             <span className="muted small">
-              {run.observations.length} obs. · {cl.setups} estaciones · {f(cl.lengthKm * 1000, 0)} m
+              {run.observations.length} obs. · {cl.setups} estaciones · {f(res.checks.sumBackDist + res.checks.sumForeDist, 0)} m
             </span>
           </div>
         </div>

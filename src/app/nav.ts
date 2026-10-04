@@ -22,8 +22,6 @@ interface NavState {
 
 const emptyStacks = (): Record<TabId, Route[]> => ({ home: [], leveling: [], points: [], tools: [], reports: [] });
 
-let fromPopState = false;
-
 export const useNav = create<NavState>((set, get) => ({
   tab: 'home',
   stacks: emptyStacks(),
@@ -39,7 +37,6 @@ export const useNav = create<NavState>((set, get) => ({
   push: (route, tab) => {
     const t = tab ?? get().tab;
     set((s) => ({ tab: t, stacks: { ...s.stacks, [t]: [...s.stacks[t], route] } }));
-    if (!fromPopState) history.pushState({ topo: true }, '');
     window.scrollTo({ top: 0 });
   },
   replace: (route) => {
@@ -67,6 +64,7 @@ export const useNav = create<NavState>((set, get) => ({
   resetTab: (tab) => {
     const t = tab ?? get().tab;
     set((s) => ({ stacks: { ...s.stacks, [t]: [] } }));
+    if (t === get().tab) window.scrollTo({ top: 0 });
   },
 }));
 
@@ -78,14 +76,45 @@ export function useCurrentRoute(): Route | null {
   });
 }
 
-/** Navegación "atrás" del sistema (botón físico de Android / navegador). */
+/** Cierres de capas abiertas (hojas inferiores); el botón atrás cierra la última. */
+const overlays: Array<() => void> = [];
+
+/** Registra una capa que el botón atrás debe cerrar antes de navegar. Devuelve la baja. */
+export function pushBackOverlay(close: () => void): () => void {
+  overlays.push(close);
+  return () => {
+    const i = overlays.lastIndexOf(close);
+    if (i >= 0) overlays.splice(i, 1);
+  };
+}
+
+/**
+ * Navegación "atrás" del sistema (botón físico de Android / navegador).
+ *
+ * El historial tiene siempre una sola entrada "guarda" sobre la base (no una
+ * por pantalla, que dejaría pulsaciones "fantasma" tras usar la flecha de la
+ * app). Al pulsar atrás se consume la guarda: si la app tenía adónde volver
+ * (o una hoja que cerrar) se repone; si ya estaba en la raíz de Inicio, no se
+ * repone y la siguiente pulsación sale de la app.
+ */
 export function installBackHandler(): void {
-  history.replaceState({ topo: true }, '');
+  let guarded = true;
+  const guard = () => {
+    history.pushState({ topo: 'guard' }, '');
+    guarded = true;
+  };
+  history.replaceState({ topo: 'base' }, '');
+  guard();
   window.addEventListener('popstate', () => {
-    fromPopState = true;
-    const handled = useNav.getState().back();
-    fromPopState = false;
-    if (handled) history.pushState({ topo: true }, '');
+    guarded = false;
+    const close = overlays[overlays.length - 1];
+    if (close) close();
+    const handled = !!close || useNav.getState().back();
+    if (handled) guard();
+  });
+  // Si se salió de la raíz y luego se vuelve a navegar, se repone la guarda.
+  useNav.subscribe((s) => {
+    if (!guarded && (s.tab !== 'home' || s.stacks.home.length > 0)) guard();
   });
 }
 

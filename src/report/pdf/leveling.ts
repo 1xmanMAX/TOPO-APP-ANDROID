@@ -3,7 +3,7 @@
  */
 import type { CellHookData, RowInput } from 'jspdf-autotable';
 import type { ID, Project } from '@/core/types';
-import { ORDER_LABEL, profileFromRun } from '@/core/leveling';
+import { ORDER_LABEL, profileFromRun, toleranceLengthKm } from '@/core/leveling';
 import { C, CONTENT_W, PAGE, ReportDoc, type RGB } from './base';
 import { drawProfile } from './charts';
 import { bookRows, findRun, runReport, VERDICT_TEXT, type RunReport } from '../data';
@@ -51,11 +51,12 @@ export function closureBox(r: ReportDoc, rep: RunReport): void {
     { align: 'center', maxWidth: vw - 6 },
   );
 
+  const kLen = toleranceLengthKm(closure.lengthKm, closure.setups);
   // Métricas (izquierda).
   const cells: [string, string, string][] = [
     ['ERROR DE CIERRE', isNum(closure.misclosureMm) ? nfs(closure.misclosureMm, 1) : '—', 'mm'],
     ['TOLERANCIA T', isNum(closure.toleranceMm) ? nf(closure.toleranceMm, 1) : '—', 'mm'],
-    ['LONGITUD (K)', nf(closure.lengthKm, 3), 'km'],
+    [kLen.assumed ? 'K SUPUESTA' : 'LONGITUD (K)', nf(kLen.km, 3), 'km'],
     ['ESTACIONES', String(closure.setups), ''],
   ];
   const cw = (CONTENT_W - vw - 4) / cells.length;
@@ -72,7 +73,7 @@ export function closureBox(r: ReportDoc, rep: RunReport): void {
   r.font(7.5, 'normal', C.ink);
   const known = closure.knownEnd;
   const formula = isNum(closure.toleranceMm)
-    ? `T = ${nf(closure.k, 0)} mm · raíz(${nf(closure.lengthKm, 3)} km) = ${nf(closure.toleranceMm, 1)} mm   ·   Cota calculada ${nf(closure.computedEnd, r.dec)} m` +
+    ? `T = ${nf(closure.k, 0)} mm · raíz(${nf(kLen.km, 3)} km) = ${nf(closure.toleranceMm, 1)} mm   ·   Cota calculada ${nf(closure.computedEnd, r.dec)} m` +
       (isNum(known) ? `   ·   Cota conocida ${nf(known, r.dec)} m` : '')
     : `Cota final calculada ${nf(closure.computedEnd, r.dec)} m (sin cota conocida de llegada)`;
   r.text(formula, PAGE.m + 4, y + 29, { maxWidth: CONTENT_W - vw - 6 });

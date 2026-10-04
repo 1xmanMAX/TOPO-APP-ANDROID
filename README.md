@@ -51,9 +51,13 @@ Está pensada para obra peruana: pavimentación, veredas, saneamiento y edificac
 |---|---|---|---|
 | <img src="docs/img/screens/perfil.png" width="200" /> | <img src="docs/img/screens/capas.png" width="200" /> | <img src="docs/img/screens/planta.png" width="200" /> | <img src="docs/img/screens/calculos.png" width="200" /> |
 
-| Herramienta | Importar | Informes | Modo oscuro |
+| Herramienta | Importar | Informes | Superficie |
 |---|---|---|---|
-| <img src="docs/img/screens/herramienta.png" width="200" /> | <img src="docs/img/screens/importar.png" width="200" /> | <img src="docs/img/screens/informes.png" width="200" /> | <img src="docs/img/screens/inicio-oscuro.png" width="200" /> |
+| <img src="docs/img/screens/herramienta.png" width="200" /> | <img src="docs/img/screens/importar.png" width="200" /> | <img src="docs/img/screens/informes.png" width="200" /> | <img src="docs/img/screens/superficie.png" width="200" /> |
+
+| Modo oscuro | Resultado en oscuro |
+|---|---|
+| <img src="docs/img/screens/inicio-oscuro.png" width="200" /> | <img src="docs/img/screens/resultado-oscuro.png" width="200" /> |
 
 <p align="center"><img src="docs/img/screens/escritorio.png" width="90%" alt="Versión escritorio" /></p>
 
@@ -69,8 +73,11 @@ También hay un [Excel del proyecto completo](docs/ejemplos/proyecto.xlsx).
 
 ## Instalar en Android
 
-1. Ve a la pestaña **Actions** del repositorio, abre la última ejecución de **CI** y descarga el artefacto `topo-app-debug-apk`.
-2. Copia el `.apk` al teléfono y ábrelo. Android pedirá permitir «instalar apps de origen desconocido».
+1. Descarga **[TOPO-APP-v1.0.0.apk](release/TOPO-APP-v1.0.0.apk)** (5,8 MB) desde el teléfono. En GitHub, abre el archivo y pulsa *Download raw file*.
+2. Ábrelo y acepta «Instalar apps de origen desconocido» si Android lo pide.
+3. La primera vez toca **«Explorar con proyecto de ejemplo»** para ver la app con datos reales, o **«Crear proyecto»** para empezar el tuyo.
+
+Cada push también genera un APK nuevo en GitHub Actions (artefacto `topo-app-debug-apk` de la ejecución de **CI**).
 
 Para compilarlo tú mismo hace falta Node 22, JDK 21 y el Android SDK:
 
@@ -87,7 +94,7 @@ cd android && ./gradlew assembleDebug
 ```bash
 npm install
 npm run dev          # servidor local en http://localhost:5173
-npm test             # tests del motor de cálculo, importadores e informes
+npm test             # 146 tests: motor de cálculo, importadores, informes y regresiones
 npm run typecheck    # TypeScript estricto
 npm run build        # build de producción en dist/
 npm run screenshots  # regenera las capturas del README

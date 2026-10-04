@@ -113,16 +113,6 @@ export default function Settings(_: ScreenProps) {
               ]}
             />
           </Field>
-          <Field label="Unidad angular">
-            <Segmented<'sexagesimal' | 'centesimal'>
-              value={settings.angleUnit}
-              onChange={(v) => setSettings({ angleUnit: v })}
-              options={[
-                { value: 'sexagesimal', label: 'Sexagesimal (° ′ ″)' },
-                { value: 'centesimal', label: 'Centesimal (gon)' },
-              ]}
-            />
-          </Field>
           <Toggle
             checked={settings.haptics}
             onChange={(v) => {

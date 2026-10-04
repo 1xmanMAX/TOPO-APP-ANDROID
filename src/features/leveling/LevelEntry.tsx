@@ -135,9 +135,10 @@ function Entry({ run }: { run: LevelRun }) {
   const startSlot = threads ? 'upper' : 'reading';
 
   // Vista previa de hilos.
-  const up = parseNum(vals.upper);
-  const lo = parseNum(vals.lower);
-  const mid = parseNum(vals.reading);
+  // Mismo criterio que al guardar ("1487" → 1.487 m).
+  const up = parseReading(vals.upper).value;
+  const lo = parseReading(vals.lower).value;
+  const mid = parseReading(vals.reading).value;
   const threadDist = threads && up !== undefined && lo !== undefined ? 100 * Math.abs(up - lo) : undefined;
   const threadDiff = threads && up !== undefined && lo !== undefined && mid !== undefined ? mid - (up + lo) / 2 : undefined;
 
@@ -214,6 +215,12 @@ function Entry({ run }: { run: LevelRun }) {
     // Sugerencia siguiente.
     if (insertAt !== null) {
       setInsertAt(null);
+      const fresh = st().projects.find((p) => p.id === st().activeProjectId)?.levelRuns.find((x) => x.id === runId);
+      if (fresh) {
+        const sg = suggest(fresh);
+        setKind(sg.kind);
+        setName(sg.name);
+      }
       return;
     }
     if (kind === 'BS') {
@@ -273,8 +280,8 @@ function Entry({ run }: { run: LevelRun }) {
   const hasDist = checks.sumBackDist + checks.sumForeDist > 0;
   const imbAlert = (stImb !== undefined && Math.abs(stImb) > 5) || Math.abs(cumImb) > 10;
   const target = targetBM(run);
-  const lastFs = [...rows].reverse().find((r) => r.kind === 'FS');
-  const closed = !!target && !!lastFs && lastFs.pointName === target && closure.misclosureMm !== undefined;
+  // computeLevelRun solo da error de cierre cuando la libreta ya cerró en el BM.
+  const closed = !!target && closure.misclosureMm !== undefined;
   const cStatus = closed ? closureStatus(result) : 'pending';
 
   const lastSavedRow = lastSaved ? rows.find((r) => r.obsId === lastSaved) : undefined;
@@ -282,10 +289,17 @@ function Entry({ run }: { run: LevelRun }) {
 
   // Incidencias reales (se omiten las propias de una libreta aún sin cerrar).
   const liveIssues = result.issues.filter(
-    (t) => !/no termina con una vista adelante|Comprobación aritmética|Circuito cerrado: el último punto|no es el BM de llegada|no se puede calcular el cierre/i.test(t),
+    (t) => !/no termina con una vista adelante|Comprobación aritmética|Circuito cerrado: el último punto|no es el BM de llegada|no se puede calcular el cierre|Libreta en curso/i.test(t),
   );
 
-  const goResult = () => useNav.getState().replace({ name: 'level-run', params: { runId: run.id } });
+  const goResult = () => {
+    const nav = useNav.getState();
+    const stack = nav.stacks[nav.tab];
+    const prev = stack[stack.length - 2];
+    // Si se llegó desde el resultado de esta libreta, volver a él (sin duplicarlo en la pila).
+    if (prev?.name === 'level-run' && prev.params?.runId === run.id) nav.back();
+    else nav.replace({ name: 'level-run', params: { runId: run.id } });
+  };
 
   return (
     <Screen
@@ -600,7 +614,9 @@ function ObsEditor({ run, obs, index, onClose, onInsertBefore }: { run: LevelRun
           const { id: _id, ...patch } = d;
           void _id;
           st().updateObservation(run.id, obs.id, { ...patch, pointName: patch.pointName.trim() });
-          toast('Lectura actualizada', 'ok', { label: 'Deshacer', run: () => st().updateObservation(run.id, obs.id, obs) });
+          // Las claves opcionales ausentes en `obs` se restauran como undefined (si no, el deshacer las conservaría).
+          const restore: Partial<LevelObservation> = { upper: undefined, lower: undefined, distance: undefined, designElevation: undefined, note: undefined, ...obs };
+          toast('Lectura actualizada', 'ok', { label: 'Deshacer', run: () => st().updateObservation(run.id, obs.id, restore) });
           onClose();
         }}
       >

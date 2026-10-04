@@ -5,7 +5,7 @@ import type { ScreenProps } from '@/app/feature';
 import { useNav } from '@/app/nav';
 import { useStore } from '@/app/store';
 import { vibrate } from '@/app/platform';
-import { layerDesignElevation, statusFor } from '@/core/pavement';
+import { gridLabel, layerDesignElevation, statusFor } from '@/core/pavement';
 import { gradeStake } from '@/core/leveling';
 import type { LayerControl, PavementLayer } from '@/core/types';
 import { NumPad, NumberInput, Screen, Segmented, Sheet, StatusBadge, toast } from '@/ui/kit';
@@ -194,7 +194,7 @@ function Entry({ control, layer }: { control: LayerControl; layer: PavementLayer
             <div className="lc-point-sta num">{station(pt.station, Math.abs(pt.station - Math.round(pt.station)) < 1e-6 ? 0 : 2)}</div>
             <div className="small muted">
               {offLabel(pt.offset)}
-              {pt.label && !/^(Eje|Izq|Der)/.test(pt.label) ? ` · ${pt.label}` : ''}
+              {pt.label && pt.label !== gridLabel(pt.station, pt.offset) ? ` · ${pt.label}` : ''}
             </div>
             <div className="lc-point-design">
               Diseño <b className="num">{f(design)}</b>

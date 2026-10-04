@@ -4,7 +4,7 @@ import { Crosshair, FileDown, FileSpreadsheet, MoreVertical, Pencil, Plus, Ruler
 import type { ScreenProps } from '@/app/feature';
 import { go, useNav } from '@/app/nav';
 import { useStore } from '@/app/store';
-import { checkLayer, layerDesignElevation, layerSummary } from '@/core/pavement';
+import { checkLayer, gridLabel, layerDesignElevation, layerSummary } from '@/core/pavement';
 import type { ControlPoint, DesignGrade, ID, LayerCheck, LayerControl, PavementLayer, Project } from '@/core/types';
 import { Kpi, ListItem, NumberInput, Screen, Sheet, StatusBadge, TextInput, confirmDialog, toast } from '@/ui/kit';
 import { f, fs, station } from '@/ui/format';
@@ -257,7 +257,8 @@ function PointEditor({ control, layer, point, onClose }: { control: LayerControl
   const st = useStore.getState;
   const [sta, setSta] = useState<number | undefined>(point?.station ?? control.points[control.points.length - 1]?.station);
   const [off, setOff] = useState<number | undefined>(point?.offset ?? 0);
-  const [label, setLabel] = useState(point?.label ?? '');
+  // La etiqueta automática ("0+020.00 Izq 3.6") se regenera si se mueve el punto; solo se conserva una escrita a mano.
+  const [label, setLabel] = useState(point?.label && point.label !== gridLabel(point.station, point.offset) ? point.label : '');
   const [override, setOverride] = useState<number | undefined>(point?.designOverride);
   const [meas, setMeas] = useState<number | undefined>(point?.measured[layer.id]);
   const idx = control.layers.findIndex((l) => l.id === layer.id);
@@ -269,7 +270,7 @@ function PointEditor({ control, layer, point, onClose }: { control: LayerControl
         <NumberInput label="Progresiva" suffix="m" value={sta} onChange={setSta} />
         <NumberInput label="Desplazamiento" suffix="m" value={off} onChange={setOff} hint="− izq · + der" />
       </div>
-      <TextInput label="Etiqueta (opcional)" value={label} onChange={setLabel} />
+      <TextInput label="Etiqueta (opcional)" value={label} onChange={setLabel} placeholder={sta !== undefined && off !== undefined ? gridLabel(sta, off) : undefined} />
       <NumberInput label="Cota de rasante explícita (opcional)" suffix="m" value={override} onChange={setOverride} hint="Prevalece sobre la rasante por pendientes" />
       <NumberInput label={`Cota medida · ${layer.name}`} suffix="m" value={meas} onChange={setMeas} />
       <div className="lv-kv">
@@ -289,7 +290,7 @@ function PointEditor({ control, layer, point, onClose }: { control: LayerControl
           const measured = { ...(point?.measured ?? {}) };
           if (meas === undefined) delete measured[layer.id];
           else measured[layer.id] = meas;
-          st().upsertControlPoint(control.id, { id: point?.id, station: sta!, offset: off!, label: label.trim() || undefined, designOverride: override, measured });
+          st().upsertControlPoint(control.id, { id: point?.id, station: sta!, offset: off!, label: label.trim() || gridLabel(sta!, off!), designOverride: override, measured });
           toast(point ? 'Punto actualizado' : 'Punto añadido');
           onClose();
         }}

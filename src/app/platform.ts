@@ -4,6 +4,7 @@
  * En Android (Capacitor) usa Filesystem + Share; en web descarga el archivo.
  */
 import { Capacitor } from '@capacitor/core';
+import { useStore } from './store';
 
 export const isNative = () => Capacitor.isNativePlatform();
 
@@ -83,9 +84,11 @@ export function getPhonePosition(timeoutMs = 20000): Promise<PhoneFix> {
 }
 
 export function vibrate(ms = 12): void {
+  if (!useStore.getState().settings.haptics) return;
   try {
     navigator.vibrate?.(ms);
   } catch {
     /* sin soporte */
   }
 }
+

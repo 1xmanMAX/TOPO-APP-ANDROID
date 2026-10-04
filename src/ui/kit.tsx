@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { create } from 'zustand';
 import { ArrowLeft, Check, Delete, X, AlertTriangle, CircleCheck, CircleX, Minus } from 'lucide-react';
-import { useNav } from '@/app/nav';
+import { pushBackOverlay, useNav } from '@/app/nav';
 import type { ComplianceStatus } from '@/core/types';
 import { vibrate } from '@/app/platform';
 import { parseNum } from './format';
@@ -80,12 +80,19 @@ export function Sheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current();
     window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
-  }, [open, onClose]);
+    // El botón atrás (Android / navegador) cierra la hoja en vez de salir de la pantalla.
+    const unregister = pushBackOverlay(() => closeRef.current());
+    return () => {
+      window.removeEventListener('keydown', k);
+      unregister();
+    };
+  }, [open]);
   if (!open) return null;
   return (
     <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -444,7 +451,7 @@ export function NumPad({
     if (k === 'clr') return onChange('');
     if (k === 'neg') return onChange(value.startsWith('-') ? value.slice(1) : '-' + value);
     if (k === '.' && value.includes('.')) return;
-    if (value.replace('-', '').replace('.', '').length >= 9) return;
+    if (value.replace('-', '').replace('.', '').length + k.length > 9) return;
     onChange(value + k);
   };
   return (
@@ -481,7 +488,7 @@ export function NumPad({
       </button>
       <button onClick={() => press(allowNegative ? 'neg' : '0')}>{allowNegative ? '±' : '0'}</button>
       <button onClick={() => press(allowNegative ? '0' : '.')}>{allowNegative ? '0' : '.'}</button>
-      <button onClick={() => press(allowNegative ? '.' : '0')} className={allowNegative ? '' : 'k-fn'}>
+      <button onClick={() => press(allowNegative ? '.' : '00')} className={allowNegative ? '' : 'k-fn'}>
         {allowNegative ? '.' : '00'}
       </button>
     </div>

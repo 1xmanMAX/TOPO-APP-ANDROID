@@ -4,6 +4,7 @@ import { FolderPlus, Sparkles, Ruler, CircleCheck, AlertTriangle, CircleX, Clock
 import { go } from '@/app/nav';
 import { useProject, useStore } from '@/app/store';
 import type { ComplianceStatus, LayerControl, LevelClosure, LevelMethod, LevelRun, LevelRunResult, Project } from '@/core/types';
+import { DEFAULT_SETUP_LENGTH_M, toleranceLengthKm } from '@/core/leveling';
 import { EmptyState, Screen } from '@/ui/kit';
 
 export const METHOD_LABEL: Record<LevelMethod, string> = {
@@ -56,9 +57,9 @@ export const statusColor = (s: ComplianceStatus) =>
 /** "12·√0.406 = 7.6 mm" */
 export function toleranceFormula(k: number, lengthKm: number, setups: number, tolMm: number | undefined): string {
   if (tolMm === undefined) return '—';
-  const K = lengthKm > 0 ? lengthKm : (setups * 100) / 1000;
+  const K = toleranceLengthKm(lengthKm, setups);
   const kTxt = Number.isInteger(k) ? String(k) : k.toFixed(1);
-  return `T = ${kTxt}·√${K.toFixed(3)} = ${tolMm.toFixed(1)} mm${lengthKm > 0 ? '' : ' (100 m/estación supuesto)'}`;
+  return `T = ${kTxt}·√${K.km.toFixed(3)} = ${tolMm.toFixed(1)} mm${K.assumed ? ` (${DEFAULT_SETUP_LENGTH_M} m/estación supuesto)` : ''}`;
 }
 
 /** Siguiente nombre de punto: progresivas 0+020 → 0+040, PC-3 → PC-4, 12 → 13. */

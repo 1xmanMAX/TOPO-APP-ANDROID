@@ -6,7 +6,7 @@ import type {
   LevelRun,
   LevelRunResult,
 } from '@/core/types';
-import { kFor, toleranceMm } from './tolerance';
+import { DEFAULT_SETUP_LENGTH_M, kFor, toleranceMm } from './tolerance';
 
 /** Tolerancia del control hilo medio ≈ (superior+inferior)/2 (m). */
 export const STADIA_MIDDLE_TOL_M = 0.003;
@@ -202,7 +202,15 @@ export function computeLevelRun(run: LevelRun): LevelRunResult {
   // Cierre.
   const setups = setup;
   const k = kFor(run);
-  const lengthKm = (sumBackDist + sumForeDist) / 1000;
+  // K solo con distancias completas: si faltan en alguna VA/VAd, la suma parcial
+  // daría una tolerancia demasiado estricta → se usa la longitud supuesta por estación.
+  const measuredKm = (sumBackDist + sumForeDist) / 1000;
+  const lengthKm = allDist ? measuredKm : 0;
+  if (!allDist && measuredKm > 0) {
+    issues.push(
+      `Distancias incompletas en vistas atrás/adelante: la tolerancia se calcula con ${DEFAULT_SETUP_LENGTH_M} m por estación y la compensación por número de estaciones`,
+    );
+  }
   const closure: LevelClosureResult = {
     computedEnd: lastFsElev,
     k,

@@ -54,7 +54,9 @@ export function relative(iso: string): string {
   return dateShort(iso);
 }
 
-export const todayISO = () => new Date().toISOString().slice(0, 10);
+/** Fecha local de hoy (AAAA-MM-DD); toISOString() daría el día UTC (en Perú, el siguiente desde las 19:00). */
+export const todayISO = (d = new Date()): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /** Convierte texto de usuario a número aceptando coma decimal. */
 export function parseNum(s: string | number | undefined | null): number | undefined {
