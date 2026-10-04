@@ -1,13 +1,15 @@
 import type { FeatureModule } from '@/app/feature';
-import { Screen } from '@/ui/kit';
+import { ReportsRoot } from './ReportsRoot';
+import { ImportScreen } from './ImportScreen';
+import { ExportScreen } from './ExportScreen';
+import { ReportScreen } from './ReportScreen';
 
-function Root() {
-  return (
-    <Screen title="Reports">
-      <p className="muted">En construcción.</p>
-    </Screen>
-  );
-}
-
-const mod: FeatureModule = { Root, screens: {} };
+const mod: FeatureModule = {
+  Root: ReportsRoot,
+  screens: {
+    import: ImportScreen,
+    export: ExportScreen,
+    report: ReportScreen,
+  },
+};
 export default mod;

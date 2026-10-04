@@ -1,13 +1,15 @@
 import type { FeatureModule } from '@/app/feature';
-import { Screen } from '@/ui/kit';
+import PointsRoot from './PointsRoot';
+import PointEdit from './PointEdit';
+import PhoneGps from './PhoneGps';
+import Surface from './Surface';
 
-function Root() {
-  return (
-    <Screen title="Points">
-      <p className="muted">En construcción.</p>
-    </Screen>
-  );
-}
-
-const mod: FeatureModule = { Root, screens: {} };
+const mod: FeatureModule = {
+  Root: PointsRoot,
+  screens: {
+    'point-edit': PointEdit,
+    'phone-gps': PhoneGps,
+    surface: Surface,
+  },
+};
 export default mod;
