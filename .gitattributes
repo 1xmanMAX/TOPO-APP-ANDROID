@@ -1,0 +1,5 @@
+# Archivos de prueba que no se tocan al sacarlos del repositorio
+*.pdf binary
+*.xlsx binary
+*.topo binary
+*.dxf -text
