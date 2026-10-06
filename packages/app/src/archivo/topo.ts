@@ -16,6 +16,8 @@ import {
   type Lectura,
   type MetaProyecto,
   type Nivelacion,
+  type Pista,
+  type PlanoImportado,
   type Proyecto,
   type PuntoSeccion,
   type Rasante,
@@ -23,20 +25,62 @@ import {
   type Seccion,
   type Toma,
 } from '@topo/core'
-import { unzipSync, zipSync } from 'fflate'
+import { unzipSync, zipSync, type Zippable } from 'fflate'
 import { nuevoId } from '../estado/ejemplo'
 import { agregarTomaComoNivelacion } from '../estado/proyectoTomas'
 import { bytesDelArchivo } from './bytes'
 
 const NOMBRE_INTERNO = 'proyecto.json'
+const CARPETA_PLANOS = 'planos/'
 const VERSION_SOPORTADA = 1
 
-export function empaquetarProyecto(proyecto: Proyecto) {
+/**
+ * Los bytes de cada plano importado, por id de plano. No van en el JSON del
+ * proyecto (un PDF de expediente pesa megas y el proyecto se autoguarda cada
+ * segundo): viajan aparte, dentro del .topo y en el autoguardado.
+ */
+export type ArchivosDePlano = Record<Id, Uint8Array>
+
+/** Lo que trae un .topo: el proyecto y los bytes de sus planos. */
+export interface ContenidoTopo {
+  proyecto: Proyecto
+  archivosDePlano: ArchivosDePlano
+}
+
+/** Dónde va dentro del zip el archivo de un plano: `planos/<id>.dxf` o `planos/<id>.pdf`. */
+export function entradaDePlano(plano: PlanoImportado): string {
+  return `${CARPETA_PLANOS}${plano.id}.${plano.formato}`
+}
+
+export function empaquetarProyecto(proyecto: Proyecto, archivosDePlano: ArchivosDePlano = {}) {
   const json = new TextEncoder().encode(JSON.stringify(proyecto, null, 2))
-  return zipSync({ [NOMBRE_INTERNO]: json }, { level: 6 })
+  const entradas: Zippable = { [NOMBRE_INTERNO]: json }
+
+  for (const plano of proyecto.planos ?? []) {
+    const bytes = archivosDePlano[plano.id]
+    if (!bytes) continue
+    // Un PDF ya viene comprimido por dentro: volver a comprimirlo solo gasta
+    // tiempo en el celular. El DXF es texto y sí se encoge mucho.
+    entradas[entradaDePlano(plano)] = [bytes, { level: plano.formato === 'pdf' ? 0 : 6 }]
+  }
+
+  return zipSync(entradas, { level: 6 })
 }
 
 export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
+  return desempaquetarTopo(datos).proyecto
+}
+
+/**
+ * Abre un .topo entero: el proyecto, ya migrado, y los bytes de sus planos.
+ *
+ * Solo se cargan los archivos de los planos que el proyecto declara: una
+ * entrada suelta en la carpeta `planos/` no tiene a qué plano pegarse. Y un
+ * plano declarado sin su archivo se queda en el proyecto igual —con su
+ * calibración y sus pistas—, para que la pantalla pida el archivo en vez de
+ * borrar el trabajo hecho sobre él.
+ */
+export function desempaquetarTopo(datos: Uint8Array): ContenidoTopo {
   let contenido: Record<string, Uint8Array>
   try {
     contenido = unzipSync(datos)
@@ -76,7 +120,15 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
     )
   }
 
-  return migrarProyecto(proyecto)
+  const migrado = migrarProyecto(proyecto)
+  const archivosDePlano: ArchivosDePlano = {}
+  for (const plano of migrado.planos ?? []) {
+    const bytes = contenido[entradaDePlano(plano)]
+    if (bytes) archivosDePlano[plano.id] = bytes
+    else console.warn(`El plano "${plano.nombre}" está en el proyecto, pero su archivo no venía dentro del .topo.`)
+  }
+
+  return { proyecto: migrado, archivosDePlano }
 }
 
 /**
@@ -89,7 +141,89 @@ export function desempaquetarProyecto(datos: Uint8Array): Proyecto {
  * indefinido) y las cuentas que dependen de ellos se rompieran en silencio.
  */
 export function migrarProyecto(proyecto: Proyecto): Proyecto {
-  return migrarProgresivasDeclaradas(migrarASeccion(migrarCamposDe2B(migrarCapasSinOrden(proyecto))))
+  return migrarCamposDeLaOla2(
+    migrarProgresivasDeclaradas(migrarASeccion(migrarCamposDe2B(migrarCapasSinOrden(proyecto)))),
+  )
+}
+
+function esObjeto(valor: unknown): valor is Record<string, unknown> {
+  return typeof valor === 'object' && valor !== null && !Array.isArray(valor)
+}
+
+/** Una calibración que no sirve para medir se guarda como «sin calibrar», que es lo que es. */
+function calibracionUsable(valor: unknown): PlanoImportado['calibracion'] {
+  if (!esObjeto(valor)) return null
+  const metros = valor.metrosPorUnidad
+  if (typeof metros !== 'number' || !Number.isFinite(metros) || metros <= 0) return null
+  return valor as unknown as PlanoImportado['calibracion']
+}
+
+/**
+ * Los campos de la ola 2 —instrumento, planos, pistas, notas y plan de
+ * controles— son todos opcionales. Un archivo de antes no los trae, y así se
+ * quedan: ausentes, sin inventar valores (lo que falte del instrumento sale
+ * de fábrica al leerlo, con `instrumentoCompleto`).
+ *
+ * Lo que sí se arregla es lo que vino roto, porque una pantalla que hace
+ * `proyecto.planos.map` revienta con un objeto donde esperaba una lista:
+ * una lista que no es lista se quita, un plano o una pista sin id se quitan
+ * (avisando), una calibración inservible pasa a «sin calibrar», y el enlace
+ * de una pista a una calle que ya no existe se suelta (la pista se queda).
+ *
+ * Idempotente: pasar dos veces deja lo mismo que pasar una.
+ */
+function migrarCamposDeLaOla2(proyecto: Proyecto): Proyecto {
+  const resultado: Proyecto = { ...proyecto }
+  const bruto = proyecto as unknown as Record<string, unknown>
+
+  if ('instrumento' in bruto && !esObjeto(bruto.instrumento)) delete resultado.instrumento
+
+  if ('planos' in bruto) {
+    if (!Array.isArray(bruto.planos)) {
+      console.warn('La lista de planos del proyecto venía dañada y se quitó.')
+      delete resultado.planos
+    } else {
+      resultado.planos = (bruto.planos as unknown[]).flatMap((plano): PlanoImportado[] => {
+        if (!esObjeto(plano) || typeof plano.id !== 'string' || (plano.formato !== 'dxf' && plano.formato !== 'pdf')) {
+          console.warn('Un plano del proyecto venía sin id o sin formato, y se quitó.')
+          return []
+        }
+        return [{ ...(plano as unknown as PlanoImportado), calibracion: calibracionUsable(plano.calibracion) }]
+      })
+    }
+  }
+
+  if ('pistas' in bruto) {
+    if (!Array.isArray(bruto.pistas)) {
+      console.warn('La lista de pistas del proyecto venía dañada y se quitó.')
+      delete resultado.pistas
+    } else {
+      const calles = new Set(proyecto.calles.map((calle) => calle.id))
+      resultado.pistas = (bruto.pistas as unknown[]).flatMap((pista): Pista[] => {
+        if (!esObjeto(pista) || typeof pista.id !== 'string' || !Array.isArray(pista.polilinea)) {
+          console.warn('Una pista del proyecto venía sin id o sin su eje, y se quitó.')
+          return []
+        }
+        const enlazada = pista as unknown as Pista
+        if (enlazada.calleId === undefined || calles.has(enlazada.calleId)) return [enlazada]
+        const { calleId: _suelta, ...sinEnlace } = enlazada
+        return [sinEnlace]
+      })
+    }
+  }
+
+  resultado.calles = proyecto.calles.map((calle) => {
+    const cruda = calle as unknown as Record<string, unknown>
+    const notasRotas = 'notas' in cruda && !Array.isArray(cruda.notas)
+    const planRoto = 'planControles' in cruda && cruda.planControles !== null && !esObjeto(cruda.planControles)
+    if (!notasRotas && !planRoto) return calle
+    const arreglada = { ...calle }
+    if (notasRotas) delete arreglada.notas
+    if (planRoto) delete arreglada.planControles
+    return arreglada
+  })
+
+  return resultado
 }
 
 /**
@@ -601,6 +735,11 @@ function migrarASeccion(proyectoBruto: Proyecto): Proyecto {
     bms: proyectoBruto.bms,
     capas: proyectoBruto.capas,
     calles: [],
+    // Un proyecto de esta forma es anterior a la ola 2 y no debería traer
+    // estos campos; si los trae, no hay por qué perderlos al migrar.
+    ...(proyectoBruto.instrumento !== undefined ? { instrumento: proyectoBruto.instrumento } : {}),
+    ...(proyectoBruto.planos !== undefined ? { planos: proyectoBruto.planos } : {}),
+    ...(proyectoBruto.pistas !== undefined ? { pistas: proyectoBruto.pistas } : {}),
   }
 
   for (const calleBruta of proyecto.calles) {
@@ -664,8 +803,8 @@ function migrarASeccion(proyectoBruto: Proyecto): Proyecto {
   return resultado
 }
 
-export function descargarTopo(proyecto: Proyecto): void {
-  const datos = empaquetarProyecto(proyecto)
+export function descargarTopo(proyecto: Proyecto, archivosDePlano: ArchivosDePlano = {}): void {
+  const datos = empaquetarProyecto(proyecto, archivosDePlano)
   const enlace = document.createElement('a')
   const url = URL.createObjectURL(new Blob([datos], { type: 'application/zip' }))
 
@@ -686,5 +825,10 @@ export function descargarTopo(proyecto: Proyecto): void {
  * este camino sí se puede probar.
  */
 export async function abrirTopo(archivo: File): Promise<Proyecto> {
-  return desempaquetarProyecto(await bytesDelArchivo(archivo))
+  return (await abrirTopoCompleto(archivo)).proyecto
+}
+
+/** Como `abrirTopo`, pero con los bytes de los planos: es lo que usa la barra de archivo. */
+export async function abrirTopoCompleto(archivo: File): Promise<ContenidoTopo> {
+  return desempaquetarTopo(await bytesDelArchivo(archivo))
 }

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { abrirTopo, descargarTopo } from '../archivo/topo'
+import { abrirTopoCompleto, descargarTopo } from '../archivo/topo'
 import { useAlmacen } from '../estado/almacen'
 
 const TEXTO_CONFIRMACION = '¿Seguro? Se pierde lo no guardado'
@@ -8,6 +8,7 @@ type Armado = 'nuevo' | 'abrir' | null
 
 export default function BarraArchivo() {
   const proyecto = useAlmacen((s) => s.proyecto)
+  const archivosDePlano = useAlmacen((s) => s.archivosDePlano)
   const cargarProyecto = useAlmacen((s) => s.cargarProyecto)
   const nuevoProyecto = useAlmacen((s) => s.nuevoProyecto)
   const entradaArchivo = useRef<HTMLInputElement>(null)
@@ -16,7 +17,8 @@ export default function BarraArchivo() {
 
   async function abrir(archivo: File) {
     try {
-      cargarProyecto(await abrirTopo(archivo))
+      const { proyecto: abierto, archivosDePlano: planos } = await abrirTopoCompleto(archivo)
+      cargarProyecto(abierto, planos)
       setMensaje(null)
     } catch (fallo) {
       setMensaje((fallo as Error).message)
@@ -24,7 +26,7 @@ export default function BarraArchivo() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={() => {
@@ -37,7 +39,7 @@ export default function BarraArchivo() {
           }
         }}
         onBlur={() => setArmado((actual) => (actual === 'nuevo' ? null : actual))}
-        className="rounded px-2 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="min-h-11 rounded px-3 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
       >
         {armado === 'nuevo' ? TEXTO_CONFIRMACION : 'Nuevo'}
       </button>
@@ -53,7 +55,7 @@ export default function BarraArchivo() {
           }
         }}
         onBlur={() => setArmado((actual) => (actual === 'abrir' ? null : actual))}
-        className="rounded px-2 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="min-h-11 rounded px-3 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
       >
         {armado === 'abrir' ? TEXTO_CONFIRMACION : 'Abrir'}
       </button>
@@ -61,9 +63,9 @@ export default function BarraArchivo() {
         type="button"
         onClick={() => {
           setMensaje(null)
-          descargarTopo(proyecto)
+          descargarTopo(proyecto, archivosDePlano)
         }}
-        className="rounded px-2 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="min-h-11 rounded px-3 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
       >
         Guardar
       </button>

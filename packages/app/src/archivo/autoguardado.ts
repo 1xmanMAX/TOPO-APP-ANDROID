@@ -1,17 +1,30 @@
 import type { Proyecto } from '@topo/core'
 import { del, get, set } from 'idb-keyval'
 import { todasLasTomas } from '../estado/proyectoTomas'
-import { migrarProyecto } from './topo'
+import { migrarProyecto, type ArchivosDePlano } from './topo'
 
 const CLAVE = 'topo:borrador'
+/**
+ * Los bytes de los planos van en su propia clave y no junto al proyecto: el
+ * proyecto se guarda a cada segundo de trabajo, y arrastrar con él varios
+ * megas de PDF que no cambiaron sería escribirlos una y otra vez en el
+ * celular. Esta clave solo se escribe cuando cambian los planos.
+ */
+const CLAVE_PLANOS = 'topo:borrador:planos'
 
 export interface Borrador {
   proyecto: Proyecto
   guardado: string
+  /** Vacío si el borrador es de antes de los planos, o si no hay ninguno. */
+  archivosDePlano: ArchivosDePlano
 }
 
 export async function guardarBorrador(proyecto: Proyecto): Promise<void> {
-  await set(CLAVE, { proyecto, guardado: new Date().toISOString() } satisfies Borrador)
+  await set(CLAVE, { proyecto, guardado: new Date().toISOString() })
+}
+
+export async function guardarArchivosDePlano(archivosDePlano: ArchivosDePlano): Promise<void> {
+  await set(CLAVE_PLANOS, archivosDePlano)
 }
 
 /**
@@ -20,15 +33,26 @@ export async function guardarBorrador(proyecto: Proyecto): Promise<void> {
  * calles no traen `rasante`. Pasa por la misma migración que un archivo
  * `.topo` (`migrarProyecto`) para que el proyecto recuperado quede tan
  * usable como uno abierto desde archivo, y no entre con campos a medias.
+ *
+ * De los planos guardados se devuelven solo los que el proyecto declara,
+ * igual que al abrir un .topo.
  */
 export async function leerBorrador(): Promise<Borrador | null> {
-  const borrador = await get<Borrador>(CLAVE)
+  const borrador = await get<Omit<Borrador, 'archivosDePlano'>>(CLAVE)
   if (!borrador) return null
-  return { ...borrador, proyecto: migrarProyecto(borrador.proyecto) }
+  const proyecto = migrarProyecto(borrador.proyecto)
+  const guardados = (await get<ArchivosDePlano>(CLAVE_PLANOS)) ?? {}
+  const archivosDePlano: ArchivosDePlano = {}
+  for (const plano of proyecto.planos ?? []) {
+    const bytes = guardados[plano.id]
+    if (bytes) archivosDePlano[plano.id] = bytes
+  }
+  return { proyecto, guardado: borrador.guardado, archivosDePlano }
 }
 
 export async function borrarBorrador(): Promise<void> {
   await del(CLAVE)
+  await del(CLAVE_PLANOS)
 }
 
 /** Cuenta lecturas para el mensaje de recuperación. */

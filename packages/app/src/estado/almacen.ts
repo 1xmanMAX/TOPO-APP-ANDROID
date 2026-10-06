@@ -26,8 +26,14 @@ import {
   type Rol,
   type Seccion,
   type Toma,
+  type Instrumento,
+  type Nota,
+  type Pista,
+  type PlanControles,
+  type PlanoImportado,
 } from '@topo/core'
 import { create } from 'zustand'
+import type { ArchivosDePlano } from '../archivo/topo'
 import type { HojaInterpretada, ReferenciaLeida } from '../importar/interpretar'
 import { nuevoId, proyectoEjemplo, proyectoVacio } from './ejemplo'
 import {
@@ -40,7 +46,27 @@ import {
   agregarTomaComoNivelacion,
 } from './proyectoTomas'
 
+// ---------- Navegación (sección 5.1 y 5.2 del diseño del rediseño) ----------
+
+/** Los tres espacios de la barra superior. */
+export type Espacio = 'obra' | 'calle' | 'informes'
+/** Las dos pantallas de Obra. */
+export type SubObra = 'calles' | 'plano'
+/** Los tres modos sobre la misma vista de la calle. */
+export type ModoCalle = 'medir' | 'revisar' | 'replantear'
+/** Pantallas de la calle que tapan los modos mientras están abiertas. */
+export type PantallaCalle = 'analisis' | 'cierre' | 'planificar' | 'guia'
+
+/**
+ * Las siete pantallas de antes del rediseño. Ya no mandan en la navegación:
+ * solo se conservan para que las vistas viejas, que siguen montadas como
+ * piezas dentro de las nuevas, puedan seguir llamando a `irA` sin cambios.
+ * @deprecated Usar `irAEspacio`, `irASubObra`, `fijarModoCalle` y `abrirPantallaCalle`.
+ */
 export type Vista = 'proyecto' | 'calle' | 'seccion' | 'subir' | 'campanias' | 'libreta' | 'resultados'
+
+/** Lo que se puede cambiar de un plano después de importarlo (el formato no: son otros bytes). */
+export type CambiosPlano = Partial<Omit<PlanoImportado, 'id' | 'formato'>>
 
 /**
  * Las tres palabras de la hoja que no son puntos de la sección: la que
@@ -66,7 +92,22 @@ export interface Comparacion {
 
 interface EstadoApp {
   proyecto: Proyecto
-  vista: Vista
+  /** Bytes de cada plano importado, por id de plano. Ver `PlanoImportado`. */
+  archivosDePlano: ArchivosDePlano
+
+  espacio: Espacio
+  subObra: SubObra
+  modoCalle: ModoCalle
+  /** Null: se ven los modos. Con valor, esa pantalla de la calle tapa los modos. */
+  pantallaCalle: PantallaCalle | null
+  calculadoraAbierta: boolean
+  /**
+   * La calle en la que se trabaja. Va sincronizada con la toma activa:
+   * activar una toma activa su calle, y activar una calle activa su última
+   * toma (o ninguna, si todavía no tiene).
+   */
+  calleActivaId: Id | null
+
   campaniaActivaId: Id | null
   estacionActiva: number
   seleccion: Seleccion
@@ -79,9 +120,34 @@ interface EstadoApp {
   /** Qué manda el color en el visor 3D. */
   modoVista3D: ModoVista3D
 
-  cargarProyecto(proyecto: Proyecto): void
+  /** Los bytes de los planos que trae el proyecto; sin ellos, los planos quedan declarados pero sin archivo. */
+  cargarProyecto(proyecto: Proyecto, archivosDePlano?: ArchivosDePlano): void
   nuevoProyecto(): void
+  /** @deprecated Traduce una pantalla vieja a la navegación nueva; solo para las vistas viejas. */
   irA(vista: Vista): void
+
+  irAEspacio(espacio: Espacio): void
+  irASubObra(sub: SubObra): void
+  fijarModoCalle(modo: ModoCalle): void
+  abrirPantallaCalle(pantalla: PantallaCalle | null): void
+  activarCalle(id: Id | null): void
+  abrirCalculadora(abierta: boolean): void
+
+  fijarInstrumento(parcial: Partial<Instrumento>): void
+
+  agregarPlano(datos: Omit<PlanoImportado, 'id'>, bytes: Uint8Array): Id
+  actualizarPlano(id: Id, cambios: CambiosPlano): void
+  eliminarPlano(id: Id): void
+
+  agregarPista(datos: Omit<Pista, 'id'>): Id
+  actualizarPista(id: Id, cambios: Partial<Omit<Pista, 'id'>>): void
+  eliminarPista(id: Id): void
+  /** Crea la calle de la pista (sección de fábrica, nombre de la pista) y las deja enlazadas. Null si la pista no existe. */
+  crearCalleDesdePista(pistaId: Id): Id | null
+
+  agregarNota(calleId: Id, datos: Omit<Nota, 'id'>): Id
+  eliminarNota(calleId: Id, notaId: Id): void
+  fijarPlanControles(calleId: Id, plan: PlanControles | null): void
 
   actualizarMeta(cambios: Partial<Proyecto['meta']>): void
 
@@ -332,10 +398,76 @@ function seleccionDeCapasTrasCambio(
   return { capasVisibles: [], comparacion: SIN_COMPARACION }
 }
 
+/**
+ * La toma con la que se sigue trabajando en una calle: la última de su última
+ * nivelación, que es la más reciente en entrar. Null si la calle no tiene
+ * ninguna todavía.
+ */
+function ultimaTomaDeCalle(proyecto: Proyecto, calleId: Id | null): Id | null {
+  const calle = proyecto.calles.find((c) => c.id === calleId)
+  if (!calle) return null
+  for (let i = calle.nivelaciones.length - 1; i >= 0; i -= 1) {
+    const tomas = calle.nivelaciones[i]!.tomas
+    const ultima = tomas[tomas.length - 1]
+    if (ultima) return ultima.id
+  }
+  return null
+}
+
+/** La calle activa que corresponde a una toma; sin toma, la que ya estaba si sigue existiendo, o la primera. */
+function calleParaToma(proyecto: Proyecto, tomaId: Id | null, calleActual: Id | null): Id | null {
+  const deLaToma = calleDeToma(proyecto, tomaId)
+  if (deLaToma) return deLaToma
+  if (calleActual && proyecto.calles.some((c) => c.id === calleActual)) return calleActual
+  return proyecto.calles[0]?.id ?? null
+}
+
+/** Solo los bytes de planos que el proyecto declara: los demás no tienen a qué pegarse. */
+function archivosDeclarados(proyecto: Proyecto, archivos: ArchivosDePlano): ArchivosDePlano {
+  const salida: ArchivosDePlano = {}
+  for (const plano of proyecto.planos ?? []) {
+    const bytes = archivos[plano.id]
+    if (bytes) salida[plano.id] = bytes
+  }
+  return salida
+}
+
+/** Cambia una calle y deja el resto del proyecto como estaba. */
+function conCalle(proyecto: Proyecto, calleId: Id, cambiar: (calle: Calle) => Calle): Proyecto {
+  return marcarModificado({
+    ...proyecto,
+    calles: proyecto.calles.map((calle) => (calle.id === calleId ? cambiar(calle) : calle)),
+  })
+}
+
+/** A dónde lleva cada pantalla vieja en la navegación nueva. */
+function navegacionDeVistaVieja(
+  vista: Vista,
+): Pick<EstadoApp, 'espacio'> & Partial<Pick<EstadoApp, 'subObra' | 'modoCalle' | 'pantallaCalle'>> {
+  switch (vista) {
+    case 'libreta':
+      return { espacio: 'calle', modoCalle: 'medir', pantallaCalle: null }
+    case 'resultados':
+      return { espacio: 'calle', modoCalle: 'revisar', pantallaCalle: null }
+    default:
+      // Proyecto, calle, sección, subir datos y campañas viven hoy juntas en Obra › Calles.
+      return { espacio: 'obra', subObra: 'calles' }
+  }
+}
+
+const proyectoInicial = proyectoEjemplo()
+const tomaInicial = primeraTomaId(proyectoInicial)
+
 export const useAlmacen = create<EstadoApp>((set, get) => ({
-  proyecto: proyectoEjemplo(),
-  vista: 'proyecto',
-  campaniaActivaId: primeraTomaId(proyectoEjemplo()),
+  proyecto: proyectoInicial,
+  archivosDePlano: {},
+  espacio: 'obra',
+  subObra: 'calles',
+  modoCalle: 'medir',
+  pantallaCalle: null,
+  calculadoraAbierta: false,
+  calleActivaId: calleParaToma(proyectoInicial, tomaInicial, null),
+  campaniaActivaId: tomaInicial,
   estacionActiva: 0,
   seleccion: { clave: null, progresiva: null },
   capasVisibles: [],
@@ -343,12 +475,17 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
   camara: CAMARA_ISOMETRICA,
   modoVista3D: 'estado',
 
-  cargarProyecto: (proyecto) => {
+  cargarProyecto: (proyecto, archivosDePlano = {}) => {
     const primeraId = primeraTomaId(proyecto)
     return set({
       proyecto,
+      archivosDePlano: archivosDeclarados(proyecto, archivosDePlano),
+      calleActivaId: calleParaToma(proyecto, primeraId, null),
       campaniaActivaId: primeraId,
       estacionActiva: ultimaEstacion(buscarToma(proyecto, primeraId)?.toma),
+      // Una pantalla de la calle abierta (el cierre, el planificador) era de
+      // la calle del proyecto anterior: se cierra. El espacio se conserva.
+      pantallaCalle: null,
       seleccion: { clave: null, progresiva: null },
       capasVisibles: [],
       comparacion: SIN_COMPARACION,
@@ -358,15 +495,148 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
   nuevoProyecto: () =>
     set({
       proyecto: proyectoVacio(),
+      archivosDePlano: {},
+      calleActivaId: null,
       campaniaActivaId: null,
       estacionActiva: 0,
-      vista: 'proyecto',
+      espacio: 'obra',
+      subObra: 'calles',
+      pantallaCalle: null,
       seleccion: { clave: null, progresiva: null },
       capasVisibles: [],
       comparacion: SIN_COMPARACION,
     }),
 
-  irA: (vista) => set({ vista }),
+  irA: (vista) => set(navegacionDeVistaVieja(vista)),
+
+  irAEspacio: (espacio) => set({ espacio }),
+
+  irASubObra: (sub) => set({ espacio: 'obra', subObra: sub }),
+
+  // Elegir un modo es volver a la vista de la calle: cierra la pantalla que la tapaba.
+  fijarModoCalle: (modo) => set({ espacio: 'calle', modoCalle: modo, pantallaCalle: null }),
+
+  abrirPantallaCalle: (pantalla) => set({ espacio: 'calle', pantallaCalle: pantalla }),
+
+  activarCalle: (id) =>
+    set((s) => {
+      if (id !== null && !s.proyecto.calles.some((c) => c.id === id)) return {}
+      if (id === s.calleActivaId) return {}
+      const tomaId = ultimaTomaDeCalle(s.proyecto, id)
+      return {
+        calleActivaId: id,
+        campaniaActivaId: tomaId,
+        estacionActiva: ultimaEstacion(buscarToma(s.proyecto, tomaId)?.toma),
+        seleccion: { clave: null, progresiva: null },
+        ...seleccionDeCapasTrasCambio(s.calleActivaId, id, s),
+      }
+    }),
+
+  abrirCalculadora: (abierta) => set({ calculadoraAbierta: abierta }),
+
+  fijarInstrumento: (parcial) =>
+    set((s) => ({
+      proyecto: marcarModificado({ ...s.proyecto, instrumento: { ...s.proyecto.instrumento, ...parcial } }),
+    })),
+
+  agregarPlano: (datos, bytes) => {
+    const id = nuevoId('plano')
+    set((s) => ({
+      proyecto: marcarModificado({ ...s.proyecto, planos: [...(s.proyecto.planos ?? []), { ...datos, id }] }),
+      // Objeto nuevo, no mutado: el autoguardado de planos mira si cambió la referencia.
+      archivosDePlano: { ...s.archivosDePlano, [id]: bytes },
+    }))
+    return id
+  },
+
+  actualizarPlano: (id, cambios) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        planos: (s.proyecto.planos ?? []).map((plano) => (plano.id === id ? { ...plano, ...cambios } : plano)),
+      }),
+    })),
+
+  eliminarPlano: (id) =>
+    set((s) => {
+      if (!(s.proyecto.planos ?? []).some((plano) => plano.id === id)) return {}
+      const { [id]: _quitado, ...archivosDePlano } = s.archivosDePlano
+      return {
+        proyecto: marcarModificado({
+          ...s.proyecto,
+          planos: (s.proyecto.planos ?? []).filter((plano) => plano.id !== id),
+          // Las pistas del plano se van con él: su eje está en las unidades de
+          // ese dibujo y sin él no ubica nada. Las calles enlazadas se quedan.
+          pistas: (s.proyecto.pistas ?? []).filter((pista) => pista.planoId !== id),
+        }),
+        archivosDePlano,
+      }
+    }),
+
+  agregarPista: (datos) => {
+    const id = nuevoId('pista')
+    set((s) => ({
+      proyecto: marcarModificado({ ...s.proyecto, pistas: [...(s.proyecto.pistas ?? []), { ...datos, id }] }),
+    }))
+    return id
+  },
+
+  actualizarPista: (id, cambios) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        pistas: (s.proyecto.pistas ?? []).map((pista) => (pista.id === id ? { ...pista, ...cambios } : pista)),
+      }),
+    })),
+
+  eliminarPista: (id) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        pistas: (s.proyecto.pistas ?? []).filter((pista) => pista.id !== id),
+      }),
+    })),
+
+  crearCalleDesdePista: (pistaId) => {
+    const { proyecto } = get()
+    const pista = (proyecto.pistas ?? []).find((p) => p.id === pistaId)
+    if (!pista) return null
+    // Tocar dos veces no crea dos calles: si ya tiene la suya, es esa.
+    if (pista.calleId && proyecto.calles.some((calle) => calle.id === pista.calleId)) return pista.calleId
+
+    const calleId = nuevoId('c')
+    set((s) => ({
+      calleActivaId: s.calleActivaId ?? calleId,
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        calles: [
+          ...s.proyecto.calles,
+          { id: calleId, nombre: pista.nombre, seccion: seccionDeFabrica(), nivelaciones: [], rasante: null },
+        ],
+        pistas: (s.proyecto.pistas ?? []).map((p) => (p.id === pistaId ? { ...p, calleId } : p)),
+      }),
+    }))
+    return calleId
+  },
+
+  agregarNota: (calleId, datos) => {
+    const id = nuevoId('nota')
+    set((s) => ({
+      proyecto: conCalle(s.proyecto, calleId, (calle) => ({ ...calle, notas: [...(calle.notas ?? []), { ...datos, id }] })),
+    }))
+    return id
+  },
+
+  eliminarNota: (calleId, notaId) =>
+    set((s) => ({
+      proyecto: conCalle(s.proyecto, calleId, (calle) => ({
+        ...calle,
+        notas: (calle.notas ?? []).filter((nota) => nota.id !== notaId),
+      })),
+    })),
+
+  fijarPlanControles: (calleId, plan) =>
+    set((s) => ({ proyecto: conCalle(s.proyecto, calleId, (calle) => ({ ...calle, planControles: plan })) })),
 
   actualizarMeta: (cambios) =>
     set((s) => ({ proyecto: marcarModificado({ ...s.proyecto, meta: { ...s.proyecto.meta, ...cambios } }) })),
@@ -448,6 +718,9 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         // habría dónde caer las lecturas de la primera libreta.
         calles: [...s.proyecto.calles, { ...datos, id, seccion: seccionDeFabrica(), nivelaciones: [] }],
       }),
+      // La primera calle de una obra vacía pasa a ser la activa: si no, la
+      // pantalla de la calle seguiría diciendo que no hay ninguna.
+      calleActivaId: s.calleActivaId ?? id,
     }))
     return id
   },
@@ -461,12 +734,38 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     })),
 
   eliminarCalle: (id) =>
-    set((s) => ({
-      proyecto: marcarModificado({
+    set((s) => {
+      const proyecto = marcarModificado({
         ...s.proyecto,
         calles: s.proyecto.calles.filter((c) => c.id !== id),
-      }),
-    })),
+        // La pista se queda en el plano; solo pierde el enlace a la calle borrada.
+        ...(s.proyecto.pistas
+          ? {
+              pistas: s.proyecto.pistas.map((p) => {
+                if (p.calleId !== id) return p
+                const { calleId: _borrada, ...suelta } = p
+                return suelta
+              }),
+            }
+          : {}),
+      })
+      if (s.calleActivaId !== id) return { proyecto }
+
+      // Se borró la calle en la que se trabajaba: se pasa a la primera que
+      // quede, con su última toma, en vez de dejar ids que no apuntan a nada.
+      const calleNueva = proyecto.calles[0]?.id ?? null
+      const tomaNueva = ultimaTomaDeCalle(proyecto, calleNueva)
+      return {
+        proyecto,
+        calleActivaId: calleNueva,
+        campaniaActivaId: tomaNueva,
+        estacionActiva: ultimaEstacion(buscarToma(proyecto, tomaNueva)?.toma),
+        pantallaCalle: null,
+        seleccion: { clave: null, progresiva: null },
+        capasVisibles: [],
+        comparacion: SIN_COMPARACION,
+      }
+    }),
 
   fijarRasante: (calleId, rasante) =>
     set((s) => ({
@@ -610,6 +909,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         proyecto: marcarModificado(
           agregarTomaComoNivelacion(s.proyecto, calleId, toma, nuevoId('niv')),
         ),
+        calleActivaId: calleId,
         campaniaActivaId: toma.id,
         estacionActiva: 0,
         ...seleccionDeCapasTrasCambio(calleAnterior, calleId, s),
@@ -648,6 +948,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
         proyecto: marcarModificado(
           agregarTomaComoNivelacion(s.proyecto, calleId, toma, nuevoId('niv')),
         ),
+        calleActivaId: calleId,
         campaniaActivaId: id,
         estacionActiva: 0,
         ...seleccionDeCapasTrasCambio(calleAnterior, calleId, s),
@@ -683,16 +984,20 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       // que sacarla de ahí: sus claves de celda (`progresiva|elemento`)
       // coinciden con las de cualquier otra calle, así que dejarla sería
       // comparar o dibujar cotas de sitios distintos como si fueran uno.
+      // La calle activa sigue a la toma activa: si es ella la que se mudó, se muda también.
+      const calleActivaId = calleParaToma(proyecto, s.campaniaActivaId, s.calleActivaId)
+
       if (calleEditadaAnterior !== calleEditadaNueva) {
         return {
           proyecto,
+          calleActivaId,
           capasVisibles: capasVisibles.filter((campaniaId) => campaniaId !== id),
           comparacion:
             comparacion.inferior === id || comparacion.superior === id ? SIN_COMPARACION : comparacion,
         }
       }
 
-      return { proyecto, capasVisibles, comparacion }
+      return { proyecto, calleActivaId, capasVisibles, comparacion }
     }),
 
   activarCampania: (id) =>
@@ -700,6 +1005,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       const calleAnterior = calleDeToma(s.proyecto, s.campaniaActivaId)
       const calleNueva = calleDeToma(s.proyecto, id)
       return {
+        calleActivaId: calleParaToma(s.proyecto, id, s.calleActivaId),
         campaniaActivaId: id,
         estacionActiva: ultimaEstacion(buscarToma(s.proyecto, id)?.toma),
         ...seleccionDeCapasTrasCambio(calleAnterior, calleNueva, s),

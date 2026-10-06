@@ -10,6 +10,7 @@
  * cuántos decimales mostrar lo decide la pantalla.
  */
 import { redondear3 } from '../numero'
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
 import { esLecturaUsable } from '../nivelacion/cotas'
 
 function finitos(...valores: number[]): boolean {
@@ -24,9 +25,14 @@ function finitos(...valores: number[]): boolean {
  * AI = cota del punto conocido + vista atrás. La vista atrás pasa por la misma
  * regla que la libreta (esLecturaUsable: 0 < lectura ≤ mira): un 19.02 escrito
  * en vez de 1.902 no debe dar una AI con 17 m de error sin que nadie avise.
+ * El largo de la mira es el del instrumento del proyecto (de fábrica, 5 m).
  */
-export function alturaInstrumental(cotaPunto: number, vistaAtras: number): number | null {
-  if (!finitos(cotaPunto) || !esLecturaUsable(vistaAtras)) return null
+export function alturaInstrumental(
+  cotaPunto: number,
+  vistaAtras: number,
+  largoMira: number = INSTRUMENTO_DE_FABRICA.largoMira,
+): number | null {
+  if (!finitos(cotaPunto) || !esLecturaUsable(vistaAtras, largoMira)) return null
   return redondear3(cotaPunto + vistaAtras)
 }
 
@@ -35,8 +41,12 @@ export function alturaInstrumental(cotaPunto: number, vistaAtras: number): numbe
  * puede dar devuelve null, igual que en la libreta queda pendiente: la misma
  * lectura no puede ser «pendiente» allá y una cota aquí.
  */
-export function cotaDesdeLectura(alturaInstrumental: number, lectura: number): number | null {
-  if (!finitos(alturaInstrumental) || !esLecturaUsable(lectura)) return null
+export function cotaDesdeLectura(
+  alturaInstrumental: number,
+  lectura: number,
+  largoMira: number = INSTRUMENTO_DE_FABRICA.largoMira,
+): number | null {
+  if (!finitos(alturaInstrumental) || !esLecturaUsable(lectura, largoMira)) return null
   return redondear3(alturaInstrumental - lectura)
 }
 

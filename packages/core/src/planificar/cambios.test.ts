@@ -8,7 +8,14 @@ import {
   revisarEstacion,
   visualMaximaDesde,
 } from './cambios'
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
 import type { Perfil } from './perfil'
+
+/**
+ * Una mira de 4 m: con ella se hicieron a mano las cuentas de los casos en
+ * que manda la punta de la mira. De fábrica la mira es de 5 m (instrumento.ts).
+ */
+const MIRA_4: Partial<OpcionesNivelacion> = { largoMira: 4 }
 
 /** Pasaje Las Lomas: +8.20 % hasta la 0+060 y +7.40 % hasta la 0+120. */
 const lasLomas: Perfil = [
@@ -32,7 +39,7 @@ const plana300: Perfil = [
 describe('valores de fábrica', () => {
   it('son los de la sección 2 del diseño', () => {
     expect(OPCIONES_NIVELACION).toMatchObject({
-      largoMira: 4,
+      largoMira: 5,
       alturaInstrumento: 1.5,
       lecturaMin: 0.3,
       margenSuperior: 0.3,
@@ -43,13 +50,19 @@ describe('valores de fábrica', () => {
       holguraPlan: 0.05,
     })
   })
+
+  it('las reglas de la mira y de las visuales salen del instrumento de fábrica, sin copias', () => {
+    for (const clave of ['largoMira', 'alturaInstrumento', 'lecturaMin', 'margenSuperior', 'visualMax', 'desequilibrioMax'] as const) {
+      expect(OPCIONES_NIVELACION[clave]).toBe(INSTRUMENTO_DE_FABRICA[clave])
+    }
+  })
 })
 
 describe('visualMaximaDesde', () => {
   it('Las Lomas subiendo al 8.2 %: la lectura de adelante manda', () => {
     // Visuales iguales d a cada lado, h = 1.50:
     //   adelante = 1.50 − 0.082·d ≥ 0.30  →  d ≤ 1.20 / 0.082 = 14.634 m
-    //   atrás    = 1.50 + 0.082·d ≤ 3.70  →  d ≤ 2.20 / 0.082 = 26.829 m
+    //   atrás    = 1.50 + 0.082·d ≤ 4.70  →  d ≤ 3.20 / 0.082 = 39.024 m (mira de 5 m)
     // Manda la menor: d = 14.634 m, paso entre cambios = 2·14.634 = 29.268 m.
     const visual = visualMaximaDesde(lasLomas, 0, 60)
 
@@ -67,9 +80,9 @@ describe('visualMaximaDesde', () => {
   })
 
   it('con el instrumento alto manda la punta de la mira', () => {
-    // h = 3.00: atrás = 3.00 + 0.082·d ≤ 3.70 → d ≤ 0.70 / 0.082 = 8.537 m
-    //           adelante = 3.00 − 0.082·d ≥ 0.30 → d ≤ 32.927 m
-    const visual = visualMaximaDesde(lasLomas, 0, 60, { alturaInstrumento: 3 })
+    // Mira de 4 m, h = 3.00: atrás = 3.00 + 0.082·d ≤ 3.70 → d ≤ 0.70 / 0.082 = 8.537 m
+    //                        adelante = 3.00 − 0.082·d ≥ 0.30 → d ≤ 32.927 m
+    const visual = visualMaximaDesde(lasLomas, 0, 60, { ...MIRA_4, alturaInstrumento: 3 })
 
     expect(visual.distancia).toBeCloseTo(8.536585, 5)
     expect(visual.limitante).toBe('lecturaMax')
@@ -130,14 +143,14 @@ describe('revisarEstacion', () => {
 
   it('en una hondonada avisa que el fondo no se alcanza a leer', () => {
     // Atrás 0+000 (100.000), fondo 0+010 (97.500), estación 0+020 (100.000), adelante 0+040 (100.000).
-    // AI = 100.000 + 1.500 = 101.500; en el fondo la mira marcaría 101.500 − 97.500 = 4.000 > 3.70.
+    // Mira de 4 m. AI = 100.000 + 1.500 = 101.500; en el fondo la mira marcaría 101.500 − 97.500 = 4.000 > 3.70.
     const hondonada: Perfil = [
       { progresiva: 0, cota: 100 },
       { progresiva: 10, cota: 97.5 },
       { progresiva: 20, cota: 100 },
       { progresiva: 40, cota: 100 },
     ]
-    const revision = revisarEstacion(hondonada, 0, 20, 40)
+    const revision = revisarEstacion(hondonada, 0, 20, 40, MIRA_4)
 
     expect(revision.ok).toBe(false)
     expect(revision.problemas).toEqual([
@@ -324,7 +337,7 @@ describe('planificarNivelacion — pista plana de 300 m', () => {
 
 describe('planificarNivelacion — lo que no se puede', () => {
   it('con el instrumento más alto que la punta legible de la mira no hay plan', () => {
-    const plan = planificarNivelacion(lasLomas, 0, 60, { alturaInstrumento: 3.8 })
+    const plan = planificarNivelacion(lasLomas, 0, 60, { ...MIRA_4, alturaInstrumento: 3.8 })
 
     expect(plan.posible).toBe(false)
     expect(plan.estaciones).toEqual([])
@@ -510,6 +523,7 @@ describe('planificarNivelacion — escalones (pasajes con escalinata)', () => {
 
 describe('planificarNivelacion — holgura del plan (el trípode nunca queda exacto a 1.50)', () => {
   it('en una cresta prueba con una estación más antes de dejar la visual rozando la cumbre', () => {
+    // Mira de 4 m (con la de 5 m una sola estación en la cumbre lee 4.500 atrás y adelante).
     // 0+000 100.000, 0+050 103.000 (cumbre), 0+100 100.000: ±6 %.
     // Avance máximo: 2 estaciones (0+000→0+040 y 0+040→0+100); la segunda pasa la
     // cumbre a 0.300 m justos: AI = 103.600 − 0.06·30 + 1.500 = 103.300 → 103.300 − 103.000.
@@ -525,7 +539,7 @@ describe('planificarNivelacion — holgura del plan (el trípode nunca queda exa
       { progresiva: 50, cota: 103 },
       { progresiva: 100, cota: 100 },
     ]
-    const plan = planificarNivelacion(cresta, 0, 100)
+    const plan = planificarNivelacion(cresta, 0, 100, MIRA_4)
 
     expect(plan.reparto).toBe('parejo')
     expect(plan.estaciones).toHaveLength(3)
@@ -596,7 +610,7 @@ describe('opciones que no sirven', () => {
       'el intervalo de las lecturas esperadas debe ser de 1 m o más (llegó 0.001)',
     )
     expect(revisarOpciones({ visualMin: 60 })).toEqual(['la visual más corta (60 m) pasa de la más larga (50 m)'])
-    expect(revisarOpciones({ lecturaMin: 3.8 })).toEqual([
+    expect(revisarOpciones({ ...MIRA_4, lecturaMin: 3.8 })).toEqual([
       'no queda nada legible en la mira: la lectura mínima (3.800 m) no es menor que la máxima (3.700 m)',
     ])
   })

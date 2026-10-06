@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { BM_1, CALLE_EJEMPLO, tomaEjemplo } from '../pruebas/libretaEjemplo'
+import type { BM, Toma } from '../modelo/tipos'
 import { calcularCampania } from './calcularCampania'
+import { estadoCierreEnVivo } from './cierreEnVivo'
 
 function entrada(campania = tomaEjemplo()) {
   return { campania, calle: CALLE_EJEMPLO, bms: [BM_1] }
@@ -266,5 +268,108 @@ describe('calcularCampania', () => {
     const aviso = resultado.avisos.find((a) => a.mensaje.includes('ya no existe en el proyecto'))
     expect(aviso?.nivel).toBe('advertencia')
     expect(resultado.error).toBeNull()
+  })
+})
+
+describe('calcularCampania — largo de la mira del instrumento', () => {
+  it('con una mira de 4 m, una lectura de 4.500 queda pendiente y el aviso dice 4 m', () => {
+    const campania = tomaEjemplo()
+    campania.estaciones[0]!.intermedias[0]!.valor = 4.5
+    // De fábrica (5 m) la lectura vale: 3246.605 − 4.500 = 3242.105 cruda.
+    expect(calcularCampania(entrada(campania)).cotasPorCelda.has('0|p-eje')).toBe(true)
+
+    const conMira4 = calcularCampania({ ...entrada(campania), largoMira: 4 })
+    expect(conMira4.cotasPorCelda.has('0|p-eje')).toBe(false)
+    expect(conMira4.avisos.map((a) => a.mensaje)).toContain(
+      '0+000 Eje: la lectura 4.500 no puede ser de una mira (tiene que estar entre 0 y 4 m). Queda pendiente hasta que la corrijas.',
+    )
+  })
+})
+
+describe('calcularCampania — la toma vuelve a arrancar en un BM a mitad', () => {
+  const BM_2: BM = { id: 'bm-2', nombre: 'BM-2', cota: 3246, tipo: 'auxiliar', descripcion: '' }
+
+  /**
+   * E1: atrás BM-1 1.500 → AI1 = 3245.180 + 1.500 = 3246.680
+   *     0+000 eje 2.055 → 3244.625; adelante BM-2 0.700 → 3245.980 (BM-2 vale 3246.000: control −20 mm)
+   * E2: ARRANCA OTRA VEZ en BM-2 con su cota conocida: atrás 1.200 → AI2 = 3247.200
+   *     0+020 eje 2.600 → 3244.600; adelante PC-2 1.000 → 3246.200
+   * E3: atrás PC-2 0.900 → AI3 = 3247.100; adelante BM-1 1.926 → 3245.174
+   * Error = 3245.174 − 3245.180 = −6 mm; tolerancia 12·√0.36 = 7.2 mm → pasa.
+   *
+   * El error lo produjeron E2 y E3 (el circuito BM-2 → BM-1); E1 terminó en
+   * BM-2 y su cuenta se cortó ahí. Se reparte en 2 estaciones: +3 y +6 mm.
+   * Repartirlo en las 3 (+2, +4, +6) movería 2 mm una cota que el cierre nunca comparó.
+   */
+  function tomaConReArranque(): Toma {
+    const celda = (progresiva: number) => ({ tipo: 'celda' as const, celda: { progresiva, elementoClave: 'p-eje' } })
+    return {
+      ...tomaEjemplo(),
+      estaciones: [
+        {
+          id: 'e-1',
+          vistaAtras: { id: 'l-1', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.5 },
+          intermedias: [{ id: 'l-2', destino: celda(0), valor: 2.055 }],
+          vistaAdelante: { id: 'l-3', destino: { tipo: 'bm', bmId: 'bm-2' }, valor: 0.7 },
+        },
+        {
+          id: 'e-2',
+          vistaAtras: { id: 'l-4', destino: { tipo: 'bm', bmId: 'bm-2' }, valor: 1.2 },
+          intermedias: [{ id: 'l-5', destino: celda(20), valor: 2.6 }],
+          vistaAdelante: { id: 'l-6', destino: { tipo: 'cambio', nombre: 'PC-2' }, valor: 1 },
+        },
+        {
+          id: 'e-3',
+          vistaAtras: { id: 'l-7', destino: { tipo: 'cambio', nombre: 'PC-2' }, valor: 0.9 },
+          intermedias: [],
+          vistaAdelante: { id: 'l-8', destino: { tipo: 'bm', bmId: 'bm-1' }, valor: 1.926 },
+        },
+      ],
+    }
+  }
+
+  it('reparte el error solo en el último circuito: +3 y +6 mm, nada antes', () => {
+    const resultado = calcularCampania({ campania: tomaConReArranque(), calle: CALLE_EJEMPLO, bms: [BM_1, BM_2] })
+
+    expect(resultado.error).toBeNull()
+    expect(resultado.cierre.errorMm).toBeCloseTo(-6, 6)
+    expect(resultado.cierre.pasa).toBe(true)
+    expect(resultado.tramoComprobado).toEqual({ primeraEstacion: 1, ultimaEstacion: 2 })
+
+    // E1: fuera del circuito, sin corrección.
+    const inicio = resultado.cotasPorCelda.get('0|p-eje')!
+    expect(inicio.correccion).toBe(0)
+    expect(inicio.cota).toBeCloseTo(3244.625, 9)
+    // E2: primera estación del circuito, +6/2 = +3 mm → 3244.600 + 0.003 = 3244.603.
+    const final = resultado.cotasPorCelda.get('20|p-eje')!
+    expect(final.correccion).toBeCloseTo(0.003, 9)
+    expect(final.cota).toBeCloseTo(3244.603, 9)
+
+    expect(resultado.avisos.map((a) => a.mensaje)).toContain(
+      'La toma vuelve a arrancar en un BM en la estación 2: el cierre solo comprueba desde ahí. ' +
+        'La estación 1 queda fuera del circuito: sin compensar y NO COMPROBADAS.',
+    )
+  })
+
+  it('da la misma compensación que el cierre en vivo, estación por estación', () => {
+    const toma = tomaConReArranque()
+    const resultado = calcularCampania({ campania: toma, calle: CALLE_EJEMPLO, bms: [BM_1, BM_2] })
+    const vivo = estadoCierreEnVivo(toma, [BM_1, BM_2])
+
+    expect(vivo.cierre!.tramoComprobado).toEqual(resultado.tramoComprobado)
+    expect(vivo.cierre!.correccionesMm).toHaveLength(3)
+    expect(vivo.cierre!.correccionesMm[0]).toBe(0)
+    expect(vivo.cierre!.correccionesMm[1]).toBeCloseTo(3, 9)
+    expect(vivo.cierre!.correccionesMm[2]).toBeCloseTo(6, 9)
+    for (const celda of resultado.cotasPorCelda.values()) {
+      const estacion = celda.progresiva === 0 ? 0 : 1
+      expect(celda.correccion * 1000).toBeCloseTo(vivo.cierre!.correccionesMm[estacion]!, 9)
+    }
+  })
+
+  it('sin re-arranque no hay aviso y el circuito es la toma entera', () => {
+    const resultado = calcularCampania(entrada())
+    expect(resultado.tramoComprobado).toEqual({ primeraEstacion: 0, ultimaEstacion: 1 })
+    expect(resultado.avisos.some((a) => a.mensaje.includes('vuelve a arrancar'))).toBe(false)
   })
 })

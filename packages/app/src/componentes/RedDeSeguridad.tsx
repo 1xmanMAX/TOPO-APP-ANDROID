@@ -4,10 +4,11 @@ import { useAlmacen } from '../estado/almacen'
 
 function BotonGuardar() {
   const proyecto = useAlmacen((s) => s.proyecto)
+  const archivosDePlano = useAlmacen((s) => s.archivosDePlano)
   return (
     <button
       type="button"
-      onClick={() => descargarTopo(proyecto)}
+      onClick={() => descargarTopo(proyecto, archivosDePlano)}
       className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
     >
       Guardar el proyecto en un archivo

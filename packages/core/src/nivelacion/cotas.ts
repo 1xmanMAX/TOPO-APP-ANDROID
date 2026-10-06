@@ -1,5 +1,6 @@
 import { claveCelda } from '../grilla/grilla'
-import type { BM, Toma, DestinoLectura, Id } from '../modelo/tipos'
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
+import type { BM, Toma, DestinoLectura, Estacion, Id } from '../modelo/tipos'
 
 export interface PuntoCalculado {
   claveDestino: string
@@ -18,16 +19,23 @@ export interface ResultadoCotas {
   bmLlegadaId: Id | null
 }
 
-/** Altura máxima de una mira de nivelación, en metros. */
-const MIRA_MAXIMA_M = 5
-
 /**
  * Una lectura de 0 es imposible —el hilo no cae en el cero de la mira— y una
  * mayor que la mira, también. Se tratan como pendientes, no como dato: así un
  * campo recién abierto no produce cotas inventadas ni veredictos falsos.
+ *
+ * El largo de la mira es el del instrumento del proyecto; sin él, el de
+ * fábrica. Es la misma regla que usan el aviso al anotar, el replanteo y la
+ * calculadora: una lectura no puede valer en una pantalla y no en otra.
  */
-export function esLecturaUsable(valor: number): boolean {
-  return Number.isFinite(valor) && valor > 0 && valor <= MIRA_MAXIMA_M
+export function esLecturaUsable(valor: number, largoMira: number = INSTRUMENTO_DE_FABRICA.largoMira): boolean {
+  return Number.isFinite(valor) && valor > 0 && valor <= largoMira
+}
+
+/** Lo que calcularCotas necesita saber del instrumento. */
+export interface OpcionesCalculoCotas {
+  /** Metros. Por defecto, el de INSTRUMENTO_DE_FABRICA. */
+  largoMira?: number
 }
 
 export function claveDestino(destino: DestinoLectura): string {
@@ -43,7 +51,10 @@ export function claveDestino(destino: DestinoLectura): string {
   }
 }
 
-export function calcularCotas(toma: Toma, bms: BM[]): ResultadoCotas {
+export function calcularCotas(toma: Toma, bms: BM[], opciones: OpcionesCalculoCotas = {}): ResultadoCotas {
+  const largoMira = opciones.largoMira ?? INSTRUMENTO_DE_FABRICA.largoMira
+  const usable = (valor: number) => esLecturaUsable(valor, largoMira)
+
   const bmInicial = bms.find((bm) => bm.id === toma.bmInicialId)
   if (!bmInicial) throw new Error('No se encontró el banco de nivel inicial de la campaña')
 
@@ -53,6 +64,14 @@ export function calcularCotas(toma: Toma, bms: BM[]): ResultadoCotas {
   // Destinos que existen en la libreta pero cuya lectura todavía no sirve.
   // No es lo mismo que un punto inventado: la cadena solo está a medio hacer.
   const pendientes = new Set<string>()
+
+  // Una estación sin cota instrumento no da cota a su vista adelante, pero ese
+  // punto SÍ fue anotado: queda pendiente, igual que si faltara su propia
+  // lectura. Si no, la estación siguiente acusaría «arranca en PC1, que no fue
+  // medido antes» y el fallo se arrastraría por toda la libreta.
+  const dejarPendienteLaLlegada = (estacion: Estacion) => {
+    if (estacion.vistaAdelante) pendientes.add(claveDestino(estacion.vistaAdelante.destino))
+  }
 
   const cotasInstrumento: number[] = []
   const puntos: PuntoCalculado[] = []
@@ -69,6 +88,7 @@ export function calcularCotas(toma: Toma, bms: BM[]): ResultadoCotas {
       // trasladar el instrumento, antes de teclear las dos lecturas.
       if (pendientes.has(clavePartida)) {
         cotasInstrumento.push(Number.NaN)
+        dejarPendienteLaLlegada(estacion)
         return
       }
 
@@ -79,11 +99,12 @@ export function calcularCotas(toma: Toma, bms: BM[]): ResultadoCotas {
       throw new Error(`La estación ${indice + 1} arranca en ${nombre}, que no fue medido antes`)
     }
 
-    if (!esLecturaUsable(estacion.vistaAtras.valor)) {
+    if (!usable(estacion.vistaAtras.valor)) {
       // Sin vista atrás usable no hay cota instrumento: la estación entera
       // queda pendiente, en vez de arrastrar una cota inventada a sus
       // lecturas intermedias y a la vista adelante.
       cotasInstrumento.push(Number.NaN)
+      dejarPendienteLaLlegada(estacion)
       return
     }
 
@@ -91,7 +112,7 @@ export function calcularCotas(toma: Toma, bms: BM[]): ResultadoCotas {
     cotasInstrumento.push(cotaInstrumento)
 
     for (const lectura of estacion.intermedias) {
-      if (!esLecturaUsable(lectura.valor)) continue
+      if (!usable(lectura.valor)) continue
       puntos.push({
         claveDestino: claveDestino(lectura.destino),
         destino: lectura.destino,
@@ -102,7 +123,7 @@ export function calcularCotas(toma: Toma, bms: BM[]): ResultadoCotas {
       })
     }
 
-    if (estacion.vistaAdelante && esLecturaUsable(estacion.vistaAdelante.valor)) {
+    if (estacion.vistaAdelante && usable(estacion.vistaAdelante.valor)) {
       const clave = claveDestino(estacion.vistaAdelante.destino)
       const cota = cotaInstrumento - estacion.vistaAdelante.valor
 
@@ -140,7 +161,7 @@ export function calcularCotas(toma: Toma, bms: BM[]): ResultadoCotas {
       // La lectura no sirve todavía: el destino queda pendiente, no
       // descartado. La estación siguiente que arranque ahí debe quedar
       // pendiente también, en vez de que el motor la trate como un error.
-      pendientes.add(claveDestino(estacion.vistaAdelante.destino))
+      dejarPendienteLaLlegada(estacion)
     }
   })
 

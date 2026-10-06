@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { baseDePrueba } from './datosDePrueba'
-import type { HojaDeReplanteo } from '../../../core/src/campo/replanteo'
+import type { HojaDeReplanteo } from '@topo/core'
 import { datosDeEstacasDesdeHoja, hojaDeEstacas } from './hojaDeEstacas'
 import { AVISO_SIN_COMPROBAR } from './maquetacion'
 import { celdasDesde, enUnaLinea, textoDelPdf } from './textoDelPdf'
@@ -61,6 +61,7 @@ describe('hojaDeEstacas: reglas de la mira (diseño §2) y la forma del núcleo'
    */
   const base = (): DatosEstacas => ({
     ...baseDePrueba(true),
+    mira: { largoMira: 4 },
     alturaInstrumental: 3826.95,
     filas: [
       { progresiva: 0, punto: 'Lejos', cotaProyecto: 3822.7 },

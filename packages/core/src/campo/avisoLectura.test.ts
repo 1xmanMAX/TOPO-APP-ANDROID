@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
 import { accionDeDiferencia, clasificarLectura, evaluarLectura, rangoEsperado, reglasDeMira } from './avisoLectura'
 
 /** El caso de Max, con la AI sobre un circuito ya cerrado. */
@@ -158,11 +159,11 @@ describe('evaluarLectura', () => {
       expect(aviso.accion).toBeNull()
       expect(aviso.estado).toBe('datoInvalido')
       expect(aviso.sospechosa).toBe(true)
-      expect(aviso.avisos).toEqual(['La lectura -0.500 no cabe en una mira de 4 m: revise la anotación.'])
+      expect(aviso.avisos).toEqual(['La lectura -0.500 no cabe en una mira de 5 m: revise la anotación.'])
     })
 
     it('lectura mayor que la mira: imposible también sin cota de proyecto', () => {
-      // 5.200 > 4 m de mira
+      // 5.200 > 5 m de mira (la de fábrica)
       const aviso = evaluarLectura({
         alturaInstrumental: 100,
         lectura: 5.2,
@@ -204,12 +205,14 @@ describe('evaluarLectura', () => {
       expect(aviso.estado).toBe('conforme')
       expect(aviso.rangoLectura).toBe('pocoPrecisa')
       expect(aviso.rangoLecturaEsperada).toBe('pocoPrecisa')
+      // De fábrica la mira es de 5 m: legible hasta 5 − 0.30 = 4.70.
       expect(aviso.avisos).toEqual([
-        'La lectura 0.120 está fuera de 0.300 … 3.700 m: poco precisa, mejor cambiar de estación.',
+        'La lectura 0.120 está fuera de 0.300 … 4.700 m: poco precisa, mejor cambiar de estación.',
       ])
     })
 
     it('una esperada que no cabe en la mira se avisa aunque la lectura sea buena', () => {
+      // Con una mira de 4 m (la del proyecto, no la de fábrica):
       // esperada = 100 − 95.5 = 4.500 > 4 m: desde aquí no se ve el punto en cota
       const aviso = evaluarLectura({
         alturaInstrumental: 100,
@@ -217,6 +220,7 @@ describe('evaluarLectura', () => {
         cotaProyecto: 95.5,
         toleranciaMm: 20,
         alturaComprobada: true,
+        mira: { largoMira: 4 },
       })
       expect(aviso.rangoLectura).toBe('legible')
       expect(aviso.lecturaEsperada).toBe(4.5)
@@ -236,10 +240,11 @@ describe('evaluarLectura', () => {
 })
 
 describe('clasificarLectura', () => {
-  const reglas = reglasDeMira()!
+  // Una mira de 4 m, para probar que el largo configurado manda.
+  const reglas = reglasDeMira({ largoMira: 4 })!
 
   it('los bordes del rango de precisión: 0.300 y 3.700 son legibles', () => {
-    // De fábrica: mínima 0.30, máxima 4 − 0.30 = 3.70
+    // Mínima 0.30, máxima 4 − 0.30 = 3.70
     expect(clasificarLectura(0.299, reglas)).toBe('pocoPrecisa')
     expect(clasificarLectura(0.3, reglas)).toBe('legible')
     expect(clasificarLectura(3.7, reglas)).toBe('legible')
@@ -261,8 +266,20 @@ describe('clasificarLectura', () => {
 })
 
 describe('reglasDeMira', () => {
-  it('de fábrica son las del planificador: 4 m, 0.30 abajo, 0.30 arriba', () => {
-    expect(reglasDeMira()).toEqual({ largoMira: 4, lecturaMin: 0.3, margenSuperior: 0.3 })
+  it('de fábrica son las del instrumento de fábrica: 5 m, 0.30 abajo, 0.30 arriba', () => {
+    expect(reglasDeMira()).toEqual({ largoMira: 5, lecturaMin: 0.3, margenSuperior: 0.3 })
+    expect(reglasDeMira()).toEqual({
+      largoMira: INSTRUMENTO_DE_FABRICA.largoMira,
+      lecturaMin: INSTRUMENTO_DE_FABRICA.lecturaMin,
+      margenSuperior: INSTRUMENTO_DE_FABRICA.margenSuperior,
+    })
+  })
+
+  it('de fábrica, 5.000 cabe en la mira y 5.001 no: la misma regla que la libreta', () => {
+    const reglas = reglasDeMira()!
+    expect(clasificarLectura(5, reglas)).toBe('pocoPrecisa')
+    expect(clasificarLectura(5.001, reglas)).toBe('imposible')
+    expect(clasificarLectura(4.7, reglas)).toBe('legible')
   })
 
   it('rechaza un largo nulo, márgenes negativos o un rango vacío', () => {

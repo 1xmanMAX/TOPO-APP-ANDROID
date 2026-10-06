@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BM_1, tomaEjemplo } from '../pruebas/libretaEjemplo'
 import { calcularCotas } from './cotas'
-import { compensarPuntos, correccionesAcumuladas } from './compensacion'
+import { compensarPuntos, correccionesAcumuladas, correccionesDeLaToma, tramoQueCierra } from './compensacion'
 
 describe('correccionesAcumuladas', () => {
   it('reparte el error en partes iguales y con signo contrario', () => {
@@ -52,5 +52,24 @@ describe('compensarPuntos', () => {
 
     expect(punto?.cota).toBeCloseTo(3244.625, 9)
     expect(punto?.correccion).toBe(0)
+  })
+})
+
+describe('correccionesDeLaToma', () => {
+  it('sin re-arranque reparte en todas las estaciones, como correccionesAcumuladas', () => {
+    expect(tramoQueCierra(tomaEjemplo())).toEqual({ primeraEstacion: 0, ultimaEstacion: 1 })
+    expect(correccionesDeLaToma(-5, tomaEjemplo())).toEqual(correccionesAcumuladas(-5, 2))
+  })
+
+  it('si la segunda estación arranca en un BM, la primera recibe 0 y el error va todo a la segunda', () => {
+    const toma = tomaEjemplo()
+    toma.estaciones[1]!.vistaAtras.destino = { tipo: 'bm', bmId: 'bm-1' }
+    expect(tramoQueCierra(toma)).toEqual({ primeraEstacion: 1, ultimaEstacion: 1 })
+    // −5 mm en 1 estación: +0.005 m acumulado en ella.
+    expect(correccionesDeLaToma(-5, toma)).toEqual([0, 0.005])
+  })
+
+  it('una toma sin estaciones no tiene correcciones', () => {
+    expect(correccionesDeLaToma(-5, { ...tomaEjemplo(), estaciones: [] })).toEqual([])
   })
 })

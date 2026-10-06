@@ -1,21 +1,23 @@
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
 import type { BM, DestinoLectura, Estacion, Id, Toma } from '../modelo/tipos'
 import { aMetros, aMilimetros } from '../numero'
 import { calcularCierre, calcularLongitudKAuto, calcularToleranciaMm } from './cierre'
-import { correccionesAcumuladas } from './compensacion'
+import { correccionesAcumuladas, correccionesDeLaToma, tramoQueCierra, type TramoComprobado } from './compensacion'
 import { calcularCotas, esLecturaUsable, type ResultadoCotas } from './cotas'
 
 /**
  * Cierre en vivo: lo que la pantalla de Medir enseña MIENTRAS se nivela.
  *
  * No calcula nada propio: arma las mismas piezas que `calcularCampania`
- * (`calcularCotas`, `calcularCierre`, `correccionesAcumuladas`) para que el
+ * (`calcularCotas`, `calcularCierre`, `correccionesDeLaToma`) para que el
  * número que ve el topógrafo en campo sea el mismo que saldrá luego.
  *
- * Una diferencia deliberada: si una estación vuelve a arrancar de un BM, el
- * cierre solo comprueba desde ahí, y la vista previa reparte la corrección
- * solo en ese tramo. Repartirla en todas las estaciones movería cotas que el
- * cierre nunca comparó con nada (spec §3: lo calculado sobre lo que no cerró
- * tampoco está comprobado).
+ * Si una estación vuelve a arrancar de un BM, ahí empieza un circuito nuevo:
+ * el cierre solo comprueba desde ahí y la corrección se reparte solo en ese
+ * tramo, aquí y en calcularCampania (la regla vive en `tramoQueCierra`).
+ * Repartirla en todas las estaciones movería cotas que el cierre nunca
+ * comparó con nada (spec §3: lo calculado sobre lo que no cerró tampoco está
+ * comprobado).
  */
 
 export interface OpcionesCierreEnVivo {
@@ -23,12 +25,8 @@ export interface OpcionesCierreEnVivo {
   coeficiente?: number
   /** Longitud K del circuito en km. Por defecto, la de la toma (fija o automática). */
   longitudKKm?: number
-}
-
-export interface TramoComprobado {
-  /** Índices de estación (desde 0), ambos incluidos. */
-  primeraEstacion: number
-  ultimaEstacion: number
+  /** Metros. Por defecto, el de INSTRUMENTO_DE_FABRICA: el mismo que usa la libreta. */
+  largoMira?: number
 }
 
 export interface CierreVivo {
@@ -104,7 +102,8 @@ export function estadoCierreEnVivo(
   bms: BM[],
   opciones: OpcionesCierreEnVivo = {},
 ): EstadoCierreEnVivo {
-  const { lecturas, pendientes } = contarLecturas(toma)
+  const largoMira = opciones.largoMira ?? INSTRUMENTO_DE_FABRICA.largoMira
+  const { lecturas, pendientes } = contarLecturas(toma, largoMira)
   const usables = lecturas - pendientes
   const estaciones = toma.estaciones.length
 
@@ -126,7 +125,7 @@ export function estadoCierreEnVivo(
 
   let cotas: ResultadoCotas
   try {
-    cotas = calcularCotas(toma, bms)
+    cotas = calcularCotas(toma, bms, { largoMira })
   } catch (fallo) {
     return conError((fallo as Error).message)
   }
@@ -187,9 +186,9 @@ export function estadoCierreEnVivo(
     pasa: resultado.pasa,
     tramoComprobado: tramo,
     // calcularCampania no compensa un cierre que no pasa: la vista previa tampoco.
-    correccionesMm: resultado.pasa ? correccionesDelTramo(resultado.errorMm, estaciones, tramo) : [],
+    correccionesMm: resultado.pasa ? correccionesDeLaToma(resultado.errorMm, toma).map(aMilimetros) : [],
   }
-  const sinComprobar = cierre.pasa ? usables - lecturasComprobadas(toma, cotas, tramo) : usables
+  const sinComprobar = cierre.pasa ? usables - lecturasComprobadas(toma, cotas, tramo, largoMira) : usables
 
   return {
     circuito: 'cerrado',
@@ -234,13 +233,14 @@ export function simularCierre(
   k: number,
   km: number,
   numeroEstaciones = 0,
+  largoMira: number = INSTRUMENTO_DE_FABRICA.largoMira,
 ): SimulacionCierre {
   // Un hueco en blanco daría NaN en todos los campos, y NaN «no pasa» en
   // silencio: mejor decir qué falta.
   if (!Number.isFinite(lecturaEnBm)) throw new Error('Falta la lectura en el BM.')
-  if (!esLecturaUsable(lecturaEnBm)) {
+  if (!esLecturaUsable(lecturaEnBm, largoMira)) {
     throw new Error(
-      `La lectura ${lecturaEnBm.toFixed(3)} no puede ser de una mira (tiene que estar entre 0 y 5 m).`,
+      `La lectura ${lecturaEnBm.toFixed(3)} no puede ser de una mira (tiene que estar entre 0 y ${largoMira} m).`,
     )
   }
   if (!Number.isFinite(alturaInstrumentalUltima)) throw new Error('Falta la altura instrumental.')
@@ -313,40 +313,23 @@ function configurarCierre(coeficiente: number, longitudKKm: number): Configuraci
   return { coeficiente, longitudKKm, toleranciaMm: calcularToleranciaMm(coeficiente, longitudKKm) }
 }
 
-/**
- * calcularCotas toma la cota CONOCIDA de cualquier BM al que se vise atrás:
- * la cadena se corta ahí. El cierre solo respalda desde la última estación
- * que arranca de un BM hasta la última.
- */
-function tramoQueCierra(toma: Toma): TramoComprobado {
-  let primeraEstacion = 0
-  toma.estaciones.forEach((estacion, indice) => {
-    if (estacion.vistaAtras.destino.tipo === 'bm') primeraEstacion = indice
-  })
-  return { primeraEstacion, ultimaEstacion: toma.estaciones.length - 1 }
-}
-
-function correccionesDelTramo(errorMm: number, estaciones: number, tramo: TramoComprobado): number[] {
-  const delTramo = correccionesAcumuladas(errorMm, tramo.ultimaEstacion - tramo.primeraEstacion + 1).map(
-    aMilimetros,
-  )
-  return Array.from({ length: estaciones }, (_, indice) =>
-    indice < tramo.primeraEstacion ? 0 : delTramo[indice - tramo.primeraEstacion]!,
-  )
-}
-
-function lecturasUsablesDe(estacion: Estacion): number {
+function lecturasUsablesDe(estacion: Estacion, largoMira: number): number {
   const todas = [estacion.vistaAtras, ...estacion.intermedias]
   if (estacion.vistaAdelante) todas.push(estacion.vistaAdelante)
-  return todas.filter((lectura) => esLecturaUsable(lectura.valor)).length
+  return todas.filter((lectura) => esLecturaUsable(lectura.valor, largoMira)).length
 }
 
 /** Solo cuentan las estaciones del tramo que de verdad tienen cota instrumento. */
-function lecturasComprobadas(toma: Toma, cotas: ResultadoCotas, tramo: TramoComprobado): number {
+function lecturasComprobadas(
+  toma: Toma,
+  cotas: ResultadoCotas,
+  tramo: TramoComprobado,
+  largoMira: number,
+): number {
   let comprobadas = 0
   for (let indice = tramo.primeraEstacion; indice <= tramo.ultimaEstacion; indice += 1) {
     if (!Number.isFinite(cotas.cotasInstrumento[indice])) continue
-    comprobadas += lecturasUsablesDe(toma.estaciones[indice]!)
+    comprobadas += lecturasUsablesDe(toma.estaciones[indice]!, largoMira)
   }
   return comprobadas
 }
@@ -405,12 +388,12 @@ function previoCierre(
   }
 }
 
-function contarLecturas(toma: Toma): { lecturas: number; pendientes: number } {
+function contarLecturas(toma: Toma, largoMira: number): { lecturas: number; pendientes: number } {
   let lecturas = 0
   let usables = 0
   for (const estacion of toma.estaciones) {
     lecturas += 1 + estacion.intermedias.length + (estacion.vistaAdelante ? 1 : 0)
-    usables += lecturasUsablesDe(estacion)
+    usables += lecturasUsablesDe(estacion, largoMira)
   }
   return { lecturas, pendientes: lecturas - usables }
 }

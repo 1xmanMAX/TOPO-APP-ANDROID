@@ -1,4 +1,5 @@
 import { formatearProgresiva } from '../grilla/progresivas'
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
 import {
   cotaEnPerfilValido,
   finDelPerfil,
@@ -46,13 +47,19 @@ export interface OpcionesNivelacion {
   holguraPlan: number
 }
 
+/**
+ * Las reglas de la mira y de las visuales salen del instrumento de fábrica,
+ * la misma fuente que la libreta, el aviso al anotar y el replanteo; aquí
+ * solo se agregan las que son del plan. Quien tenga el instrumento del
+ * proyecto lo pasa como opciones (ver `opcionesDeInstrumento`).
+ */
 export const OPCIONES_NIVELACION: Readonly<OpcionesNivelacion> = Object.freeze({
-  largoMira: 4,
-  alturaInstrumento: 1.5,
-  lecturaMin: 0.3,
-  margenSuperior: 0.3,
-  visualMax: 50,
-  desequilibrioMax: 5,
+  largoMira: INSTRUMENTO_DE_FABRICA.largoMira,
+  alturaInstrumento: INSTRUMENTO_DE_FABRICA.alturaInstrumento,
+  lecturaMin: INSTRUMENTO_DE_FABRICA.lecturaMin,
+  margenSuperior: INSTRUMENTO_DE_FABRICA.margenSuperior,
+  visualMax: INSTRUMENTO_DE_FABRICA.visualMax,
+  desequilibrioMax: INSTRUMENTO_DE_FABRICA.desequilibrioMax,
   visualMin: 1,
   intervaloEsperadas: 10,
   holguraPlan: 0.05,

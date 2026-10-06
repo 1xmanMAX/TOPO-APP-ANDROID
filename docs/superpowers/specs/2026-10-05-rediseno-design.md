@@ -43,17 +43,20 @@ valor de fábrica:
 | Visual más larga | 50 m | Precisión de lectura, aunque el equipo alcance 100 m |
 | Lectura mínima en la mira | 0.30 m | Cerca del suelo la refracción engaña |
 | Lectura máxima | largo de la mira − 0.30 m | La punta de la mira oscila |
-| Largo de la mira | 4 m | La común en obra |
+| Largo de la mira | 5 m | La telescópica común en obra (`INSTRUMENTO_DE_FABRICA`, una sola fuente) |
 | Altura del instrumento | 1.50 m | |
 | Puntos de cambio entre dos puntos de control | ≤ 4 | Cada tramo entre controles cierra por su cuenta |
-| Error esperado por estación (σ) | 1 mm | Para estimar el error del tramo: σ·√n |
+| Error esperado por estación (σ) | 1 mm | Cada tramo se cierra ida y vuelta: error esperado del tramo = σ·√(2n), con n estaciones de ida. El tramo está bien si 2 × error esperado ≤ k·√K, K = ida y vuelta en km (confianza ~95 %; pide un paso medio ≥ 4000·σ²/k² = 27.8 m) |
 | Tolerancia del circuito | 12 mm·√K | La de la app (`calcularToleranciaMm`) |
 
 **Puntos de control** (estacas con clavo y cota fija) van:
 1. al inicio y al final de la pista;
 2. en cada quiebre de pendiente de la rasante;
 3. y donde haga falta para que ningún tramo entre controles pase de 4 cambios
-   **ni** su error esperado (σ·√estaciones) pase de la mitad de su tolerancia.
+   **ni** el doble de su error esperado de ida y vuelta (2·σ·√(2n)) pase de su
+   tolerancia. Un corte solo se acepta si deja bien las dos partes: con el
+   mismo paso, el error y la tolerancia crecen juntos y partir no arregla
+   nada; entonces el tramo queda marcado con el paso que haría falta.
 
 Cada punto de control lleva **el porqué** en palabras («quiebre de pendiente»,
 «para no pasar de 4 cambios»…). Cada tramo entre controles se nivela ida y

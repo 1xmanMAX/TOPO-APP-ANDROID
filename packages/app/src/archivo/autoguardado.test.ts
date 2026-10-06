@@ -20,7 +20,7 @@ vi.mock('idb-keyval', () => ({
   },
 }))
 
-const { guardarBorrador, leerBorrador } = await import('./autoguardado')
+const { borrarBorrador, guardarArchivosDePlano, guardarBorrador, leerBorrador } = await import('./autoguardado')
 
 describe('autoguardado', () => {
   beforeEach(() => {
@@ -54,5 +54,47 @@ describe('autoguardado', () => {
 
   it('leerBorrador da null cuando no hay nada guardado', async () => {
     expect(await leerBorrador()).toBeNull()
+  })
+
+  describe('planos', () => {
+    const conPlanos = () => ({
+      ...proyectoEjemplo(),
+      planos: [
+        { id: 'plano-a', nombre: 'A', formato: 'pdf' as const, calibracion: null },
+        { id: 'plano-b', nombre: 'B', formato: 'dxf' as const, calibracion: null },
+      ],
+    })
+
+    it('guarda y recupera los bytes de los planos junto al proyecto', async () => {
+      const bytesA = new Uint8Array([37, 80, 68, 70])
+      const bytesB = new Uint8Array([48, 10, 83, 69])
+      await guardarBorrador(conPlanos())
+      await guardarArchivosDePlano({ 'plano-a': bytesA, 'plano-b': bytesB })
+
+      const borrador = await leerBorrador()
+
+      expect(borrador!.archivosDePlano).toEqual({ 'plano-a': bytesA, 'plano-b': bytesB })
+    })
+
+    it('de los bytes guardados, solo vuelven los de planos que el proyecto declara', async () => {
+      await guardarBorrador(conPlanos())
+      await guardarArchivosDePlano({ 'plano-a': new Uint8Array([1]), 'plano-borrado': new Uint8Array([2]) })
+
+      const borrador = await leerBorrador()
+
+      expect(Object.keys(borrador!.archivosDePlano)).toEqual(['plano-a'])
+    })
+
+    it('un borrador de antes de los planos se recupera con la lista vacía', async () => {
+      await guardarBorrador(proyectoEjemplo())
+      expect((await leerBorrador())!.archivosDePlano).toEqual({})
+    })
+
+    it('descartar el borrador descarta también sus planos', async () => {
+      await guardarBorrador(conPlanos())
+      await guardarArchivosDePlano({ 'plano-a': new Uint8Array([1]) })
+      await borrarBorrador()
+      expect(almacen.size).toBe(0)
+    })
   })
 })

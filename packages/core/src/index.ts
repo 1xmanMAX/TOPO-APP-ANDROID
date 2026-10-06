@@ -27,3 +27,11 @@ export * from './analisis/volumenes'
 export * from './analisis/drenaje'
 export * from './planos/geometria'
 export * from './modelo/instrumento'
+
+// Hay dos «Pista»: la del modelo (lo que se guarda en el proyecto, con su
+// plano y su calle) y la de la geometría (lista para calcular, con la
+// calibración y la progresiva de arranque ya puestas). Las dos estrellas de
+// arriba chocarían; se exporta la del modelo con su nombre y la otra como
+// `PistaCalibrada`.
+export type { Pista } from './modelo/tipos'
+export type { Pista as PistaCalibrada } from './planos/geometria'

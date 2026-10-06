@@ -202,7 +202,7 @@ describe('hojaDeReplanteo', () => {
       expect(bajo.fila.lecturaObjetivo).toBe(0.299)
       expect(bajo.fila.rangoObjetivo).toBe('pocoPrecisa')
       expect(bajo.avisos).toEqual([
-        '1 lectura objetivo queda fuera de 0.300 … 3.700 m: poco precisa, mejor otra estación.',
+        '1 lectura objetivo queda fuera de 0.300 … 4.700 m: poco precisa, mejor otra estación.',
       ])
       // 3244.530 − 3244.230 = 0.300 → borde, legible
       const borde = objetivoCon(3244.53)
@@ -211,11 +211,11 @@ describe('hojaDeReplanteo', () => {
       expect(borde.avisos).toEqual([])
     })
 
-    it('3.700 es legible; 3.701 ya es poco precisa', () => {
-      // 3247.930 − 3244.230 = 3.700 (4 − 0.30) → legible
-      expect(objetivoCon(3247.93).fila.rangoObjetivo).toBe('legible')
-      // 3247.931 − 3244.230 = 3.701 → poco precisa
-      expect(objetivoCon(3247.931).fila.rangoObjetivo).toBe('pocoPrecisa')
+    it('4.700 es legible; 4.701 ya es poco precisa (mira de fábrica de 5 m)', () => {
+      // 3248.930 − 3244.230 = 4.700 (5 − 0.30) → legible
+      expect(objetivoCon(3248.93).fila.rangoObjetivo).toBe('legible')
+      // 3248.931 − 3244.230 = 4.701 → poco precisa
+      expect(objetivoCon(3248.931).fila.rangoObjetivo).toBe('pocoPrecisa')
     })
 
     it('el caso del revisor: AI 3244.35 sobre eje 3244.23 → 0.12, poco precisa', () => {
@@ -226,14 +226,14 @@ describe('hojaDeReplanteo', () => {
     })
 
     it('un objetivo que no cabe en la mira es imposible, con aviso distinto', () => {
-      // Eje 3244.230; AI 3248.500 → 4.270 > 4 m. Bordes 3244.160 → 4.340
-      const hoja = hojaDeReplanteo(entrada({ alturaInstrumental: 3248.5 }))
+      // Eje 3244.230; AI 3249.500 → 5.270 > 5 m. Bordes 3244.160 → 5.340
+      const hoja = hojaDeReplanteo(entrada({ alturaInstrumental: 3249.5 }))
       expect(hoja.filas.map((f) => [f.lecturaObjetivo, f.rangoObjetivo])).toEqual([
-        [4.34, 'imposible'],
-        [4.27, 'imposible'],
-        [4.34, 'imposible'],
+        [5.34, 'imposible'],
+        [5.27, 'imposible'],
+        [5.34, 'imposible'],
       ])
-      expect(hoja.avisos).toEqual(['3 lecturas objetivo no caben en la mira de 4 m: cambie de estación.'])
+      expect(hoja.avisos).toEqual(['3 lecturas objetivo no caben en la mira de 5 m: cambie de estación.'])
     })
 
     it('un objetivo negativo (instrumento por debajo del punto) también es imposible', () => {
@@ -243,12 +243,16 @@ describe('hojaDeReplanteo', () => {
       expect(fila.rangoObjetivo).toBe('imposible')
     })
 
-    it('la mira se puede configurar: con 5 m, 4.270 es legible (≤ 4.70)', () => {
-      const hoja = hojaDeReplanteo(
-        entrada({ calle: calle(rasante(), seccionSoloEje()), alturaInstrumental: 3248.5, mira: { largoMira: 5 } }),
+    it('la mira se puede configurar: con 5 m (fábrica) 4.270 es legible; con una de 4 m no cabe', () => {
+      const deFabrica = hojaDeReplanteo(entrada({ calle: calle(rasante(), seccionSoloEje()), alturaInstrumental: 3248.5 }))
+      expect(deFabrica.filas[0]!.rangoObjetivo).toBe('legible')
+      expect(deFabrica.avisos).toEqual([])
+
+      const corta = hojaDeReplanteo(
+        entrada({ calle: calle(rasante(), seccionSoloEje()), alturaInstrumental: 3248.5, mira: { largoMira: 4 } }),
       )
-      expect(hoja.filas[0]!.rangoObjetivo).toBe('legible')
-      expect(hoja.avisos).toEqual([])
+      expect(corta.filas[0]!.rangoObjetivo).toBe('imposible')
+      expect(corta.avisos).toEqual(['1 lectura objetivo no cabe en la mira de 4 m: cambie de estación.'])
     })
 
     it('reglas de mira absurdas se avisan y no se clasifica nada', () => {

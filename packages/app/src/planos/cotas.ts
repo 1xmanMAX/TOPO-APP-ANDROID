@@ -15,7 +15,9 @@
  *   «BM1: 3244.40», «PC-3=3243.680». Aquí los decimales son obligatorios:
  *   «BM 12» es el nombre del BM, no su cota. Entre el rótulo con número y la
  *   cota tiene que haber espacio, «:» o «=»: «BM-123244.40» no se puede partir.
- * - Unidad «m» al final se acepta («3244.40 m»), como ya lo hacía el DXF.
+ * - Unidad «m» o «msnm» al final se acepta («3244.40 m», «3244.40 msnm»,
+ *   «3244.40 m.s.n.m.»), como ya lo hacía el DXF con la «m». Sin decimales
+ *   sigue sin valer: «20 msnm» suelto puede ser cualquier rótulo.
  * - Separador de miles: «3,244.40» se rechaza. Y una coma seguida de
  *   exactamente 3 cifras tras 1 a 3 cifras que no son 0 («3,244», «1,500»)
  *   también: puede ser 3244 escrito con coma de miles. «0,150» y «3244,400»
@@ -24,9 +26,15 @@
 
 /**
  * Prefijos con que se rotulan las cotas en los planos peruanos (sin puntos):
- * nivel de terreno natural, de piso terminado, de fondo, etc.
+ * nivel de terreno natural, de piso terminado, de fondo; cota de rasante
+ * (C.R., RAS, RASANTE), de terreno natural (CTN), de terreno o piso (CTP), de
+ * proyecto (CP), de subrasante (CS), etc. «PC» no está aquí: es el rótulo de
+ * un punto de control y va por la regla de rótulos (con decimales).
  */
-const PREFIJOS_COTA = new Set(['NTN', 'NPT', 'NTT', 'NFP', 'NFC', 'NR', 'NV', 'NIV', 'CT', 'CF', 'COTA', 'ELEV', 'Z'])
+const PREFIJOS_COTA = new Set([
+  'NTN', 'NPT', 'NTT', 'NFP', 'NFC', 'NR', 'NV', 'NIV', 'CT', 'CF', 'COTA', 'ELEV', 'Z',
+  'CR', 'CTN', 'CTP', 'CP', 'CS', 'RAS', 'RASANTE',
+])
 
 /**
  * rotulo: BM o PC con su número opcional; exige separador para no comerse
@@ -34,7 +42,7 @@ const PREFIJOS_COTA = new Set(['NTN', 'NPT', 'NTT', 'NFP', 'NFC', 'NR', 'NV', 'N
  * prefijo: letras y puntos, pegado al número o separado por espacio, «=» o «:».
  */
 const PATRON =
-  /^\s*(?:(?<rotulo>(?:BM|PC)(?:[-.\s]?\d+[A-Za-z]?)?)(?:\s*[=:]\s*|\s+)|(?<prefijo>[A-Za-z.]+)(?:\s*[=:]\s*|\s+|(?=[+\-\d])))?(?<entero>[+-]?\d+)(?:(?<separador>[.,])(?<decimales>\d+))?\s*(?:m)?\s*$/i
+  /^\s*(?:(?<rotulo>(?:BM|PC)(?:[-.\s]?\d+[A-Za-z]?)?)(?:\s*[=:]\s*|\s+)|(?<prefijo>[A-Za-z.]+)(?:\s*[=:]\s*|\s+|(?=[+\-\d])))?(?<entero>[+-]?\d+)(?:(?<separador>[.,])(?<decimales>\d+))?\s*(?:m\.?\s?s\.?\s?n\.?\s?m\.?|m)?\s*$/i
 
 /** Si el texto es una cota, su valor; si no, null. Ver las decisiones arriba. */
 export function valorDeCota(texto: string): number | null {

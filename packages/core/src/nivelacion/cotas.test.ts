@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { BM_1, tomaEjemplo } from '../pruebas/libretaEjemplo'
-import { calcularCotas, claveDestino } from './cotas'
+import { calcularCotas, claveDestino, esLecturaUsable } from './cotas'
 import type { Toma } from '../modelo/tipos'
+
+describe('esLecturaUsable', () => {
+  it('de fábrica la mira es de 5 m: 5.000 vale, 5.001 no', () => {
+    expect(esLecturaUsable(5)).toBe(true)
+    expect(esLecturaUsable(5.001)).toBe(false)
+    expect(esLecturaUsable(0)).toBe(false)
+  })
+
+  it('acepta el largo de la mira del instrumento', () => {
+    expect(esLecturaUsable(4.5, 4)).toBe(false)
+    expect(esLecturaUsable(6.2, 7)).toBe(true)
+  })
+})
 
 describe('claveDestino', () => {
   it('distingue cada tipo de destino', () => {
@@ -117,6 +130,13 @@ describe('calcularCotas', () => {
     expect(resultado.puntos.find((p) => p.claveDestino === '0|p-eje')).toBeUndefined()
   })
 
+  it('con una mira de 4 m, una intermedia de 4.500 queda pendiente; con la de fábrica, no', () => {
+    const campania = tomaEjemplo()
+    campania.estaciones[0]!.intermedias[0]!.valor = 4.5
+    expect(calcularCotas(campania, [BM_1]).puntos.some((p) => p.claveDestino === '0|p-eje')).toBe(true)
+    expect(calcularCotas(campania, [BM_1], { largoMira: 4 }).puntos.some((p) => p.claveDestino === '0|p-eje')).toBe(false)
+  })
+
   it('una lectura de 14.230 no produce punto', () => {
     const campania = tomaEjemplo()
     campania.estaciones[0]!.intermedias[0]!.valor = 14.23
@@ -150,6 +170,64 @@ describe('calcularCotas', () => {
     expect(resultado!.cotasInstrumento[0]).toBeCloseTo(3246.605, 6)
     expect(resultado!.puntos.some((p) => p.claveDestino === '0|p-eje')).toBe(true)
     expect(resultado!.puntos.some((p) => p.claveDestino === '0|p-borde-i')).toBe(true)
+  })
+
+  it('una vista atrás no usable deja pendiente su vista adelante: la estación siguiente no acusa un PC «no medido»', () => {
+    // E1 con la vista atrás en 0: no hay AI1, así que PC-1 no tiene cota,
+    // pero SÍ fue anotado. E2, que arranca en PC-1, queda pendiente, no es un error.
+    const campania = tomaEjemplo()
+    campania.estaciones[0]!.vistaAtras.valor = 0
+
+    let resultado: ReturnType<typeof calcularCotas> | undefined
+    expect(() => {
+      resultado = calcularCotas(campania, [BM_1])
+    }).not.toThrow()
+    expect(Number.isNaN(resultado!.cotasInstrumento[0])).toBe(true)
+    expect(Number.isNaN(resultado!.cotasInstrumento[1])).toBe(true)
+    expect(resultado!.puntos).toEqual([])
+    expect(resultado!.cotaLlegada).toBeNull()
+  })
+
+  it('la cadena pendiente se arrastra estación tras estación hasta que se vuelve a un BM', () => {
+    // E1 sin vista atrás → PC1 pendiente → E2 pendiente → PC2 pendiente → E3 pendiente.
+    // E4 arranca otra vez en BM-1 (3245.180): AI4 = 3245.180 + 1.500 = 3246.680.
+    type Destino = Toma['estaciones'][number]['vistaAtras']['destino']
+    const lectura = (id: string, destino: Destino, valor: number) => ({ id, destino, valor })
+    const campania: Toma = {
+      ...tomaEjemplo(),
+      estaciones: [
+        {
+          id: 'e-1',
+          vistaAtras: lectura('l-1', { tipo: 'bm', bmId: 'bm-1' }, 0),
+          intermedias: [],
+          vistaAdelante: lectura('l-2', { tipo: 'cambio', nombre: 'PC1' }, 1.2),
+        },
+        {
+          id: 'e-2',
+          vistaAtras: lectura('l-3', { tipo: 'cambio', nombre: 'PC1' }, 1.3),
+          intermedias: [],
+          vistaAdelante: lectura('l-4', { tipo: 'cambio', nombre: 'PC2' }, 1.4),
+        },
+        {
+          id: 'e-3',
+          vistaAtras: lectura('l-5', { tipo: 'cambio', nombre: 'PC2' }, 1.5),
+          intermedias: [],
+          vistaAdelante: lectura('l-6', { tipo: 'cambio', nombre: 'PC3' }, 1.6),
+        },
+        {
+          id: 'e-4',
+          vistaAtras: lectura('l-7', { tipo: 'bm', bmId: 'bm-1' }, 1.5),
+          intermedias: [],
+          vistaAdelante: lectura('l-8', { tipo: 'bm', bmId: 'bm-1' }, 1.504),
+        },
+      ],
+    }
+
+    const resultado = calcularCotas(campania, [BM_1])
+    expect(resultado.cotasInstrumento.slice(0, 3).every(Number.isNaN)).toBe(true)
+    expect(resultado.cotasInstrumento[3]).toBeCloseTo(3246.68, 6)
+    // 3246.680 − 1.504 = 3245.176
+    expect(resultado.cotaLlegada).toBeCloseTo(3245.176, 6)
   })
 
   it('una vista atrás que apunta a un punto que nunca fue destino de nadie sí lanza', () => {

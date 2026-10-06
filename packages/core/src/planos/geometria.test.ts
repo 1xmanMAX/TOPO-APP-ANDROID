@@ -216,8 +216,8 @@ describe('cotasCercanas y pendientesPorTramo: Jr. Lima', () => {
     // (3244.100 − 3243.900) / 100 × 100 = +0.20 %
     const vertices = cotasCercanas(jrLima, textos, mediaUnidad)
     expect(pendientesPorTramo(vertices)).toEqual([
-      { desde: 0, hasta: 100, porcentaje: -0.5, sentido: 'baja' },
-      { desde: 100, hasta: 200, porcentaje: 0.2, sentido: 'sube' },
+      { desde: 0, hasta: 100, porcentaje: expect.closeTo(-0.5, 9), sentido: 'baja' },
+      { desde: 100, hasta: 200, porcentaje: expect.closeTo(0.2, 9), sentido: 'sube' },
     ])
   })
 })
@@ -230,7 +230,18 @@ describe('pendientesPorTramo', () => {
         { progresiva: 0, cota: 3244.4 },
         { progresiva: 200, cota: 3244.1 },
       ]),
-    ).toEqual([{ desde: 0, hasta: 200, porcentaje: -0.15, sentido: 'baja' }])
+    ).toEqual([{ desde: 0, hasta: 200, porcentaje: expect.closeTo(-0.15, 9), sentido: 'baja' }])
+  })
+
+  it('no redondea: redondea quien muestra, una sola vez', () => {
+    // 0.100 m en 30 m = 0.3333… %. Antes salía 0.333 y la pantalla lo volvía a
+    // redondear; ahora llega entero y la pantalla decide los decimales.
+    const [tramo] = pendientesPorTramo([
+      { progresiva: 0, cota: 3244 },
+      { progresiva: 30, cota: 3244.1 },
+    ])
+    expect(tramo!.porcentaje).toBeCloseTo(1 / 3, 9)
+    expect(tramo!.porcentaje).not.toBe(0.333)
   })
 
   it('no reordena a escondidas: un vértice fuera de orden es un error', () => {
@@ -277,7 +288,7 @@ describe('pendientesPorTramo', () => {
         { progresiva: 0, cota: 3244 },
         { progresiva: 25, cota: 3247.5 },
       ])[0]!.porcentaje,
-    ).toBe(14)
+    ).toBeCloseTo(14, 9)
   })
 
   it('con menos de dos vértices no hay tramos', () => {
@@ -329,7 +340,7 @@ describe('dos cotas en la misma estaca (bordes, NTN y rasante)', () => {
     // Sin la estaca en conflicto queda un solo tramo:
     // (3244.1 − 3244.4) / 200 × 100 = −0.15 %. Antes salía −50 % de 100.0 a 100.3.
     expect(pendientesPorTramo(cotasCercanas(jrLima, bordes, mediaUnidad))).toEqual([
-      { desde: 0, hasta: 200, porcentaje: -0.15, sentido: 'baja' },
+      { desde: 0, hasta: 200, porcentaje: expect.closeTo(-0.15, 9), sentido: 'baja' },
     ])
   })
 
@@ -359,7 +370,7 @@ describe('dos cotas en la misma estaca (bordes, NTN y rasante)', () => {
     expect(r.cercanas.map((c) => c.cota)).toEqual([3244.4, 3243.9, 3244.1])
     expect(r.descartadas).toEqual([{ texto: iguales[2], motivo: 'repetida' }])
     // −0.50 % y +0.20 %, como el Jr. Lima de siempre
-    expect(pendientesPorTramo(r.cercanas).map((t) => t.porcentaje)).toEqual([-0.5, 0.2])
+    expect(pendientesPorTramo(r.cercanas).map((t) => t.porcentaje)).toEqual([expect.closeTo(-0.5, 9), expect.closeTo(0.2, 9)])
   })
 
   it('se puede quedar con un solo lado; lo del otro lado se cuenta', () => {

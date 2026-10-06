@@ -220,7 +220,7 @@ export interface DatosEstacas extends BaseInforme {
   /** Altura instrumental de la puesta; `null` si todavía no se plantó el equipo. */
   alturaInstrumental: number | null
   filas: FilaEstaca[]
-  /** Por defecto las de fábrica: mira de 4 m, leer entre 0.30 y 3.70. */
+  /** Por defecto las de fábrica: mira de 5 m, leer entre 0.30 y 4.70. */
   mira?: MiraInforme
   /** Avisos generales (los de `hojaDeReplanteo` del núcleo), impresos tal cual. */
   avisos?: string[]

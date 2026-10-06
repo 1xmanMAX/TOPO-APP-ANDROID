@@ -33,6 +33,25 @@ describe('valorDeCota (regla única para DXF y PDF)', () => {
     ['BM 1 3244.40', 3244.4], // «BM 1» es el nombre, 3244.40 la cota
     ['PC-3=3243.680', 3243.68],
     ['bm-2a 3244.10', 3244.1],
+    // Prefijos de cota de rasante, terreno, proyecto y subrasante.
+    ['C.R. 3244.40', 3244.4],
+    ['C.R.=3244.40', 3244.4],
+    ['CR 3244.40', 3244.4],
+    ['CTN 3244.40', 3244.4],
+    ['CTN: 3244.40', 3244.4],
+    ['CTP 3250', 3250], // entero con prefijo de cota, como NPT
+    ['CP 3243.98', 3243.98],
+    ['CS=3243.55', 3243.55],
+    ['RAS 3244.10', 3244.1],
+    ['RAS. 3244.10', 3244.1],
+    ['RASANTE 3244.10', 3244.1],
+    ['rasante: 3244,10', 3244.1],
+    // Sufijo msnm (metros sobre el nivel del mar).
+    ['3244.40 msnm', 3244.4],
+    ['3244.40msnm', 3244.4],
+    ['3244.40 m.s.n.m.', 3244.4],
+    ['3244.40 MSNM', 3244.4],
+    ['CTN 3244.40 msnm', 3244.4],
   ])('«%s» → %s', (texto, valor) => {
     expect(valorDeCota(texto)).toBe(valor)
   })
@@ -52,6 +71,10 @@ describe('valorDeCota (regla única para DXF y PDF)', () => {
     'BM 12', 'BM-3', 'PC 2',
     // Pegado sin separador no se puede partir con seguridad.
     'BM-123244.40', 'BM3244.40',
+    // msnm no basta para que un entero suelto sea cota; ni un sufijo inventado.
+    '3244 msnm', '20 msnm', '3244.40 msn', '3244.40 mm',
+    // Prefijos parecidos que no son de cota.
+    'CA 3244.40', 'RASA 3244.40', 'C.T.X. 3244.40',
   ])('«%s» no es cota', (texto) => {
     expect(valorDeCota(texto)).toBeNull()
   })

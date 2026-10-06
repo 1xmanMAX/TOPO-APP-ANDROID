@@ -1,5 +1,5 @@
 import { aMetros, aMilimetros, redondear3 } from '../numero'
-import { OPCIONES_NIVELACION, type OpcionesNivelacion } from '../planificar/cambios'
+import { INSTRUMENTO_DE_FABRICA, type Instrumento } from '../modelo/instrumento'
 import { estadoDeDiferencia, type EstadoTolerancia } from '../rasante/evaluar'
 import { lecturaObjetivo } from './calculadora'
 
@@ -23,11 +23,12 @@ export interface Accion {
 export type EstadoAviso = EstadoTolerancia | 'datoInvalido'
 
 /**
- * Las tres reglas de la mira del diseño (§2). Son las mismas que usa el
- * planificador, y salen de su misma constante, para que si Max cambia el
- * largo de la mira el planificador y el campo sigan diciendo lo mismo.
+ * Las tres reglas de la mira del diseño (§2). Salen del instrumento del
+ * proyecto (`INSTRUMENTO_DE_FABRICA` si no hay), la misma fuente que usan la
+ * libreta, el replanteo y el planificador: si Max cambia el largo de la mira,
+ * todos siguen diciendo lo mismo.
  */
-export type ReglasMira = Pick<OpcionesNivelacion, 'largoMira' | 'lecturaMin' | 'margenSuperior'>
+export type ReglasMira = Pick<Instrumento, 'largoMira' | 'lecturaMin' | 'margenSuperior'>
 
 /**
  * Dónde cae una lectura en la mira:
@@ -49,9 +50,9 @@ export type RangoLectura = 'legible' | 'pocoPrecisa' | 'imposible' | 'noEsNumero
  */
 export function reglasDeMira(parciales: Partial<ReglasMira> = {}): ReglasMira | null {
   const reglas: ReglasMira = {
-    largoMira: parciales.largoMira ?? OPCIONES_NIVELACION.largoMira,
-    lecturaMin: parciales.lecturaMin ?? OPCIONES_NIVELACION.lecturaMin,
-    margenSuperior: parciales.margenSuperior ?? OPCIONES_NIVELACION.margenSuperior,
+    largoMira: parciales.largoMira ?? INSTRUMENTO_DE_FABRICA.largoMira,
+    lecturaMin: parciales.lecturaMin ?? INSTRUMENTO_DE_FABRICA.lecturaMin,
+    margenSuperior: parciales.margenSuperior ?? INSTRUMENTO_DE_FABRICA.margenSuperior,
   }
   const { largoMira, lecturaMin, margenSuperior } = reglas
   if (![largoMira, lecturaMin, margenSuperior].every((v) => Number.isFinite(v))) return null
@@ -61,7 +62,7 @@ export function reglasDeMira(parciales: Partial<ReglasMira> = {}): ReglasMira | 
 }
 
 /** Redondeada al mm: 4 − 0.3 podría no dar 3.7 exacto en coma flotante. */
-function lecturaMaximaLegible(reglas: ReglasMira): number {
+export function lecturaMaximaLegible(reglas: ReglasMira): number {
   return redondear3(reglas.largoMira - reglas.margenSuperior)
 }
 
@@ -88,7 +89,7 @@ export interface EntradaLectura {
    * decirlo (diseño §3). Es obligatorio para que nadie lo olvide.
    */
   alturaComprobada: boolean
-  /** Por defecto, las del planificador (mira de 4 m, 0.30 abajo y arriba). */
+  /** Por defecto, las del instrumento de fábrica (mira de 5 m, 0.30 abajo y arriba). */
   mira?: Partial<ReglasMira>
 }
 
@@ -190,7 +191,7 @@ export function evaluarLectura(entrada: EntradaLectura): AvisoLectura {
   if (lecturaRota) {
     invalido = true
     // `reglas` no hace falta para «noEsNumero»; para «imposible» existe seguro.
-    avisos.push(avisoDeLectura(lectura, rangoLectura!, reglas ?? OPCIONES_NIVELACION)!)
+    avisos.push(avisoDeLectura(lectura, rangoLectura!, reglas ?? INSTRUMENTO_DE_FABRICA)!)
   }
 
   // 2. Los demás datos.
@@ -216,8 +217,8 @@ export function evaluarLectura(entrada: EntradaLectura): AvisoLectura {
   }
 
   // 3. Las cuentas que sí se pueden hacer.
-  // No se usa `cotaDesdeLectura` de la calculadora: esa valida contra la mira
-  // fija de la libreta (5 m), y aquí la mira es la configurada, ya revisada.
+  // La lectura ya se validó arriba contra estas mismas reglas (que pueden
+  // traer otro largo): aquí solo queda la resta, al milímetro.
   const cota = lecturaRota || !aiValida ? null : redondear3(alturaInstrumental - lectura)
   const lecturaEsperada = proyectoValido ? lecturaObjetivo(alturaInstrumental, cotaProyecto) : null
   const diferenciaMm = cota !== null && proyectoValido ? diferenciaEnMm(cota - cotaProyecto) : null

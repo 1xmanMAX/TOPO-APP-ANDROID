@@ -21,7 +21,8 @@ import {
 } from '../pruebas/muestras/generarDxf'
 // La geometría de pistas del core, por ruta relativa: así la prueba de la
 // muestra pasa por el mismo camino que seguirá la pantalla del plano.
-import { clasificarCotas, pendientesPorTramo } from '../../../core/src/planos/geometria'
+import { redondear3 } from '@topo/core'
+import { clasificarCotas, pendientesPorTramo } from '@topo/core'
 
 // ─── Lectura del archivo de muestra con Node, encerrada en la prueba ──────
 
@@ -156,7 +157,8 @@ describe('expediente-pistas.dxf (muestra simulada)', () => {
       const { cercanas } = clasificarCotas(eje.puntos, cotas, { metrosPorUnidad: 1 })
       return {
         puntos: cercanas.map((c) => [c.progresiva, c.cota]),
-        pendientes: pendientesPorTramo(cercanas).map((p) => p.porcentaje),
+        // El motor no redondea la pendiente: la redondea quien la muestra, aquí a milésimas.
+        pendientes: pendientesPorTramo(cercanas).map((p) => redondear3(p.porcentaje)),
       }
     }
     const jrLima = ejes.find((e) => e.puntos[0]!.x === 1000)!

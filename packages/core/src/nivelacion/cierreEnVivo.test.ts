@@ -390,6 +390,21 @@ describe('estadoCierreEnVivo: redondeo del texto', () => {
   })
 })
 
+describe('cierre en vivo con el largo de mira del instrumento', () => {
+  it('una lectura de 4.500 cuenta como pendiente con una mira de 4 m, y no con la de fábrica', () => {
+    const toma = tomaCircuito()
+    toma.estaciones[0]!.intermedias[0]!.valor = 4.5
+    expect(estadoCierreEnVivo(toma, [BM_A]).lecturasPendientes).toBe(0)
+    expect(estadoCierreEnVivo(toma, [BM_A], { largoMira: 4 }).lecturasPendientes).toBe(1)
+  })
+
+  it('simularCierre rechaza con el largo de la mira en el mensaje', () => {
+    expect(() => simularCierre(3246.137, 4.5, 3245.18, 12, 0.3, 0, 4)).toThrow(
+      'La lectura 4.500 no puede ser de una mira (tiene que estar entre 0 y 4 m).',
+    )
+  })
+})
+
 describe('simularCierre', () => {
   it('AI 3246.137 y lectura 0.961 en BM 3245.180, k = 12, 0.30 km: −4 mm, tolerancia 6.6, pasa', () => {
     const r = simularCierre(3246.137, 0.961, 3245.18, 12, 0.3)

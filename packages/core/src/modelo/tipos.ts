@@ -1,5 +1,8 @@
 import type { Id } from './ids'
+import type { Instrumento } from './instrumento'
 import type { Seccion } from '../seccion/seccion'
+import type { Calibracion, Punto2 } from '../planos/geometria'
+import type { MotivoControl, OpcionesControles } from '../planificar/controles'
 
 export type { Id }
 
@@ -69,6 +72,92 @@ export interface Calle {
   nivelaciones: Nivelacion[]
   /** Null mientras la calle no tenga proyecto cargado: la app funciona igual, sin cota teórica. */
   rasante: Rasante | null
+  /**
+   * Lo que el topógrafo anotó en campo sobre la calle («buzón tapado en la
+   * 0+040»). Ausente en los archivos de antes de la ola 2: es lo mismo que vacía.
+   */
+  notas?: Nota[]
+  /**
+   * Los puntos de control que se decidieron en el planificador, para
+   * dibujarlos en el plano y en la guía de campo. Ausente o null mientras no
+   * se haya planificado.
+   */
+  planControles?: PlanControles | null
+}
+
+// ---------- Notas de campo ----------
+
+export interface Nota {
+  id: Id
+  /** Metros, la misma progresiva que en la libreta. */
+  progresiva: number
+  texto: string
+  /** ISO 8601. */
+  fecha: string
+  /** Foto como dataURL: viaja dentro del JSON del proyecto. */
+  foto?: string
+}
+
+// ---------- Plan de puntos de control ----------
+
+/**
+ * Un punto de control tal como quedó decidido. `cota` es la del perfil con
+ * que se planificó (rasante o digitado), NO una cota comprobada: la estaca
+ * solo tiene cota cuando una nivelación cerrada desde un BM se la da.
+ */
+export interface ControlPlaneado {
+  progresiva: number
+  cota: number
+  motivos: MotivoControl[]
+}
+
+export interface PlanControles {
+  /** Las reglas con que se planificó; lo que falte se completa con las de fábrica. */
+  opciones: Partial<OpcionesControles>
+  controles: ControlPlaneado[]
+}
+
+// ---------- Planos y pistas ----------
+
+export type FormatoPlano = 'dxf' | 'pdf'
+
+/**
+ * Un plano de obra importado. Sus bytes NO van aquí: viven aparte (en el
+ * almacén de la app como `archivosDePlano`, y dentro del .topo como la
+ * entrada `planos/<id>.<formato>` del zip), para que el JSON del proyecto no
+ * cargue con varios megas de PDF en cada autoguardado.
+ */
+export interface PlanoImportado {
+  id: Id
+  nombre: string
+  formato: FormatoPlano
+  /** Página del PDF que se usa (desde 1). En un DXF no significa nada. */
+  pagina?: number
+  /** Null hasta que se calibra con dos puntos de distancia conocida. */
+  calibracion: Calibracion | null
+  /** Capas del DXF que no se dibujan. */
+  capasOcultas?: string[]
+}
+
+export type OrigenPista = 'croquis' | 'dxf'
+
+/**
+ * Una pista (el eje de una calle) sobre un plano, tal como se guarda. Para
+ * calcular sobre ella (progresivas, cotas del plano) se arma, con la
+ * calibración de su plano, la `PistaCalibrada` de `planos/geometria`.
+ */
+export interface Pista {
+  id: Id
+  nombre: string
+  planoId: Id
+  /** Eje en unidades del plano, en el sentido de avance. */
+  polilinea: Punto2[]
+  /** La calle cuyos cálculos abre esta pista, si ya se enlazó. */
+  calleId?: Id
+  /** Dibujada a mano sobre el plano, o tomada de una polilínea del DXF. */
+  origen: OrigenPista
+  /** Progresiva del primer vértice, en metros. Ausente es 0+000. */
+  progresivaInicio?: number
 }
 
 // ---------- Capa ----------
@@ -210,4 +299,15 @@ export interface Proyecto {
   bms: BM[]
   calles: Calle[]
   capas: Capa[]
+  /**
+   * El equipo y las reglas de precisión de esta obra. Parcial: lo que falte
+   * sale de fábrica. La libreta, el aviso al anotar, el replanteo, la
+   * calculadora y el planificador lo leen con `instrumentoCompleto`, nunca
+   * tal cual.
+   */
+  instrumento?: Partial<Instrumento>
+  /** Planos de obra importados (sin sus bytes, ver `PlanoImportado`). */
+  planos?: PlanoImportado[]
+  /** Pistas dibujadas o tomadas de los planos. */
+  pistas?: Pista[]
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { OPCIONES_CONTROLES, planificarConControles, revisarOpcionesControles } from './controles'
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
+import { OPCIONES_CONTROLES, opcionesDeInstrumento, planificarConControles, revisarOpcionesControles } from './controles'
 import type { Perfil } from './perfil'
 
 /** Pasaje Las Lomas: +8.20 % hasta la 0+060 y +7.40 % hasta la 0+120. */
@@ -21,6 +22,37 @@ describe('valores de fábrica', () => {
     })
     expect(revisarOpcionesControles(OPCIONES_CONTROLES)).toEqual([])
   })
+
+  it('salen del instrumento de fábrica: k, σ y cambios por tramo no se repiten aquí', () => {
+    expect(OPCIONES_CONTROLES.k).toBe(INSTRUMENTO_DE_FABRICA.coeficienteK)
+    expect(OPCIONES_CONTROLES.sigmaPorEstacionMm).toBe(INSTRUMENTO_DE_FABRICA.sigmaPorEstacionMm)
+    expect(OPCIONES_CONTROLES.maxCambiosPorTramo).toBe(INSTRUMENTO_DE_FABRICA.maxCambiosPorTramo)
+    expect(OPCIONES_CONTROLES.largoMira).toBe(INSTRUMENTO_DE_FABRICA.largoMira)
+  })
+})
+
+describe('opcionesDeInstrumento', () => {
+  it('pasa el instrumento del proyecto a opciones del planificador, con fábrica en lo que falte', () => {
+    expect(opcionesDeInstrumento({ largoMira: 4, coeficienteK: 8 })).toEqual({
+      largoMira: 4,
+      alturaInstrumento: 1.5,
+      lecturaMin: 0.3,
+      margenSuperior: 0.3,
+      visualMax: 50,
+      desequilibrioMax: 5,
+      maxCambiosPorTramo: 4,
+      sigmaPorEstacionMm: 1,
+      k: 8,
+    })
+    expect(opcionesDeInstrumento(null)).toMatchObject({ largoMira: 5, k: 12 })
+  })
+
+  it('con un nivel más preciso (σ = 0.5 mm por estación) Las Lomas sí cumple', () => {
+    // 0+000–0+060: 2 × 0.5·√6 = 2.449 ≤ 4.157; 0+060–0+120: 2 × 0.5·√4 = 2.000 ≤ 4.157.
+    const resultado = planificarConControles(lasLomas, opcionesDeInstrumento({ sigmaPorEstacionMm: 0.5 }))
+    expect(resultado.ok).toBe(true)
+    expect(resultado.tramos.map((t) => t.errorEsperadoMm)).toEqual([0.5 * Math.sqrt(6), 0.5 * Math.sqrt(4)])
+  })
 })
 
 describe('planificarConControles — Pasaje Las Lomas', () => {
@@ -28,7 +60,8 @@ describe('planificarConControles — Pasaje Las Lomas', () => {
 
   it('pone controles al inicio, en el quiebre y al final, cada uno con su tipo y su porqué', () => {
     expect(resultado.posible).toBe(true)
-    expect(resultado.ok).toBe(true)
+    // Se puede nivelar, pero el primer tramo no cumple la regla del error (ver abajo).
+    expect(resultado.ok).toBe(false)
     expect(resultado.motivo).toBeNull()
     expect(resultado.controles).toMatchObject([
       { progresiva: 0, cotaPerfil: 3243.5, motivos: [{ tipo: 'inicio', texto: 'inicio de la pista' }] },
@@ -45,17 +78,24 @@ describe('planificarConControles — Pasaje Las Lomas', () => {
     expect(quiebre.pendienteDespues).toBeCloseTo(7.4, 9)
   })
 
-  it('el tramo 0+000 a 0+060 lleva tres estaciones y cierra holgado', () => {
-    // Paso máximo 2·1.20/0.082 = 29.268 m → 60/29.268 = 2.05 → 3 estaciones de 20 m, 2 cambios.
-    // Error esperado: σ·√n = 1·√3 = 1.732 mm.
+  it('el tramo 0+000 a 0+060 lleva tres estaciones y su error no cabe con 95 % de confianza', () => {
+    // Paso máximo 2·1.20/0.082 = 29.268 m (manda la lectura mínima de adelante; la mira
+    // de 5 m no cambia nada al subir) → 60/29.268 = 2.05 → 3 estaciones de 20 m, 2 cambios.
+    // Error esperado de ida y vuelta: σ·√(2n) = 1·√6 = 2.449 mm.
     // Tolerancia: K = 2·0.060 = 0.120 km (ida y vuelta) → 12·√0.120 = 12·0.34641 = 4.157 mm.
-    // Mitad: 2.078 mm ≥ 1.732 mm → ok.
+    // 2 × 2.449 = 4.899 mm > 4.157 mm → no cabe.
+    // Hace falta L/n ≥ 4000·σ²/k² = 4000/144 = 27.8 m de paso medio; aquí hay 60/3 = 20.0 m.
+    // Partir no ayuda: 0+000–0+020 (1 estación) da 2·√2 = 2.83 > 12·√0.04 = 2.40, y
+    // 0+020–0+060 (2 estaciones) da 2·√4 = 4.00 > 12·√0.08 = 3.39. Ningún corte deja bien las dos partes.
     const tramo = resultado.tramos[0]!
-    expect(tramo).toMatchObject({ desde: 0, hasta: 60, estaciones: 3, cambios: 2, ok: true, avisos: [], notas: [] })
+    expect(tramo).toMatchObject({ desde: 0, hasta: 60, estaciones: 3, cambios: 2, ok: false, notas: [] })
     expect(tramo.cotaPerfilDesde).toBe(3243.5)
     expect(tramo.cotaPerfilHasta).toBe(3248.42)
-    expect(tramo.errorEsperadoMm).toBeCloseTo(1.732051, 5)
+    expect(tramo.errorEsperadoMm).toBeCloseTo(2.44949, 5)
     expect(tramo.toleranciaMm).toBeCloseTo(4.156922, 5)
+    expect(tramo.avisos).toEqual([
+      'el doble del error esperado de ida y vuelta (2 × 2.45 = 4.90 mm, 6 estaciones) pasa de la tolerancia (4.16 mm): con un paso medio de 20.0 m haría falta al menos 27.8 m; partir el tramo no lo arregla, porque el error y la tolerancia crecen juntos con el largo',
+    ])
     expect(tramo.plan.estaciones.map((e) => e.progresiva)).toEqual([10, 30, 50])
   })
 
@@ -69,21 +109,23 @@ describe('planificarConControles — Pasaje Las Lomas', () => {
   it('el tramo 0+060 a 0+120 lleva dos estaciones de 30 m', () => {
     // Paso máximo 2·1.20/0.074 = 32.432 m → 60/32.432 = 1.85 → 2 estaciones, 1 cambio en la 0+090.
     // d = 15: adelante 1.500 − 0.074·15 = 0.390 ≥ 0.35 (lectura mínima más 5 cm de holgura).
-    // Error 1·√2 = 1.414 mm ≤ 4.157/2 = 2.078 mm → ok.
+    // Error de ida y vuelta 1·√(2·2) = 2.000 mm; 2 × 2.000 = 4.000 ≤ 12·√0.120 = 4.157 mm → ok.
     const tramo = resultado.tramos[1]!
-    expect(tramo).toMatchObject({ desde: 60, hasta: 120, estaciones: 2, cambios: 1, ok: true })
-    expect(tramo.errorEsperadoMm).toBeCloseTo(1.414214, 5)
+    expect(tramo).toMatchObject({ desde: 60, hasta: 120, estaciones: 2, cambios: 1, ok: true, avisos: [] })
+    expect(tramo.errorEsperadoMm).toBeCloseTo(2, 9)
     expect(tramo.toleranciaMm).toBeCloseTo(4.156922, 5)
     expect(tramo.plan.estaciones.map((e) => e.progresiva)).toEqual([75, 105])
     expect(tramo.plan.cambios.map((c) => c.progresiva)).toEqual([90])
-    expect(resultado.avisos).toEqual([])
+    // Solo el primer tramo avisa, y con su nombre delante.
+    expect(resultado.avisos).toEqual([`tramo 0+000 a 0+060: ${resultado.tramos[0]!.avisos[0]}`])
   })
 })
 
 describe('planificarConControles — pista plana de 300 m', () => {
   it('solo inicio y fin: tres estaciones de 100 m alcanzan', () => {
     // 3 estaciones (visual 50 m), 2 cambios ≤ 4.
-    // Error 1·√3 = 1.732 mm; K = 2·0.300 = 0.600 km → 12·√0.6 = 9.295 mm; mitad 4.648 → ok.
+    // Error de ida y vuelta 1·√6 = 2.449 mm; K = 2·0.300 = 0.600 km → 12·√0.6 = 9.295 mm;
+    // 2 × 2.449 = 4.899 ≤ 9.295 → ok (paso medio 100 m ≥ 27.8 m).
     const resultado = planificarConControles([
       { progresiva: 0, cota: 3200 },
       { progresiva: 300, cota: 3200 },
@@ -115,8 +157,10 @@ describe('planificarConControles — bajada', () => {
       [15, 45],
       [70, 90, 110],
     ])
-    expect(resultado.tramos.every((t) => t.ok)).toBe(true)
-    expect(resultado.ok).toBe(true)
+    // −7.40 %: 2 estaciones de 30 m → 2·√4 = 4.000 ≤ 4.157 → ok.
+    // −8.20 %: 3 estaciones de 20 m → 2·√6 = 4.899 > 4.157 → no cabe, como de subida.
+    expect(resultado.tramos.map((t) => t.ok)).toEqual([true, false])
+    expect(resultado.ok).toBe(false)
   })
 })
 
@@ -129,7 +173,10 @@ describe('planificarConControles — más de 4 cambios', () => {
     // Se parte en ceil(8/5) = 2 partes; la primera con ceil(8/2) = 4 estaciones:
     // control en el cambio 4 = 4·25 = 0+100, cota 3243.500 + 0.082·100 = 3251.700.
     //   0+000 a 0+100: 100/29.268 = 3.42 → 4 estaciones de 25 m, 3 cambios.
-    //     Error √4 = 2.000 mm; K = 0.200 km → 12·√0.2 = 5.367 mm; mitad 2.683 → ok.
+    //     Error de ida y vuelta √8 = 2.828 mm; K = 0.200 km → 12·√0.2 = 5.367 mm;
+    //     2 × 2.828 = 5.657 > 5.367 → el error no cabe (paso 25 m < 27.8 m).
+    //     Ningún corte lo arregla: 0+000–0+025 da 2·√2 = 2.83 > 12·√0.05 = 2.68;
+    //     0+000–0+050 da 2·√4 = 4.00 > 12·√0.1 = 3.79. No se clavan más estacas.
     //   0+100 a 0+200: igual.
     const resultado = planificarConControles([
       { progresiva: 0, cota: 3243.5 },
@@ -143,10 +190,10 @@ describe('planificarConControles — más de 4 cambios', () => {
     expect(medio.motivos).toEqual([{ tipo: 'maxCambios', texto: 'para no pasar de 4 cambios' }])
 
     expect(resultado.tramos.map((t) => [t.estaciones, t.cambios, t.ok])).toEqual([
-      [4, 3, true],
-      [4, 3, true],
+      [4, 3, false],
+      [4, 3, false],
     ])
-    expect(resultado.tramos[0]!.errorEsperadoMm).toBeCloseTo(2, 9)
+    expect(resultado.tramos[0]!.errorEsperadoMm).toBeCloseTo(Math.sqrt(8), 9)
     expect(resultado.tramos[0]!.toleranciaMm).toBeCloseTo(5.366563, 5)
     expect(resultado.tramos[0]!.plan.cambios.map((c) => c.progresiva)).toEqual([25, 50, 75])
   })
@@ -175,10 +222,11 @@ describe('planificarConControles — pendiente tan fuerte que el error no cabe',
     // 0+000 a 0+048 al +20 %: d máx = 1.20/0.20 = 6 m, paso 12 m → 48/12 = 4 estaciones.
     // Parejas de 12 m dejan adelante 1.500 − 1.200 = 0.300 < 0.35; con 5 de 9.6 m (d = 4.8):
     // adelante 1.500 − 0.960 = 0.540. Cabe: 5 estaciones, 4 cambios.
-    // Error √5 = 2.236 mm; K = 0.096 km → 12·√0.096 = 12·0.309839 = 3.718 mm; mitad 1.859 < 2.236.
+    // Error de ida y vuelta √10 = 3.162 mm; K = 0.096 km → 12·√0.096 = 12·0.309839 = 3.718 mm;
+    // 2 × 3.162 = 6.325 > 3.718.
     // Partir no ayuda: las partes tienen el mismo paso de 9.6 m, y el error (√n) y la
-    // tolerancia (√largo) crecen juntos. Hace falta σ·√n ≤ (k/2)·√(2·L/1000), o sea
-    // L/n ≥ 2000·σ²/k² = 2000/144 = 13.9 m de paso medio; aquí hay 48/5 = 9.6 m.
+    // tolerancia (√largo) crecen juntos. Hace falta 2·σ·√(2n) ≤ k·√(2·L/1000), o sea
+    // L/n ≥ 4000·σ²/k² = 4000/144 = 27.8 m de paso medio; aquí hay 48/5 = 9.6 m.
     const resultado = planificarConControles([
       { progresiva: 0, cota: 100 },
       { progresiva: 48, cota: 109.6 },
@@ -189,9 +237,9 @@ describe('planificarConControles — pendiente tan fuerte que el error no cabe',
     expect(resultado.controles.map((c) => c.progresiva)).toEqual([0, 48])
     const tramo = resultado.tramos[0]!
     expect(tramo).toMatchObject({ estaciones: 5, cambios: 4, ok: false })
-    expect(tramo.errorEsperadoMm).toBeCloseTo(2.236068, 5)
+    expect(tramo.errorEsperadoMm).toBeCloseTo(3.162278, 5)
     expect(tramo.avisos).toEqual([
-      'el error esperado (2.24 mm en 5 estaciones) pasa de la mitad de la tolerancia (1.86 mm): con un paso medio de 9.6 m haría falta al menos 13.9 m; partir el tramo no lo arregla, porque el error y la tolerancia crecen juntos con el largo',
+      'el doble del error esperado de ida y vuelta (2 × 3.16 = 6.32 mm, 10 estaciones) pasa de la tolerancia (3.72 mm): con un paso medio de 9.6 m haría falta al menos 27.8 m; partir el tramo no lo arregla, porque el error y la tolerancia crecen juntos con el largo',
     ])
     expect(resultado.avisos).toEqual([`tramo 0+000 a 0+048: ${tramo.avisos[0]}`])
   })
@@ -201,12 +249,13 @@ describe('planificarConControles — escalinata: tramos cortos de una estación'
   it('un tramo de una sola estación no se marca como falla por el error: queda como nota', () => {
     // Escalón: 0+000 y 0+000.50 a 100.000, 0+001 a 101.500, 0+020 a 101.500.
     // Quiebres en 0+000.50 (0 % → +300 %) y 0+001 (+300 % → 0 %): controles 0, 0.5, 1, 20.
-    // Tramo 0+000 a 0+000.50: una estación (d = 0.25). Error 1·√1 = 1.000 mm;
-    //   K = 2·0.0005 = 0.001 km → 12·√0.001 = 0.379 mm; mitad 0.190. Con una estación no hay
-    //   cómo hacerlo mejor: no es falla, es dato.
+    // Tramo 0+000 a 0+000.50: una estación (d = 0.25). Error de ida y vuelta 1·√2 = 1.414 mm;
+    //   K = 2·0.0005 = 0.001 km → 12·√0.001 = 0.379 mm; 2 × 1.414 = 2.83 > 0.38. Con una
+    //   estación no hay cómo hacerlo mejor: no es falla, es dato.
     // Tramo 0+000.50 a 0+001 (la cara): estación en 0+000.75 (100.750, AI 102.250):
-    //   atrás 2.250, adelante 102.250 − 101.500 = 0.750.
-    // Tramo 0+001 a 0+020: una estación, d = 9.5; mitad de 12·√0.038 = 2.339/2 = 1.170 ≥ 1.000 → ok sin nota.
+    //   atrás 2.250, adelante 102.250 − 101.500 = 0.750. La misma nota.
+    // Tramo 0+001 a 0+020: una estación, d = 9.5; 12·√0.038 = 2.339 < 2.83 → también nota
+    //   (haría falta un paso de 27.8 m y el tramo mide 19 m).
     const resultado = planificarConControles([
       { progresiva: 0, cota: 100 },
       { progresiva: 0.5, cota: 100 },
@@ -222,10 +271,12 @@ describe('planificarConControles — escalinata: tramos cortos de una estación'
     ])
     expect(resultado.ok).toBe(true)
     expect(resultado.tramos[0]!.notas).toEqual([
-      'una sola estación: el error esperado (1.00 mm) pasa de la mitad de la tolerancia (0.19 mm), pero con una estación no hay cómo mejorarlo; queda como dato',
+      'una sola estación: el doble del error esperado de ida y vuelta (2.83 mm) pasa de la tolerancia (0.38 mm), pero con una estación no hay cómo mejorarlo; queda como dato',
     ])
     expect(resultado.tramos[1]!.plan.estaciones[0]!.adelante.lectura).toBeCloseTo(0.75, 9)
-    expect(resultado.tramos[2]!.notas).toEqual([])
+    expect(resultado.tramos[2]!.notas).toEqual([
+      'una sola estación: el doble del error esperado de ida y vuelta (2.83 mm) pasa de la tolerancia (2.34 mm), pero con una estación no hay cómo mejorarlo; queda como dato',
+    ])
   })
 })
 
@@ -284,8 +335,9 @@ describe('planificarConControles — lo que no se puede', () => {
 
   it('una clave con undefined deja el valor de fábrica', () => {
     const resultado = planificarConControles(lasLomas, { maxCambiosPorTramo: undefined } as never)
-    expect(resultado.ok).toBe(true)
+    expect(resultado.posible).toBe(true)
     expect(resultado.controles).toHaveLength(3)
+    expect(resultado).toEqual(planificarConControles(lasLomas))
   })
 })
 

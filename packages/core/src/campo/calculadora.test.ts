@@ -203,6 +203,14 @@ describe('revisión: lecturas fuera de la mira', () => {
     // 3246.632 − 5.000 = 3241.632
     expect(cotaDesdeLectura(3246.632, 5)).toBe(3241.632)
   })
+  it('el largo de la mira es el del instrumento: con una de 4 m, 4.500 ya no vale', () => {
+    // De fábrica (5 m): 3246.632 − 4.500 = 3242.132
+    expect(cotaDesdeLectura(3246.632, 4.5)).toBe(3242.132)
+    expect(cotaDesdeLectura(3246.632, 4.5, 4)).toBeNull()
+    expect(alturaInstrumental(3244.73, 4.5, 4)).toBeNull()
+    // Con una de 7 m, 6.200 sí: 3244.730 + 6.200 = 3250.930
+    expect(alturaInstrumental(3244.73, 6.2, 7)).toBe(3250.93)
+  })
 })
 
 describe('revisión: ida y vuelta de la relación', () => {

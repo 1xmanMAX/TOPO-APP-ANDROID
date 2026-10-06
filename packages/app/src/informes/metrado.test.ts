@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { volumenesPorAreasMedias } from '../../../core/src/analisis/volumenes'
+import { volumenesPorAreasMedias } from '@topo/core'
 import { baseDePrueba } from './datosDePrueba'
 import { AVISO_SIN_COMPROBAR } from './maquetacion'
 import { metrado } from './metrado'

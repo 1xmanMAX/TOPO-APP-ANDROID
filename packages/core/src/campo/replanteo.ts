@@ -1,10 +1,11 @@
 import type { Calle, Capa, Id } from '../modelo/tipos'
-import { OPCIONES_NIVELACION } from '../planificar/cambios'
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
 import { cotaTeoricaDeCapa } from '../rasante/espesores'
 import {
   AVISO_REGLAS_MIRA,
   clasificarLectura,
   evaluarLectura,
+  lecturaMaximaLegible,
   rangoEsperado,
   reglasDeMira,
   type EstadoAviso,
@@ -26,7 +27,7 @@ export interface EntradaReplanteo {
    * hoja sirve igual, pero sus cotas no están comprobadas y se dice (§3).
    */
   alturaComprobada: boolean
-  /** Por defecto, las del planificador: mira de 4 m, leer entre 0.30 y 3.70. */
+  /** Por defecto, las del instrumento de fábrica: mira de 5 m, leer entre 0.30 y 4.70. */
   mira?: Partial<ReglasMira>
   /**
    * Dónde está plantado el nivel, en progresiva. Sin él no se puede saber el
@@ -36,7 +37,7 @@ export interface EntradaReplanteo {
    * el veredicto.
    */
   progresivaEstacion?: number
-  /** Visual más larga permitida, en metros. Por defecto 50 (diseño §2). */
+  /** Visual más larga permitida, en metros. Por defecto la del instrumento de fábrica (50, diseño §2). */
   visualMax?: number
 }
 
@@ -107,7 +108,7 @@ function m3(valor: number): string {
 export function hojaDeReplanteo(entrada: EntradaReplanteo): HojaDeReplanteo {
   const { calle, capas, capaId, alturaInstrumental, alturaComprobada } = entrada
   const reglas = reglasDeMira(entrada.mira)
-  const visualMax = entrada.visualMax ?? OPCIONES_NIVELACION.visualMax
+  const visualMax = entrada.visualMax ?? INSTRUMENTO_DE_FABRICA.visualMax
   const avisos: string[] = []
 
   const validas = entrada.progresivas.filter((p) => Number.isFinite(p))
@@ -211,7 +212,7 @@ export function hojaDeReplanteo(entrada: EntradaReplanteo): HojaDeReplanteo {
     )
   }
   if (pocoPrecisas > 0) {
-    const maxima = m3(reglas!.largoMira - reglas!.margenSuperior)
+    const maxima = m3(lecturaMaximaLegible(reglas!))
     avisos.push(
       `${contar(pocoPrecisas, 'lectura objetivo queda', 'lecturas objetivo quedan')} fuera de ` +
         `${m3(reglas!.lecturaMin)} … ${maxima} m: ${pocoPrecisas === 1 ? 'poco precisa' : 'poco precisas'}, mejor otra estación.`,

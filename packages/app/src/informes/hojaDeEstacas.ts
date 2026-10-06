@@ -1,7 +1,7 @@
 import { redondear3 } from '@topo/core'
 // El núcleo todavía no exporta estos módulos desde su índice: se importan directo.
-import { clasificarLectura, reglasDeMira, type ReglasMira } from '../../../core/src/campo/avisoLectura'
-import type { HojaDeReplanteo, MotivoSinObjetivo } from '../../../core/src/campo/replanteo'
+import { clasificarLectura, reglasDeMira, type ReglasMira } from '@topo/core'
+import type { HojaDeReplanteo, MotivoSinObjetivo } from '@topo/core'
 import { formatearCota } from '../formato'
 import {
   componerInforme,

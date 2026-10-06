@@ -570,8 +570,10 @@ export function cotasCercanas<T extends TextoCota>(
 }
 
 /**
- * La pendiente de cada tramo entre cotas consecutivas, en %, redondeada a
- * milésimas. Positivo sube en el sentido de avance. Se calcula con
+ * La pendiente de cada tramo entre cotas consecutivas, en %, SIN redondear:
+ * redondea quien la muestra (y una sola vez; redondear aquí y otra vez al
+ * escribir con 2 decimales podía mover el último dígito). Positivo sube en el
+ * sentido de avance. Se calcula con
  * `pendientes` del perfil del planificador para que la pantalla del plano y
  * el planificador nunca muestren dos pendientes distintas del mismo tramo, y
  * con su mismo criterio: no reordena ni deja pasar una progresiva repetida o
@@ -591,7 +593,8 @@ export function pendientesPorTramo(
     return []
   }
   return pendientes(vertices).map((tramo) => {
-    const porcentaje = redondearMm(tramo.pendientePorcentaje)
+    // `+ 0` convierte un −0 en 0, para que «plano» se escriba siempre igual.
+    const porcentaje = tramo.pendientePorcentaje + 0
     return {
       desde: tramo.desde,
       hasta: tramo.hasta,

@@ -1,4 +1,5 @@
 import { formatearProgresiva } from '../grilla/progresivas'
+import { INSTRUMENTO_DE_FABRICA, instrumentoCompleto, type Instrumento } from '../modelo/instrumento'
 import { calcularToleranciaMm } from '../nivelacion/cierre'
 import {
   OPCIONES_NIVELACION,
@@ -37,11 +38,32 @@ export interface OpcionesControles extends OpcionesNivelacion {
 
 export const OPCIONES_CONTROLES: Readonly<OpcionesControles> = Object.freeze({
   ...OPCIONES_NIVELACION,
-  maxCambiosPorTramo: 4,
-  sigmaPorEstacionMm: 1,
-  k: 12,
+  maxCambiosPorTramo: INSTRUMENTO_DE_FABRICA.maxCambiosPorTramo,
+  sigmaPorEstacionMm: INSTRUMENTO_DE_FABRICA.sigmaPorEstacionMm,
+  k: INSTRUMENTO_DE_FABRICA.coeficienteK,
   umbralQuiebrePorcentaje: 0.5,
 })
+
+/**
+ * Las opciones del planificador que salen del instrumento del proyecto
+ * (`Proyecto.instrumento`). Lo que falte se completa con el de fábrica. Las
+ * que son solo del plan (visual mínima, holgura, umbral de quiebre…) no se
+ * tocan: se agregan encima si hace falta.
+ */
+export function opcionesDeInstrumento(instrumento?: Partial<Instrumento> | null): Partial<OpcionesControles> {
+  const i = instrumentoCompleto(instrumento)
+  return {
+    largoMira: i.largoMira,
+    alturaInstrumento: i.alturaInstrumento,
+    lecturaMin: i.lecturaMin,
+    margenSuperior: i.margenSuperior,
+    visualMax: i.visualMax,
+    desequilibrioMax: i.desequilibrioMax,
+    maxCambiosPorTramo: i.maxCambiosPorTramo,
+    sigmaPorEstacionMm: i.sigmaPorEstacionMm,
+    k: i.coeficienteK,
+  }
+}
 
 /** Por qué va un control; sirve a la interfaz para elegir ícono o color. */
 export type TipoMotivoControl = 'inicio' | 'fin' | 'quiebre' | 'maxCambios' | 'error'
@@ -77,7 +99,10 @@ export interface TramoControlado {
   estaciones: number
   /** Puntos de cambio de ida: estaciones − 1. */
   cambios: number
-  /** σ·√estaciones, en mm. */
+  /**
+   * Error esperado del cierre de ida y vuelta, en mm: σ·√(2n), con n las
+   * estaciones de ida (cada tramo se cierra yendo y volviendo).
+   */
   errorEsperadoMm: number
   /** k·√K, con K el recorrido de ida y vuelta en km. */
   toleranciaMm: number
@@ -134,27 +159,38 @@ function nombreTramo(desde: number, hasta: number): string {
   return `tramo ${formatearProgresiva(desde)} a ${formatearProgresiva(hasta)}`
 }
 
+/** 2 × error esperado ≤ tolerancia, con una milésima de mm de holgura como en calcularCierre. */
+function cabeElError(errorEsperadoMm: number, toleranciaMm: number): boolean {
+  return 2 * errorEsperadoMm <= toleranciaMm + 1e-3
+}
+
+/** Paso medio (m por estación) por debajo del cual el error no cabe: L/n ≥ 4000·σ²/k². */
+function pasoMinimo(o: OpcionesControles): number {
+  return (4000 * o.sigmaPorEstacionMm ** 2) / o.k ** 2
+}
+
 /**
  * Error esperado y tolerancia de un tramo.
  *
- * El error usa las estaciones de ida (σ·√n) y la tolerancia el recorrido de
- * ida y vuelta, tal como lo fija el diseño. Exigir σ·√n ≤ tolerancia/2 es lo
- * mismo que pedir que el cierre esperado del circuito (σ·√(2n)) quede bajo
- * tolerancia/√2: un 71 % de la tolerancia, margen para lo que no es azar.
+ * Max cierra cada tramo yendo y volviendo, así que el cierre lo forman las
+ * n estaciones de ida más las n de vuelta: error esperado = σ·√(2n). La
+ * tolerancia es k·√K con K el recorrido de ida y vuelta en km. El tramo está
+ * bien si 2 × error esperado ≤ tolerancia: con errores al azar, el cierre
+ * cae dentro de la tolerancia con una confianza de ~95 %.
  *
- * Esa regla pide un paso medio de al menos 2000·σ²/k² (13.9 m de fábrica),
- * así que un tramo corto de una sola estación —el que dejan dos quiebres
- * seguidos en una escalinata— nunca la cumpliría, aunque no haya forma de
- * hacerlo mejor. Ese caso no se marca como falla: queda como nota. (Si el
- * error debe contarse de ida o de ida y vuelta está pendiente de Max.)
+ *   2·σ·√(2n) ≤ k·√(2L/1000)  ⇔  L/n ≥ 4000·σ²/k²  (27.8 m de fábrica)
+ *
+ * Así que un tramo corto de una sola estación —el que dejan dos quiebres
+ * seguidos en una escalinata— casi nunca la cumple, aunque no haya forma de
+ * hacerlo mejor. Ese caso no se marca como falla: queda como nota.
  */
 function medirTramo(perfil: Perfil, plan: PlanNivelacion, o: OpcionesControles): TramoControlado {
   const estaciones = plan.estaciones.length
   const cambios = Math.max(estaciones - 1, 0)
-  const errorEsperadoMm = o.sigmaPorEstacionMm * Math.sqrt(estaciones)
+  const errorEsperadoMm = o.sigmaPorEstacionMm * Math.sqrt(2 * estaciones)
   const largoKm = (plan.hasta - plan.desde) / 1000
   const toleranciaMm = calcularToleranciaMm(o.k, 2 * largoKm)
-  const mitad = toleranciaMm / 2
+  const dobleError = 2 * errorEsperadoMm
 
   const avisos: string[] = []
   const notas: string[] = []
@@ -164,18 +200,15 @@ function medirTramo(perfil: Perfil, plan: PlanNivelacion, o: OpcionesControles):
     if (cambios > o.maxCambiosPorTramo) {
       avisos.push(`lleva ${cambios} cambios, más que el máximo de ${o.maxCambiosPorTramo}`)
     }
-    // Una milésima de mm de holgura, como en calcularCierre.
-    if (errorEsperadoMm > mitad + 1e-3) {
+    if (!cabeElError(errorEsperadoMm, toleranciaMm)) {
       if (estaciones === 1) {
         notas.push(
-          `una sola estación: el error esperado (${errorEsperadoMm.toFixed(2)} mm) pasa de la mitad de la tolerancia (${mitad.toFixed(2)} mm), pero con una estación no hay cómo mejorarlo; queda como dato`,
+          `una sola estación: el doble del error esperado de ida y vuelta (${dobleError.toFixed(2)} mm) pasa de la tolerancia (${toleranciaMm.toFixed(2)} mm), pero con una estación no hay cómo mejorarlo; queda como dato`,
         )
       } else {
         const pasoMedio = (plan.hasta - plan.desde) / estaciones
-        // σ·√n ≤ (k/2)·√(2L/1000)  ⇔  L/n ≥ 2000·σ²/k²
-        const pasoNecesario = (2000 * o.sigmaPorEstacionMm ** 2) / o.k ** 2
         avisos.push(
-          `el error esperado (${errorEsperadoMm.toFixed(2)} mm en ${estaciones} estaciones) pasa de la mitad de la tolerancia (${mitad.toFixed(2)} mm): con un paso medio de ${pasoMedio.toFixed(1)} m haría falta al menos ${pasoNecesario.toFixed(1)} m; partir el tramo no lo arregla, porque el error y la tolerancia crecen juntos con el largo`,
+          `el doble del error esperado de ida y vuelta (2 × ${errorEsperadoMm.toFixed(2)} = ${dobleError.toFixed(2)} mm, ${2 * estaciones} estaciones) pasa de la tolerancia (${toleranciaMm.toFixed(2)} mm): con un paso medio de ${pasoMedio.toFixed(1)} m haría falta al menos ${pasoMinimo(o).toFixed(1)} m; partir el tramo no lo arregla, porque el error y la tolerancia crecen juntos con el largo`,
         )
       }
     }
@@ -205,7 +238,7 @@ function medirTramo(perfil: Perfil, plan: PlanNivelacion, o: OpcionesControles):
 }
 
 function errorCabe(tramo: TramoControlado): boolean {
-  return tramo.errorEsperadoMm <= tramo.toleranciaMm / 2 + 1e-3
+  return cabeElError(tramo.errorEsperadoMm, tramo.toleranciaMm)
 }
 
 function planImposible(motivo: string): PlanConControles {
@@ -219,7 +252,8 @@ function planImposible(motivo: string): PlanConControles {
  * 1. Inicio y fin de la pista.
  * 2. Cada quiebre de pendiente.
  * 3. Un punto de cambio más, donde un tramo pase de `maxCambiosPorTramo`
- *    cambios o su error esperado pase de la mitad de su tolerancia.
+ *    cambios o el doble de su error esperado de ida y vuelta pase de su
+ *    tolerancia.
  *
  * Sobre la regla del error: con el mismo paso, partir un tramo achica igual
  * el error (√n) que la tolerancia (√largo), así que casi nunca lo arregla.
@@ -278,15 +312,17 @@ export function planificarConControles(perfil: Perfil, opciones?: Partial<Opcion
       for (const cambio of tramo.plan.cambios) {
         const izquierda = medir(desde, cambio.progresiva)
         const derecha = medir(cambio.progresiva, hasta)
-        if (!izquierda.ok || !derecha.ok) continue
+        // Las dos partes deben cumplir la regla de verdad: una parte de una
+        // sola estación pasa como «ok» solo por la nota, y cortar ahí sería
+        // clavar una estaca que no mejora nada.
+        if (!izquierda.ok || !derecha.ok || !errorCabe(izquierda) || !errorCabe(derecha)) continue
         const diferencia = Math.abs(izquierda.estaciones - derecha.estaciones)
         if (!mejor || diferencia < mejor.diferencia) mejor = { corte: cambio.progresiva, diferencia }
       }
       if (mejor) {
-        const mitad = tramo.toleranciaMm / 2
         anotar(mejor.corte, {
           tipo: 'error',
-          texto: `para que el error esperado (${tramo.errorEsperadoMm.toFixed(2)} mm) no pase de la mitad de la tolerancia (${mitad.toFixed(2)} mm)`,
+          texto: `para que el doble del error esperado (${(2 * tramo.errorEsperadoMm).toFixed(2)} mm) no pase de la tolerancia (${tramo.toleranciaMm.toFixed(2)} mm)`,
         })
         return [...resolver(desde, mejor.corte), ...resolver(mejor.corte, hasta)]
       }

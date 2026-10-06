@@ -1,9 +1,10 @@
 import { construirGrilla, progresivasDeLaToma, type CeldaGrilla } from '../grilla/grilla'
 import { formatearProgresiva } from '../grilla/progresivas'
+import { INSTRUMENTO_DE_FABRICA } from '../modelo/instrumento'
 import type { BM, Calle, Toma, DestinoLectura } from '../modelo/tipos'
 import { aMilimetros, redondear3 } from '../numero'
 import { calcularCierre, calcularLongitudKAuto, type ResultadoCierre } from './cierre'
-import { compensarPuntos, correccionesAcumuladas } from './compensacion'
+import { compensarPuntos, correccionesDeLaToma, tramoQueCierra, type TramoComprobado } from './compensacion'
 import { calcularCotas, esLecturaUsable } from './cotas'
 
 /** Diferencia a partir de la cual dos lecturas de la misma celda merecen advertencia. */
@@ -39,6 +40,8 @@ export interface EntradaCalculo {
   campania: Toma
   calle: Calle
   bms: BM[]
+  /** Metros. Por defecto, el de INSTRUMENTO_DE_FABRICA (Proyecto.instrumento lo cambia). */
+  largoMira?: number
 }
 
 export interface ResultadoCampania {
@@ -50,6 +53,12 @@ export interface ResultadoCampania {
   celdasTotales: number
   celdasLlenas: number
   error: string | null
+  /**
+   * Las estaciones que el cierre respalda y entre las que se reparte la
+   * corrección: desde la última que arrancó de un BM. Las de antes no
+   * reciben corrección ni están comprobadas. Null si no se pudo calcular.
+   */
+  tramoComprobado?: TramoComprobado | null
 }
 
 /**
@@ -73,6 +82,7 @@ function nombradorDeElementos(calle: Calle): NombreDeElemento {
 
 export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
   const { campania, calle, bms } = entrada
+  const largoMira = entrada.largoMira ?? INSTRUMENTO_DE_FABRICA.largoMira
   const nombreDe = nombradorDeElementos(calle)
 
   let grilla: CeldaGrilla[] = []
@@ -86,12 +96,13 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
 
     const offsetPorClave = new Map(grilla.map((celda) => [celda.clave, celda.offset]))
 
-    const cotas = calcularCotas(campania, bms)
+    const cotas = calcularCotas(campania, bms, { largoMira })
     const cierre = calcularCierre(campania, bms, cotas, longitudKKm)
+    // La misma regla que el cierre en vivo: el error pertenece al último
+    // circuito (desde la última estación que arrancó de un BM).
+    const tramo = tramoQueCierra(campania)
     const acumuladas =
-      cierre.pasa === true && cierre.errorMm !== null
-        ? correccionesAcumuladas(cierre.errorMm, campania.estaciones.length)
-        : []
+      cierre.pasa === true && cierre.errorMm !== null ? correccionesDeLaToma(cierre.errorMm, campania) : []
     const compensados = compensarPuntos(cotas.puntos, acumuladas)
 
     const avisos: Aviso[] = []
@@ -116,10 +127,11 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
       })
     }
 
-    agregarAvisosDeLecturasNoUsables(campania, avisos, nombreDe)
+    agregarAvisosDeLecturasNoUsables(campania, avisos, nombreDe, largoMira)
     agregarAvisosDeRepeticion(cotasPorCelda, compensados, avisos, nombreDe)
     agregarAvisosDeApartamiento(cotasPorCelda, avisos, nombreDe)
     agregarAvisosDeCierre(cierre, campania, bms, avisos)
+    agregarAvisoDeTramoSinCierre(cierre, tramo, avisos)
     agregarAvisosDeHuerfanas(grilla, cotasPorCelda, avisos, nombreDe)
 
     return {
@@ -130,6 +142,7 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
       celdasTotales: grilla.length,
       celdasLlenas: cotasPorCelda.size,
       error: null,
+      tramoComprobado: tramo,
     }
   } catch (fallo) {
     const mensaje = (fallo as Error).message
@@ -149,6 +162,7 @@ export function calcularCampania(entrada: EntradaCalculo): ResultadoCampania {
       celdasTotales: grilla.length,
       celdasLlenas: 0,
       error: mensaje,
+      tramoComprobado: null,
     }
   }
 }
@@ -166,10 +180,10 @@ function descripcionLectura(destino: DestinoLectura, nombreDe: NombreDeElemento)
   }
 }
 
-function mensajeLecturaNoUsable(descripcion: string, valor: number): string {
+function mensajeLecturaNoUsable(descripcion: string, valor: number, largoMira: number): string {
   return (
     `${descripcion}: la lectura ${valor.toFixed(3)} no puede ser de una mira ` +
-    '(tiene que estar entre 0 y 5 m). Queda pendiente hasta que la corrijas.'
+    `(tiene que estar entre 0 y ${largoMira} m). Queda pendiente hasta que la corrijas.`
   )
 }
 
@@ -182,33 +196,36 @@ function agregarAvisosDeLecturasNoUsables(
   campania: Toma,
   avisos: Aviso[],
   nombreDe: NombreDeElemento,
+  largoMira: number,
 ): void {
+  const usable = (valor: number) => esLecturaUsable(valor, largoMira)
   campania.estaciones.forEach((estacion, indice) => {
-    if (!esLecturaUsable(estacion.vistaAtras.valor)) {
+    if (!usable(estacion.vistaAtras.valor)) {
       avisos.push({
         nivel: 'advertencia',
         clave: null,
-        mensaje: mensajeLecturaNoUsable(`Estación ${indice + 1}, vista atrás`, estacion.vistaAtras.valor),
+        mensaje: mensajeLecturaNoUsable(`Estación ${indice + 1}, vista atrás`, estacion.vistaAtras.valor, largoMira),
       })
       return
     }
 
     for (const lectura of estacion.intermedias) {
-      if (esLecturaUsable(lectura.valor)) continue
+      if (usable(lectura.valor)) continue
       avisos.push({
         nivel: 'advertencia',
         clave: null,
-        mensaje: mensajeLecturaNoUsable(descripcionLectura(lectura.destino, nombreDe), lectura.valor),
+        mensaje: mensajeLecturaNoUsable(descripcionLectura(lectura.destino, nombreDe), lectura.valor, largoMira),
       })
     }
 
-    if (estacion.vistaAdelante && !esLecturaUsable(estacion.vistaAdelante.valor)) {
+    if (estacion.vistaAdelante && !usable(estacion.vistaAdelante.valor)) {
       avisos.push({
         nivel: 'advertencia',
         clave: null,
         mensaje: mensajeLecturaNoUsable(
           `Estación ${indice + 1}, vista adelante`,
           estacion.vistaAdelante.valor,
+          largoMira,
         ),
       })
     }
@@ -372,4 +389,21 @@ function agregarAvisosDeCierre(
         'Las cotas quedan marcadas como NO COMPROBADAS.',
     })
   }
+}
+
+/**
+ * Si la toma volvió a arrancar en un BM a mitad, el cierre solo respalda
+ * desde ahí: las estaciones de antes no se compensan ni están comprobadas, y
+ * se dice (spec §3), en vez de dejar que parezcan parte del circuito.
+ */
+function agregarAvisoDeTramoSinCierre(cierre: ResultadoCierre, tramo: TramoComprobado, avisos: Aviso[]): void {
+  if (cierre.tipo === 'abierto' || cierre.errorMm === null || tramo.primeraEstacion === 0) return
+  const antes = tramo.primeraEstacion === 1 ? 'La estación 1 queda' : `Las estaciones 1 a ${tramo.primeraEstacion} quedan`
+  avisos.push({
+    nivel: 'advertencia',
+    clave: null,
+    mensaje:
+      `La toma vuelve a arrancar en un BM en la estación ${tramo.primeraEstacion + 1}: el cierre solo comprueba desde ahí. ` +
+      `${antes} fuera del circuito: sin compensar y NO COMPROBADAS.`,
+  })
 }
