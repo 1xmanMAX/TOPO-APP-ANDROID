@@ -15,7 +15,7 @@ export default function CampoTexto({ etiqueta, valor, alCambiar, marcador, ancho
         value={valor}
         placeholder={marcador}
         onChange={(evento) => alCambiar(evento.target.value)}
-        className="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900"
+        className="min-h-11 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900"
       />
     </label>
   )

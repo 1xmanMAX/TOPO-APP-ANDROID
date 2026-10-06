@@ -2,6 +2,7 @@ import {
   calcularCampania,
   construirGrilla,
   evaluarContraRasante,
+  instrumentoCompleto,
   progresivasDeLaToma,
   type Calle,
   type Capa,
@@ -55,6 +56,8 @@ export function useResultadoDe(campaniaId: Id | null): ResultadoCampania | null 
       campania: contexto.campania,
       calle: contexto.calle,
       bms: proyecto.bms,
+      // La misma mira que usan el aviso al anotar, el cierre y los informes.
+      largoMira: instrumentoCompleto(proyecto.instrumento).largoMira,
     })
   }, [proyecto, campaniaId])
 }
@@ -79,6 +82,7 @@ export function useResultadosDe(campaniaIds: Id[]): Map<Id, ResultadoCampania> {
           campania: contexto.campania,
           calle: contexto.calle,
           bms: proyecto.bms,
+          largoMira: instrumentoCompleto(proyecto.instrumento).largoMira,
         }),
       )
     }

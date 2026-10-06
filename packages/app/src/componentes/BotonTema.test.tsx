@@ -6,7 +6,7 @@ import BotonTema from './BotonTema'
 describe('BotonTema', () => {
   beforeEach(() => {
     localStorage.clear()
-    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.remove('dark', 'sol')
   })
 
   afterEach(() => {
@@ -77,5 +77,37 @@ describe('BotonTema', () => {
     render(<BotonTema />)
 
     expect(screen.getByRole('button', { name: /tema/i })).toHaveTextContent('Sistema')
+  })
+
+  it('el cuarto modo es Sol: alto contraste sobre el oscuro, y se recuerda', async () => {
+    const usuario = userEvent.setup()
+    render(<BotonTema />)
+    const boton = screen.getByRole('button', { name: 'Cambiar tema' })
+    await usuario.click(boton) // Oscuro
+    await usuario.click(boton) // Claro
+    expect(document.documentElement).not.toHaveClass('sol')
+    await usuario.click(boton) // Sol
+
+    expect(boton).toHaveTextContent('Sol')
+    expect(document.documentElement).toHaveClass('dark')
+    expect(document.documentElement).toHaveClass('sol')
+    expect(localStorage.getItem('topo:tema')).toBe('sol')
+  })
+
+  it('de Sol vuelve a Sistema y quita el alto contraste', async () => {
+    localStorage.setItem('topo:tema', 'sol')
+    const usuario = userEvent.setup()
+    render(<BotonTema />)
+    expect(document.documentElement).toHaveClass('sol')
+
+    await usuario.click(screen.getByRole('button', { name: 'Cambiar tema' }))
+    expect(screen.getByRole('button', { name: 'Cambiar tema' })).toHaveTextContent('Sistema')
+    expect(document.documentElement).not.toHaveClass('sol')
+    expect(localStorage.getItem('topo:tema')).toBeNull()
+  })
+
+  it('mide al menos 44 px, para el dedo con guante', () => {
+    render(<BotonTema />)
+    expect(screen.getByRole('button', { name: 'Cambiar tema' })).toHaveClass('min-h-11', 'min-w-11')
   })
 })

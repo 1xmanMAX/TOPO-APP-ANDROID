@@ -100,7 +100,7 @@ export default function CampoNumero({
               alPresionarEnter?.()
             }
           }}
-          className={`numerico w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-right text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900 ${
+          className={`numerico min-h-11 w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-right text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900 ${
             soloLectura ? 'text-slate-400 dark:text-slate-500' : ''
           }`}
         />

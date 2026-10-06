@@ -32,7 +32,7 @@ function Calle() {
 
 /**
  * La calculadora se abre encima de cualquier pantalla sin taparla del todo:
- * en el celular sube desde abajo, en la laptop queda a la derecha. No es
+ * en el celular ocupa la pantalla entera, en la laptop queda a la derecha. No es
  * modal a propósito: se calcula mirando la libreta.
  */
 function Calculadora() {
@@ -50,7 +50,7 @@ function Calculadora() {
     <aside
       role="dialog"
       aria-label="Calculadora de campo"
-      className="fixed inset-x-0 bottom-0 z-20 max-h-[75vh] overflow-auto border-t border-slate-200 bg-white shadow-2xl sm:inset-x-auto sm:top-14 sm:right-0 sm:max-h-none sm:w-96 sm:border-l sm:border-t-0 dark:border-slate-800 dark:bg-slate-950"
+      className="fixed inset-0 z-20 overflow-auto border-slate-200 bg-white shadow-2xl sm:inset-auto sm:top-14 sm:right-0 sm:bottom-0 sm:w-96 sm:border-l dark:border-slate-800 dark:bg-slate-950"
     >
       <div className="flex justify-end p-2">
         <button

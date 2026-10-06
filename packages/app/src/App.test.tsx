@@ -175,8 +175,8 @@ describe('App', () => {
 
     render(<App />)
 
-    // Las campañas están en Obra › Calles; crear una lleva a Calle › Medir.
-    await usuario.click(await screen.findByRole('button', { name: /nueva campaña/i }))
+    // Las jornadas se crean desde Obra › Calles; crear una lleva a Calle › Medir.
+    await usuario.click(await screen.findByRole('button', { name: /^nueva jornada$/i }))
     expect(useAlmacen.getState().espacio).toBe('calle')
     expect(useAlmacen.getState().modoCalle).toBe('medir')
 
