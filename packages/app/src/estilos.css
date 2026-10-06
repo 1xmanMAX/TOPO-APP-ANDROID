@@ -23,3 +23,71 @@ body {
   font-variant-numeric: tabular-nums;
   @apply font-mono;
 }
+
+/*
+ * Modo sol: negro y amarillo de alto contraste, para leer la pantalla a
+ * pleno sol en obra. BotonTema pone en <html> las clases `dark` y `sol`: el
+ * oscuro ya deja fondos oscuros y texto claro en todas las pantallas, y aquí
+ * se cambia la paleta.
+ *
+ * En el tema oscuro, slate-50…500 son TEXTO (dark:text-slate-100…400) y
+ * slate-600…950 son FONDO (dark:bg-slate-600 en el punto medido del mapa,
+ * dark:bg-slate-700 en las jornadas y los pasos de la guía, dark:bg-slate-800
+ * en las tarjetas). Por eso los primeros pasan a amarillo y los segundos se
+ * quedan en negros con un tinte de amarillo, distintos entre sí: amarillo
+ * sobre amarillo no se lee. El blanco se queda blanco (texto de las tarjetas
+ * oscuras); el único sitio donde iría blanco sobre amarillo, la marca, tiene
+ * su regla abajo. Los colores de estado se avivan pero siguen yendo con su
+ * símbolo (✓ △ ✗). modoSol.test.ts vigila estos contrastes.
+ */
+html.sol {
+  color-scheme: dark;
+  --color-slate-50: #ffe600;
+  --color-slate-100: #ffe600;
+  --color-slate-200: #ffe600;
+  --color-slate-300: #ffe600;
+  --color-slate-400: #ffe600;
+  --color-slate-500: #e6cf00;
+  --color-slate-600: #3d3700;
+  --color-slate-700: #2e2900;
+  --color-slate-800: #1f1c00;
+  --color-slate-900: #000;
+  --color-slate-950: #000;
+  --color-sky-400: #7fdbff;
+  --color-amber-400: #ffd000;
+  --color-amber-800: #ffd000;
+  --color-red-950: #000;
+  --color-marca: #ffe600;
+  --color-pasa: #3dff7a;
+  --color-falla: #ff6b6b;
+  --color-aviso: #ffb000;
+}
+
+html.sol body {
+  font-weight: 500;
+}
+
+/* Lo que va sobre la marca (botones, pestaña elegida, celda activa): negro. */
+html.sol .bg-marca {
+  color: #000;
+}
+
+/*
+ * Los bordes y los textos tenues del tema oscuro usan los tonos que aquí son
+ * fondo: sin esto, las cajas y los «—» de relleno se perderían en el negro.
+ */
+html.sol .dark\:border-slate-600,
+html.sol .dark\:border-slate-700,
+html.sol .dark\:border-slate-800 {
+  border-color: #c9b400;
+}
+
+html.sol .dark\:text-slate-600,
+html.sol .dark\:text-slate-700 {
+  color: #a39200;
+}
+
+html.sol :focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
