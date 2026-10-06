@@ -232,7 +232,7 @@ export default function JornadasCalle({ calle }: { calle: Calle }) {
                   </span>
                   <span className="flex min-w-0 flex-col">
                     <b className="truncate text-base">{j.capa?.nombre ?? 'capa sin elegir'}</b>
-                    <span id={idDetalle} className="truncate text-sm text-slate-600 dark:text-slate-400">
+                    <span id={idDetalle} className="text-sm text-slate-600 dark:text-slate-400">
                       {tramo ?? 'sin progresivas'} · {cuenta(lecturasDeToma(j.toma, largoMira), 'lectura', 'lecturas')}
                     </span>
                   </span>

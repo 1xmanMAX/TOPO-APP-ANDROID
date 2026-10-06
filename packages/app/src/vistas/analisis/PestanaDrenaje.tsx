@@ -52,6 +52,7 @@ export default function PestanaDrenaje({
   const resultado = useResultado()
   const capas = useAlmacen((s) => s.proyecto.capas)
   const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
+  const activarCampania = useAlmacen((s) => s.activarCampania)
   const puntos = calle.seccion.puntos
   const ejeId = puntos.find((p) => p.rol === 'eje')?.id ?? puntos[0]?.id ?? ''
   const elementoPedido = eleccion.elemento
@@ -86,11 +87,22 @@ export default function PestanaDrenaje({
       </Aviso>
     )
   }
+  const capaAnalizada = (
+    <CapaAnalizada
+      calle={calle}
+      campaniaId={contexto.campania.id}
+      nombreCapa={(id) => capas.find((c) => c.id === id)?.nombre ?? 'Sin capa'}
+      alElegir={activarCampania}
+    />
+  )
   if (!resultado || !calculo) {
     return (
-      <Aviso tono="neutro" simbolo="△">
-        La nivelación activa todavía no tiene cotas calculadas. Anota sus lecturas en Calle › Medir.
-      </Aviso>
+      <div className="flex flex-col gap-3">
+        {capaAnalizada}
+        <Aviso tono="neutro" simbolo="△">
+          Esta capa todavía no tiene cotas calculadas. Anota sus lecturas en Calle › Medir.
+        </Aviso>
+      </div>
     )
   }
   const { drenaje, bombeos, medido } = calculo
@@ -98,6 +110,7 @@ export default function PestanaDrenaje({
 
   return (
     <div className="flex flex-col gap-3">
+      {capaAnalizada}
       {!drenaje.comprobado && <AvisoNoComprobado que="DRENAJE Y BOMBEO" motivo={motivoSinCierre(resultado.cierre.pasa)} />}
       {!rasante && (
         <Aviso tono="aviso" simbolo="△">
@@ -238,8 +251,8 @@ export default function PestanaDrenaje({
                   <tr key={`${b.progresiva}-${b.lado}`} className="border-t border-slate-100 dark:border-slate-800">
                     <td className="numerico px-2 py-1.5">{formatearProgresiva(b.progresiva)}</td>
                     <td className="px-2 py-1.5">{b.lado}</td>
-                    <td className="numerico px-2 py-1.5 text-right">{b.medido !== null ? formatearPorcentaje(b.medido) : '—'}</td>
-                    <td className="numerico px-2 py-1.5 text-right">{b.proyecto !== null ? formatearPorcentaje(b.proyecto) : '—'}</td>
+                    <td className="numerico whitespace-nowrap px-2 py-1.5 text-right">{b.medido !== null ? formatearPorcentaje(b.medido) : '—'}</td>
+                    <td className="numerico whitespace-nowrap px-2 py-1.5 text-right">{b.proyecto !== null ? formatearPorcentaje(b.proyecto) : '—'}</td>
                     <td className="px-2 py-1.5">
                       {b.comparacion ? (
                         <span className={CLASE_BOMBEO[b.comparacion.estado]}>
@@ -272,6 +285,45 @@ export default function PestanaDrenaje({
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * Qué capa medida se analiza. Drenaje y bombeo salen de la toma activa: sin
+ * decirlo, el bombeo de la base se podía leer como el de la subrasante. Elegir
+ * otra aquí cambia la capa activa de la calle, la misma de Medir y Revisar.
+ */
+function CapaAnalizada({
+  calle,
+  campaniaId,
+  nombreCapa,
+  alElegir,
+}: {
+  calle: Calle
+  campaniaId: string
+  nombreCapa: (id: string) => string
+  alElegir: (id: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="font-medium">Capa analizada</span>
+      <select aria-label="Capa analizada" value={campaniaId} onChange={(e) => alElegir(e.target.value)} className={SELECTOR}>
+        {calle.nivelaciones.map((nivelacion) =>
+          nivelacion.tomas.length === 0 ? null : (
+            <optgroup key={nivelacion.id} label={nivelacion.nombre}>
+              {nivelacion.tomas.map((toma) => (
+                <option key={toma.id} value={toma.id}>
+                  {nombreCapa(toma.capaId)} · {toma.fecha}
+                </option>
+              ))}
+            </optgroup>
+          ),
+        )}
+      </select>
+      <span className="text-xs text-slate-600 dark:text-slate-300">
+        Drenaje y bombeo de esta capa. Cambiarla cambia la capa activa de la calle.
+      </span>
+    </label>
   )
 }
 

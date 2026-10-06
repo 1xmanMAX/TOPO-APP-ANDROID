@@ -424,7 +424,7 @@ describe('veredicto: comprobado solo si lo impreso sale del circuito que cierra'
     const con = datosEstacas(p, { ...SUB, capaReplanteoId: 'cap-base', vistaAtrasBm: 1.2 }, OPC)
     expect(con.listo && con.veredicto).toEqual({
       estado: 'comprobado',
-      texto: 'Comprobado: la altura instrumental (102.200) sale del BM oficial BM-1.',
+      texto: 'Comprobado: la altura instrumental (102.200) sale del BM oficial BM-1 y todas las lecturas objetivo caben en la mira.',
     })
     const auxiliar: Proyecto = { ...p, bms: [{ ...p.bms[0]!, tipo: 'auxiliar' }] }
     const aux = datosEstacas(auxiliar, { ...SUB, capaReplanteoId: 'cap-base', vistaAtrasBm: 1.2 }, OPC)
@@ -470,8 +470,93 @@ describe('hoja de estacas: qué propone por defecto', () => {
     expect(r.razon).toMatch(/^Todas las capas ya tienen jornada/)
   })
 
-  it('una calle sin jornadas propone la primera capa del paquete', () => {
-    expect(replanteoPorDefecto(proyectoDeInformes(), 'c-2')).toMatchObject({ capaId: 'cap-terreno', bmId: 'bm-1' })
+  it('una calle sin jornadas propone la primera capa que se construye, no el terreno', () => {
+    const r = replanteoPorDefecto(proyectoDeInformes(), 'c-2')
+    expect(r).toMatchObject({ capaId: 'cap-sub', bmId: 'bm-1' })
+    expect(r.razon).toBe('La calle no tiene jornadas: se propone la primera capa que se construye (SUBRASANTE).')
+  })
+})
+
+describe('hoja de estacas de una calle que aún no se midió', () => {
+  /** Jr. Puno con rasante (3 % desde 0+000 a 100.000) y, si se pide, su pista de 50 m en un plano. */
+  function sinMedir(plano: 'calibrado' | 'sinCalibrar' | 'sinPista'): Proyecto {
+    const p = proyectoDeInformes()
+    const lima = p.calles[0]!
+    const puno = { ...p.calles[1]!, seccion: lima.seccion, rasante: { ...lima.rasante!, pendienteLongitudinal: 3 } }
+    return {
+      ...p,
+      calles: [lima, puno],
+      planos: [
+        { id: 'pl-1', nombre: 'plano.dxf', formato: 'dxf', calibracion: plano === 'sinCalibrar' ? null : { metrosPorUnidad: 0.5 } },
+      ],
+      pistas:
+        plano === 'sinPista'
+          ? []
+          : [{ id: 'pi-1', nombre: 'JR. PUNO', planoId: 'pl-1', origen: 'dxf', calleId: 'c-2', polilinea: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }],
+    }
+  }
+  const PUNO: Alcance = { calleId: 'c-2', tomaId: null, vistaAtrasBm: 1.5 }
+
+  it('pone las estacas cada 20 m a lo largo de la pista calibrada, y lo dice', () => {
+    const r = datosEstacas(sinMedir('calibrado'), PUNO, OPC)
+    const d = listo(r)
+    expect([...new Set(d.filas.map((f) => f.progresiva))]).toEqual([0, 20, 40, 50])
+    expect(r.listo && r.avisos[0]).toBe(
+      'La calle no tiene jornadas: las estacas van cada 20 m a lo largo de la pista «JR. PUNO» (0+000 a 0+050).',
+    )
+    // En 0+020 la rasante va a 100.600; la subrasante, 0.20 m de base más abajo: 100.400.
+    const eje20 = d.filas.find((f) => f.progresiva === 20 && f.punto === 'Eje')!
+    expect(eje20.cotaProyecto).toBeCloseTo(100.4, 3)
+    expect(d.encabezado.capa).toBe('SUBRASANTE')
+    const texto = enUnaLinea(textoDelPdf(generarPdf({ tipo: 'estacas', datos: d })).todo)
+    expect(texto).toContain('Calle: Jr. Puno')
+    expect(texto).not.toMatch(/NaN|undefined|Infinity/)
+  })
+
+  it('sin plano calibrado no adivina metros: usa el «Desde» y «Hasta» escritos', () => {
+    const d = listo(datosEstacas(sinMedir('sinCalibrar'), { ...PUNO, desde: 10, hasta: 50 }, OPC))
+    expect([...new Set(d.filas.map((f) => f.progresiva))]).toEqual([10, 20, 40, 50])
+  })
+
+  it('sin pista ni tramo dice qué escribir', () => {
+    const r = datosEstacas(sinMedir('sinPista'), PUNO, OPC)
+    expect(!r.listo && r.motivo).toBe(
+      'La calle no tiene jornadas ni una pista en un plano calibrado: escribe «Desde» y «Hasta» para poner estacas cada 20 m.',
+    )
+  })
+
+  it('con lecturas que no caben en la mira no da ✓: pide cambiar de estación, también en el papel', () => {
+    // Un BM 3 m más abajo: la subrasante queda por encima del instrumento.
+    const p = sinMedir('calibrado')
+    const bajo: Proyecto = { ...p, bms: p.bms.map((b) => ({ ...b, cota: b.cota - 3 })) }
+    const r = datosEstacas(bajo, PUNO, OPC)
+    if (!r.listo) throw new Error(r.motivo)
+    expect(r.veredicto.estado).toBe('sinCerrar')
+    expect(r.veredicto.texto).toBe('No comprobado: desde esta estación 12 de 12 lecturas objetivo no caben en la mira de 5 m; cambie de estación para esas estacas (la altura instrumental 99.500 sí sale del BM oficial BM-1).')
+    expect(r.datos.notas).toContain(r.veredicto.texto)
+  })
+
+  it('una pista con la calibración rota no se calla: lo dice y usa el tramo escrito', () => {
+    const p = sinMedir('calibrado')
+    const roto: Proyecto = { ...p, planos: [{ ...p.planos![0]!, calibracion: { metrosPorUnidad: 0 } }] }
+    const r = datosEstacas(roto, { ...PUNO, desde: 0, hasta: 40 }, OPC)
+    if (!r.listo) throw new Error(r.motivo)
+    expect(r.avisos[0]).toBe('La pista «JR. PUNO» no se pudo medir: la calibración de su plano no da metros; vuelve a calibrarlo en Plano.')
+    expect(r.avisos[1]).toBe('La calle no tiene jornadas: las estacas van cada 20 m de 0+000 a 0+040.')
+    const sinTramo = datosEstacas(roto, PUNO, OPC)
+    expect(!sinTramo.listo && sinTramo.motivo).toMatch(/^La pista «JR. PUNO» no se pudo medir: .* escribe «Desde» y «Hasta»/)
+  })
+
+  it('una progresiva de inicio que no es número tampoco se calla', () => {
+    const p = sinMedir('calibrado')
+    const roto: Proyecto = { ...p, pistas: [{ ...p.pistas![0]!, progresivaInicio: Number.NaN }] }
+    const r = datosEstacas(roto, PUNO, OPC)
+    expect(!r.listo && r.motivo).toMatch(/^La pista «JR. PUNO» no se pudo medir: su progresiva de inicio no es un número/)
+  })
+
+  it('el tramo recorta las estacas de la pista', () => {
+    const d = listo(datosEstacas(sinMedir('calibrado'), { ...PUNO, desde: 15, hasta: 45 }, OPC))
+    expect([...new Set(d.filas.map((f) => f.progresiva))]).toEqual([20, 40])
   })
 })
 

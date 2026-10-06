@@ -1,8 +1,11 @@
-import type { ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { formatearCota } from '../formato'
 import { escalaLineal, extension, marcas } from './escala'
 
+/** Ancho del dibujo en la laptop. Más estrecho, el dibujo usa su ancho real. */
 const ANCHO = 720
+/** Por debajo de esto ya no caben las marcas de los ejes. */
+const ANCHO_MINIMO = 300
 const ALTO_POR_DEFECTO = 260
 const MARGEN = { arriba: 16, derecha: 16, abajo: 34, izquierda: 62 }
 const MARGEN_RELATIVO_Y = 0.25
@@ -29,15 +32,17 @@ export default function MarcoGrafico({
   etiqueta,
   children,
 }: PropsMarco) {
+  const { referencia, ancho } = useAnchoReal()
   const dominioX = extension(valoresX, margenX)
   const dominioY = extension(valoresY, MARGEN_RELATIVO_Y)
 
-  const x = escalaLineal(dominioX, [MARGEN.izquierda, ANCHO - MARGEN.derecha])
+  const x = escalaLineal(dominioX, [MARGEN.izquierda, ancho - MARGEN.derecha])
   const y = escalaLineal(dominioY, [alto - MARGEN.abajo, MARGEN.arriba])
 
   return (
     <svg
-      viewBox={`0 0 ${ANCHO} ${alto}`}
+      ref={referencia}
+      viewBox={`0 0 ${ancho} ${alto}`}
       role="img"
       aria-label={etiqueta}
       className="w-full rounded border border-slate-200 dark:border-slate-800"
@@ -46,7 +51,7 @@ export default function MarcoGrafico({
         <g key={`y-${cota}`}>
           <line
             x1={MARGEN.izquierda}
-            x2={ANCHO - MARGEN.derecha}
+            x2={ancho - MARGEN.derecha}
             y1={y(cota)}
             y2={y(cota)}
             className="stroke-slate-200 dark:stroke-slate-800"
@@ -76,7 +81,7 @@ export default function MarcoGrafico({
       ))}
 
       <text
-        x={(MARGEN.izquierda + ANCHO - MARGEN.derecha) / 2}
+        x={(MARGEN.izquierda + ancho - MARGEN.derecha) / 2}
         y={alto - 6}
         textAnchor="middle"
         className="fill-slate-400 text-[10px]"
@@ -87,4 +92,29 @@ export default function MarcoGrafico({
       {children({ x, y })}
     </svg>
   )
+}
+
+/**
+ * El ancho con el que se dibuja: el de la laptop (720) o, si la caja es más
+ * estrecha, su ancho real en px. Con un viewBox fijo de 720, en el celular
+ * (366 px) el SVG se encogía a la mitad y los rótulos de cotas y progresivas
+ * quedaban en unos 5 px, imposibles de leer al sol. Así los rótulos salen a
+ * su tamaño y el alto se mantiene.
+ */
+function useAnchoReal() {
+  const referencia = useRef<SVGSVGElement>(null)
+  const [ancho, setAncho] = useState(ANCHO)
+  useLayoutEffect(() => {
+    const elemento = referencia.current
+    if (!elemento || typeof ResizeObserver === 'undefined') return
+    const medir = () => {
+      const real = elemento.getBoundingClientRect().width
+      if (real > 0) setAncho(Math.round(Math.min(ANCHO, Math.max(real, ANCHO_MINIMO))))
+    }
+    medir()
+    const observador = new ResizeObserver(medir)
+    observador.observe(elemento)
+    return () => observador.disconnect()
+  }, [])
+  return { referencia, ancho }
 }

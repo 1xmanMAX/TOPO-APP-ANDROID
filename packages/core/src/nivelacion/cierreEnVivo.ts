@@ -70,7 +70,11 @@ export interface PrevioCierre {
   toleranciaMm: number
   /** AI − cota del BM, en m: la lectura que daría error cero. */
   lecturaParaCerrarExacto: number
-  /** Lecturas en m, [mínima, máxima], cuyo error queda dentro de la tolerancia. */
+  /**
+   * Lecturas de mira en m, al milímetro, [mínima, máxima], cuyo error queda
+   * dentro de la tolerancia. Los límites se redondean HACIA DENTRO: un límite
+   * redondeado hacia fuera sería una lectura que el cierre luego rechaza.
+   */
   rangoLecturaQuePasa: [number, number]
 }
 
@@ -364,6 +368,19 @@ function controlesBm(toma: Toma, bms: BM[], cotas: ResultadoCotas, excluirLlegad
   return controles
 }
 
+/*
+ * Con una holgura de una milésima de mm, la misma que usa el cierre para
+ * juzgar (punto flotante): un límite que cae justo en un milímetro entero se
+ * queda en ese milímetro.
+ */
+function milimetroHaciaArriba(metros: number): number {
+  return Math.ceil(metros * 1000 - 1e-6) / 1000
+}
+
+function milimetroHaciaAbajo(metros: number): number {
+  return Math.floor(metros * 1000 + 1e-6) / 1000
+}
+
 function previoCierre(
   toma: Toma,
   bms: BM[],
@@ -384,7 +401,10 @@ function previoCierre(
     longitudKKm: configuracion.longitudKKm,
     toleranciaMm: configuracion.toleranciaMm,
     lecturaParaCerrarExacto,
-    rangoLecturaQuePasa: [lecturaParaCerrarExacto - holguraM, lecturaParaCerrarExacto + holguraM],
+    rangoLecturaQuePasa: [
+      milimetroHaciaArriba(lecturaParaCerrarExacto - holguraM),
+      milimetroHaciaAbajo(lecturaParaCerrarExacto + holguraM),
+    ],
   }
 }
 

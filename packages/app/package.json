@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "verificar": "node verificacion/recorrido.mjs"
+    "verificar": "node verificacion/todos.mjs"
   },
   "dependencies": {
     "@topo/core": "*",

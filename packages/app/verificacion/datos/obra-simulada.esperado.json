@@ -1,0 +1,544 @@
+{
+  "archivo": {
+    "ruta": "packages/app/verificacion/datos/obra-simulada.topo",
+    "rutaDesdeGuion": "./datos/obra-simulada.topo",
+    "selectorAbrir": "input[type=\"file\"][aria-label=\"Abrir archivo .topo\"]"
+  },
+  "obra": {
+    "nombre": "Obra simulada — Barrio Las Lomas",
+    "obra": "Pavimentación de pistas y veredas del Barrio Las Lomas",
+    "cliente": "Municipalidad Provincial de Huancayo",
+    "ubicacion": "Huancayo, Junín, Perú",
+    "responsable": "Max Mamani",
+    "instrumento": "de fábrica"
+  },
+  "alAbrir": {
+    "calle": "Av. Sol",
+    "toma": "toma-sol-sub",
+    "capa": "SUBRASANTE"
+  },
+  "nombresDeCalles": [
+    "Av. Sol",
+    "Jr. Lima",
+    "Psje. Las Lomas"
+  ],
+  "bms": [
+    {
+      "nombre": "BM-1",
+      "cota": 3245.18,
+      "tipo": "oficial"
+    },
+    {
+      "nombre": "BM-2",
+      "cota": 3244.256,
+      "tipo": "auxiliar"
+    },
+    {
+      "nombre": "BM-3",
+      "cota": 3244.468,
+      "tipo": "auxiliar"
+    }
+  ],
+  "capas": [
+    {
+      "nombre": "TERRENO EXISTENTE",
+      "toleranciaMm": 30,
+      "espesor": 0
+    },
+    {
+      "nombre": "SUBRASANTE",
+      "toleranciaMm": 20,
+      "espesor": 0
+    },
+    {
+      "nombre": "BASE",
+      "toleranciaMm": 10,
+      "espesor": 0.2
+    }
+  ],
+  "planos": [
+    {
+      "id": "plano-dxf",
+      "nombre": "expediente-pistas.dxf",
+      "formato": "dxf",
+      "calibrado": true,
+      "metrosPorUnidad": 1
+    },
+    {
+      "id": "plano-pdf",
+      "nombre": "plano-expediente.pdf",
+      "formato": "pdf",
+      "calibrado": false,
+      "barraDeEscala": {
+        "desde": {
+          "x": 113.386,
+          "y": 70.866
+        },
+        "hasta": {
+          "x": 170.079,
+          "y": 70.866
+        },
+        "metros": 20,
+        "metrosPorUnidad": 0.352778
+      }
+    }
+  ],
+  "pistas": [
+    {
+      "id": "pista-las-lomas",
+      "nombre": "PSJE. LAS LOMAS",
+      "plano": "expediente-pistas.dxf",
+      "origen": "dxf",
+      "calle": "Psje. Las Lomas",
+      "largoM": 120
+    },
+    {
+      "id": "pista-jr-lima",
+      "nombre": "Jr. Lima (croquis)",
+      "plano": "plano-expediente.pdf",
+      "origen": "croquis",
+      "calle": "Jr. Lima",
+      "largoM": null
+    }
+  ],
+  "ejesDxfSinPista": [
+    "JR. LIMA",
+    "AV. SOL"
+  ],
+  "avSol": {
+    "id": "c-av-sol",
+    "nombre": "Av. Sol",
+    "rasante": {
+      "progresivaArranque": 0,
+      "cotaArranque": 3244.1,
+      "pendiente": -0.35,
+      "cotaFin": 3243.68
+    },
+    "progresivas": [
+      0,
+      20,
+      40,
+      60,
+      80,
+      100,
+      120
+    ],
+    "puntos": [
+      "Borde izquierdo",
+      "Eje",
+      "Borde derecho"
+    ],
+    "notas": [
+      {
+        "progresiva": 40,
+        "texto": "Buzón de desagüe: nivelar la tapa con la base"
+      },
+      {
+        "progresiva": 80,
+        "texto": "Subrasante alta en el eje: cortar antes de echar la base"
+      },
+      {
+        "progresiva": 120,
+        "texto": "Fin del tramo: empalme con el pavimento existente"
+      }
+    ],
+    "subrasante": {
+      "toma": "toma-sol-sub",
+      "fecha": "2026-09-14",
+      "cierre": {
+        "errorMm": -4,
+        "toleranciaMm": 5.88,
+        "longitudK": 0.24,
+        "pasa": true,
+        "comprobado": true
+      },
+      "alturasInstrumentales": [
+        3246.632,
+        3245.601,
+        3245.184,
+        3245.924
+      ],
+      "conteo": {
+        "conformes": 19,
+        "alLimite": 1,
+        "fuera": 1,
+        "sinMedir": 0
+      },
+      "fuera": {
+        "celda": "80/p-eje",
+        "punto": "Eje",
+        "progresiva": 80,
+        "cotaMedida": 3243.674,
+        "cotaProyecto": 3243.62,
+        "diferenciaMm": 54,
+        "accion": "corta"
+      },
+      "alLimite": {
+        "celda": "40/p-borde-d",
+        "punto": "Borde derecho",
+        "progresiva": 40,
+        "cotaMedida": 3243.662,
+        "cotaProyecto": 3243.688,
+        "diferenciaMm": -26,
+        "accion": "rellena"
+      },
+      "diferenciasMm": {
+        "0/p-borde-i": 7,
+        "0/p-eje": 5,
+        "0/p-borde-d": -2,
+        "20/p-borde-i": -7,
+        "20/p-eje": 3,
+        "20/p-borde-d": 6,
+        "40/p-borde-i": 4,
+        "40/p-eje": -4,
+        "40/p-borde-d": -26,
+        "60/p-borde-i": 11,
+        "60/p-eje": 9,
+        "60/p-borde-d": 4,
+        "80/p-borde-i": 14,
+        "80/p-eje": 54,
+        "80/p-borde-d": 17,
+        "100/p-borde-i": -2,
+        "100/p-eje": -4,
+        "100/p-borde-d": 0,
+        "120/p-borde-i": 3,
+        "120/p-eje": -1,
+        "120/p-borde-d": 10
+      }
+    },
+    "base": {
+      "toma": "toma-sol-base",
+      "fecha": "2026-09-28",
+      "cierre": {
+        "errorMm": 4,
+        "toleranciaMm": 5.88,
+        "longitudK": 0.24,
+        "pasa": true,
+        "comprobado": true
+      },
+      "alturasInstrumentales": [
+        3246.467,
+        3245.633,
+        3245.279,
+        3245.893
+      ],
+      "conteo": {
+        "conformes": 21,
+        "alLimite": 0,
+        "fuera": 0,
+        "sinMedir": 0
+      },
+      "lecturaObjetivo": {
+        "estacion": 1,
+        "alturaInstrumental": 3246.467,
+        "progresiva": 20,
+        "punto": "Eje",
+        "cotaProyecto": 3244.03,
+        "lectura": 2.437,
+        "alturaInstrumentalCompensada": 3246.466,
+        "lecturaCompensada": 2.436
+      }
+    },
+    "espesores": {
+      "disenioM": 0.2,
+      "comparables": 21,
+      "minimoM": 0.152,
+      "maximoM": 0.219,
+      "fuera": [
+        {
+          "celda": "80/p-eje",
+          "espesorM": 0.152,
+          "diferenciaMm": -48,
+          "delgada": true
+        }
+      ],
+      "alLimite": [
+        {
+          "celda": "40/p-borde-d",
+          "espesorM": 0.219,
+          "diferenciaMm": 19,
+          "delgada": false
+        },
+        {
+          "celda": "80/p-borde-d",
+          "espesorM": 0.186,
+          "diferenciaMm": -14,
+          "delgada": true
+        }
+      ]
+    }
+  },
+  "jrLima": {
+    "id": "c-jr-lima",
+    "nombre": "Jr. Lima",
+    "rasante": {
+      "progresivaArranque": 100,
+      "cotaArranque": 3243.9,
+      "pendiente": 0.2,
+      "cotaFin": 3244.1
+    },
+    "progresivas": [
+      100,
+      120,
+      140,
+      160,
+      180,
+      200
+    ],
+    "puntos": [
+      "Borde izquierdo",
+      "Eje",
+      "Borde derecho"
+    ],
+    "notas": [
+      {
+        "progresiva": 140,
+        "texto": "Agua empozada tras la lluvia: hundimiento en el eje"
+      }
+    ],
+    "subrasante": {
+      "toma": "toma-lima-sub",
+      "fecha": "2026-10-02",
+      "cierre": {
+        "errorMm": null,
+        "toleranciaMm": null,
+        "longitudK": 0.2,
+        "pasa": null,
+        "comprobado": false,
+        "bmQueFalta": "BM-2"
+      },
+      "alturasInstrumentales": [
+        3245.574,
+        3245.409
+      ],
+      "conteo": {
+        "conformes": 17,
+        "alLimite": 0,
+        "fuera": 1,
+        "sinMedir": 0
+      },
+      "fuera": {
+        "celda": "140/p-eje",
+        "punto": "Eje",
+        "progresiva": 140,
+        "cotaMedida": 3243.72,
+        "cotaProyecto": 3243.78,
+        "diferenciaMm": -60,
+        "accion": "rellena"
+      },
+      "diferenciasMm": {
+        "100/p-borde-i": 4,
+        "100/p-eje": 2,
+        "100/p-borde-d": -5,
+        "120/p-borde-i": -6,
+        "120/p-eje": 0,
+        "120/p-borde-d": 3,
+        "140/p-borde-i": -12,
+        "140/p-eje": -60,
+        "140/p-borde-d": -9,
+        "160/p-borde-i": 5,
+        "160/p-eje": 3,
+        "160/p-borde-d": 7,
+        "180/p-borde-i": -2,
+        "180/p-eje": 4,
+        "180/p-borde-d": 1,
+        "200/p-borde-i": 6,
+        "200/p-eje": 8,
+        "200/p-borde-d": 2
+      }
+    },
+    "drenaje": {
+      "comprobado": false,
+      "empozamiento": {
+        "progresiva": 140,
+        "cota": 3243.72,
+        "profundidadMm": 20
+      },
+      "puntoBajoExtremo": {
+        "progresiva": 100,
+        "cota": 3243.702
+      },
+      "contrapendiente": {
+        "desde": 120,
+        "hasta": 140
+      }
+    }
+  },
+  "lasLomas": {
+    "id": "c-las-lomas",
+    "nombre": "Psje. Las Lomas",
+    "rasante": {
+      "progresivaArranque": 0,
+      "cotaArranque": 3244,
+      "pendiente": 7.38,
+      "cotaFin": 3252.856
+    },
+    "sinMediciones": true,
+    "sinPlanGuardado": true,
+    "pista": {
+      "id": "pista-las-lomas",
+      "largoM": 120,
+      "desde": 0,
+      "hasta": 120
+    },
+    "planRasante": {
+      "controles": [
+        {
+          "progresiva": 0,
+          "cota": 3244,
+          "motivos": [
+            "inicio"
+          ]
+        },
+        {
+          "progresiva": 120,
+          "cota": 3252.856,
+          "motivos": [
+            "fin"
+          ]
+        }
+      ],
+      "tramos": [
+        {
+          "desde": 0,
+          "hasta": 120,
+          "estaciones": 4,
+          "cambios": 3,
+          "ok": true
+        }
+      ],
+      "ok": true
+    },
+    "cotasDelPlano": [
+      {
+        "progresiva": 0,
+        "cota": 3244
+      },
+      {
+        "progresiva": 60,
+        "cota": 3248.42
+      },
+      {
+        "progresiva": 120,
+        "cota": 3252.86
+      }
+    ],
+    "planPlano": {
+      "controles": [
+        {
+          "progresiva": 0,
+          "cota": 3244,
+          "motivos": [
+            "inicio"
+          ]
+        },
+        {
+          "progresiva": 120,
+          "cota": 3252.86,
+          "motivos": [
+            "fin"
+          ]
+        }
+      ],
+      "tramos": [
+        {
+          "desde": 0,
+          "hasta": 120,
+          "estaciones": 4,
+          "cambios": 3,
+          "ok": true
+        }
+      ],
+      "ok": true
+    },
+    "perfilConQuiebres": [
+      {
+        "progresiva": 0,
+        "cota": 3244
+      },
+      {
+        "progresiva": 30,
+        "cota": 3245.8
+      },
+      {
+        "progresiva": 70,
+        "cota": 3249.4
+      },
+      {
+        "progresiva": 120,
+        "cota": 3252.86
+      }
+    ],
+    "planConQuiebres": {
+      "controles": [
+        {
+          "progresiva": 0,
+          "cota": 3244,
+          "motivos": [
+            "inicio"
+          ]
+        },
+        {
+          "progresiva": 30,
+          "cota": 3245.8,
+          "motivos": [
+            "quiebre"
+          ],
+          "texto": "quiebre de pendiente: de +6.00 % a +9.00 %"
+        },
+        {
+          "progresiva": 70,
+          "cota": 3249.4,
+          "motivos": [
+            "quiebre"
+          ],
+          "texto": "quiebre de pendiente: de +9.00 % a +6.92 %"
+        },
+        {
+          "progresiva": 120,
+          "cota": 3252.86,
+          "motivos": [
+            "fin"
+          ]
+        }
+      ],
+      "tramos": [
+        {
+          "desde": 0,
+          "hasta": 30,
+          "estaciones": 1,
+          "cambios": 0,
+          "ok": true
+        },
+        {
+          "desde": 30,
+          "hasta": 70,
+          "estaciones": 2,
+          "cambios": 1,
+          "ok": false
+        },
+        {
+          "desde": 70,
+          "hasta": 120,
+          "estaciones": 2,
+          "cambios": 1,
+          "ok": false
+        }
+      ],
+      "ok": false,
+      "localStorage": {
+        "clave": "topo:planificador",
+        "valor": "{\"state\":{\"porCalle\":{\"c-las-lomas\":{\"fuente\":\"digitado\",\"digitados\":[{\"progresiva\":0,\"cota\":3244},{\"progresiva\":30,\"cota\":3245.8},{\"progresiva\":70,\"cota\":3249.4},{\"progresiva\":120,\"cota\":3252.86}]}}},\"version\":1}"
+      }
+    }
+  },
+  "textos": {
+    "noComprobado": "no comprobad",
+    "simbolos": {
+      "conforme": "✓",
+      "alLimite": "△",
+      "fuera": "✗",
+      "sinMedir": "·"
+    }
+  }
+}

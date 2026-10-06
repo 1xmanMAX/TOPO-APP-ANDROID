@@ -353,28 +353,33 @@ describe('Plano de obra: pistas', () => {
     expect(s.pantallaCalle).toBe('planificar')
   })
 
-  it('«Tomar la rasante de las cotas del plano» enseña antes las cotas y su progresiva, y sin quiebres guarda con ✓', async () => {
+  it('«Tomar la rasante de las cotas del plano» enseña antes las cotas, su progresiva y cuánto se apartan; sin quiebres toma de la primera a la última', async () => {
     const usuario = userEvent.setup()
     render(<EspacioPlano />)
     await usuario.click(screen.getByRole('button', { name: /PSJE\. LAS LOMAS/ }))
     await usuario.click(screen.getByRole('button', { name: 'Tomar la rasante de las cotas del plano' }))
     // Antes de guardar: qué cotas y en qué progresiva cae cada una (y a cuánto del eje).
     const vista = screen.getByRole('region', { name: 'Rasante desde las cotas del plano' })
+    // Y cuánto se aparta cada una de la rasante nueva (de 0+000 a 0+120: +7.38 %).
     expect(within(vista).getAllByRole('checkbox').map((c) => c.closest('label')!.textContent)).toEqual([
-      '0+000 · cota 3244.000 m',
-      '0+060 · cota 3248.420 m · a 1.0 m del eje',
-      '0+120 · cota 3252.860 m · a 1.0 m del eje',
+      '0+000 · cota 3244.000 m · 0 mm de la nueva',
+      '0+060 · cota 3248.420 m · a 1.0 m del eje · △ -10 mm de la nueva',
+      '0+120 · cota 3252.860 m · a 1.0 m del eje · 0 mm de la nueva',
     ])
-    // El pasaje sube parejo (+7.37 % y +7.40 %): no hay quiebre que avisar.
+    // +7.37 % y +7.40 % no son un quiebre, pero la cota de 0+060 queda a 10 mm: se avisa.
     expect(vista).not.toHaveTextContent(/solo vale/i)
+    expect(vista).toHaveTextContent('Nueva: 3244.000 m en 0+000, +7.38 %')
+    expect(vista).toHaveTextContent('la de 0+060 queda a -10 mm de la rasante tomada')
     expect(useAlmacen.getState().proyecto.calles[0]!.rasante).toBeNull()
 
     await usuario.click(within(vista).getByRole('button', { name: 'Sí, tomar esta rasante' }))
     const rasante = useAlmacen.getState().proyecto.calles.find((c) => c.id === 'c-lomas')!.rasante!
     expect(rasante.cotaArranque).toBe(3244)
     expect(rasante.progresivaArranque).toBe(0)
-    expect(rasante.pendienteLongitudinal).toBeCloseTo(7.3667, 3)
-    expect(screen.getByRole('status')).toHaveTextContent('✓ Rasante tomada: 3244.000 m en 0+000, +7.37 %.')
+    // De la primera a la última cota: 8.86 m en 120 m. Con el primer tramo (+7.37 %) la cota de 0+120 quedaba 20 mm abajo.
+    expect(rasante.pendienteLongitudinal).toBeCloseTo((8.86 / 120) * 100, 9)
+    expect(screen.getByRole('status')).toHaveTextContent('△ Rasante tomada: 3244.000 m en 0+000, +7.38 %.')
+    expect(screen.getByRole('status')).toHaveTextContent('0+060 queda a -10 mm')
   })
 
   it('si la calle ya tiene rasante, tomarla del plano pide confirmar y dice cuántas nivelaciones cambian', async () => {
@@ -386,6 +391,8 @@ describe('Plano de obra: pistas', () => {
     await usuario.click(screen.getByRole('button', { name: 'Tomar la rasante de las cotas del plano' }))
     const vista = screen.getByRole('region', { name: 'Rasante desde las cotas del plano' })
     expect(vista).toHaveTextContent('La calle ya tiene rasante: 3240.000 m en 0+000, +2.00 %')
+    // Cuánto mueve la cota de proyecto: en 0+120, 3252.860 contra 3242.400.
+    expect(vista).toHaveTextContent('la cota de proyecto del eje cambia hasta +10460 mm (en 0+120)')
     expect(vista).toHaveTextContent('cambian la cota de proyecto y la diferencia de 3 nivelaciones ya medidas')
 
     // «No» la deja como estaba.
@@ -413,16 +420,16 @@ describe('Plano de obra: pistas', () => {
     expect(useAlmacen.getState().proyecto.calles[0]!.rasante).toMatchObject({ progresivaArranque: 60, cotaArranque: 3248.42 })
   })
 
-  it('la ficha dice de cada nivelación si cerró ✓, no cerró ✗ o está sin comprobar △', async () => {
+  it('la ficha dice de cada nivelación si cerró ✓, no cerró ✗ o está sin cerrar · (no comprobada, nunca △)', async () => {
     const usuario = userEvent.setup()
     useAlmacen.getState().cargarProyecto(proyectoConNivelaciones(), { 'plano-dxf': DXF })
     render(<EspacioPlano />)
     await usuario.click(screen.getByRole('button', { name: /PSJE\. LAS LOMAS/ }))
     const capas = screen.getByRole('list', { name: 'Capas medidas' })
     expect(within(capas).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      '✓ SUBRASANTE · 2026-09-01 — cerró',
-      '✗ BASE · 2026-09-05 — no cerró',
-      '△ TERRENO EXISTENTE · 2026-09-08 — sin comprobar',
+      '✓ SUBRASANTE · 01/09/2026 — cerró',
+      '✗ BASE · 05/09/2026 — no cerró, no comprobada',
+      '· TERRENO EXISTENTE · 08/09/2026 — sin cerrar, no comprobada',
     ])
   })
 

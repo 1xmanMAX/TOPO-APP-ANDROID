@@ -94,3 +94,27 @@ describe('MapaEstado', () => {
     expect(celda.getAttribute('aria-label')).not.toMatch(/fuera de la sección/)
   })
 })
+
+describe('MapaEstado sobre una nivelación sin cerrar (obra simulada)', () => {
+  it('Jr. Lima no cerró: la leyenda y cada celda medida dicen «no comprobado»', async () => {
+    const { construirObraSimulada, IDS } = await import('../pruebas/obraSimulada')
+    const obra = construirObraSimulada()
+    useAlmacen.getState().cargarProyecto(obra.proyecto, obra.archivosDePlano)
+    render(<MapaEstado idCampaniaReferencia={IDS.tomaLimaSub} />)
+
+    expect(screen.getByText(/No comprobado: la nivelación no cerró/)).toBeInTheDocument()
+    expect(screen.getByText(/Dentro de tolerancia \(no comprobado\)/)).toBeInTheDocument()
+    const conforme = screen.getAllByRole('button', { name: /, conforme, / })
+    expect(conforme.length).toBe(17)
+    for (const celda of conforme) expect(celda).toHaveAccessibleName(/no comprobado$/)
+  })
+
+  it('Av. Sol cerró: el mapa no dice «no comprobado»', async () => {
+    const { construirObraSimulada, IDS } = await import('../pruebas/obraSimulada')
+    const obra = construirObraSimulada()
+    useAlmacen.getState().cargarProyecto(obra.proyecto, obra.archivosDePlano)
+    render(<MapaEstado idCampaniaReferencia={IDS.tomaSolSub} />)
+
+    expect(screen.queryByText(/no comprobado/i)).not.toBeInTheDocument()
+  })
+})

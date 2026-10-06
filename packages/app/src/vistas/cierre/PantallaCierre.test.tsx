@@ -95,12 +95,49 @@ describe('PantallaCierre', () => {
     expect(screen.getByRole('img', { name: /tolerancia de ±3\.8 mm/ })).toBeInTheDocument()
   })
 
-  it('sin visar el BM: dice que está abierto, simula la lectura y la anota en la libreta', async () => {
+  it('una toma configurada como circuito abierto sí se llama «Circuito abierto»', () => {
+    const proyecto = proyectoSinCerrar()
+    const toma = proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!
+    toma.cierre = { ...toma.cierre, tipo: 'abierto' }
+    useAlmacen.getState().cargarProyecto(proyecto)
+    render(<PantallaCierre />)
+
+    expect(screen.getByText(/Circuito abierto: lo medido queda NO COMPROBADO/)).toHaveTextContent(/^△ Circuito abierto/)
+    expect(screen.queryByText(/Falta cerrar/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Lectura de cierre' })).not.toBeInTheDocument()
+  })
+
+  it('circuito cerrado sin BM de cierre elegido: le falta cerrar, no es «abierto»', () => {
+    const proyecto = proyectoSinCerrar()
+    const toma = proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!
+    delete toma.cierre.bmFinalId
+    useAlmacen.getState().cargarProyecto(proyecto)
+    render(<PantallaCierre />)
+
+    expect(screen.getByText(/Falta cerrar la nivelación: lo medido queda NO COMPROBADO/)).toHaveTextContent(/^△ Falta cerrar/)
+    expect(screen.getByText('Falta elegir el BM de cierre.')).toBeInTheDocument()
+    expect(screen.queryByText(/Circuito abierto/)).not.toBeInTheDocument()
+  })
+
+  it('circuito cerrado cuyo BM de cierre se borró de la obra: tampoco es «abierto»', () => {
+    const proyecto = proyectoSinCerrar()
+    proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!.cierre.bmFinalId = 'bm-borrado'
+    useAlmacen.getState().cargarProyecto(proyecto)
+    render(<PantallaCierre />)
+
+    expect(screen.getByText(/Falta cerrar la nivelación/)).toBeInTheDocument()
+    expect(screen.getByText('El BM de cierre ya no existe en la obra.')).toBeInTheDocument()
+    expect(screen.queryByText(/Circuito abierto/)).not.toBeInTheDocument()
+  })
+
+  it('sin visar el BM: dice que falta cerrar, simula la lectura y la anota en la libreta', async () => {
     const usuario = userEvent.setup()
     useAlmacen.getState().cargarProyecto(proyectoSinCerrar())
     render(<PantallaCierre />)
 
-    expect(screen.getByText(/Circuito abierto: lo medido queda NO COMPROBADO/)).toBeInTheDocument()
+    // La toma es de circuito cerrado: no está «abierta», le falta cerrar. El símbolo va en la misma línea.
+    expect(screen.getByText(/Falta cerrar en BM-1: lo medido queda NO COMPROBADO/)).toHaveTextContent(/^△ Falta cerrar/)
+    expect(screen.queryByText(/Circuito abierto/)).not.toBeInTheDocument()
     expect(screen.getByText(/Falta visar el BM de cierre \(BM-1\)/)).toBeInTheDocument()
     expect(screen.getByText('BM-1 (falta visar)')).toBeInTheDocument()
 

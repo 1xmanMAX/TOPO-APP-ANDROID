@@ -1,4 +1,5 @@
 import {
+  accionDeDiferencia,
   calcularCampania,
   compararCapas,
   esLecturaUsable,
@@ -19,6 +20,7 @@ import {
 } from '@topo/core'
 import { calcularEstadoComparacion, type EstadoComparacion } from '../../estadoComparacion'
 import { cuenta } from '../../formato'
+import { evaluarEspesores } from '../analisis/superficies'
 
 /**
  * Lo que la pantalla de Obra dice de cada calle, de cada capa y de cada
@@ -126,6 +128,16 @@ export function milimetros(valor: number): string {
   return `${redondeado > 0 ? '+' : '−'}${Math.abs(redondeado)} mm`
 }
 
+/**
+ * La tolerancia del cierre con un decimal, como la escriben la barra de
+ * cierre, la pantalla de Cierre y los PDF: «±5.9 mm». Redondearla al
+ * milímetro diría «±6 mm» y, con 6 mm de error, «no cierra con ±6» se
+ * contradiría.
+ */
+export function toleranciaDeCierre(toleranciaMm: number): string {
+  return `±${toleranciaMm.toFixed(1)} mm`
+}
+
 export interface EstadoCierre {
   simbolo: Simbolo
   /** Corto, para la lista: «✓ cerró −3 mm». */
@@ -146,7 +158,7 @@ export function estadoDeCierre(toma: Toma, resultado: ResultadoCampania): Estado
     return {
       simbolo: '✓',
       corto: `cerró ${milimetros(cierre.errorMm)}`,
-      largo: `Circuito cerrado: ${milimetros(cierre.errorMm)} de error, tolerancia ±${Math.round(cierre.toleranciaMm)} mm.`,
+      largo: `Circuito cerrado: ${milimetros(cierre.errorMm)} de error, tolerancia ${toleranciaDeCierre(cierre.toleranciaMm)}.`,
       comprobado: true,
     }
   }
@@ -155,8 +167,8 @@ export function estadoDeCierre(toma: Toma, resultado: ResultadoCampania): Estado
       simbolo: '✗',
       corto: `no cierra ${milimetros(cierre.errorMm)}`,
       largo:
-        `El circuito no cierra: ${milimetros(cierre.errorMm)} de error con tolerancia ±${Math.round(cierre.toleranciaMm)} mm. ` +
-        'Las cotas de esta jornada no están comprobadas.',
+        `El circuito no cierra: ${milimetros(cierre.errorMm)} de error con tolerancia ${toleranciaDeCierre(cierre.toleranciaMm)}. ` +
+        'Las cotas de esta jornada quedan no comprobadas.',
       comprobado: false,
     }
   }
@@ -164,14 +176,14 @@ export function estadoDeCierre(toma: Toma, resultado: ResultadoCampania): Estado
     return {
       simbolo: '△',
       corto: 'sin vuelta al BM',
-      largo: 'Sin vuelta al banco de nivel: las cotas salen, pero quedan sin comprobar.',
+      largo: 'Sin vuelta al banco de nivel: las cotas salen, pero quedan no comprobadas.',
       comprobado: false,
     }
   }
   return {
     simbolo: '△',
     corto: 'sin cerrar',
-    largo: 'Circuito sin cerrar: hasta volver al banco de nivel, las cotas no están comprobadas.',
+    largo: 'Circuito sin cerrar: las cotas quedan no comprobadas hasta volver al banco de nivel.',
     comprobado: false,
   }
 }
@@ -193,7 +205,7 @@ export const NOMBRE_DEL_ESTADO: Record<EstadoCapa, string> = {
   conforme: 'conforme',
   alLimite: 'con puntos al límite',
   conPuntosFuera: 'con puntos fuera',
-  sinComprobar: 'sin comprobar',
+  sinComprobar: 'no comprobada',
   sinComparar: 'cerrada, sin comparar',
 }
 
@@ -207,11 +219,26 @@ export interface CapaEnCalle {
   tomaId: Id | null
 }
 
-/** «en 0+080», «en 0+040, 0+060 y 0+080». */
-function enProgresivas(progresivas: number[]): string {
-  const textos = [...new Set(progresivas)].sort((a, b) => a - b).map(formatearProgresiva)
-  if (textos.length <= 1) return `en ${textos[0] ?? ''}`
-  return `en ${textos.slice(0, -1).join(', ')} y ${textos[textos.length - 1]}`
+/** Cuántos puntos se nombran uno por uno; del resto se dice cuántos quedan. */
+const PUNTOS_A_NOMBRAR = 3
+
+/**
+ * «Eje 0+080 +54 mm, corta · Borde derecho 0+040 −26 mm, rellena»: qué punto
+ * de la sección, en qué progresiva, cuánto (medida − proyecto) y qué hacer,
+ * que es lo que decide si la máquina corta o se echa material. Van por
+ * progresiva; pasados tres se dice cuántos más hay.
+ */
+export function puntosConDiferencia(celdas: CeldaEvaluada[], nombreDe: (celda: CeldaEvaluada) => string): string {
+  const ordenadas = [...celdas].sort((a, b) => a.progresiva - b.progresiva || a.offset - b.offset)
+  const textos = ordenadas.slice(0, PUNTOS_A_NOMBRAR).map((celda) => {
+    const donde = `${nombreDe(celda)} ${formatearProgresiva(celda.progresiva)}`
+    if (celda.diferenciaMm === null) return donde
+    const accion = accionDeDiferencia(celda.diferenciaMm)
+    const queHacer = accion?.tipo === 'corta' ? ', corta' : accion?.tipo === 'rellena' ? ', rellena' : ''
+    return `${donde} ${milimetros(celda.diferenciaMm)}${queHacer}`
+  })
+  const resto = ordenadas.length - textos.length
+  return resto > 0 ? `${textos.join(' · ')} y ${resto} más` : textos.join(' · ')
 }
 
 /** Un circuito que todavía no volvió al BM, pero que va a volver: se está midiendo. */
@@ -276,10 +303,16 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
     })
 
     // Celda por celda, la medición comprobada más reciente: se recorren de la
-    // más antigua a la más nueva y cada una pisa lo que vuelve a medir.
+    // más antigua a la más nueva y cada una pisa lo que vuelve a medir. Lo
+    // medido en una jornada sin comprobar va aparte: no cuenta para el
+    // semáforo, pero un punto que sale fuera ahí se avisa como posible, «no
+    // comprobado», para que Max lo remida antes de irse de la calle. Si
+    // después lo cubre una medición comprobada, manda esa.
     const porCelda = new Map<string, CeldaEvaluada>()
+    const sinComprobarPorCelda = new Map<string, CeldaEvaluada>()
     if (calle.rasante) {
-      for (const jornada of [...comprobadas].reverse()) {
+      for (const jornada of [...medidas].reverse()) {
+        const comprobada = comprobadas.includes(jornada)
         const evaluacion = evaluarContraRasante({
           resultado: jornada.resultado,
           calle,
@@ -290,25 +323,42 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         })
         for (const celda of evaluacion.celdas.values()) {
           if (celda.estado === 'conforme' || celda.estado === 'alLimite' || celda.estado === 'fuera') {
-            porCelda.set(celda.clave, celda)
+            if (comprobada) {
+              porCelda.set(celda.clave, celda)
+              sinComprobarPorCelda.delete(celda.clave)
+            } else {
+              sinComprobarPorCelda.set(celda.clave, celda)
+            }
           }
         }
       }
     }
     const celdas = [...porCelda.values()]
-    const fuera = celdas.filter((c) => c.estado === 'fuera').map((c) => c.progresiva)
-    const alLimite = celdas.filter((c) => c.estado === 'alLimite').map((c) => c.progresiva)
+    const fuera = celdas.filter((c) => c.estado === 'fuera')
+    const alLimite = celdas.filter((c) => c.estado === 'alLimite')
     const conformes = celdas.filter((c) => c.estado === 'conforme').length
+    const posiblesFuera = [...sinComprobarPorCelda.values()].filter((c) => c.estado === 'fuera')
+    const nombreDe = (celda: CeldaEvaluada) =>
+      calle.seccion.puntos.find((p) => p.id === celda.elementoClave)?.nombre ?? celda.elementoClave
+    const avisoPosibles =
+      posiblesFuera.length > 0
+        ? `; ${posiblesFuera.length === 1 ? 'posible punto fuera' : `${posiblesFuera.length} posibles puntos fuera`}: ${puntosConDiferencia(posiblesFuera, nombreDe)}, no comprobado`
+        : ''
 
     const base = { capa, tomaId: ultima.toma.id }
 
     if (fuera.length > 0) {
-      const partes = [`${cuenta(fuera.length, 'punto fuera', 'puntos fuera')} de tolerancia ${enProgresivas(fuera)}`]
+      const partes = [`${cuenta(fuera.length, 'punto fuera', 'puntos fuera')} de tolerancia: ${puntosConDiferencia(fuera, nombreDe)}`]
       if (alLimite.length > 0) {
-        partes.push(`${cuenta(alLimite.length, 'punto al límite', 'puntos al límite')} ${enProgresivas(alLimite)}`)
+        partes.push(`${cuenta(alLimite.length, 'punto al límite', 'puntos al límite')}: ${puntosConDiferencia(alLimite, nombreDe)}`)
       }
-      const ademas = enCurso ? '; sigue en curso' : pendiente ? '; hay un tramo sin comprobar' : ''
-      return { ...base, estado: 'conPuntosFuera', simbolo: '✗', detalle: `${capa.nombre}: ${partes.join(' y ')}${ademas}` }
+      const ademas = enCurso ? '; sigue en curso' : pendiente ? '; hay un tramo no comprobado' : ''
+      return {
+        ...base,
+        estado: 'conPuntosFuera',
+        simbolo: '✗',
+        detalle: `${capa.nombre}: ${partes.join('; ')}${ademas}${avisoPosibles}`,
+      }
     }
 
     if (enCurso) {
@@ -316,7 +366,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         ...base,
         estado: 'enCurso',
         simbolo: '△',
-        detalle: `${capa.nombre} en curso${hasta}: circuito sin cerrar`,
+        detalle: `${capa.nombre} en curso${hasta}: circuito sin cerrar, no comprobada${avisoPosibles}`,
       }
     }
 
@@ -327,7 +377,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         ...base,
         estado: 'sinComprobar',
         simbolo: '△',
-        detalle: `${capa.nombre}${suTramo ? ` (${suTramo})` : ''}: ${cierre.corto}, no comprobada`,
+        detalle: `${capa.nombre}${suTramo ? ` (${suTramo})` : ''}: ${cierre.corto}, no comprobada${avisoPosibles}`,
       }
     }
 
@@ -336,7 +386,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         ...base,
         estado: 'alLimite',
         simbolo: '△',
-        detalle: `${capa.nombre}: ${cuenta(alLimite.length, 'punto al límite', 'puntos al límite')} ${enProgresivas(alLimite)}`,
+        detalle: `${capa.nombre}: ${cuenta(alLimite.length, 'punto al límite', 'puntos al límite')}: ${puntosConDiferencia(alLimite, nombreDe)}`,
       }
     }
 
@@ -422,6 +472,9 @@ function clasificar(inferior: JornadaDeCalle, superior: JornadaDeCalle): TipoCom
   return ordenInferior === 0 ? 'corte' : 'espesor'
 }
 
+export const TEXTO_CIRCUITOS_COMPROBADOS =
+  'Circuitos comprobados: las dos jornadas cierran dentro de tolerancia.'
+
 /**
  * Compara dos jornadas de la misma calle con `compararCapas` del motor y dice
  * qué significa la resta según qué capas sean:
@@ -439,7 +492,7 @@ export function compararJornadas(
   const comparacion = compararCapas(inferior.resultado, superior.resultado)
   const nombreInferior = inferior.capa?.nombre ?? '—'
   const nombreSuperior = superior.capa?.nombre ?? '—'
-  const estado = calcularEstadoComparacion({
+  const veredicto = calcularEstadoComparacion({
     capaInferior: inferior.capa,
     capaSuperior: superior.capa,
     campaniaInferior: inferior.toma,
@@ -447,6 +500,12 @@ export function compararJornadas(
     resultadoInferior: inferior.resultado,
     resultadoSuperior: superior.resultado,
   })
+  // Lo comprobado son los circuitos, no los espesores: debajo de «✗ 1 celda
+  // fuera», un «ESPESORES VERIFICADOS» en verde se leería como que la capa
+  // está bien. Lo que no cerró sigue diciéndose igual que en el archivo.
+  const estado: EstadoComparacion = veredicto.comprobado
+    ? { comprobado: true, texto: tipo === 'espesor' ? `${TEXTO_CIRCUITOS_COMPROBADOS} Los espesores se juzgan con el semáforo de arriba.` : TEXTO_CIRCUITOS_COMPROBADOS }
+    : veredicto
 
   // El corte se lee al revés que un espesor: la subrasante queda por debajo
   // del terreno, y lo que interesa es cuánto se bajó, en positivo.
@@ -501,28 +560,38 @@ export function compararJornadas(
 }
 
 /**
- * El espesor colocado contra el de proyecto de la capa de arriba, con su
- * tolerancia. Una celda es delgada si le falta más que la tolerancia, y
- * gruesa si le sobra más.
+ * El espesor colocado contra el de proyecto de la capa de arriba, con el
+ * mismo semáforo y el mismo redondeo que Análisis › Espesores: la cuenta es
+ * `evaluarEspesores`, la misma función, para que el historial y Análisis
+ * nunca digan cosas distintas de la misma celda. ✓ hasta la tolerancia,
+ * △ al límite hasta el doble, ✗ fuera. De las que quedan fuera se dice
+ * cuántas son delgadas (falta material) y cuántas gruesas (sobra), que es
+ * lo que decide qué hacer en obra.
  */
 function lecturaDeEspesor(capa: Capa | undefined, comparacion: ResultadoComparacion): string {
   if (!capa || capa.espesor <= 0) {
     return 'La capa de arriba no tiene espesor de proyecto: defínelo en Capas para compararlo.'
   }
-  const proyectoMm = Math.round(capa.espesor * 1000)
   let delgadas = 0
   let gruesas = 0
-  for (const celda of comparacion.celdas.values()) {
-    if (celda.espesor === null) continue
-    const diferenciaMm = celda.espesor * 1000 - proyectoMm
-    if (diferenciaMm < -capa.toleranciaMm - 1e-6) delgadas += 1
-    else if (diferenciaMm > capa.toleranciaMm + 1e-6) gruesas += 1
+  let alLimite = 0
+  for (const celda of evaluarEspesores(comparacion, capa.espesor, capa.toleranciaMm).values()) {
+    if (celda.estado === 'alLimite') alLimite += 1
+    else if (celda.estado === 'fuera') {
+      if (celda.delgada) delgadas += 1
+      else gruesas += 1
+    }
   }
-  const cabeza = `Proyecto ${proyectoMm} mm ±${capa.toleranciaMm}`
+  const cabeza = `Proyecto ${Math.round(capa.espesor * 1000)} mm ±${capa.toleranciaMm}`
   if (comparacion.comparables === 0) return `${cabeza}: ninguna celda medida en las dos capas.`
-  if (delgadas === 0 && gruesas === 0) return `${cabeza}: todo conforme.`
+  if (delgadas + gruesas + alLimite === 0) return `${cabeza}: ✓ todo conforme.`
   const partes: string[] = []
-  if (delgadas > 0) partes.push(cuenta(delgadas, 'celda delgada', 'celdas delgadas'))
-  if (gruesas > 0) partes.push(cuenta(gruesas, 'celda gruesa', 'celdas gruesas'))
-  return `${cabeza}: ${partes.join(' y ')}.`
+  if (delgadas + gruesas > 0) {
+    const cuales: string[] = []
+    if (delgadas > 0) cuales.push(cuenta(delgadas, 'delgada', 'delgadas'))
+    if (gruesas > 0) cuales.push(cuenta(gruesas, 'gruesa', 'gruesas'))
+    partes.push(`✗ ${cuenta(delgadas + gruesas, 'celda fuera', 'celdas fuera')} (${cuales.join(' y ')})`)
+  }
+  if (alLimite > 0) partes.push(`△ ${cuenta(alLimite, 'celda al límite', 'celdas al límite')}`)
+  return `${cabeza}: ${partes.join(' · ')}.`
 }

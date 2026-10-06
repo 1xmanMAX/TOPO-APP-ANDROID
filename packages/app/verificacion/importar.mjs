@@ -3,7 +3,7 @@ import { unzipSync, strFromU8 } from 'fflate'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const BASE = 'http://localhost:4173/'
+const BASE = process.env.BASE ?? 'http://localhost:4173/'
 const SALIDA = process.argv[2] ?? '.'
 mkdirSync(SALIDA, { recursive: true })
 
@@ -59,25 +59,45 @@ function comprobar(nombre, ok, detalle = '') {
 }
 
 const navegador = await chromium.launch()
-const contexto = await navegador.newContext({ acceptDownloads: true })
+const contexto = await navegador.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 800 } })
 const pagina = await contexto.newPage()
 
 const erroresConsola = []
 pagina.on('console', (m) => { if (m.type() === 'error') erroresConsola.push(m.text()) })
 pagina.on('pageerror', (e) => erroresConsola.push('pageerror: ' + e.message))
 
-await pagina.goto(BASE, { waitUntil: 'networkidle' })
+// Con el servidor de desarrollo, 'networkidle' no llega nunca: se espera a 'load'.
+await pagina.goto(BASE, { waitUntil: 'load', timeout: 120000 })
 
 // Atajos de la pantalla, para no repetir el selector en cada paso.
-const campoCalle = pagina.getByLabel(/a qué calle/i)
+const campoCalle = pagina.getByRole('combobox', { name: /a qué calle/i })
 const botonImportar = pagina.getByRole('button', { name: /^Importar la hoja$/ })
+// Lo que se lee de la hoja, solo dentro de la zona de subir: el resto de
+// Obra › Calles también habla de lecturas y progresivas de otras calles.
+const zonaSubir = pagina.getByTestId('zona-subir-hoja')
+
+// Atajos de la navegación de la ola 2.
+const espacios = pagina.getByRole('navigation', { name: 'Espacios' })
+async function irA(espacio) {
+  await espacios.getByRole('button', { name: espacio, exact: true }).click()
+}
+async function irAObraCalles() {
+  await irA('Obra')
+  await pagina.getByRole('navigation', { name: 'Pantallas de la obra' }).getByRole('button', { name: 'Calles', exact: true }).click()
+}
+async function abrirApartado(nombre) {
+  const boton = pagina.getByRole('button', { name: nombre, exact: true })
+  if ((await boton.getAttribute('aria-expanded')) !== 'true') await boton.click()
+}
 
 // ---------------------------------------------------------------------------
-// 1. Subir el archivo real de Max
+// 1. Subir el archivo real de Max: Obra › Calles, apartado «Subir una hoja
+//    de campo» del panel de la calle (viene abierto).
 // ---------------------------------------------------------------------------
 
-await pagina.getByRole('button', { name: 'Subir datos', exact: true }).click()
-comprobar('la pestaña de subir datos se abre',
+await irAObraCalles()
+await abrirApartado('Subir una hoja de campo')
+comprobar('el apartado de subir datos se abre en Obra › Calles',
   await pagina.getByRole('heading', { name: 'Subir datos' }).isVisible())
 
 await pagina.getByLabel(/archivo de la hoja/i).setInputFiles(MUESTRA)
@@ -89,7 +109,7 @@ comprobar('propone el nombre del archivo como nombre de calle',
 const cuentas = await pagina.getByText(/\d+ progresivas/).first().textContent()
 comprobar('la vista previa cuenta 7 progresivas', /7 progresivas/.test(cuentas ?? ''), cuentas?.trim())
 
-const textoPrevia = await pagina.locator('body').innerText()
+const textoPrevia = await zonaSubir.innerText()
 comprobar('saca la vista atrás 1.45 del preámbulo, sin cabecera que la nombre',
   /Vista atrás al punto de control:\s*1\.450/.test(textoPrevia),
   (textoPrevia.match(/Vista atrás al punto de control:[^\n]*/) ?? [''])[0])
@@ -122,7 +142,7 @@ await pagina.getByLabel(/Dónde va la columna IZQ/i).selectOption('p-borde-i')
 await pagina.getByLabel(/Dónde va la columna DER/i).selectOption('p-borde-d')
 await pagina.waitForTimeout(200)
 
-const trasColocar = await pagina.locator('body').innerText()
+const trasColocar = await zonaSubir.innerText()
 comprobar('con las dos columnas colocadas salen 35 lecturas',
   /35 lecturas/.test(trasColocar), (trasColocar.match(/\d+ lecturas/) ?? [''])[0])
 
@@ -158,7 +178,11 @@ comprobar('la hoja entra con sus cuentas a la vista',
 // 5. La palabra colocada queda guardada en la sección de la calle
 // ---------------------------------------------------------------------------
 
-await pagina.getByRole('button', { name: 'Sección', exact: true }).click()
+// Al aceptar, la calle que recibe la hoja pasa a ser la activa y el panel de
+// Obra › Calles cambia a ella: su apartado «Sección» es el de esa calle.
+comprobar('el panel de la obra pasa a la calle que recibió la hoja',
+  (await pagina.getByRole('region', { name: `Panel de ${CALLE}` }).count()) === 1)
+await abrirApartado('Sección')
 comprobar('la sección es la de la calle que se acaba de subir',
   (await pagina.getByText(new RegExp(`${CALLE}: los puntos que mides`)).count()) > 0)
 
@@ -183,15 +207,30 @@ await pagina.screenshot({ path: `${SALIDA}/seccion.png`, fullPage: true })
 // 6. Después de importar hay cotas, perfil y modelo
 // ---------------------------------------------------------------------------
 
-await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
+// Calle › Revisar, con la calle recién subida activa.
+await irA('Calle')
+await pagina.getByRole('navigation', { name: 'Modos de la calle' }).getByRole('button', { name: 'Revisar', exact: true }).click()
+await pagina.getByRole('heading', { name: 'Revisar', exact: true, level: 2 }).waitFor({ timeout: 10000 })
+const calleActiva = await pagina.getByLabel('Calle activa').locator('option:checked').textContent()
+comprobar('la calle activa es la que recibió la hoja', calleActiva === CALLE, calleActiva)
 
 // Cota del eje en la primera progresiva: BM-1 (3245.180) + vista atrás 1.45
 // − lectura 2.27 = 3244.360. Si la vista atrás no se hubiera leído del
-// preámbulo, esta cifra sería otra.
-const cotaEje = await pagina.getByRole('button', { name: /^Cota en 0\+006 Eje/ }).getAttribute('aria-label')
-comprobar('la tabla trae las cotas calculadas desde la vista atrás de la hoja',
-  /3244\.360/.test(cotaEje ?? ''), cotaEje)
+// preámbulo, esta cifra sería otra. Sin rasante, el mapa de Revisar marca lo
+// medido; se elige la celda y el corte nombra el punto con su cota.
+await pagina.getByRole('button', { name: /^0\+006 Eje: medida$/ }).click()
+const cotaEje = await pagina
+  .getByRole('img', { name: /Corte transversal/ })
+  .locator('circle[aria-label^="0+006 Eje · cota"]')
+  .first()
+  .getAttribute('aria-label')
+  .catch(() => null)
+const puntoElegido = (await pagina.getByRole('region', { name: 'Punto elegido' }).innerText().catch(() => '')).replace(/\s+/g, ' ')
+comprobar('las cotas salen calculadas desde la vista atrás de la hoja (corte y punto elegido)',
+  /3244\.360/.test(cotaEje ?? '') && /Cota medida 3244\.360/.test(puntoElegido), `${cotaEje} · ${puntoElegido.slice(0, 120)}`)
 
+const vistaDeLaCalle = pagina.getByRole('group', { name: 'Vista de la calle' })
+await vistaDeLaCalle.getByRole('button', { name: 'Perfil', exact: true }).click()
 const perfil = pagina.getByRole('img', { name: /^Perfil longitudinal de/ })
 comprobar('el perfil longitudinal se dibuja', await perfil.isVisible(),
   await perfil.getAttribute('aria-label'))
@@ -202,9 +241,8 @@ comprobar('el perfil trae un punto por progresiva medida', puntosPerfil === 7, `
 // proyecto: ahí lo correcto es que lo diga en vez de dibujar algo. En modo
 // Capas dibuja la superficie medida tal cual, que es lo que hay que ver
 // recién levantado el terreno.
-const seccionModelo = pagina.locator('section', {
-  has: pagina.getByRole('heading', { name: 'Modelo 3D' }),
-})
+await vistaDeLaCalle.getByRole('button', { name: '3D', exact: true }).click()
+const seccionModelo = pagina.getByRole('region', { name: 'Dibujo de la calle' })
 comprobar('sin rasante, el modelo por estado dice por qué no dibuja',
   (await seccionModelo.getByText(/Define la rasante del proyecto/).count()) > 0)
 
@@ -219,7 +257,8 @@ await pagina.screenshot({ path: `${SALIDA}/resultados-importados.png`, fullPage:
 // 7. El camino del pegado: las mismas celdas, por el portapapeles
 // ---------------------------------------------------------------------------
 
-await pagina.getByRole('button', { name: 'Subir datos', exact: true }).click()
+await irAObraCalles()
+await abrirApartado('Subir una hoja de campo')
 await pagina.getByLabel(/pegar/i).fill(PEGADO)
 await pagina.getByRole('heading', { name: /Qué columna cayó en qué punto/ }).waitFor()
 
@@ -229,7 +268,7 @@ await pagina.getByRole('heading', { name: /Qué columna cayó en qué punto/ }).
 await campoCalle.fill(CALLE)
 await pagina.waitForTimeout(200)
 
-const trasPegar = await pagina.locator('body').innerText()
+const trasPegar = await zonaSubir.innerText()
 comprobar('lo pegado da las mismas cuentas que el archivo',
   /7 progresivas/.test(trasPegar) && /35 lecturas/.test(trasPegar),
   (trasPegar.match(/\d+ progresivas[^\n]*/) ?? [''])[0])
@@ -250,10 +289,13 @@ comprobar('lo pegado entra igual que el archivo',
 // 8. Importar añade y nunca pisa: se comprueba dentro del .topo
 // ---------------------------------------------------------------------------
 
+// Guardar está en el menú Archivo de la barra superior.
+await pagina.getByRole('button', { name: 'Archivo', exact: true }).click()
 const descarga = await Promise.all([
   pagina.waitForEvent('download'),
-  pagina.getByRole('button', { name: 'Guardar' }).click(),
+  pagina.getByRole('group', { name: 'Archivo del proyecto' }).getByRole('button', { name: 'Guardar', exact: true }).click(),
 ]).then(([d]) => d)
+await pagina.keyboard.press('Escape')
 const rutaTopo = `${SALIDA}/importado.topo`
 await descarga.saveAs(rutaTopo)
 

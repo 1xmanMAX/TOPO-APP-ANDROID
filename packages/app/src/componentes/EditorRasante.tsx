@@ -141,18 +141,19 @@ function TablaTramos({
         </button>
       </div>
 
-      {/* El contenido ancho hace scroll dentro de su caja: la fila no cede por debajo de su
-          contenido (columnas de ancho fijo + Nombre), así que sin esto se desborda sobre el
-          dibujo en vez de apretarse o mostrar su propio scroll. */}
-      <div className="flex min-w-0 flex-col gap-2 overflow-x-auto">
+      {/* Cada fila se parte en varias líneas cuando no cabe: en el panel de la calle
+          (columna estrecha en la laptop, celular) un desplazamiento lateral escondía
+          «Hasta el metro», «Tipo» y «Valor» sin que se notara. */}
+      <div className="flex min-w-0 flex-col gap-2">
         {tramos.map((tramo, indice) => {
           const numero = indice + 1
           return (
             <div
               key={indice}
-              className="grid w-max min-w-full grid-cols-[minmax(10rem,1fr)_7rem_8rem_7rem_auto_auto] items-end gap-2 rounded border border-slate-300 p-2 dark:border-slate-700"
+              className="flex min-w-0 flex-wrap items-end gap-2 rounded border border-slate-300 p-2 dark:border-slate-700"
             >
               <CampoTexto
+                ancho="min-w-40 flex-[1_1_10rem]"
                 etiqueta={`Nombre del tramo ${numero}${sufijo}`}
                 valor={tramo.nombre}
                 alCambiar={(v) => onCambiar(indice, { nombre: v })}
@@ -160,6 +161,7 @@ function TablaTramos({
               <CampoNumero
                 etiqueta="Hasta el metro"
                 ariaLabel={`Hasta el metro ${numero}${sufijo}`}
+                ancho="w-28"
                 valor={tramo.hastaOffset}
                 alCambiar={(v) => onCambiar(indice, { hastaOffset: v })}
                 decimales={2}
@@ -173,7 +175,7 @@ function TablaTramos({
                   onChange={(evento) =>
                     onCambiar(indice, { tipo: evento.target.value as TramoTransversal['tipo'] })
                   }
-                  className="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  className="min-h-11 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
                 >
                   {TIPOS_TRAMO.map((t) => (
                     <option key={t.valor} value={t.valor}>
@@ -185,6 +187,7 @@ function TablaTramos({
               <CampoNumero
                 etiqueta="Valor"
                 ariaLabel={`Valor del tramo ${numero}${sufijo}`}
+                ancho="w-28"
                 valor={tramo.valor}
                 alCambiar={(v) => onCambiar(indice, { valor: v })}
                 decimales={2}
@@ -196,7 +199,7 @@ function TablaTramos({
                   aria-label={`Subir el tramo ${numero}${sufijo}`}
                   onClick={() => onMover(indice, -1)}
                   disabled={indice === 0}
-                  className="px-1 text-slate-400 hover:text-marca disabled:opacity-30"
+                  className="min-h-11 min-w-11 px-1 text-slate-400 hover:text-marca disabled:opacity-30"
                 >
                   ↑
                 </button>
@@ -205,7 +208,7 @@ function TablaTramos({
                   aria-label={`Bajar el tramo ${numero}${sufijo}`}
                   onClick={() => onMover(indice, 1)}
                   disabled={indice === tramos.length - 1}
-                  className="px-1 text-slate-400 hover:text-marca disabled:opacity-30"
+                  className="min-h-11 min-w-11 px-1 text-slate-400 hover:text-marca disabled:opacity-30"
                 >
                   ↓
                 </button>
@@ -214,7 +217,7 @@ function TablaTramos({
                 type="button"
                 aria-label={`Quitar el tramo ${numero}${sufijo}`}
                 onClick={() => onQuitar(indice)}
-                className="rounded px-2 py-1.5 text-sm text-falla hover:bg-red-50 dark:hover:bg-red-950"
+                className="min-h-11 rounded px-2 py-1.5 text-sm text-falla hover:bg-red-50 dark:hover:bg-red-950"
               >
                 Quitar
               </button>
@@ -326,7 +329,8 @@ export default function EditorRasante({ calleId, puntos }: Props) {
   const hayCotaEscrita = rasante.cotaArranque !== 0
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
+    // En el celular, todo lo que se toca mide al menos 44 px.
+    <div className="flex min-w-0 flex-col gap-4 max-md:[&_button]:min-h-11 max-md:[&_button]:min-w-11 max-md:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-md:[&_select]:min-h-11">
       <div className="grid grid-cols-3 gap-3">
         <CampoNumero
           etiqueta="Progresiva de arranque"

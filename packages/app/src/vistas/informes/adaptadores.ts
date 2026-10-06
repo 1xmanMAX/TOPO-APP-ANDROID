@@ -10,6 +10,7 @@ import {
   correccionesDeLaToma,
   esLecturaUsable,
   espesoresPorEncimaDe,
+  estacasDePista,
   evaluarContraRasante,
   formatearProgresiva,
   hojaDeReplanteo,
@@ -51,6 +52,7 @@ import {
   type FilaLibreta,
   type FilaProtocolo,
 } from '../../informes'
+import { pistaCalibrada } from '../planificador/perfilDeLaCalle'
 
 /*
  * Del proyecto a los datos de cada informe PDF. Aquí no se hace ninguna
@@ -870,10 +872,14 @@ export function replanteoPorDefecto(proyecto: Proyecto, calleId: Id | null): Rep
   const bmCualquiera = (proyecto.bms.find((b) => b.tipo === 'oficial') ?? proyecto.bms[0])?.id ?? null
   const medidas = tomasDeCalle(proyecto, calleId).filter((t) => t.capa !== undefined)
   if (medidas.length === 0) {
+    // El terreno existente (orden 0) se mide, no se construye: no se replantea.
+    const primeraQueSeConstruye = capas.find((c) => c.orden > 0)
     return {
-      capaId: capas[0]?.id ?? null,
+      capaId: (primeraQueSeConstruye ?? capas[0])?.id ?? null,
       bmId: bmCualquiera,
-      razon: 'La calle no tiene jornadas: se propone la primera capa del paquete.',
+      razon: primeraQueSeConstruye
+        ? `La calle no tiene jornadas: se propone la primera capa que se construye (${primeraQueSeConstruye.nombre}).`
+        : 'La calle no tiene jornadas: se propone la primera capa del paquete.',
     }
   }
   // La más alta del paquete y, de ella, la jornada más nueva.
@@ -897,6 +903,74 @@ export function replanteoPorDefecto(proyecto: Proyecto, calleId: Id | null): Rep
   }
 }
 
+/** Cada cuánto van las estacas de una calle sin jornadas, como se estaca en obra. */
+export const CADA_ESTACA_M = 20
+
+/**
+ * Dónde van las estacas de una calle que aún no tiene jornadas: a lo largo
+ * de su pista, si su plano está calibrado (sin calibrar no hay metros, y
+ * adivinarlos movería todas las estacas); si no, del «Desde» al «Hasta»
+ * escritos. `progresivas` es null si no hay de dónde sacarlas. Una pista que
+ * no se puede medir no se calla: va en `avisos`, para que Max sepa que su
+ * pista está mal y no crea que la hoja salió de ella.
+ */
+export function progresivasSinJornadas(
+  proyecto: Proyecto,
+  calleId: Id,
+  alcance: Pick<Alcance, 'desde' | 'hasta'>,
+): { progresivas: number[] | null; deDonde: string | null; avisos: string[] } {
+  const avisos: string[] = []
+  for (const pista of proyecto.pistas ?? []) {
+    if (pista.calleId !== calleId || pista.polilinea.length < 2) continue
+    // La misma conversión que usa el planificador: una sola regla de calibración.
+    const calibrada = pistaCalibrada(pista, proyecto.planos?.find((p) => p.id === pista.planoId))
+    if (!calibrada) continue
+    const escala = calibrada.calibracion.metrosPorUnidad
+    if (!(Number.isFinite(escala) && escala > 0)) {
+      avisos.push(`La pista «${pista.nombre}» no se pudo medir: la calibración de su plano no da metros; vuelve a calibrarlo en Plano.`)
+      continue
+    }
+    if (!Number.isFinite(calibrada.progresivaInicio)) {
+      avisos.push(`La pista «${pista.nombre}» no se pudo medir: su progresiva de inicio no es un número; corrígela en Plano.`)
+      continue
+    }
+    let estacas: ReturnType<typeof estacasDePista>
+    try {
+      estacas = estacasDePista(calibrada, CADA_ESTACA_M)
+    } catch (e) {
+      avisos.push(`La pista «${pista.nombre}» no se pudo medir: ${e instanceof Error ? e.message : String(e)}`)
+      continue
+    }
+    if (estacas.length === 0) {
+      avisos.push(`La pista «${pista.nombre}» no da estacas: revisa su trazo en Plano.`)
+      continue
+    }
+    const progresivas = estacas.map((e) => e.progresiva)
+    const primera = formatearProgresiva(progresivas[0]!)
+    const ultima = formatearProgresiva(progresivas[progresivas.length - 1]!)
+    return {
+      progresivas,
+      deDonde: `La calle no tiene jornadas: las estacas van cada ${CADA_ESTACA_M} m a lo largo de la pista «${pista.nombre}» (${primera} a ${ultima}).`,
+      avisos,
+    }
+  }
+  const { desde, hasta } = alcance
+  if (typeof desde === 'number' && typeof hasta === 'number' && Number.isFinite(desde) && Number.isFinite(hasta) && hasta > desde) {
+    // Como en la pista: el arranque, cada múltiplo de 20 m que cae dentro, y el final.
+    const progresivas = [redondear3(desde)]
+    for (let k = Math.floor(desde / CADA_ESTACA_M) + 1; redondear3(k * CADA_ESTACA_M) < hasta; k++) {
+      progresivas.push(redondear3(k * CADA_ESTACA_M))
+    }
+    progresivas.push(redondear3(hasta))
+    return {
+      progresivas,
+      deDonde: `La calle no tiene jornadas: las estacas van cada ${CADA_ESTACA_M} m de ${formatearProgresiva(desde)} a ${formatearProgresiva(hasta)}.`,
+      avisos,
+    }
+  }
+  return { progresivas: null, deDonde: null, avisos }
+}
+
 export function datosEstacas(proyecto: Proyecto, alcance: Alcance, opciones: OpcionesInforme): Preparado<DatosEstacas> {
   if (proyecto.calles.length === 0) return { listo: false, motivo: SIN_CALLES }
   const calle = proyecto.calles.find((c) => c.id === alcance.calleId)
@@ -917,11 +991,24 @@ export function datosEstacas(proyecto: Proyecto, alcance: Alcance, opciones: Opc
   }
 
   // Las progresivas de todas las jornadas de la calle: las estacas van donde se nivela.
-  const progresivas = [...new Set(tomas.flatMap((t) => progresivasDeLaToma(t.toma)))]
+  const deJornadas = [...new Set(tomas.flatMap((t) => progresivasDeLaToma(t.toma)))]
+  // Una calle que todavía no se midió se replantea igual: cada 20 m a lo
+  // largo de su pista en el plano calibrado, o del tramo escrito.
+  const sinJornadas = deJornadas.length === 0 ? progresivasSinJornadas(proyecto, calle.id, alcance) : null
+  const progresivas = (sinJornadas?.progresivas ?? deJornadas)
     .filter((p) => enTramo(p, alcance))
     .sort((a, b) => a - b)
   if (progresivas.length === 0) {
-    return { listo: false, motivo: 'No hay progresivas en el tramo: declara las progresivas de la calle en una jornada.' }
+    return {
+      listo: false,
+      motivo:
+        deJornadas.length > 0
+          ? 'No hay progresivas en el tramo: revisa «Desde» y «Hasta».'
+          : [
+              ...(sinJornadas?.avisos ?? []),
+              `La calle no tiene jornadas ni una pista en un plano calibrado: escribe «Desde» y «Hasta» para poner estacas cada ${CADA_ESTACA_M} m.`,
+            ].join(' '),
+    }
   }
 
   const instrumento = instrumentoCompleto(proyecto.instrumento)
@@ -944,6 +1031,8 @@ export function datosEstacas(proyecto: Proyecto, alcance: Alcance, opciones: Opc
   })
   const desdeHoja = datosDeEstacasDesdeHoja(hoja)
   const avisos = desdeHoja.avisos!.filter((a) => a !== AVISO_AI_NO_NUMERO)
+  if (sinJornadas?.deDonde) avisos.unshift(sinJornadas.deDonde)
+  if (sinJornadas) avisos.unshift(...sinJornadas.avisos)
   if (ai === null) {
     avisos.unshift(
       typeof vista === 'number'
@@ -953,7 +1042,20 @@ export function datosEstacas(proyecto: Proyecto, alcance: Alcance, opciones: Opc
   }
 
   // Aquí no se cierra ninguna nivelación: «comprobado» es que la altura
-  // instrumental sale de un BM oficial, y así se dice.
+  // instrumental sale de un BM oficial y que desde esta estación se puede
+  // leer toda la hoja. Un ✓ sobre lecturas que no caben en la mira engaña
+  // en obra: si alguna no se puede leer, se dice y se pide cambiar de estación.
+  const conObjetivo = hoja.filas.filter((f) => f.lecturaObjetivo !== null)
+  const noCaben = conObjetivo.filter((f) => f.rangoObjetivo === 'imposible').length
+  const lejos = new Set(hoja.filas.filter((f) => f.fueraDeAlcance).map((f) => f.progresiva)).size
+  const problemasDeEstacion = [
+    ...(noCaben > 0
+      ? [`${noCaben} de ${conObjetivo.length} lecturas objetivo no caben en la mira de ${instrumento.largoMira} m`]
+      : []),
+    ...(lejos > 0
+      ? [`${lejos} ${lejos === 1 ? 'progresiva pasa' : 'progresivas pasan'} de ${instrumento.visualMax} m de visual`]
+      : []),
+  ]
   const veredicto: Veredicto =
     ai === null
       ? {
@@ -963,15 +1065,20 @@ export function datosEstacas(proyecto: Proyecto, alcance: Alcance, opciones: Opc
               ? `No comprobado: la vista atrás ${vista} no cabe en la mira de ${instrumento.largoMira} m, así que no hay altura instrumental.`
               : 'No comprobado: sin vista atrás al BM no hay altura instrumental; la lectura objetivo se calcula en campo.',
         }
-      : alturaComprobada
+      : !alturaComprobada
         ? {
-            estado: 'comprobado',
-            texto: `Comprobado: la altura instrumental (${ai.toFixed(3)}) sale del BM oficial ${bm.nombre}.`,
-          }
-        : {
             estado: 'sinCerrar',
             texto: `No comprobado: la altura instrumental sale de ${bm.nombre}, un BM auxiliar; plántala desde un BM oficial.`,
           }
+        : problemasDeEstacion.length > 0
+          ? {
+              estado: 'sinCerrar',
+              texto: `No comprobado: desde esta estación ${problemasDeEstacion.join(' y ')}; cambie de estación para esas estacas (la altura instrumental ${ai.toFixed(3)} sí sale del BM oficial ${bm.nombre}).`,
+            }
+          : {
+              estado: 'comprobado',
+              texto: `Comprobado: la altura instrumental (${ai.toFixed(3)}) sale del BM oficial ${bm.nombre} y todas las lecturas objetivo caben en la mira.`,
+            }
 
   const encabezado = encabezadoDe(
     proyecto,
@@ -986,7 +1093,8 @@ export function datosEstacas(proyecto: Proyecto, alcance: Alcance, opciones: Opc
     opciones,
   )
   // Sin vista atrás el motivo ya va en los avisos de la hoja; con un BM auxiliar, se añade.
-  const notasExtra = ai !== null && !alturaComprobada ? [veredicto.texto] : []
+  // Con un BM auxiliar o lecturas que no caben, el motivo va también en el papel.
+  const notasExtra = ai !== null && veredicto.estado !== 'comprobado' ? [veredicto.texto] : []
   return {
     listo: true,
     datos: {

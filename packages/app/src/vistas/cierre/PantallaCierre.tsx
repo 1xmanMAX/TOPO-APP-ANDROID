@@ -160,7 +160,7 @@ function CierreDeLaToma({ toma }: { toma: Toma }) {
         </section>
       )}
 
-      <Veredicto estado={estado} />
+      <Veredicto estado={estado} tipo={toma.cierre.tipo} />
 
       {estado.previo && <LecturaDeCierre toma={toma} estado={estado} k={k} km={km} largoMira={largoMira} />}
 
@@ -301,7 +301,7 @@ function Recorrido({
   )
 }
 
-function Veredicto({ estado }: { estado: EstadoCierreEnVivo }) {
+function Veredicto({ estado, tipo }: { estado: EstadoCierreEnVivo; tipo: Toma['cierre']['tipo'] }) {
   if (estado.circuito === 'error') {
     return (
       <Aviso tono="falla" simbolo="✗">
@@ -311,9 +311,22 @@ function Veredicto({ estado }: { estado: EstadoCierreEnVivo }) {
   }
   const cierre = estado.cierre
   if (!cierre) {
+    // Abierta de verdad es solo la toma configurada así. Una de circuito
+    // cerrado o de enlace sin cierre todavía no está «abierta»: le falta
+    // cerrar (sin BM elegido, con el BM borrado o sin visarlo). El BM se
+    // nombra solo si existe; el porqué lo da `motivo`.
+    const titulo =
+      tipo === 'abierto'
+        ? 'Circuito abierto: lo medido queda NO COMPROBADO.'
+        : estado.previo
+          ? `Falta cerrar en ${estado.previo.bmCierre.nombre}: lo medido queda NO COMPROBADO.`
+          : 'Falta cerrar la nivelación: lo medido queda NO COMPROBADO.'
     return (
-      <Aviso tono="aviso" simbolo="△">
-        <p className="font-semibold">Circuito abierto: lo medido queda NO COMPROBADO.</p>
+      <Aviso tono="aviso">
+        <p className="font-semibold">
+          <span aria-hidden="true">△ </span>
+          {titulo}
+        </p>
         {estado.motivo && <p>{estado.motivo}</p>}
       </Aviso>
     )

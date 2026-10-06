@@ -4,7 +4,6 @@ import { useAlmacen } from '../../estado/almacen'
 import AjustesObra, { type ApartadoObra } from './AjustesObra'
 import InicioObra from './InicioObra'
 import PanelCalle, { type ApartadoCalle } from './PanelCalle'
-import SubirHojaEmbebida from './SubirHojaEmbebida'
 
 function alternarEn<T>(conjunto: Set<T>, valor: T): Set<T> {
   const nuevo = new Set(conjunto)
@@ -47,6 +46,8 @@ export default function EspacioObra() {
   const panel = useRef<HTMLDivElement>(null)
   const inicio = useRef<HTMLDivElement>(null)
   const [llevarASubir, setLlevarASubir] = useState(false)
+  /** Sube cada vez que Max elige otra calle: descarta la hoja a medio leer. */
+  const [claveSubir, setClaveSubir] = useState(0)
   /**
    * A dónde mandar el foco después de abrir o cerrar el panel: en el celular,
    * la columna de donde venía el foco desaparece, y sin esto el lector de
@@ -79,6 +80,7 @@ export default function EspacioObra() {
   }, [enfocar, calle])
 
   function elegirCalle(id: Id) {
+    if (id !== calle?.id) setClaveSubir((n) => n + 1)
     setCalleVistaId(id)
     setPanelAbierto(true)
     setEnfocar('panel')
@@ -112,36 +114,19 @@ export default function EspacioObra() {
         ref={panel}
         className={`min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block ${panelAbierto ? 'block' : 'hidden'}`}
       >
-        {calle ? (
-          // La key reinicia el panel al cambiar de calle: un borrado a medio
-          // confirmar o una hoja a medio aceptar no pasan de una calle a otra.
-          <PanelCalle
-            key={calle.id}
-            calle={calle}
-            abiertos={apartadosCalle}
-            alAlternar={(a) => setApartadosCalle((antes) => alternarEn(antes, a))}
-            alVolver={volver}
-          />
-        ) : (
-          <section aria-label="Subir la primera hoja" className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={volver}
-              className="flex min-h-11 items-center gap-1 self-start text-base font-medium text-marca lg:hidden"
-            >
-              <span aria-hidden="true">‹</span> Volver a la obra
-            </button>
-            <h2 tabIndex={-1} className="text-2xl font-bold">
-              Subir hoja
-            </h2>
-            <p className="text-base text-slate-600 dark:text-slate-300">
-              Todavía no hay ninguna calle. Sube una hoja de campo y la calle nace con ella, o créala en la lista.
-            </p>
-            <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-              <SubirHojaEmbebida />
-            </div>
-          </section>
-        )}
+        {/* El panel reinicia lo de la calle al cambiar de calle: un borrado a
+            medio confirmar no pasa de una a otra. La hoja a medio aceptar se
+            descarta solo cuando Max elige otra calle (claveSubir): al aceptar
+            una hoja, la calle que la recibe —o la primera, si la obra estaba
+            vacía— pasa a ser la activa, y el «Hoja aceptada» tiene que seguir
+            a la vista. Por eso el panel es el mismo con calle o sin ella. */}
+        <PanelCalle
+          claveSubir={claveSubir}
+          calle={calle}
+          abiertos={apartadosCalle}
+          alAlternar={(a) => setApartadosCalle((antes) => alternarEn(antes, a))}
+          alVolver={volver}
+        />
       </div>
 
       <div

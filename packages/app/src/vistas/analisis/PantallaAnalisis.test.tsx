@@ -111,6 +111,9 @@ describe('PantallaAnalisis', () => {
       expect(screen.getByLabelText('Factor de esponjamiento')).toHaveValue('1.25')
       expect(screen.getByLabelText('Capacidad del volquete')).toHaveValue('15.0')
       expect(screen.queryByText(/NO COMPROBADOS/)).not.toBeInTheDocument()
+      // Un solo volquete se dice en singular: «1 viajes» se lee como un descuido.
+      expect(screen.getAllByText(/· 1 viaje$/).length).toBeGreaterThan(0)
+      expect(screen.queryByText(/\b1 viajes/)).not.toBeInTheDocument()
     })
 
     it('entre dos nivelaciones no habla de sobra ni falta: dice cuánto queda encima', async () => {
@@ -229,6 +232,30 @@ describe('PantallaAnalisis', () => {
       expect(bombeo.getAllByRole('row')).toHaveLength(1 + 6)
       expect(bombeo.getAllByText('+2.00 %').length).toBeGreaterThan(0)
       expect(bombeo.getAllByText(/✓ conforme/).length).toBe(6)
+    })
+
+    it('dice qué capa analiza, y elegir otra cambia la capa activa y el bombeo', async () => {
+      const proyecto = proyectoDePrueba()
+      // La base con el borde derecho de 0+000 2 cm más alto: (100.200 − 100.160) / 3 m = 1.33 %, no 2 %.
+      const base = proyecto.calles[0]!.nivelaciones[1]!.tomas[0]!
+      const borde = base.estaciones[0]!.intermedias.find(
+        (l) => l.destino.tipo === 'celda' && l.destino.celda.progresiva === 0 && l.destino.celda.elementoClave === 'p-bd',
+      )!
+      borde.valor = 1.14
+      useAlmacen.getState().cargarProyecto(proyecto)
+      const usuario = await abrirPestana('Drenaje')
+
+      expect(useAlmacen.getState().campaniaActivaId).toBe('toma-sub')
+      expect(screen.getByLabelText('Capa analizada')).toHaveDisplayValue('SUBRASANTE · 2026-09-01')
+      expect(within(screen.getByRole('table', { name: 'Bombeo por progresiva' })).getAllByText(/✓ conforme/)).toHaveLength(6)
+      expect(screen.queryByText('+1.33 %')).not.toBeInTheDocument()
+
+      await usuario.selectOptions(screen.getByLabelText('Capa analizada'), 'toma-base')
+
+      expect(useAlmacen.getState().campaniaActivaId).toBe('toma-base')
+      expect(screen.getByLabelText('Capa analizada')).toHaveDisplayValue('BASE · 2026-09-10')
+      const tabla = within(screen.getByRole('table', { name: 'Bombeo por progresiva' }))
+      expect(tabla.getByText('+1.33 %')).toBeInTheDocument()
     })
 
     it('encuentra el empozamiento y la contrapendiente; un sumidero lo recoge', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { borrarBorrador, contarLecturas, leerBorrador, type Borrador } from './archivo/autoguardado'
 import { useAutoguardado } from './archivo/useAutoguardado'
 import BarraSuperior from './componentes/BarraSuperior'
@@ -32,7 +32,9 @@ function Calle() {
 
 /**
  * La calculadora se abre encima de cualquier pantalla sin taparla del todo:
- * en el celular ocupa la pantalla entera, en la laptop queda a la derecha. No es
+ * en el celular ocupa todo lo que hay bajo la barra de arriba (la pantalla de
+ * debajo se esconde mientras tanto, y la barra sigue a mano: antes la barra le
+ * tapaba «Cerrar calculadora»); en la laptop queda a la derecha. No es
  * modal a propósito: se calcula mirando la libreta.
  */
 function Calculadora() {
@@ -50,7 +52,7 @@ function Calculadora() {
     <aside
       role="dialog"
       aria-label="Calculadora de campo"
-      className="fixed inset-0 z-20 overflow-auto border-slate-200 bg-white shadow-2xl sm:inset-auto sm:top-14 sm:right-0 sm:bottom-0 sm:w-96 sm:border-l dark:border-slate-800 dark:bg-slate-950"
+      className="min-h-0 flex-1 overflow-auto border-slate-200 bg-white sm:fixed sm:top-14 sm:right-0 sm:bottom-0 sm:z-20 sm:w-96 sm:flex-none sm:border-l sm:shadow-2xl dark:border-slate-800 dark:bg-slate-950"
     >
       <div className="flex justify-end p-2">
         <button
@@ -73,6 +75,16 @@ export default function App() {
   const [borrador, setBorrador] = useState<Borrador | null>(null)
   const [revisado, setRevisado] = useState(false)
   const falloAutoguardado = useAutoguardado(revisado && borrador === null)
+
+  // Si mientras se decide se abre otro .topo o se pulsa Nuevo, el borrador ya
+  // no es la duda: Max eligió trabajar en otra cosa. El aviso se quita y el
+  // autoguardado se enciende; si no, lo que haga después no se guardaría y
+  // un «Recuperar» pulsado tarde pisaría el proyecto abierto.
+  const cargas = useAlmacen((s) => s.cargas)
+  const cargasAlEmpezar = useRef(cargas)
+  useEffect(() => {
+    if (cargas !== cargasAlEmpezar.current) setBorrador(null)
+  }, [cargas])
 
   useEffect(() => {
     leerBorrador()
@@ -99,7 +111,9 @@ export default function App() {
               hour: '2-digit',
               minute: '2-digit',
             })}{' '}
-            — {borrador.proyecto.meta.nombre}, {contarLecturas(borrador.proyecto)} lecturas.
+            — {borrador.proyecto.meta.nombre}, {contarLecturas(borrador.proyecto)} lecturas. Elige
+            antes de seguir: lo de abajo no se guarda hasta que decidas. Si abres otro archivo, este
+            borrador se descarta.
           </span>
           <button
             type="button"
@@ -129,7 +143,14 @@ export default function App() {
         fuera de la vista justo cuando hace falta cambiar de modo.
       */}
       {/* En la laptop, con la calculadora abierta, la pantalla se corre a su izquierda en vez de quedar tapada. */}
-      <div className={`flex min-h-0 flex-1 flex-col ${calculadoraAbierta ? 'sm:pr-96' : ''}`}>
+      {/*
+        Mientras el aviso está a la vista, lo de abajo no se edita: no se
+        guardaría y se perdería al pulsar Recuperar.
+      */}
+      <div
+        inert={borrador !== null}
+        className={`flex min-h-0 flex-1 flex-col ${calculadoraAbierta ? 'max-sm:hidden sm:pr-96' : ''} ${borrador ? 'opacity-40' : ''}`}
+      >
         {espacio === 'obra' && <NavegacionObra />}
         {espacio === 'calle' && <NavegacionCalle />}
         <main className="flex-1 overflow-auto">

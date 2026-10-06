@@ -5,6 +5,15 @@
   --color-marca: oklch(0.55 0.16 250);
   --color-pasa: oklch(0.65 0.17 145);
   --color-falla: oklch(0.6 0.21 25);
+  /*
+   * Ámbar oscuro sobre blanco: 5.0:1. El ámbar claro de antes daba 2.3:1 y el
+   * «△ No comprobado…» en text-sm no se leía al sol.
+   */
+  --color-aviso: oklch(0.55 0.12 70);
+}
+
+/* En el tema oscuro, el ámbar claro es el que se lee sobre el fondo negro. */
+html.dark:not(.sol) {
   --color-aviso: oklch(0.75 0.15 80);
 }
 

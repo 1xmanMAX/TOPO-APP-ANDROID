@@ -372,8 +372,9 @@ export default function VistaSeccion({ calleId }: Props) {
   const puntos = ordenadosPorDistancia(calle.seccion.puntos)
   const sinMedir = calle.seccion.puntos.filter((punto) => punto.distanciaDeFabrica).length
 
+  // En el celular, todo lo que se toca mide al menos 44 px, con guantes y al sol.
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6 max-md:[&_button]:min-h-11 max-md:[&_button]:min-w-11 max-md:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-md:[&_select]:min-h-11">
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold">Sección de la calle</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">

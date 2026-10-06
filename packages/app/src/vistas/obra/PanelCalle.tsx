@@ -12,6 +12,19 @@ import SubirHojaEmbebida from './SubirHojaEmbebida'
 
 export type ApartadoCalle = 'seccion' | 'rasante' | 'anchos' | 'jornadas' | 'subir'
 
+/**
+ * La sección y la rasante son los editores de siempre, pensados para la
+ * laptop: botones de 24 a 32 px y una «×» de 8 px para quitar una palabra.
+ * Con guantes y al sol, esa «×» al lado de PROG o EJE se pulsa sin querer y
+ * la próxima hoja se lee mal. Aquí, que también se usa en el celular, todo lo
+ * que se toca se agranda a 44 px, sin tocar los editores: botones de alto y
+ * de ancho, campos y selectores de alto, y la casilla por su etiqueta.
+ */
+const CONTROLES_DE_44 =
+  '[&_button]:inline-flex [&_button]:min-h-11 [&_button]:min-w-11 [&_button]:items-center [&_button]:justify-center ' +
+  '[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 [&_select]:min-h-11 ' +
+  '[&_label:has(input[type=checkbox])]:min-h-11 [&_input[type=checkbox]]:size-5'
+
 /** Un número con su signo siempre escrito, con el menos tipográfico. */
 function conSigno(valor: number, decimales: number): string {
   const texto = Math.abs(valor).toFixed(decimales)
@@ -41,19 +54,78 @@ function resumenRasante(rasante: Rasante | null): string {
 }
 
 interface Props {
-  calle: Calle
+  /** Null con la obra todavía sin calles: entonces el panel ofrece subir la primera hoja. */
+  calle: Calle | null
   abiertos: Set<ApartadoCalle>
   alAlternar: (apartado: ApartadoCalle) => void
   /** Solo en el celular: vuelve a la lista de calles. */
   alVolver: () => void
+  /**
+   * Cambia cuando Max elige otra calle: entonces la hoja a medio leer se
+   * descarta. No cambia cuando la calle cambia sola —al aceptar una hoja, la
+   * calle que nace o recibe la hoja pasa a ser la activa—, para que el «Hoja
+   * aceptada» siga a la vista en vez de desaparecer con el panel.
+   */
+  claveSubir?: number
 }
 
 /**
  * La calle en un solo panel (pantalla 10 del lienzo): sección, rasante,
  * anchos, jornadas y subir hoja, cada uno plegable y diciendo qué tiene sin
- * abrirlo.
+ * abrirlo. Sin calles, el mismo panel ofrece subir la primera hoja.
+ *
+ * Todo lo de la calle se reinicia al cambiar de calle (un borrado a medio
+ * confirmar no pasa de una a otra); la subida de datos, solo con `claveSubir`.
+ * Para eso la subida va siempre en el mismo sitio del árbol, haya calle o no:
+ * el resultado de la importación vive en ella, y si se desmontara al nacer la
+ * primera calle, al borrar la calle que se miraba o al pasar el panel a la
+ * calle que recibe la hoja, el «Hoja aceptada» se perdería.
  */
-export default function PanelCalle({ calle, abiertos, alAlternar, alVolver }: Props) {
+export default function PanelCalle({ calle, abiertos, alAlternar, alVolver, claveSubir = 0 }: Props) {
+  return (
+    <section aria-label={calle ? `Panel de ${calle.nombre}` : 'Subir la primera hoja'} className="flex min-w-0 flex-col gap-3">
+      {calle ? (
+        <CuerpoCalle key={calle.id} calle={calle} abiertos={abiertos} alAlternar={alAlternar} alVolver={alVolver} />
+      ) : (
+        <CabeceraSinCalles alVolver={alVolver} />
+      )}
+
+      {/* La subida de datos todavía no sabe de qué calle es este panel: toma el
+          nombre del archivo. Por eso el apartado no promete «a esta calle». */}
+      <Apartado
+        titulo="Subir una hoja de campo"
+        resumen="Suelta aquí tu Excel o pega las celdas. Antes de aceptar, di a qué calle va: se suma a esa calle sin pisar nada"
+        abierto={abiertos.has('subir')}
+        alAlternar={() => alAlternar('subir')}
+        conservarMontado
+      >
+        <SubirHojaEmbebida key={claveSubir} calleDelPanel={calle?.nombre} />
+      </Apartado>
+    </section>
+  )
+}
+
+function CabeceraSinCalles({ alVolver }: { alVolver: () => void }) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={alVolver}
+        className="flex min-h-11 items-center gap-1 self-start text-base font-medium text-marca lg:hidden"
+      >
+        <span aria-hidden="true">‹</span> Volver a la obra
+      </button>
+      <h2 tabIndex={-1} className="text-2xl font-bold">
+        Subir hoja
+      </h2>
+      <p className="text-base text-slate-600 dark:text-slate-300">
+        Todavía no hay ninguna calle. Sube una hoja de campo y la calle nace con ella, o créala en la lista.
+      </p>
+    </>
+  )
+}
+
+function CuerpoCalle({ calle, abiertos, alAlternar, alVolver }: Omit<Props, 'claveSubir' | 'calle'> & { calle: Calle }) {
   const proyecto = useAlmacen((s) => s.proyecto)
   const actualizarCalle = useAlmacen((s) => s.actualizarCalle)
   const eliminarCalle = useAlmacen((s) => s.eliminarCalle)
@@ -74,7 +146,7 @@ export default function PanelCalle({ calle, abiertos, alAlternar, alVolver }: Pr
   const puntosOrdenados = [...calle.seccion.puntos].sort((a, b) => a.distancia - b.distancia)
 
   return (
-    <section aria-label={`Panel de ${calle.nombre}`} className="flex min-w-0 flex-col gap-3">
+    <>
       <button
         type="button"
         onClick={alVolver}
@@ -137,7 +209,9 @@ export default function PanelCalle({ calle, abiertos, alAlternar, alVolver }: Pr
         abierto={abiertos.has('seccion')}
         alAlternar={() => alAlternar('seccion')}
       >
-        <VistaSeccion calleId={calle.id} />
+        <div className={CONTROLES_DE_44}>
+          <VistaSeccion calleId={calle.id} />
+        </div>
       </Apartado>
 
       <Apartado
@@ -146,7 +220,7 @@ export default function PanelCalle({ calle, abiertos, alAlternar, alVolver }: Pr
         abierto={abiertos.has('rasante')}
         alAlternar={() => alAlternar('rasante')}
       >
-        <div className="p-3 sm:p-4">
+        <div className={`p-3 sm:p-4 ${CONTROLES_DE_44}`}>
           <EditorRasante calleId={calle.id} puntos={calle.seccion.puntos} />
         </div>
       </Apartado>
@@ -194,18 +268,6 @@ export default function PanelCalle({ calle, abiertos, alAlternar, alVolver }: Pr
       >
         <JornadasCalle calle={calle} />
       </Apartado>
-
-      {/* La subida de datos todavía no sabe de qué calle es este panel: toma el
-          nombre del archivo. Por eso el apartado no promete «a esta calle». */}
-      <Apartado
-        titulo="Subir una hoja de campo"
-        resumen="Suelta aquí tu Excel o pega las celdas. Antes de aceptar, di a qué calle va: se suma a esa calle sin pisar nada"
-        abierto={abiertos.has('subir')}
-        alAlternar={() => alAlternar('subir')}
-        conservarMontado
-      >
-        <SubirHojaEmbebida calleDelPanel={calle.nombre} />
-      </Apartado>
-    </section>
+    </>
   )
 }

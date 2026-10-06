@@ -58,6 +58,21 @@ function mmConSigno(valor: number): string {
   return valor > 0 && texto !== '0' ? `+${texto}` : texto
 }
 
+/**
+ * Las filas cuya vista atrás entra en la comprobación: las de antes de la
+ * última vista adelante. Una vista atrás posterior (una estación empezada que
+ * todavía no tiene su adelante, como en una nivelación a medias) no tiene
+ * pareja y descuadraría la suma.
+ */
+function separarAtrasSueltas(filas: FilaLibreta[]): { cuentan: FilaLibreta[]; sueltas: FilaLibreta[] } {
+  let ultimaAdelante = -1
+  filas.forEach((f, i) => {
+    if (!faltaDato(f.adelante)) ultimaAdelante = i
+  })
+  const corte = Math.max(ultimaAdelante, 0)
+  return { cuentan: filas.slice(0, corte), sueltas: filas.slice(corte).filter((f) => !faltaDato(f.atras)) }
+}
+
 /** Una lectura escrita no numérica no se suma: se cuenta, para decirlo. */
 function sumar(filas: FilaLibreta[], campo: 'atras' | 'adelante'): { suma: number; invalidas: number } {
   let suma = 0
@@ -116,7 +131,8 @@ function comprobacionAritmetica(filas: FilaLibreta[], desnivel: number, invalida
  * presentan como válidas.
  */
 export function libretaConCierre(datos: DatosLibreta): Uint8Array {
-  const atras = sumar(datos.filas, 'atras')
+  const { cuentan, sueltas } = separarAtrasSueltas(datos.filas)
+  const atras = sumar(cuentan, 'atras')
   const adelante = sumar(datos.filas, 'adelante')
   const desnivel = redondear3(atras.suma - adelante.suma)
   const juicio = juzgarCierre(datos.cierre)
@@ -150,6 +166,16 @@ export function libretaConCierre(datos: DatosLibreta): Uint8Array {
         `Suma atrás - suma adelante = ${metrosConSigno(desnivel)} m ` +
         '(debe igualar la última cota menos la primera; las intermedias no entran).',
     },
+    ...(sueltas.length > 0
+      ? [
+          {
+            tipo: 'parrafo' as const,
+            texto:
+              `No entra en la suma atrás la de ${sueltas.map((f) => f.punto).join(', ')}: ` +
+              'todavía no tiene su vista adelante.',
+          },
+        ]
+      : []),
     comprobacionAritmetica(datos.filas, desnivel, atras.invalidas + adelante.invalidas),
     { tipo: 'titulo', texto: 'Cierre' },
   ]

@@ -11,6 +11,7 @@ import { useMemo } from 'react'
 import CampoNumero from '../../componentes/CampoNumero'
 import { useAlmacen } from '../../estado/almacen'
 import { useResultadosDe, type ContextoCampania } from '../../estado/derivados'
+import { cuenta } from '../../formato'
 import { Aviso, AvisoNoComprobado, formatearM3, motivoSinCierre, SELECTOR } from './comunes'
 import {
   progresivasDeTomas,
@@ -309,7 +310,7 @@ function Resultado({
   function suelto(total: number): string {
     if (!valido) return 'suelto y viajes: revisa el factor y el volquete'
     const valor = esponjamiento(total, factor)
-    return `suelto ${formatearM3(valor)} · ${viajesDeVolquete(valor, capacidad)} viajes`
+    return `suelto ${formatearM3(valor)} · ${cuenta(viajesDeVolquete(valor, capacidad), 'viaje', 'viajes')}`
   }
 
   return (

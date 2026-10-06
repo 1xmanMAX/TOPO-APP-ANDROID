@@ -15,7 +15,9 @@ import { useContexto } from '../../estado/derivados'
 import { resumenPendientes, siguienteCeldaPendiente } from '../../libreta/navegacion'
 import AvisoAlAnotar from './AvisoAlAnotar'
 import CierreEnVivo from './CierreEnVivo'
+import { formatearCota } from '../../formato'
 import {
+  alturaInstrumentalDeEstacion,
   BOTON_PRINCIPAL,
   BOTON_SECUNDARIO,
   estacionComprobada,
@@ -115,7 +117,8 @@ export default function FichaMedir() {
 
   const { campania, calle, capa } = contexto
   const indiceSeguro = Math.min(estacionActiva, Math.max(0, campania.estaciones.length - 1))
-  const alturaInstrumental = resultado.cotasInstrumento[indiceSeguro] ?? Number.NaN
+  // La AI compensada si el circuito cerró: la misma que respalda lo que Revisar juzga.
+  const { altura: alturaInstrumental, correccionMm } = alturaInstrumentalDeEstacion(resultado, campania, indiceSeguro)
   const comprobado = estacionComprobada(resultado, indiceSeguro)
   const toleranciaMm = capa?.toleranciaMm ?? Number.NaN
 
@@ -254,7 +257,23 @@ export default function FichaMedir() {
             ))}
           </div>
 
-          <PanelEstacion estacionIndice={indiceSeguro} alCambiarEstacion={activarEstacion} />
+          {/* En el celular los botones del panel (trasladar, cerrar, borrar una lectura) se tocan con el dedo: 44 px. */}
+          <div className="max-md:[&_button]:min-h-11 max-md:[&_button]:min-w-11">
+            <PanelEstacion estacionIndice={indiceSeguro} alCambiarEstacion={activarEstacion} />
+          </div>
+
+          {/* El panel enseña la CI de la libreta; el aviso cuenta con la compensada. Se dice cuál, para que no parezcan dos cotas. */}
+          {correccionMm !== 0 && Number.isFinite(alturaInstrumental) && (
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              El circuito cerró: el aviso cuenta con la AI compensada{' '}
+              <strong className="numerico">{formatearCota(alturaInstrumental)}</strong> (
+              <span className="numerico">
+                {correccionMm > 0 ? '+' : '−'}
+                {Math.abs(correccionMm).toFixed(1)} mm
+              </span>{' '}
+              sobre la CI de la libreta), la misma con la que se revisa.
+            </p>
+          )}
 
           {indiceSeguro < campania.estaciones.length - 1 && (
             <p className="rounded border border-aviso px-3 py-2 text-xs text-aviso">

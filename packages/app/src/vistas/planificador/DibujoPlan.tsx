@@ -10,6 +10,25 @@ const M = { arriba: 18, derecha: 14, abajo: 32, izquierda: 60 }
 // Con más estaciones que esto los rótulos se pisan: se dejan las marcas y
 // las lecturas quedan en la tabla.
 const MAX_ROTULOS = 12
+/**
+ * Bajo la visual, el rótulo de una lectura ocupa unos 15 px. Si la mira
+ * marca tan poco que el punto queda más cerca que eso de la visual (lo de
+ * adelante en una subida empinada, lo de atrás en una bajada), el rótulo
+ * caería encima del PC o del control: entonces va sobre la visual.
+ */
+const LUGAR_BAJO_LA_VISUAL = 22
+
+/** Dónde va el rótulo de una lectura: bajo la visual si hay lugar, si no encima. */
+export function alturaRotulo(hi: number, ySuelo: number): number {
+  return ySuelo - hi >= LUGAR_BAJO_LA_VISUAL ? hi + 15 : hi - 5
+}
+
+/** Las progresivas de los extremos se alinean hacia dentro para no salirse del dibujo. */
+export function anclaEje(px: number, izquierda: number, derecha: number): 'start' | 'middle' | 'end' {
+  if (px - izquierda < 24) return 'start'
+  if (derecha - px < 24) return 'end'
+  return 'middle'
+}
 
 interface Props {
   perfil: Vertice[]
@@ -74,7 +93,7 @@ export default function DibujoPlan({ perfil, plan, recorrido }: Props) {
               key={`x-${p}`}
               x={x(p)}
               y={ALTO - M.abajo + 16}
-              textAnchor="middle"
+              textAnchor={anclaEje(x(p), M.izquierda, ANCHO - M.derecha)}
               className="fill-slate-500 text-[12px]"
             >
               {formatearProgresiva(p)}
@@ -146,14 +165,14 @@ export default function DibujoPlan({ perfil, plan, recorrido }: Props) {
                     </text>
                     <text
                       x={x(e.atras.progresiva) + 3}
-                      y={hi + 15}
+                      y={alturaRotulo(hi, y(e.atras.cota))}
                       className="fill-slate-600 text-[12px] dark:fill-slate-300"
                     >
                       {e.atras.lectura.toFixed(2)}
                     </text>
                     <text
                       x={x(e.adelante.progresiva) - 3}
-                      y={hi + 15}
+                      y={alturaRotulo(hi, y(e.adelante.cota))}
                       textAnchor="end"
                       className="fill-slate-600 text-[12px] dark:fill-slate-300"
                     >

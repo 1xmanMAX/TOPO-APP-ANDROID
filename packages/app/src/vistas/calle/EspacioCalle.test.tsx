@@ -772,3 +772,106 @@ describe('Replantear', () => {
     )
   })
 })
+
+/**
+ * La misma calle, con el circuito cerrado por +3 mm: la vista adelante al
+ * BM-1 es 1.497 (llega a 100.003). Tolerancia 12·√0.1 = 3.79 mm: pasa. Con
+ * una sola estación la compensación es −3 mm entera en ella: AI compensada
+ * 101.500 − 0.003 = 101.497, la misma que respalda las cotas de Revisar
+ * (el eje de 0+000, 2.500, queda en 98.997: −3 mm).
+ */
+function proyectoCierraConError(): Proyecto {
+  const datos = proyecto()
+  datos.calles[0]!.nivelaciones[0]!.tomas[0]!.estaciones[0]!.vistaAdelante!.valor = 1.497
+  return datos
+}
+
+describe('La AI compensada: la misma en Medir, Revisar y Replantear', () => {
+  it('Medir: el aviso cuenta con la AI compensada, no con la de la libreta', async () => {
+    cargar(proyectoCierraConError())
+    useAlmacen.getState().seleccionar('10|p-bi')
+    const usuario = userEvent.setup()
+    render(<EspacioCalle />)
+
+    // 101.497 − 98.920 = 2.577 (con la AI de la libreta saldría 2.580).
+    const aviso = screen.getByRole('region', { name: 'Aviso al anotar' })
+    expect(aviso).toHaveTextContent('Lectura esperada 2.577')
+    expect(screen.getByText(/AI compensada/)).toHaveTextContent('AI compensada 101.497 (−3.0 mm sobre la CI de la libreta)')
+
+    // 2.580 da 98.917: −3 mm, lo mismo que dirá Revisar de esa lectura.
+    await usuario.type(screen.getByLabelText('Lectura de mira'), '2.580')
+    expect(aviso).toHaveTextContent('Cota98.917')
+    expect(aviso).toHaveTextContent('−3 mm')
+    expect(aviso).not.toHaveTextContent(/no comprobada/)
+  })
+
+  it('Revisar da la misma cota que Medir habría dado con esa lectura', async () => {
+    cargar(proyectoCierraConError(), 'revisar')
+    const usuario = userEvent.setup()
+    render(<EspacioCalle />)
+    await usuario.click(within(mapa()).getByRole('button', { name: /^0\+000 Eje/ }))
+    // Lectura 2.500 con la AI compensada 101.497.
+    expect(screen.getByRole('region', { name: 'Punto elegido' })).toHaveTextContent('Cota medida98.997')
+  })
+
+  it('Replantear «De la libreta»: el objetivo sale de la AI compensada y lo dice', () => {
+    cargar(proyectoCierraConError(), 'replantear')
+    render(<EspacioCalle />)
+    const hoja = screen.getByRole('region', { name: 'Hoja de replanteo' })
+    expect(within(hoja).getByRole('button', { name: 'Estaca Eje, objetivo 2.497' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Altura del instrumento' })).toHaveTextContent(
+      'AI 101.497 compensada (−3.0 mm sobre la CI de la libreta) · estación 1 de la libreta',
+    )
+    expect(screen.queryByText(/no comprobad/)).not.toBeInTheDocument()
+  })
+
+  it('con el circuito sin cerrar se usa la de la libreta tal cual, sin compensar y no comprobada', () => {
+    cargar(proyecto({ cerrada: false }), 'replantear')
+    render(<EspacioCalle />)
+    expect(screen.getByRole('group', { name: 'Altura del instrumento' })).toHaveTextContent('AI 101.500 · estación 1')
+    expect(screen.getByRole('group', { name: 'Altura del instrumento' })).not.toHaveTextContent('compensada')
+  })
+
+  it('Replantear desde un BM auxiliar dice por qué no está comprobado', async () => {
+    const usuario = userEvent.setup()
+    cargar(proyecto(), 'replantear')
+    render(<EspacioCalle />)
+    await usuario.click(screen.getByRole('button', { name: 'Desde un BM' }))
+    await usuario.selectOptions(screen.getByLabelText('BM de partida'), 'BM-2 · 100.100')
+    await usuario.type(screen.getByLabelText('Vista atrás al BM'), '1.400')
+    // 100.100 + 1.400 = 101.500.
+    expect(screen.getByRole('group', { name: 'Altura del instrumento' })).toHaveTextContent('AI 101.500 · BM-2 auxiliar')
+    expect(screen.getByText(/BM-2 es un BM auxiliar/)).toHaveTextContent('Cotas no comprobadas')
+  })
+})
+
+describe('Lo no comprobado se dice también en el mapa y en el resumen', () => {
+  it('Revisar sin cerrar: el mapa avisa antes de la rejilla y el resumen dice «sin comprobar»', () => {
+    cargar(proyecto({ cerrada: false }), 'revisar')
+    render(<EspacioCalle />)
+    expect(mapa()).toHaveTextContent('Mapa no comprobado: la nivelación no cerró')
+    const resumen = screen.getByRole('region', { name: 'Resumen de la calle' })
+    expect(resumen).toHaveTextContent('Resumen de la calle (no comprobado)')
+    expect(resumen).toHaveTextContent('2 conformes sin comprobar')
+  })
+
+  it('Revisar cerrado: ni el mapa ni el resumen avisan', () => {
+    cargar(proyecto(), 'revisar')
+    render(<EspacioCalle />)
+    expect(mapa()).not.toHaveTextContent(/no comprobad/)
+    expect(screen.getByRole('region', { name: 'Resumen de la calle' })).not.toHaveTextContent(/comprobad/)
+  })
+
+  it('cerrado pero con re-arranque: el mapa dice desde qué estación vale', () => {
+    cargar(proyectoConReArranque(), 'revisar')
+    render(<EspacioCalle />)
+    expect(mapa()).toHaveTextContent('Lo medido antes de la estación 2 no está comprobado')
+  })
+
+  it('la leyenda del semáforo queda fuera de la caja que se desplaza', () => {
+    cargar(proyecto(), 'revisar')
+    render(<EspacioCalle />)
+    const leyenda = within(mapa()).getByRole('list', { name: 'Qué significa cada color del mapa' })
+    expect(leyenda.closest('.overflow-auto')).toBeNull()
+  })
+})

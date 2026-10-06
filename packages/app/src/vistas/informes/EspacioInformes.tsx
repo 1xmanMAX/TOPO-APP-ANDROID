@@ -7,6 +7,7 @@ import type { BibliotecaPdf, Dibujante } from '../../planos/pdf'
 import {
   FICHAS,
   fichaDe,
+  estaComprobado,
   generarPdf,
   nombreDeToma,
   notasDeCalle,
@@ -63,6 +64,8 @@ interface PaginaLista {
   ancho: number
   alto: number
   titulo: string
+  /** El nombre del PDF dibujado (informe, calle, capa, fecha): quien mira sabe de qué calle es. */
+  archivo: string
 }
 
 type EstadoVistaPrevia =
@@ -227,6 +230,7 @@ export default function EspacioInformes({
     }
     let vigente = true
     const titulo = ficha.titulo
+    const archivo = preparacion.listo ? `${preparacion.nombreArchivo}.pdf` : ''
     setVistaPrevia((antes) => ({
       tipo: 'pintando',
       anterior: antes.tipo === 'lista' ? antes : antes.tipo === 'pintando' ? antes.anterior : null,
@@ -239,7 +243,7 @@ export default function EspacioInformes({
         }
         const vieja = urlVisible.current
         urlVisible.current = pagina.url
-        setVistaPrevia({ tipo: 'lista', url: pagina.url, ancho: pagina.anchoPx, alto: pagina.altoPx, titulo })
+        setVistaPrevia({ tipo: 'lista', url: pagina.url, ancho: pagina.anchoPx, alto: pagina.altoPx, titulo, archivo })
         if (vieja !== pagina.url) liberar(vieja)
       })
       .catch((e: unknown) => {
@@ -583,7 +587,9 @@ export default function EspacioInformes({
             <div className="flex flex-wrap items-center gap-3">
               {/* El nombre accesible es el texto que se ve: el control por voz lo encuentra. */}
               <label
-                className={`${BOTON} inline-flex cursor-pointer items-center focus-within:ring-2 focus-within:ring-marca`}
+                // «relative»: el campo oculto (sr-only, absoluto) se queda dentro del botón;
+                // sin eso se ubica contra la página entera y la estira por debajo de la barra fija.
+                className={`${BOTON} relative inline-flex cursor-pointer items-center focus-within:ring-2 focus-within:ring-marca`}
               >
                 {logo ? 'Cambiar logo' : 'Poner logo'}
                 <input
@@ -652,6 +658,8 @@ export default function EspacioInformes({
                 // La anterior, mientras se dibuja la nueva, no se anuncia: no es la que se va a descargar.
                 alt={vistaPrevia.tipo === 'lista' ? `Primera página: ${pintada.titulo}` : ''}
                 aria-hidden={vistaPrevia.tipo === 'lista' ? undefined : true}
+                // Los guiones esperan por esto, no por tiempo: la imagen es la del PDF de esta calle.
+                data-archivo={vistaPrevia.tipo === 'lista' ? pintada.archivo : undefined}
                 className={`h-auto w-full bg-white ${vistaPrevia.tipo === 'lista' ? '' : 'opacity-50'}`}
               />
             )}
@@ -687,7 +695,10 @@ export default function EspacioInformes({
               {veredicto ? (
                 <>
                   {SIMBOLO[veredicto.estado].simbolo} {veredicto.texto}
-                  {veredicto.estado !== 'comprobado' && ' El PDF lleva en cada página la franja de aviso.'}
+                  {/* Solo si es verdad: la hoja de estacas puede pedir cambiar de estación sin franja. */}
+                  {preparacion.listo &&
+                    !estaComprobado(preparacion.informe) &&
+                    ' El PDF lleva en cada página la franja de aviso.'}
                 </>
               ) : vistaPrevia.tipo === 'pintando' ? null : (
                 <>
@@ -731,6 +742,7 @@ export default function EspacioInformes({
       <TablasParaExcel
         idTitulo={ids.excel}
         tablas={tablas}
+        hayJornada={tomaActual !== undefined}
         descripcion={tomaActual && calle ? `${calle.nombre} · ${nombreDeToma(tomaActual)} · jornada entera` : null}
       />
 
@@ -811,10 +823,12 @@ function Campo({
 function TablasParaExcel({
   idTitulo,
   tablas,
+  hayJornada,
   descripcion,
 }: {
   idTitulo: string
   tablas: TablasDeLaJornada
+  hayJornada: boolean
   descripcion: string | null
 }) {
   const [copiada, setCopiada] = useState<string | null>(null)
@@ -825,10 +839,12 @@ function TablasParaExcel({
     },
     [],
   )
+  // Sin jornada no hay nada que exportar, tenga o no rasante la calle: se dice eso primero.
+  const sinJornada = 'no hay jornada medida'
   const grupos: { nombre: string; tabla: TablaExcel | null; falta: string }[] = [
-    { nombre: 'cotas', tabla: tablas.cotas, falta: 'no hay jornada medida' },
-    { nombre: 'diferencias', tabla: tablas.diferencias, falta: 'la calle no tiene rasante' },
-    { nombre: 'espesores', tabla: tablas.espesores, falta: 'no hay una capa medida debajo' },
+    { nombre: 'cotas', tabla: tablas.cotas, falta: sinJornada },
+    { nombre: 'diferencias', tabla: tablas.diferencias, falta: hayJornada ? 'la calle no tiene rasante' : sinJornada },
+    { nombre: 'espesores', tabla: tablas.espesores, falta: !hayJornada ? sinJornada : 'no hay una capa medida debajo' },
   ]
   function copiar(nombre: string, tabla: TablaExcel) {
     void copiarAlPortapapeles(tabla.filas).then(() => {

@@ -7,7 +7,7 @@ import { useAlmacen } from '../../estado/almacen'
 import { useContexto } from '../../estado/derivados'
 import { formatearCota } from '../../formato'
 import NotasDeCalle from '../herramientas/NotasDeCalle'
-import { BOTON_PRINCIPAL, estacionComprobada, estacionDeCelda, textoAccion, VISUAL_ESTADO } from './comun'
+import { AVISO_DESTACADO, BOTON_PRINCIPAL, estacionComprobada, estacionDeCelda, textoAccion, VISUAL_ESTADO } from './comun'
 import { useEvaluacionCalle, useResultadoCalle } from './resultadoCalle'
 
 /** La celda que más se aparta del proyecto, medida y con rasante. Null si no hay ninguna. */
@@ -111,7 +111,7 @@ export default function FichaRevisar() {
               </dd>
             </dl>
             {!puntoComprobado && cotaMedida !== null && (
-              <p className="text-xs text-aviso">
+              <p className={AVISO_DESTACADO}>
                 <span aria-hidden="true">△ </span>
                 {cierraLaToma
                   ? `Medida en la estación ${estacion! + 1}, antes de que la toma volviera a arrancar en un BM: el cierre no la respalda, no comprobada.`
@@ -124,11 +124,18 @@ export default function FichaRevisar() {
 
       {evaluacion && (
         <section aria-label="Resumen de la calle" className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">Resumen de la calle</h3>
+          <h3 className="text-sm font-semibold">Resumen de la calle{!cierraLaToma && ' (no comprobado)'}</h3>
+          {/* Un «✓ 17 conformes» sin más se lee como aprobado: si la nivelación no cerró, el resumen lo dice él mismo. */}
+          {!cierraLaToma && (
+            <p className={AVISO_DESTACADO}>
+              <span aria-hidden="true">△ </span>
+              La nivelación no cerró: estos conteos no están comprobados.
+            </p>
+          )}
           <ul className="grid grid-cols-2 gap-1 text-sm sm:grid-cols-3 lg:grid-cols-2">
             <li className="text-pasa">
               <span aria-hidden="true">✓ </span>
-              {evaluacion.conformes} conformes
+              {evaluacion.conformes} conformes{!cierraLaToma && ' sin comprobar'}
             </li>
             <li className="text-aviso">
               <span aria-hidden="true">△ </span>

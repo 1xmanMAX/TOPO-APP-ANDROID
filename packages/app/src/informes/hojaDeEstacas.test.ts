@@ -77,8 +77,10 @@ describe('hojaDeEstacas: reglas de la mira (diseño §2) y la forma del núcleo'
   it('marca lo que no cabe en la mira, lo imposible y lo poco preciso', () => {
     const { todo } = textoDelPdf(hojaDeEstacas(base()))
     const linea = enUnaLinea(todo)
-    expect(linea).toContain('4.250 (no cabe en la mira de 4 m: cambiar de estación)')
-    expect(linea).toContain('0.000 (lectura imposible: cambiar de estación)')
+    // Sin número: lo que la mira no puede marcar no se copia en campo como si valiera.
+    expect(linea).toContain('sin lectura (no cabe en la mira de 4 m: cambie de estación)')
+    expect(linea).toContain('sin lectura (lectura imposible: cambie de estación)')
+    expect(linea).not.toContain('4.250')
     expect(linea).toContain('0.100 (poco precisa)')
     expect(celdasDesde(todo, '0+060', 4)).toEqual(['0+060', 'Bien', '3825.450', '1.500'])
     expect(linea).toContain('Mira de 4 m: lectura legible entre 0.300 y 3.700 m.')
@@ -98,8 +100,9 @@ describe('hojaDeEstacas: reglas de la mira (diseño §2) y la forma del núcleo'
     const d = { ...base(), filas: [{ progresiva: 0, punto: 'Alto', cotaProyecto: 3827.25 }] }
     // 3826.950 − 3827.250 = −0.300
     expect(enUnaLinea(textoDelPdf(hojaDeEstacas(d)).todo)).toContain(
-      '-0.300 (cota sobre el instrumento: cambiar de estación)',
+      'sin lectura (cota sobre el instrumento: cambie de estación)',
     )
+    expect(enUnaLinea(textoDelPdf(hojaDeEstacas(d)).todo)).not.toContain('-0.300')
   })
 
   it('adapta la hoja de replanteo del núcleo sin perder filas ni avisos', () => {

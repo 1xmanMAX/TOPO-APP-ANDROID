@@ -67,6 +67,19 @@ describe('libretaConCierre', () => {
     expect(linea).not.toContain('Comprobación correcta')
   })
 
+  it('una vista atrás sin su adelante (nivelación a medias) no entra en la suma', () => {
+    // Como Jr. Lima: se cambió de estación en PC-1 (atrás 1.400) y falta la vista adelante final.
+    const d = { ...datos(false), filas: datos(false).filas.slice(0, 3), cierre: null }
+    const { todo } = textoDelPdf(libretaConCierre(d))
+    const linea = enUnaLinea(todo)
+    // Σ atrás = 1.500 (la 1.400 de PC-1 queda fuera); Σ adelante = 1.200 → +0.300 = 100.300 − 100.000
+    expect(celdasDesde(todo, 'Sumas', 3)).toEqual(['Sumas', '1.500', '1.200'])
+    expect(linea).toContain('Suma atrás - suma adelante = +0.300 m')
+    expect(linea).toContain('Comprobación correcta: última cota - primera = +0.300 m')
+    expect(linea).toContain('No entra en la suma atrás la de PC-1')
+    expect(linea).not.toContain('No cuadra')
+  })
+
   it('error mayor que la tolerancia: lo dice', () => {
     const d = datos(false)
     // 100.020 − 100.000 = +20 mm > 6 mm

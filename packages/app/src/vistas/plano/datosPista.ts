@@ -1,8 +1,10 @@
 import {
+  calcularCampania,
   clasificarCotasDePista,
   cotaEjeRasante,
   estacasDePista,
   formatearProgresiva,
+  instrumentoCompleto,
   largoPolilinea,
   pendientesPorTramo,
   progresivasSobrePolilinea,
@@ -16,6 +18,7 @@ import {
   type EstacaSobrePlano,
   type PendienteTramo,
   type PistaCalibrada,
+  type Proyecto,
   type Punto2,
   type PuntoConRumbo,
   type Rasante,
@@ -184,36 +187,148 @@ export function rasanteDeCroquis(cotaArranque: number, pendiente: number, base: 
   }
 }
 
+/**
+ * Desde cuántos mm se avisa que una cota del plano no cae en la rasante
+ * tomada: la mitad de la tolerancia más fina de fábrica (BASE, 10 mm). Por
+ * debajo, el residuo se muestra igual en la lista, pero no se avisa.
+ */
+export const RESIDUO_AVISO_MM = 5
+
+export interface ResiduoCota {
+  progresiva: number
+  /** En mm, al milímetro. */
+  mm: number
+}
+
 export interface RasanteDesdeCotas {
   rasante: Rasante
   tramos: PendienteTramo[]
-  /** Si el plano trae quiebres que la rasante de una sola pendiente no guarda. */
+  /** Si el plano trae quiebres que la rasante de una sola pendiente no guarda, o cotas que se apartan de ella. */
   aviso: string | null
   /** Con quiebres, la progresiva hasta donde vale lo guardado (el primer quiebre); sin ellos, null. */
   valeHasta: number | null
+  /**
+   * Cota del plano − cota de la rasante tomada, en mm, en cada cota usada
+   * (con quiebres, solo las que quedan dentro de lo que vale). Positivo: el
+   * plano queda más alto que la rasante.
+   */
+  residuos: ResiduoCota[]
+  /** El residuo mayor en valor absoluto, o null si no hay. */
+  mayorResiduo: ResiduoCota | null
+}
+
+/** Metros a milímetros enteros, sin el ruido del punto flotante y sin −0. */
+function aMm(metros: number): number {
+  return Math.round(Number((metros * 1000).toPrecision(12))) + 0
+}
+
+/** «+10 mm», «-4 mm», «0 mm». */
+export function textoMm(mm: number): string {
+  return `${mm > 0 ? '+' : ''}${mm} mm`
 }
 
 /**
  * La rasante de la calle a partir de las cotas del plano. La rasante de la
- * app lleva UNA sola pendiente: se toma la del primer tramo, que es donde se
- * empieza a replantear, y si el plano trae quiebres se avisa en vez de
- * promediarlos (una pendiente promedio daría lecturas de mira falsas).
+ * app lleva UNA sola pendiente:
+ * - Sin quiebres, la pendiente sale de la primera y la última cota, no del
+ *   primer tramo: en Psje. Las Lomas, +7.37 % y +7.40 % no son un quiebre,
+ *   pero tomar solo el primero deja 20 mm de error en 0+120, que es la
+ *   tolerancia entera de la subrasante. Se dice cuánto se aparta cada cota
+ *   intermedia y se avisa desde `RESIDUO_AVISO_MM`.
+ * - Con quiebres, se toma la del primer tramo, que es donde se empieza a
+ *   replantear, y se avisa hasta dónde vale en vez de promediar (una
+ *   pendiente promedio daría lecturas de mira falsas).
  */
 export function rasanteDesdeCotas(cotas: readonly CotaSobrePista[], base: Rasante | null): RasanteDesdeCotas | null {
   if (cotas.length < 2) return null
-  const tramos = pendientesPorTramo(cotas)
+  const ordenadas = [...cotas].sort((a, b) => a.progresiva - b.progresiva)
+  const tramos = pendientesPorTramo(ordenadas)
   const primero = tramos[0]!
+  const primera = ordenadas[0]!
+  const ultima = ordenadas[ordenadas.length - 1]!
+  const conQuiebres = quiebres(ordenadas).length > 0
+  const pendiente = conQuiebres
+    ? primero.porcentaje
+    : ((ultima.cota - primera.cota) / (ultima.progresiva - primera.progresiva)) * 100
   const rasante: Rasante = {
     ...(base ?? rasanteDeArranque()),
-    progresivaArranque: cotas[0]!.progresiva,
-    cotaArranque: cotas[0]!.cota,
-    pendienteLongitudinal: primero.porcentaje,
+    progresivaArranque: primera.progresiva,
+    cotaArranque: primera.cota,
+    pendienteLongitudinal: pendiente + 0,
   }
-  const enQuiebre = quiebres(cotas)
-  const valeHasta = enQuiebre.length > 0 ? primero.hasta : null
-  const aviso =
-    valeHasta !== null
-      ? `Solo vale de ${formatearProgresiva(primero.desde)} a ${formatearProgresiva(valeHasta)}: el plano tiene ${tramos.length} tramos con pendientes distintas y la rasante de la calle guarda una sola. Los quiebres se ven en Planificar, con la fuente «Plano».`
-      : null
-  return { rasante, tramos, aviso, valeHasta }
+  const valeHasta = conQuiebres ? primero.hasta : null
+  const dentro = valeHasta === null ? ordenadas : ordenadas.filter((c) => c.progresiva <= valeHasta + 1e-9)
+  const residuos = dentro.map((c) => ({ progresiva: c.progresiva, mm: aMm(c.cota - cotaEjeRasante(rasante, c.progresiva)) }))
+  const mayorResiduo = residuos.reduce<ResiduoCota | null>(
+    (mayor, r) => (mayor === null || Math.abs(r.mm) > Math.abs(mayor.mm) ? r : mayor),
+    null,
+  )
+
+  let aviso: string | null = null
+  if (valeHasta !== null) {
+    aviso = `Solo vale de ${formatearProgresiva(primero.desde)} a ${formatearProgresiva(valeHasta)}: el plano tiene ${tramos.length} tramos con pendientes distintas y la rasante de la calle guarda una sola. Los quiebres se ven en Planificar, con la fuente «Plano».`
+  } else if (mayorResiduo && Math.abs(mayorResiduo.mm) >= RESIDUO_AVISO_MM) {
+    aviso = `Las cotas del plano no caen todas en una sola pendiente: la de ${formatearProgresiva(mayorResiduo.progresiva)} queda a ${textoMm(mayorResiduo.mm)} de la rasante tomada. Esa diferencia pasa a la cota de proyecto y a la lectura objetivo: revisa esa cota en el plano antes de reemplazar.`
+  }
+  return { rasante, tramos, aviso, valeHasta, residuos, mayorResiduo }
+}
+
+/**
+ * Cuánto cambia la cota de proyecto del eje al reemplazar una rasante por
+ * otra (nueva − actual, en mm) en cada progresiva. Positivo: el proyecto
+ * sube, y lo ya medido pasa a cortar menos o rellenar más.
+ */
+export function cambioDeCotaProyecto(actual: Rasante, nueva: Rasante, progresivas: readonly number[]): ResiduoCota[] {
+  return progresivas.map((progresiva) => ({
+    progresiva,
+    mm: aMm(cotaEjeRasante(nueva, progresiva) - cotaEjeRasante(actual, progresiva)),
+  }))
+}
+
+/** «2026-10-02» → «02/10/2026», como en los informes. Lo que no viene en ISO se deja tal cual. */
+export function fechaDeToma(fecha: string): string {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha)
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : fecha
+}
+
+export interface EstadoNivelacion {
+  id: string
+  /** «SUBRASANTE · 02/10/2026». */
+  texto: string
+  /** ✓ cerró, ✗ no cerró, · sin cerrar: nada comprobado (el △ es «al límite» y aquí no va). */
+  simbolo: '✓' | '✗' | '·'
+  estado: string
+}
+
+/**
+ * La última toma de cada nivelación de la calle, con si cerró: lo calcula
+ * el motor. Una nivelación sin cerrar (o que el motor no pudo calcular) no
+ * está comprobada, y se dice con esas palabras.
+ */
+export function estadoDeNivelaciones(calle: Calle, proyecto: Proyecto): EstadoNivelacion[] {
+  const largoMira = instrumentoCompleto(proyecto.instrumento).largoMira
+  const salida: EstadoNivelacion[] = []
+  for (const nivelacion of calle.nivelaciones) {
+    const toma = nivelacion.tomas[nivelacion.tomas.length - 1]
+    if (!toma) continue
+    const capa = proyecto.capas.find((c) => c.id === toma.capaId)?.nombre ?? 'capa sin nombre'
+    let pasa: boolean | null = null
+    try {
+      pasa = calcularCampania({ campania: toma, calle, bms: proyecto.bms, largoMira }).cierre.pasa
+    } catch {
+      pasa = null
+    }
+    salida.push({
+      id: nivelacion.id,
+      texto: `${capa} · ${fechaDeToma(toma.fecha)}`,
+      simbolo: pasa === true ? '✓' : pasa === false ? '✗' : '·',
+      estado:
+        pasa === true
+          ? 'cerró'
+          : pasa === false
+            ? 'no cerró, no comprobada'
+            : 'sin cerrar, no comprobada',
+    })
+  }
+  return salida
 }

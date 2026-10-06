@@ -635,7 +635,8 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                       <circle
                         cx={x(punto.offset)}
                         cy={y(punto.cota)}
-                        r={14}
+                        // 44 px de diámetro a tamaño real: se toca con el dedo en el celular.
+                        r={22}
                         fill="transparent"
                         role="button"
                         tabIndex={0}
@@ -645,7 +646,7 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                         onKeyDown={(evento) => {
                           if (evento.key === 'Enter' || evento.key === ' ') seleccionar(punto.clave)
                         }}
-                        className="cursor-pointer outline-none"
+                        className="cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-marca"
                       >
                         <title>
                           {nombrePunto} · offset {punto.offset.toFixed(2)} m · cota{' '}

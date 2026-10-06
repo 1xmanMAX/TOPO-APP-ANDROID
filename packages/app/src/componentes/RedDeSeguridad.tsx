@@ -9,7 +9,7 @@ function BotonGuardar() {
     <button
       type="button"
       onClick={() => descargarTopo(proyecto, archivosDePlano)}
-      className="rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
+      className="min-h-11 rounded bg-marca px-3 py-1.5 text-sm font-medium text-white"
     >
       Guardar el proyecto en un archivo
     </button>
@@ -41,7 +41,9 @@ export default class RedDeSeguridad extends Component<{ children: ReactNode }, E
 
     return (
       <div className="mx-auto flex max-w-xl flex-col gap-4 p-8">
-        <h1 className="text-lg font-semibold text-falla">La aplicación se detuvo</h1>
+        <h1 className="text-lg font-semibold text-falla">
+          <span aria-hidden="true">✗ </span>La aplicación se detuvo
+        </h1>
         <p className="text-sm">
           Algo salió mal al dibujar la pantalla. Tu trabajo no se ha perdido: guárdalo en un
           archivo antes de recargar la página.
@@ -49,12 +51,12 @@ export default class RedDeSeguridad extends Component<{ children: ReactNode }, E
         <p className="rounded border border-slate-300 p-3 font-mono text-xs dark:border-slate-700">
           {this.state.fallo.message}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <BotonGuardar />
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+            className="min-h-11 rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
           >
             Recargar
           </button>

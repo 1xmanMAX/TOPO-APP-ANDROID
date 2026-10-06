@@ -1,6 +1,8 @@
 import { calcularCampania, evaluarContraRasante, type Proyecto, type Toma } from '@topo/core'
 import { describe, expect, it } from 'vitest'
 import { proyectoEjemplo } from '../../estado/ejemplo'
+import { construirObraSimulada } from '../../pruebas/obraSimulada'
+import { evaluarEspesores } from '../analisis/superficies'
 import {
   capasDeCalle,
   compararJornadas,
@@ -44,7 +46,7 @@ describe('capasDeCalle', () => {
     const subrasante = estadoDe(p, 'cap-subrasante')
     expect(subrasante.estado).toBe('conPuntosFuera')
     expect(subrasante.simbolo).toBe('✗')
-    expect(subrasante.detalle).toMatch(/1 punto fuera de tolerancia en 0\+040/)
+    expect(subrasante.detalle).toMatch(/1 punto fuera de tolerancia: \D+ 0\+040 [+−]\d+ mm, (corta|rellena)/)
   })
 
   it('si solo hay puntos al límite (hasta 2×tol), la casilla es △ «al límite», no «fuera»', () => {
@@ -267,7 +269,11 @@ describe('compararJornadas', () => {
     expect(cmp.minimoMm).toBe(158)
     expect(cmp.medioMm).toBe(190)
     expect(cmp.maximoMm).toBe(213)
-    expect(cmp.lectura).toBe('Proyecto 200 mm ±10: 11 celdas delgadas y 1 celda gruesa.')
+    // Con el semáforo y el redondeo de Análisis (evaluarEspesores): ✗ más allá de
+    // 2 × tolerancia, △ hasta ahí. La cuenta vieja daba «11 delgadas y 1 gruesa»
+    // porque contaba fuera toda celda que pasaba ±10 mm sin redondear al
+    // milímetro como hace Análisis, y juntaba las al límite con las fuera.
+    expect(cmp.lectura).toBe('Proyecto 200 mm ±10: ✗ 5 celdas fuera (5 delgadas) · △ 5 celdas al límite.')
     expect(cmp.estado.comprobado).toBe(true)
   })
 
@@ -304,5 +310,87 @@ describe('compararJornadas', () => {
     const cmp = pareja(p)
     expect(cmp.estado.comprobado).toBe(false)
     expect(cmp.estado.texto).toMatch(/NO COMPROBADOS/)
+  })
+})
+
+describe('con la obra simulada de la ola 3', () => {
+  function simulada(): Proyecto {
+    return construirObraSimulada().proyecto
+  }
+  const calle = (p: Proyecto, nombre: string) => p.calles.find((c) => c.nombre === nombre)!
+
+  it('el espesor de la base en Av. Sol sigue el semáforo: 1 celda fuera (delgada) y 2 al límite', () => {
+    const p = simulada()
+    const [base, subrasante] = jornadasDeCalle(p, calle(p, 'Av. Sol'))
+    const cmp = compararJornadas(subrasante!, base!)
+    // −48 mm en 0+080 Eje (fuera); +19 y −14 mm en los bordes derechos (al límite: hasta 2 × 10 mm).
+    expect(cmp.lectura).toBe('Proyecto 200 mm ±10: ✗ 1 celda fuera (1 delgada) · △ 2 celdas al límite.')
+    expect(cmp.estado.comprobado).toBe(true)
+  })
+
+  it('Jr. Lima, sin cerrar, dice «no comprobada» en la casilla y en el cierre', () => {
+    const p = simulada()
+    const lima = calle(p, 'Jr. Lima')
+    const subrasante = capasDeCalle(p, lima).find((c) => c.capa.nombre === 'SUBRASANTE')!
+    expect(subrasante).toMatchObject({ estado: 'enCurso', simbolo: '△' })
+    expect(subrasante.detalle).toMatch(/sin cerrar, no comprobada/)
+    const [jornada] = jornadasDeCalle(p, lima)
+    expect(estadoDeCierre(jornada!.toma, jornada!.resultado)).toMatchObject({ simbolo: '△', comprobado: false })
+    expect(estadoDeCierre(jornada!.toma, jornada!.resultado).largo).toMatch(/no comprobadas/)
+  })
+
+  it('Av. Sol dice qué punto está fuera, cuánto y qué hacer: Eje 0+080 +54 mm, corta', () => {
+    const p = simulada()
+    const subrasante = capasDeCalle(p, calle(p, 'Av. Sol')).find((c) => c.capa.nombre === 'SUBRASANTE')!
+    expect(subrasante).toMatchObject({ estado: 'conPuntosFuera', simbolo: '✗' })
+    expect(subrasante.detalle).toBe(
+      'SUBRASANTE: 1 punto fuera de tolerancia: Eje 0+080 +54 mm, corta; 1 punto al límite: Borde derecho 0+040 −26 mm, rellena',
+    )
+  })
+
+  it('el cierre escribe la tolerancia con un decimal, como Cierre y los PDF', () => {
+    const p = simulada()
+    const subrasante = jornadasDeCalle(p, calle(p, 'Av. Sol')).find((j) => j.capa?.nombre === 'SUBRASANTE')!
+    expect(subrasante.resultado.cierre.toleranciaMm).toBeCloseTo(5.88, 2)
+    expect(estadoDeCierre(subrasante.toma, subrasante.resultado).largo).toBe(
+      'Circuito cerrado: −4 mm de error, tolerancia ±5.9 mm.',
+    )
+    // Con 6 mm de error ya no cierra, y no se dice «±6 mm», que lo contradiría.
+    const noCierra = {
+      ...subrasante.resultado,
+      cierre: { ...subrasante.resultado.cierre, errorMm: -6, pasa: false },
+    }
+    expect(estadoDeCierre(subrasante.toma, noCierra).largo).toMatch(/^El circuito no cierra: −6 mm de error con tolerancia ±5\.9 mm\./)
+  })
+
+  it('Jr. Lima, sin cerrar, avisa del posible punto fuera en 0+140, no comprobado, sin pasar a ✗', () => {
+    const p = simulada()
+    const lima = calle(p, 'Jr. Lima')
+    const subrasante = capasDeCalle(p, lima).find((c) => c.capa.nombre === 'SUBRASANTE')!
+    expect(subrasante).toMatchObject({ estado: 'enCurso', simbolo: '△' })
+    expect(subrasante.detalle).toMatch(/posible punto fuera: Eje 0\+140 −60 mm, rellena, no comprobado$/)
+    expect(fraseDeCalle(capasDeCalle(p, lima))).toMatch(/0\+140/)
+    expect(subrasante.detalle).not.toMatch(/fuera de tolerancia/)
+  })
+
+  it('el espesor del historial cuenta igual que Análisis › Espesores, celda por celda', () => {
+    const p = simulada()
+    const [base, subrasante] = jornadasDeCalle(p, calle(p, 'Av. Sol'))
+    const cmp = compararJornadas(subrasante!, base!)
+    const capaBase = base!.capa!
+    const evaluadas = [...evaluarEspesores(cmp.comparacion, capaBase.espesor, capaBase.toleranciaMm).values()]
+    const fuera = evaluadas.filter((c) => c.estado === 'fuera').length
+    const alLimite = evaluadas.filter((c) => c.estado === 'alLimite').length
+    expect(cmp.lectura).toContain(`✗ ${fuera} celda`)
+    expect(cmp.lectura).toContain(`△ ${alLimite} celdas al límite`)
+  })
+
+  it('la comparación dice que lo comprobado son los circuitos, no que los espesores estén bien', () => {
+    const p = simulada()
+    const [base, subrasante] = jornadasDeCalle(p, calle(p, 'Av. Sol'))
+    const cmp = compararJornadas(subrasante!, base!)
+    expect(cmp.estado.comprobado).toBe(true)
+    expect(cmp.estado.texto).not.toMatch(/ESPESORES VERIFICADOS/i)
+    expect(cmp.estado.texto).toMatch(/^Circuitos comprobados/)
   })
 })

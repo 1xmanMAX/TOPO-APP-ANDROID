@@ -1,7 +1,18 @@
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 
-const BASE = 'http://localhost:4173/'
+/**
+ * El modelo 3D en modo Estado, sobre el proyecto de ejemplo con que arranca
+ * la app, por la navegación de la ola 2: la rasante se confirma en
+ * Obra › Calles y el modelo se abre en Calle › Revisar con el botón «3D» de
+ * la vista de la calle. Que se dibuja, que sus controles están montados, y
+ * que gira, secciona y resume de verdad.
+ *
+ * Uso: node verificacion/vista3d.mjs <carpeta-de-salida>
+ * La URL sale de BASE (por defecto http://localhost:4173/).
+ */
+
+const BASE = process.env.BASE ?? 'http://localhost:4173/'
 const SALIDA = process.argv[2] ?? '.'
 mkdirSync(SALIDA, { recursive: true })
 
@@ -12,30 +23,37 @@ function comprobar(nombre, ok, detalle = '') {
 }
 
 const navegador = await chromium.launch()
-const pagina = await navegador.newPage()
+const pagina = await navegador.newPage({ viewport: { width: 1280, height: 800 } })
 
 const erroresConsola = []
 pagina.on('console', (m) => { if (m.type() === 'error') erroresConsola.push(m.text()) })
 pagina.on('pageerror', (e) => erroresConsola.push('pageerror: ' + e.message))
 
-await pagina.goto(BASE, { waitUntil: 'networkidle' })
+await pagina.goto(BASE, { waitUntil: 'load', timeout: 120000 })
+
+const espacios = pagina.getByRole('navigation', { name: 'Espacios' })
+async function irA(espacio) {
+  await espacios.getByRole('button', { name: espacio, exact: true }).click()
+}
 
 // 1. La rasante ya viene definida en el proyecto de ejemplo (igual que
-// comprueba `rasante.mjs`): sin ella, Vista3D no dibuja nada — cae al
-// mensaje "Define la rasante del proyecto...". Se confirma antes de seguir.
-await pagina.getByRole('button', { name: 'Calle', exact: true }).click()
-await pagina.waitForTimeout(300)
+// comprueba `rasante.mjs`): sin ella, el modelo por estado no dibuja nada.
+// Se confirma en Obra › Calles, apartado «Rasante», antes de seguir.
+await irA('Obra')
+await pagina.getByRole('navigation', { name: 'Pantallas de la obra' }).getByRole('button', { name: 'Calles', exact: true }).click()
+const botonRasante = pagina.getByRole('button', { name: 'Rasante', exact: true })
+if ((await botonRasante.getAttribute('aria-expanded')) !== 'true') await botonRasante.click()
 const cotaArranque = await pagina.getByLabel('Cota de arranque').inputValue()
 comprobar('la calle trae su rasante ya definida, condición para que el modelo 3D levante algo',
   cotaArranque.startsWith('3244.85'), 'cota ' + cotaArranque)
 
-// 2. Ir a Resultados.
-await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
+// 2. Ir a Calle › Revisar y pasar la vista de la calle a «3D».
+await irA('Calle')
+await pagina.getByRole('navigation', { name: 'Modos de la calle' }).getByRole('button', { name: 'Revisar', exact: true }).click()
+await pagina.getByRole('group', { name: 'Vista de la calle' }).getByRole('button', { name: '3D', exact: true }).click()
 await pagina.waitForTimeout(200)
 
-const seccionModelo = pagina.locator('section', {
-  has: pagina.getByRole('heading', { name: 'Modelo 3D' }),
-})
+const seccionModelo = pagina.getByRole('region', { name: 'Dibujo de la calle' })
 await seccionModelo.scrollIntoViewIfNeeded()
 
 // 3. El modelo se dibuja.
@@ -48,9 +66,7 @@ comprobar('el modelo dibuja al menos una cara (zona con sus cuatro esquinas medi
 
 await pagina.screenshot({ path: `${SALIDA}/modelo-3d.png`, fullPage: true })
 
-// 4. Los cinco controles del visor están montados y alcanzables desde
-// Resultados — el arreglo de esta tarea: antes de montar `ControlesVista3D`
-// en `VistaResultados`, cero de los cinco aparecían en pantalla.
+// 4. Los controles del visor están montados y alcanzables desde Revisar.
 comprobar('el interruptor Estado/Capas está montado', (await seccionModelo.getByRole('button', { name: 'Estado' }).count()) > 0)
 comprobar('el botón de vista Planta está montado', (await seccionModelo.getByRole('button', { name: 'Planta' }).count()) > 0)
 comprobar('el botón de vista Alzado está montado', (await seccionModelo.getByRole('button', { name: 'Alzado' }).count()) > 0)
@@ -59,8 +75,7 @@ comprobar('el deslizador de inclinación está montado', (await seccionModelo.ge
 comprobar('el deslizador de exageración está montado', (await seccionModelo.getByLabel('Exageración').count()) > 0)
 
 // 5. Girar arrastrando cambia el dibujo. Esto solo se puede comprobar en un
-// navegador real: en un entorno simulado no hay eventos de puntero de
-// verdad, así que se compara la lista de coordenadas de los polígonos antes
+// navegador real: se compara la lista de coordenadas de los polígonos antes
 // y después de un arrastre real con el ratón.
 const puntosAntes = await modelo.locator('polygon[data-cara]').evaluateAll((es) => es.map((e) => e.getAttribute('points')))
 
@@ -79,21 +94,22 @@ comprobar('girar arrastrando sobre el modelo cambia el dibujo (las coordenadas d
 await pagina.screenshot({ path: `${SALIDA}/modelo-girado.png`, fullPage: true })
 
 // 6. El deslizador de progresiva secciona el modelo (menos caras al recortar
-// el tramo) — el mismo corte vivo que ya usa el corte transversal, ahora
-// también sobre el modelo en volumen. Con nada tocado todavía en esta
-// página el deslizador arranca sin recorte (`seleccion.progresiva` en
-// `null`, todas las caras se dibujan); un paso a la derecha fija la primera
-// progresiva y activa el recorte.
-// El deslizador de progresiva es COMPARTIDO: vive en el corte transversal y
-// secciona tambien el modelo. No esta dentro de la seccion del modelo.
-const deslizador = pagina.getByLabel('Progresiva').first()
-await deslizador.focus()
+// el tramo). Es el mismo deslizador de la vista de la calle, compartido por
+// el corte, el perfil y el 3D. Se lleva al principio y un paso a la derecha.
+const deslizador = seccionModelo.getByRole('slider', { name: 'Progresiva' })
+const carasTodo = await (async () => {
+  await deslizador.focus()
+  await deslizador.press('End')
+  await pagina.waitForTimeout(200)
+  return modelo.locator('polygon[data-cara]').count()
+})()
+await deslizador.press('Home')
 await deslizador.press('ArrowRight')
 await pagina.waitForTimeout(200)
 
 const carasDespuesDelCorte = await modelo.locator('polygon[data-cara]').count()
 comprobar('el deslizador de progresiva secciona el modelo 3D (menos caras al recortar el tramo)',
-  carasDespuesDelCorte > 0 && carasDespuesDelCorte < carasAntes, `${carasAntes} -> ${carasDespuesDelCorte}`)
+  carasDespuesDelCorte > 0 && carasDespuesDelCorte < carasTodo, `${carasTodo} -> ${carasDespuesDelCorte}`)
 
 await pagina.screenshot({ path: `${SALIDA}/modelo-seccionado.png`, fullPage: true })
 
@@ -103,40 +119,26 @@ await pagina.screenshot({ path: `${SALIDA}/modelo-seccionado.png`, fullPage: tru
 comprobar('la exageración vertical aparece escrita junto al modelo',
   (await seccionModelo.getByText(/^Alturas exageradas \d+×$/).count()) > 0)
 
-// Cambiar el deslizador de exageración tiene que cambiar ese mismo texto: no
-// es un rótulo fijo, sigue al valor real de la cámara.
 await seccionModelo.getByLabel('Exageración').fill('10')
 await pagina.waitForTimeout(200)
 comprobar('el texto de exageración sigue al deslizador cuando se mueve',
   (await seccionModelo.getByText('Alturas exageradas 10×').count()) > 0)
 
-// Se devuelve a 25×, la exageración con la que arranca la vista isométrica,
-// para no dejar la página en un estado sorprendente si algo más corre después.
 await seccionModelo.getByLabel('Exageración').fill('25')
 
 // 8. El resumen en texto nombra la peor zona: es la única forma de
 // enterarse de dónde está el problema para quien no ve el modelo o no
-// distingue sus colores.
-//
-// Antes de comprobarlo se quita el recorte, y hay una razón: desde que el
-// resumen respeta el corte vivo, cuenta SOLO las caras que el dibujo pinta.
-// Con el recorte puesto en la primera progresiva, los tramos visibles del
-// proyecto de ejemplo están todos dentro de tolerancia, así que el resumen
-// dice —con razón— "todo dentro de tolerancia" y no nombra ninguna zona.
-// El lomo de 0+040 BOR-I queda fuera del recorte.
+// distingue sus colores. El resumen cuenta solo las caras dibujadas, así
+// que antes se quita el recorte (deslizador al final).
 await deslizador.focus()
-for (let i = 0; i < 10; i += 1) await deslizador.press('ArrowRight')
+await deslizador.press('End')
 await pagina.waitForTimeout(300)
 const resumen = seccionModelo.getByText(/^El modelo dibuja \d+ tramos/)
 comprobar('el resumen en texto del modelo aparece', (await resumen.count()) > 0)
 
-const textoResumen = (await resumen.first().textContent()) ?? ''
+const textoResumen = (await resumen.first().textContent().catch(() => '')) ?? ''
 comprobar('el resumen nombra la peor zona con su progresiva, elemento y diferencia en milímetros',
   /La mayor diferencia está en .+: [+\-−]?\d+ mm\./.test(textoResumen), textoResumen)
-
-// 9. Devolver el deslizador de progresiva al final, para no dejar la página
-// en un estado sorprendente si algo más corre después.
-await deslizador.press('End')
 
 comprobar('la app no produce errores en la consola del navegador',
   erroresConsola.length === 0, erroresConsola.slice(0, 3).join(' | '))

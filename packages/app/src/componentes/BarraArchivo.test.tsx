@@ -53,6 +53,29 @@ describe('BarraArchivo', () => {
     expect(useAlmacen.getState().archivosDePlano['plano-1']).toEqual(bytes)
   })
 
+  it('un archivo que no es .topo se rechaza con ✗ y un aviso que se anuncia', async () => {
+    const usuario = userEvent.setup()
+    render(<BarraArchivo />)
+
+    await usuario.upload(screen.getByLabelText('Abrir archivo .topo'), new File(['no soy un zip'], 'notas.topo'))
+
+    const aviso = await screen.findByRole('alert')
+    expect(aviso).toHaveTextContent('✗')
+    expect(aviso).toHaveTextContent('No se pudo leer el archivo .topo')
+  })
+
+  it('el selector se vacía tras abrir: el mismo .topo se puede volver a abrir', async () => {
+    // El navegador no avisa de un cambio si se elige el mismo archivo que ya
+    // tenía el selector: volver a abrir la copia guardada no hacía nada.
+    const usuario = userEvent.setup()
+    render(<BarraArchivo />)
+    const entrada = screen.getByLabelText<HTMLInputElement>('Abrir archivo .topo')
+
+    await usuario.upload(entrada, new File([empaquetarProyecto(proyectoEjemplo())], 'Obra.topo'))
+
+    await waitFor(() => expect(entrada.value).toBe(''))
+  })
+
   it('«Abrir» pide confirmación antes de abrir el selector de archivo', async () => {
     const usuario = userEvent.setup()
     render(<BarraArchivo />)

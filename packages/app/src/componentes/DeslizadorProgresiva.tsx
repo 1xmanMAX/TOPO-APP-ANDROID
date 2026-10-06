@@ -33,7 +33,7 @@ export default function DeslizadorProgresiva({ progresivas, valor, alCambiar }: 
         type="button"
         aria-label={reproduciendo ? 'Detener recorrido' : 'Reproducir recorrido'}
         onClick={() => setReproduciendo((antes) => !antes)}
-        className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+        className="min-h-11 min-w-11 rounded border border-slate-300 px-2 py-1 text-sm md:min-h-0 md:min-w-0 dark:border-slate-700"
       >
         {reproduciendo ? '⏸' : '▶'}
       </button>
@@ -48,7 +48,7 @@ export default function DeslizadorProgresiva({ progresivas, valor, alCambiar }: 
         step={1}
         value={indice}
         onChange={(evento) => alCambiar(progresivas[Number(evento.target.value)]!)}
-        className="flex-1 accent-marca"
+        className="flex-1 accent-marca max-md:h-11"
       />
 
       <span className="text-xs text-slate-500">

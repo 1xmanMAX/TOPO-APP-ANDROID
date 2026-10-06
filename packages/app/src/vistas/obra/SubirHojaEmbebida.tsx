@@ -41,7 +41,12 @@ export default function SubirHojaEmbebida({ calleDelPanel }: { calleDelPanel?: s
       }}
       onDragLeave={() => setEncima(false)}
       onDrop={alSoltar}
-      className={`rounded-b-lg ${encima ? 'outline-2 outline-dashed outline-marca' : ''}`}
+      // La pantalla de subir datos es la de siempre, pensada para la laptop:
+      // aquí, que también se usa en el celular, sus botones y campos se
+      // agrandan a 44 px y su margen se encoge, sin tocar la pantalla.
+      className={`rounded-b-lg [&_button]:min-h-11 [&_input:not([type=file])]:min-h-11 [&_select]:min-h-11 [&>div]:p-4 ${
+        encima ? 'outline-2 outline-dashed outline-marca' : ''
+      }`}
     >
       <p className="px-4 pt-3 text-sm text-slate-600 dark:text-slate-300">
         <span aria-hidden="true">⇪ </span>

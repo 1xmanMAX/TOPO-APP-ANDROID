@@ -135,7 +135,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
               <button
                 type="button"
                 onClick={() => clave && seleccionar(clave)}
-                className="text-left text-slate-600 hover:text-marca dark:text-slate-300"
+                className="text-left text-slate-600 hover:text-marca max-md:min-h-11 dark:text-slate-300"
               >
                 {textoDeDestino(lectura.destino, contexto.calle)}
               </button>
@@ -151,7 +151,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
                 type="button"
                 aria-label={`Borrar lectura de ${nombreAccesibleDeDestino(lectura.destino, contexto.calle)}`}
                 onClick={() => eliminarLectura(campania.id, lectura.id)}
-                className="px-1 text-slate-400 hover:text-falla"
+                className="px-1 text-slate-400 hover:text-falla max-md:min-h-11 max-md:min-w-11"
               >
                 ×
               </button>
@@ -178,14 +178,14 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
           <button
             type="button"
             onClick={trasladarInstrumento}
-            className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+            className="rounded border border-slate-300 px-2 py-1 text-sm max-md:min-h-11 dark:border-slate-700"
           >
             Trasladar el instrumento
           </button>
           <button
             type="button"
             onClick={cerrarCircuito}
-            className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+            className="rounded border border-slate-300 px-2 py-1 text-sm max-md:min-h-11 dark:border-slate-700"
           >
             Cerrar el circuito
           </button>
@@ -196,7 +196,7 @@ export default function PanelEstacion({ estacionIndice, alCambiarEstacion }: Pro
         <button
           type="button"
           onClick={() => quitarVistaAdelante(campania.id, estacionIndice)}
-          className="self-start rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+          className="self-start rounded border border-slate-300 px-2 py-1 text-sm max-md:min-h-11 dark:border-slate-700"
         >
           Quitar la vista adelante
         </button>

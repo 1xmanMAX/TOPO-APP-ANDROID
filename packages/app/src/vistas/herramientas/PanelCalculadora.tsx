@@ -165,6 +165,7 @@ function Casillero({
   sufijo,
   ayuda,
   modo = 'decimal',
+  subirAlEnfocar = false,
 }: {
   etiqueta: string
   valor: string
@@ -172,9 +173,12 @@ function Casillero({
   sufijo?: string
   ayuda?: string
   modo?: 'decimal' | 'text'
+  /** En el celular, al tocarlo sube a la parte de arriba: lo de debajo queda sobre el teclado. */
+  subirAlEnfocar?: boolean
 }) {
   return (
-    <label className="flex min-w-0 flex-col gap-1">
+    // scroll-mt deja libre la barra de arriba cuando el casillero sube.
+    <label className="flex min-w-0 scroll-mt-16 flex-col gap-1">
       <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{etiqueta}</span>
       <span className="flex items-center gap-1">
         <input
@@ -184,6 +188,7 @@ function Casillero({
           aria-label={etiqueta}
           value={valor}
           onChange={(evento) => alCambiar(evento.target.value)}
+          onFocus={subirAlEnfocar ? (evento) => subirSobreElTeclado(evento.currentTarget) : undefined}
           className="numerico min-h-11 w-full min-w-0 rounded border border-slate-300 bg-white px-2 text-right text-base outline-none focus:border-marca focus:ring-2 focus:ring-marca dark:border-slate-600 dark:bg-slate-900"
         />
         {sufijo && <span className="w-6 shrink-0 text-xs text-slate-500 dark:text-slate-400">{sufijo}</span>}
@@ -191,6 +196,17 @@ function Casillero({
       {ayuda && <span className="text-xs text-slate-500 dark:text-slate-400">{ayuda}</span>}
     </label>
   )
+}
+
+/**
+ * En el celular el teclado tapa la mitad de abajo de la pantalla: al tocar
+ * un casillero cuyo resultado sale debajo, se sube el casillero arriba del
+ * todo para que el resultado quede entre él y el teclado, sin cerrar el
+ * teclado ni desplazarse. En la laptop no hace falta y no se mueve nada.
+ */
+function subirSobreElTeclado(casillero: HTMLElement) {
+  if (typeof window.matchMedia !== 'function' || !window.matchMedia('(max-width: 639px)').matches) return
+  casillero.closest('label')?.scrollIntoView?.({ block: 'start' })
 }
 
 interface Estado {
@@ -241,9 +257,30 @@ interface Calculo {
   falta?: string
 }
 
-const NO_COMPROBADO: Estado = {
-  simbolo: '△',
-  texto: 'No comprobado: usa datos de la libreta que ningún cierre respalda todavía.',
+/**
+ * Por qué un resultado no está comprobado (diseño §3), o null si lo está:
+ * - 'libreta': usa datos de la libreta que ningún cierre respalda todavía;
+ * - 'aMano': la AI se escribió a mano o salió de un punto conocido con una
+ *   sola vista atrás. Ningún cierre la respalda, aunque la nivelación de la
+ *   calle sí haya cerrado: el ✓ de la cabecera habla de la AI de la libreta.
+ */
+type Motivo = 'libreta' | 'aMano' | null
+
+const NO_COMPROBADO: Record<Exclude<Motivo, null>, Estado> = {
+  libreta: {
+    simbolo: '△',
+    texto: 'No comprobado: usa datos de la libreta que ningún cierre respalda todavía.',
+  },
+  aMano: {
+    simbolo: '△',
+    texto: 'No comprobado: AI escrita a mano o sacada de un punto conocido, ningún cierre la respalda.',
+  },
+}
+
+/** Lo que se añade a la nota guardada para que el «no comprobado» no se pierda. */
+const NOTA_NO_COMPROBADO: Record<Exclude<Motivo, null>, string> = {
+  libreta: 'no comprobado, ningún cierre lo respalda',
+  aMano: 'no comprobado, AI escrita a mano sin cierre que la respalde',
 }
 
 /**
@@ -260,7 +297,7 @@ function TarjetaResultado({
   calculo: Calculo
   /** El contexto de los datos que hay en los casilleros (la foto), no el seleccionado ahora. */
   ctx: ContextoCalculadora
-  noComprobado: boolean
+  noComprobado: Motivo
   /** La calle activa ahora: si ya no es la de la foto, no se guarda una nota en la calle equivocada. */
   calleViva: string | null
 }) {
@@ -278,7 +315,7 @@ function TarjetaResultado({
   }
   const idTitulo = useId()
 
-  const estados = [...(calculo.estados ?? []), ...(noComprobado && calculo.valor ? [NO_COMPROBADO] : [])]
+  const estados = [...(calculo.estados ?? []), ...(noComprobado && calculo.valor ? [NO_COMPROBADO[noComprobado]] : [])]
   const progresiva = parsearProgresiva(progresivaNota)
   const mismaCalle = ctx.calleId !== null && ctx.calleId === calleViva
   const puedeGuardar = calculo.valor !== null && mismaCalle && progresiva !== null
@@ -297,7 +334,7 @@ function TarjetaResultado({
     if (!puedeGuardar || ctx.calleId === null || progresiva === null) return
     const partes = [`${calculo.titulo}: ${calculo.valor}`]
     if (calculo.detalle) partes.push(calculo.detalle)
-    if (noComprobado) partes.push('no comprobado, ningún cierre lo respalda')
+    if (noComprobado) partes.push(NOTA_NO_COMPROBADO[noComprobado])
     agregarNota(ctx.calleId, { progresiva, texto: partes.join(' · '), fecha: new Date().toISOString() })
     setMensaje(`Nota guardada en ${formatearProgresiva(progresiva)}.`)
   }
@@ -420,6 +457,7 @@ function calculoObjetivo(
   reglas: ReglasMira | null,
   alturaComprobada: boolean,
   tarjetaMarcaNoComprobado: boolean,
+  sinRepartir: boolean,
 ): { principal: Calculo; control: Calculo | null } {
   const ai = numero(v.ai)
   const cotaProyecto = numero(v.cotaProyecto)
@@ -455,11 +493,16 @@ function calculoObjetivo(
       titulo: 'Lo que marca la mira',
       valor: evaluado.accion ? textoAccion(evaluado.accion.tipo, evaluado.accion.mm) : null,
       copiable: evaluado.diferenciaMm !== null ? String(evaluado.diferenciaMm) : null,
-      detalle: evaluado.cota !== null ? `Cota medida ${m3(evaluado.cota)} m` : undefined,
+      // Con la AI de la libreta tal cual (sin compensar), Revisar puede dar
+      // unos milímetros distintos cuando la nivelación cerró: se dice.
+      detalle:
+        evaluado.cota !== null
+          ? `Cota medida ${m3(evaluado.cota)} m${sinRepartir ? ', sin repartir el error de cierre' : ''}`
+          : undefined,
       estados: estado ? [estado] : [],
-      // Si la tarjeta ya pone el «no comprobado» con su símbolo, no se repite.
-      // Si no lo pone (AI escrita a mano o sacada de un punto conocido), lo
-      // dice el motor: lo no comprobado nunca se calla (diseño §3).
+      // La tarjeta ya pone el «no comprobado» con su símbolo y su motivo: el
+      // aviso genérico del motor («nivelación sin cerrar») no se repite, y
+      // confundiría si la AI se escribió a mano en una calle que sí cerró.
       avisos: tarjetaMarcaNoComprobado
         ? evaluado.avisos.filter((a) => a !== AVISO_SIN_COMPROBAR)
         : evaluado.avisos,
@@ -593,8 +636,17 @@ export default function PanelCalculadora() {
   const deLaLibreta = (clave: string) => v(clave) !== '' && v(clave) === foto.valores[clave]
   const noComprobado = (claves: string[]) => claves.some((c) => deLaLibreta(c) && foto.comprobados[c] === false)
   const alturaComprobada = deLaLibreta('ai') && foto.comprobados.ai === true
+  /**
+   * Motivo para marcar un resultado que usa la AI del casillero `claveAi`:
+   * una AI que no es la que trajo la libreta nunca está comprobada.
+   */
+  const motivo = (claveAi: string, otras: string[] = []): Motivo => {
+    if (v(claveAi) !== '' && !deLaLibreta(claveAi)) return 'aMano'
+    return noComprobado([claveAi, ...otras]) ? 'libreta' : null
+  }
+  const motivoLibreta = (claves: string[]): Motivo => (noComprobado(claves) ? 'libreta' : null)
   const llave = (nombre: string) => `${nombre}-${foto.generacion}`
-  const tarjeta = (nombre: string, calculo: Calculo, marcar: boolean) => (
+  const tarjeta = (nombre: string, calculo: Calculo, marcar: Motivo) => (
     <TarjetaResultado
       key={llave(nombre)}
       calculo={calculo}
@@ -626,7 +678,7 @@ export default function PanelCalculadora() {
               />
               <Casillero etiqueta="Lectura" sufijo="m" valor={v('lectura')} alCambiar={cambiar('lectura')} />
             </div>
-            {tarjeta('cota', calculoCota(valores, ctx, reglas), noComprobado(['aiCota', 'lectura']))}
+            {tarjeta('cota', calculoCota(valores, ctx, reglas), motivo('aiCota', ['lectura']))}
             <details className="rounded border border-slate-200 p-3 dark:border-slate-700">
               <summary className="min-h-11 cursor-pointer content-center text-sm font-medium">
                 Altura instrumental desde un punto conocido
@@ -655,10 +707,23 @@ export default function PanelCalculadora() {
         )
       }
       case 'objetivo': {
-        const marcarControl = noComprobado(['ai', 'lecturaMira'])
-        const { principal, control } = calculoObjetivo(valores, reglas, alturaComprobada, marcarControl)
+        const marcarControl = motivo('ai', ['lecturaMira'])
+        // La cota que sale de AI − lectura no reparte el error de cierre;
+        // Revisar sí. Solo importa si la nivelación cerró y la AI es la suya.
+        const sinRepartir = deLaLibreta('ai') && foto.comprobados.ai === true
+        const { principal, control } = calculoObjetivo(
+          valores,
+          reglas,
+          alturaComprobada,
+          marcarControl !== null,
+          sinRepartir,
+        )
         const lecturaDeOtra =
           datos.lectura !== null && datos.estacionLectura !== null && !lecturaDeLaActiva(datos)
+        // Los cuatro casilleros van juntos arriba y el corte/relleno sale
+        // justo debajo, antes que la lectura objetivo: en el celular, con el
+        // teclado abierto al escribir la lectura, el resultado sigue a la
+        // vista sin cerrar el teclado ni desplazarse.
         return (
           <>
             <div className="grid grid-cols-2 gap-3">
@@ -669,23 +734,28 @@ export default function PanelCalculadora() {
                 valor={v('cotaProyecto')}
                 alCambiar={cambiar('cotaProyecto')}
               />
-            </div>
-            {tarjeta('objetivo', principal, noComprobado(['ai']))}
-            <div className="grid grid-cols-2 gap-3">
               <Casillero
                 etiqueta="Lectura en la mira"
                 sufijo="m"
-                ayuda={
-                  lecturaDeOtra
-                    ? `Opcional. La anotada en este punto es de la estación ${datos.estacionLectura}, no de la activa: lea la mira ahora.`
-                    : 'Opcional: dice si corta o rellena.'
-                }
                 valor={v('lecturaMira')}
                 alCambiar={cambiar('lecturaMira')}
+                subirAlEnfocar
               />
-              <Casillero etiqueta="Tolerancia" sufijo="mm" valor={v('tolerancia')} alCambiar={cambiar('tolerancia')} />
+              <Casillero
+                etiqueta="Tolerancia"
+                sufijo="mm"
+                valor={v('tolerancia')}
+                alCambiar={cambiar('tolerancia')}
+                subirAlEnfocar
+              />
             </div>
+            <p className="-mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {lecturaDeOtra
+                ? `La lectura anotada en este punto es de la estación ${datos.estacionLectura}, no de la activa: lea la mira ahora.`
+                : 'La lectura en la mira es opcional: dice si corta o rellena.'}
+            </p>
             {control && tarjeta('control', control, marcarControl)}
+            {tarjeta('objetivo', principal, motivo('ai'))}
           </>
         )
       }
@@ -697,7 +767,7 @@ export default function PanelCalculadora() {
               <Casillero etiqueta="Cota final" sufijo="m" valor={v('pendFinal')} alCambiar={cambiar('pendFinal')} />
               <Casillero etiqueta="Distancia" sufijo="m" valor={v('pendDist')} alCambiar={cambiar('pendDist')} />
             </div>
-            {tarjeta('pendiente', calculoPendiente(valores), noComprobado(['pendInicial', 'pendFinal']))}
+            {tarjeta('pendiente', calculoPendiente(valores), motivoLibreta(['pendInicial', 'pendFinal']))}
           </>
         )
       case 'interpolar':
@@ -710,7 +780,7 @@ export default function PanelCalculadora() {
               <Casillero etiqueta="Cota B" sufijo="m" valor={v('cotaB')} alCambiar={cambiar('cotaB')} />
               <Casillero etiqueta="Progresiva buscada" modo="text" valor={v('progX')} alCambiar={cambiar('progX')} />
             </div>
-            {tarjeta('interpolar', calculoInterpolar(valores), noComprobado(['cotaA', 'cotaB']))}
+            {tarjeta('interpolar', calculoInterpolar(valores), motivoLibreta(['cotaA', 'cotaB']))}
           </>
         )
       case 'volumen':
@@ -726,7 +796,7 @@ export default function PanelCalculadora() {
                 alCambiar={cambiar('volDist')}
               />
             </div>
-            {tarjeta('volumen', calculoVolumen(valores), false)}
+            {tarjeta('volumen', calculoVolumen(valores), null)}
           </>
         )
       case 'conversion':
@@ -765,7 +835,7 @@ export default function PanelCalculadora() {
               valor={v('convValor')}
               alCambiar={cambiar('convValor')}
             />
-            {tarjeta('conversion', calculoConversion(valores, unidad), false)}
+            {tarjeta('conversion', calculoConversion(valores, unidad), null)}
           </>
         )
     }
@@ -857,10 +927,12 @@ export default function PanelCalculadora() {
             aria-controls={`${idBase}-panel`}
             tabIndex={pestana === p.id ? 0 : -1}
             onClick={() => setPestana(p.id)}
-            className={`min-h-11 rounded px-1 text-sm leading-tight font-medium ${
+            // Con borde también la no elegida: en modo sol el fondo slate-900 se
+            // pierde en el negro y la pestaña parecería texto suelto.
+            className={`min-h-11 rounded border px-1 text-sm leading-tight font-medium ${
               pestana === p.id
-                ? 'bg-marca text-white'
-                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800'
+                ? 'border-marca bg-marca text-white'
+                : 'border-transparent bg-slate-100 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800'
             }`}
           >
             {p.etiqueta}

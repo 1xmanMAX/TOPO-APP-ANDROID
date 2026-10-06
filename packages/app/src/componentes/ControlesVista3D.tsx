@@ -108,7 +108,7 @@ export default function ControlesVista3D() {
           step={1}
           value={camara.inclinacion}
           onChange={(evento) => fijarCamara({ ...camara, inclinacion: Number(evento.target.value) })}
-          className="accent-marca"
+          className="accent-marca max-md:h-11"
         />
       </label>
 
@@ -125,7 +125,7 @@ export default function ControlesVista3D() {
           step={1}
           value={camara.exageracion}
           onChange={(evento) => fijarExageracion(Number(evento.target.value))}
-          className="accent-marca"
+          className="accent-marca max-md:h-11"
         />
       </label>
     </div>

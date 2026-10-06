@@ -105,9 +105,10 @@ export default function SelectorCapas() {
         <ul className="flex flex-col gap-1">
           {campanias.map((item) => (
             <li key={item.campania.id}>
-              <label className="flex items-center gap-2">
+              <label className="flex min-h-11 items-center gap-2 md:min-h-0">
                 <input
                   type="checkbox"
+                  className="size-5 md:size-auto"
                   aria-label={`Dibujar ${etiqueta(item)}`}
                   checked={capasVisibles.includes(item.campania.id)}
                   onChange={() => alternarCapaVisible(item.campania.id)}
@@ -127,7 +128,7 @@ export default function SelectorCapas() {
             aria-label="Capa de abajo en la comparación"
             value={comparacion.inferior ?? ''}
             onChange={(evento) => elegirInferior(evento.target.value)}
-            className="rounded border border-slate-300 bg-white px-1.5 py-0.5 dark:border-slate-700 dark:bg-slate-900"
+            className="min-h-11 rounded border border-slate-300 bg-white px-1.5 py-0.5 md:min-h-0 dark:border-slate-700 dark:bg-slate-900"
           >
             <option value="">—</option>
             {campanias.map((item) => (
@@ -144,7 +145,7 @@ export default function SelectorCapas() {
             aria-label="Capa de arriba en la comparación"
             value={comparacion.superior ?? ''}
             onChange={(evento) => elegirSuperior(evento.target.value)}
-            className="rounded border border-slate-300 bg-white px-1.5 py-0.5 dark:border-slate-700 dark:bg-slate-900"
+            className="min-h-11 rounded border border-slate-300 bg-white px-1.5 py-0.5 md:min-h-0 dark:border-slate-700 dark:bg-slate-900"
           >
             <option value="">—</option>
             {campanias.map((item) => (

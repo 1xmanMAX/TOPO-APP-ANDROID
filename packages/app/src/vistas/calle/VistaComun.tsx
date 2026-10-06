@@ -10,6 +10,7 @@ import Vista3D from '../../componentes/Vista3D'
 import { armarEsqueletoTabla } from '../../esqueletoTabla'
 import { useAlmacen, type ModoCalle } from '../../estado/almacen'
 import { useContexto, useProgresivas } from '../../estado/derivados'
+import { AVISO_DESTACADO } from './comun'
 import { useResultadoCalle } from './resultadoCalle'
 
 export type TipoVista = 'corte' | 'perfil' | '3d'
@@ -146,6 +147,19 @@ export default function VistaComun({ modo, vista, alCambiarVista }: Props) {
 
   if (!contexto) return null
 
+  // Si la toma no cerró, nada de lo que pinta el mapa está comprobado (diseño
+  // §3). Si cerró pero volvió a arrancar en un BM, lo de antes tampoco.
+  const sinCerrar = resultado !== null && resultado.cierre.pasa !== true
+  const primeraComprobada = resultado?.tramoComprobado?.primeraEstacion ?? 0
+  const avisoMapa =
+    modo === 'medir' || !contexto.calle.rasante || resultado === null
+      ? null
+      : sinCerrar
+        ? 'Mapa no comprobado: la nivelación no cerró. Los ✓ △ ✗ son provisionales hasta cerrar el circuito.'
+        : primeraComprobada > 0
+          ? `Lo medido antes de la estación ${primeraComprobada + 1} no está comprobado: el cierre solo respalda desde ahí.`
+          : null
+
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <div role="group" aria-label="Vista de la calle" className="grid grid-cols-3 gap-2 sm:flex">
@@ -162,7 +176,15 @@ export default function VistaComun({ modo, vista, alCambiarVista }: Props) {
         ))}
       </div>
 
-      <section aria-label="Dibujo de la calle" className="flex min-w-0 flex-col gap-2">
+      {/* En el celular lo que se toca mide 44 × 44 px como mínimo. El botón de
+          recorrer (DeslizadorProgresiva) y las celdas del mapa (MapaGrilla) son
+          componentes compartidos pensados para el ratón (30 y 24 px): aquí se
+          agrandan, solo en estas dos secciones. Cuando se arreglen allí, estas
+          reglas sobran y se quitan. */}
+      <section
+        aria-label="Dibujo de la calle"
+        className="flex min-w-0 flex-col gap-2 max-md:[&_button]:min-h-11 max-md:[&_button]:min-w-11"
+      >
         {vista === 'corte' && (
           <CorteTransversal
             progresiva={progresivaActiva}
@@ -198,13 +220,25 @@ export default function VistaComun({ modo, vista, alCambiarVista }: Props) {
         <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={cambiarProgresiva} />
       </section>
 
-      <section aria-labelledby={idTituloMapa} className="flex min-w-0 flex-col gap-2">
+      <section
+        aria-labelledby={idTituloMapa}
+        className="flex min-w-0 flex-col gap-2 max-md:[&_button]:min-h-11 max-md:[&_button]:min-w-11"
+      >
         <h2 id={idTituloMapa} className="font-semibold">
           Mapa de la calle
         </h2>
-        {/* En el celular la ficha va debajo: con muchas progresivas, un mapa
-            sin tope la mandaría a más de mil píxeles de distancia. */}
-        <div className="max-h-60 overflow-auto md:max-h-none md:overflow-visible">
+        {/* Antes del mapa: en el celular es lo primero que se ve de él. */}
+        {avisoMapa && (
+          <p className={AVISO_DESTACADO}>
+            <span aria-hidden="true">△ </span>
+            {avisoMapa}
+          </p>
+        )}
+        {/* En el celular la ficha va debajo: con muchas progresivas, un mapa sin
+            tope la mandaría a más de mil píxeles. El tope va sobre la rejilla
+            misma (la caja que se desplaza dentro de MapaGrilla), no sobre todo el
+            mapa: así la leyenda del semáforo queda fuera y se ve siempre entera. */}
+        <div className="max-md:[&_div.overflow-auto]:max-h-72">
           {modo === 'medir' || !contexto.calle.rasante ? (
             // Midiendo importa qué falta llenar; sin rasante no hay semáforo
             // que pintar, pero el mapa sigue sirviendo para elegir el punto.

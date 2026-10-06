@@ -165,6 +165,27 @@ describe('EspacioInformes', () => {
     await waitFor(() => expect(within(vistaPrevia()).getByText(/✓ Comprobado/)).toBeInTheDocument())
   })
 
+  it('la hoja de estacas con lecturas que no caben va con △ y «cambie de estación», sin prometer una franja que no lleva', async () => {
+    const usuario = userEvent.setup()
+    // Un BM 3 m más abajo: todas las cotas de la base quedan sobre el instrumento.
+    const p = proyectoDeInformes()
+    useAlmacen.getState().cargarProyecto({ ...p, bms: p.bms.map((b) => ({ ...b, cota: b.cota - 3 })) })
+    useAlmacen.getState().activarCampania('toma-sub')
+    montar()
+    await usuario.click(screen.getByRole('button', { name: 'Hoja de estacas' }))
+    await usuario.selectOptions(screen.getByRole('combobox', { name: 'Capa a replantear' }), 'cap-base')
+    await usuario.type(screen.getByRole('textbox', { name: 'Vista atrás al BM (m)' }), '1.2')
+    const v = await within(vistaPrevia()).findByText(/△ No comprobado: desde esta estación .* cambie de estación/)
+    expect(v).not.toHaveTextContent(/franja/)
+    expect(within(vistaPrevia()).queryByText(/✓ Comprobado/)).toBeNull()
+    // La imagen dice de qué PDF es: los guiones esperan por eso y no por tiempo.
+    await waitFor(() =>
+      expect(
+        within(vistaPrevia()).getByRole('img', { name: 'Primera página: Hoja de estacas' }).getAttribute('data-archivo'),
+      ).toMatch(/^Hoja de estacas.*Jr\. Lima.*\.pdf$/),
+    )
+  })
+
   it('las notas de campo se pueden quitar, y sin notas la opción no se puede marcar', async () => {
     const usuario = userEvent.setup()
     montar()
@@ -222,6 +243,32 @@ describe('EspacioInformes', () => {
     await usuario.click(screen.getByRole('button', { name: 'Exportar espesores a Excel' }))
     expect(descargas.at(-1)).toBe('Jr. Lima — Espesores SUBRASANTE a BASE.xlsx')
     expect(screen.getByRole('button', { name: 'Guardar el proyecto (.topo)' })).toBeEnabled()
+  })
+
+  it('Tablas para Excel: con jornada y sin rasante dice que falta la rasante', () => {
+    useAlmacen.getState().cargarProyecto(proyectoDeInformes({ conRasante: false }))
+    useAlmacen.getState().activarCampania('toma-sub')
+    montar()
+    const tablas = screen.getByRole('region', { name: 'Tablas para Excel' })
+    expect(within(tablas).getByRole('button', { name: 'Exportar cotas a Excel' })).toBeEnabled()
+    expect(within(tablas).getByRole('button', { name: 'Exportar diferencias a Excel' })).toBeDisabled()
+    expect(within(tablas).getByText('(la calle no tiene rasante)')).toBeInTheDocument()
+    expect(within(tablas).queryByText('(no hay jornada medida)')).toBeNull()
+  })
+
+  it('Tablas para Excel: con rasante y sin jornadas dice que no hay jornada, no que falta la rasante', async () => {
+    const usuario = userEvent.setup()
+    const p = proyectoDeInformes()
+    const lima = p.calles[0]!
+    useAlmacen.getState().cargarProyecto({ ...p, calles: [lima, { ...p.calles[1]!, seccion: lima.seccion, rasante: lima.rasante }] })
+    useAlmacen.getState().activarCampania('toma-sub')
+    montar()
+    await usuario.selectOptions(screen.getByRole('combobox', { name: 'Calle' }), 'c-2')
+    const tablas = screen.getByRole('region', { name: 'Tablas para Excel' })
+    expect(within(tablas).getByRole('button', { name: 'Exportar diferencias a Excel' })).toBeDisabled()
+    // Cotas, diferencias y espesores: las tres dicen lo mismo, que es lo que falta de verdad.
+    expect(within(tablas).getAllByText('(no hay jornada medida)')).toHaveLength(3)
+    expect(within(tablas).queryByText('(la calle no tiene rasante)')).toBeNull()
   })
 
   it('todos los botones miden al menos 44 px de alto', () => {

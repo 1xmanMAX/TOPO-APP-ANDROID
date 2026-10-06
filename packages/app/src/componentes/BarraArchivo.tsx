@@ -77,10 +77,19 @@ export default function BarraArchivo() {
         className="hidden"
         onChange={(evento) => {
           const archivo = evento.target.files?.[0]
+          // Se vacía al momento: si se quedara con el archivo, elegir otra
+          // vez el mismo .topo (volver a la copia guardada) no avisaría de
+          // ningún cambio y no se abriría.
+          evento.target.value = ''
           if (archivo) void abrir(archivo)
         }}
       />
-      {mensaje && <span className="text-xs text-falla">{mensaje}</span>}
+      {mensaje && (
+        <span role="alert" className="text-xs text-falla">
+          <span aria-hidden="true">✗ </span>
+          {mensaje}
+        </span>
+      )}
     </div>
   )
 }

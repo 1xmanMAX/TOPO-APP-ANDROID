@@ -136,7 +136,7 @@ export default function MapaGrilla({
                       type="button"
                       aria-label={pintado?.etiqueta ?? `${formatearProgresiva(progresiva)} ${elementoNombre}`}
                       onClick={() => alElegir(clave)}
-                      className={`h-6 w-full rounded text-xs ${
+                      className={`h-11 w-full rounded text-xs md:h-6 ${
                         activa
                           ? 'bg-marca text-white'
                           : pintado

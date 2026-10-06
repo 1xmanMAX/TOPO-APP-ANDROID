@@ -119,6 +119,12 @@ interface EstadoApp {
   camara: Camara
   /** Qué manda el color en el visor 3D. */
   modoVista3D: ModoVista3D
+  /**
+   * Cuántas veces se reemplazó el proyecto entero (abrir un .topo, Nuevo,
+   * recuperar). Sirve para enterarse de que el proyecto en pantalla ya es
+   * otro, sin confundirlo con una edición.
+   */
+  cargas: number
 
   /** Los bytes de los planos que trae el proyecto; sin ellos, los planos quedan declarados pero sin archivo. */
   cargarProyecto(proyecto: Proyecto, archivosDePlano?: ArchivosDePlano): void
@@ -474,10 +480,12 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
   comparacion: SIN_COMPARACION,
   camara: CAMARA_ISOMETRICA,
   modoVista3D: 'estado',
+  cargas: 0,
 
   cargarProyecto: (proyecto, archivosDePlano = {}) => {
     const primeraId = primeraTomaId(proyecto)
-    return set({
+    return set((s) => ({
+      cargas: s.cargas + 1,
       proyecto,
       archivosDePlano: archivosDeclarados(proyecto, archivosDePlano),
       calleActivaId: calleParaToma(proyecto, primeraId, null),
@@ -489,11 +497,12 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       seleccion: { clave: null, progresiva: null },
       capasVisibles: [],
       comparacion: SIN_COMPARACION,
-    })
+    }))
   },
 
   nuevoProyecto: () =>
-    set({
+    set((s) => ({
+      cargas: s.cargas + 1,
       proyecto: proyectoVacio(),
       archivosDePlano: {},
       calleActivaId: null,
@@ -505,7 +514,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       seleccion: { clave: null, progresiva: null },
       capasVisibles: [],
       comparacion: SIN_COMPARACION,
-    }),
+    })),
 
   irA: (vista) => set(navegacionDeVistaVieja(vista)),
 

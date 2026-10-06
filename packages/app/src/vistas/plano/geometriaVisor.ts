@@ -185,3 +185,28 @@ export function mismaPolilinea(a: readonly Punto2[], b: readonly Punto2[]): bool
   const iguales = (p: Punto2, q: Punto2) => Math.abs(p.x - q.x) < 1e-6 && Math.abs(p.y - q.y) < 1e-6
   return a.every((p, i) => iguales(p, b[i]!)) || a.every((p, i) => iguales(p, b[b.length - 1 - i]!))
 }
+
+/** Dónde poner un rótulo junto a la pista, en píxeles de pantalla (Y hacia abajo). */
+export interface DesfaseRotulo {
+  dx: number
+  dy: number
+  /** text-anchor: el rótulo crece alejándose de la pista. */
+  ancla: 'start' | 'middle' | 'end'
+}
+
+/**
+ * Corre un rótulo `distanciaPx` hacia un costado de la pista, perpendicular a
+ * su `rumbo` (grados del plano, Y hacia arriba; «derecha» mirando en el
+ * sentido de avance). Las estacas van a un costado y las pendientes al otro,
+ * para que no se pisen cuando caen cerca.
+ */
+export function desfaseAlCostado(rumbo: number, lado: 'izquierda' | 'derecha', distanciaPx: number): DesfaseRotulo {
+  const r = (rumbo * Math.PI) / 180
+  // Normal derecha en el plano: (sen r, −cos r); en la pantalla la Y se invierte.
+  const signo = lado === 'derecha' ? 1 : -1
+  const dx = signo * Math.sin(r) * distanciaPx
+  const dy = signo * Math.cos(r) * distanciaPx
+  const horizontal = dx / distanciaPx
+  const ancla = horizontal > 0.3 ? 'start' : horizontal < -0.3 ? 'end' : 'middle'
+  return { dx, dy, ancla }
+}

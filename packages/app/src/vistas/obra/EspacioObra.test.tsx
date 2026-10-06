@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAlmacen } from '../../estado/almacen'
 import { proyectoEjemplo, proyectoVacio } from '../../estado/ejemplo'
+import { bytesDetrasDelColegio } from '../../pruebas/muestras'
 import EspacioObra from './EspacioObra'
 import { entregarArchivo } from './SubirHojaEmbebida'
 
@@ -63,7 +64,8 @@ describe('Obra › Calles: inicio', () => {
     expect(casillas[1]).toHaveTextContent('✗')
     expect(casillas[2]).toHaveTextContent('△')
     expect(casillas[0]).toHaveTextContent('·')
-    expect(screen.getByText(/SUBRASANTE: 1 punto fuera de tolerancia en 0\+040/)).toBeInTheDocument()
+    // Dice qué punto, en qué progresiva, cuánto y si corta o rellena.
+    expect(screen.getByText(/SUBRASANTE: 1 punto fuera de tolerancia: \D+ 0\+040 [+−]\d+ mm, (corta|rellena)/)).toBeInTheDocument()
 
     const lima = screen.getByRole('list', { name: 'Capas de Jr. Lima' })
     expect(within(lima).getAllByRole('listitem').every((c) => c.textContent?.startsWith('·'))).toBe(true)
@@ -76,13 +78,13 @@ describe('Obra › Calles: inicio', () => {
     expect(within(bms).getByText(/BM-1/)).toBeInTheDocument()
   })
 
-  it('una capa sin comprobar se marca △ «sin comprobar» en la franja', () => {
+  it('una capa sin comprobar se marca △ «no comprobada» en la franja', () => {
     const p = obraConDosCalles()
     for (const toma of p.calles[0]!.nivelaciones.flatMap((n) => n.tomas)) toma.cierre.tipo = 'abierto'
     useAlmacen.getState().cargarProyecto(p)
     render(<EspacioObra />)
     const casillas = within(screen.getByRole('list', { name: 'Capas de Av. Sol' })).getAllByRole('listitem')
-    expect(casillas[1]).toHaveAttribute('aria-label', 'SUBRASANTE: sin comprobar')
+    expect(casillas[1]).toHaveAttribute('aria-label', 'SUBRASANTE: no comprobada')
     expect(casillas[1]).toHaveTextContent('△')
   })
 
@@ -285,7 +287,7 @@ describe('Obra › Calles: panel de la calle', () => {
     expect(within(comparacion).getByText('SUBRASANTE → BASE')).toBeInTheDocument()
     expect(within(comparacion).getByText('158')).toBeInTheDocument()
     expect(within(comparacion).getByText(/Proyecto 200 mm ±10/)).toBeInTheDocument()
-    expect(within(comparacion).getByText(/ESPESORES VERIFICADOS/)).toBeInTheDocument()
+    expect(within(comparacion).getByText(/^Circuitos comprobados/)).toBeInTheDocument()
 
     await usuario.click(within(comparacion).getByRole('button', { name: 'Ver celda por celda' }))
     const estado = useAlmacen.getState()
@@ -351,6 +353,32 @@ describe('Obra › Calles: panel de la calle', () => {
     const archivo = new File(['Punto,Lectura\nBM-1,1.234\n'], 'Av Sol terreno.csv', { type: 'text/csv' })
     fireEvent.drop(zona, { dataTransfer: { files: [archivo] } })
     expect(await screen.findByDisplayValue('Av Sol terreno')).toBeInTheDocument()
+  })
+
+  it('aceptar una hoja deja el «Hoja aceptada» a la vista, aunque el panel pase a la calle que la recibe', async () => {
+    const usuario = userEvent.setup()
+    render(<EspacioObra />)
+    await usuario.upload(
+      screen.getByLabelText(/archivo de la hoja/i),
+      new File([bytesDetrasDelColegio()], 'detras-del-colegio.xlsx'),
+    )
+    await waitFor(() => expect(screen.getByLabelText(/dónde va la columna IZQ/i)).toBeInTheDocument())
+    await usuario.selectOptions(screen.getByLabelText(/dónde va la columna IZQ/i), 'p-borde-i')
+    await usuario.selectOptions(screen.getByLabelText(/dónde va la columna DER/i), 'p-borde-d')
+    await usuario.click(screen.getByRole('button', { name: 'Importar la hoja' }))
+
+    // La calle nueva es ahora la activa y su panel es el que se ve…
+    expect(screen.getByRole('region', { name: 'Panel de detras-del-colegio' })).toBeInTheDocument()
+    // …y el aviso de lo que entró sigue ahí, con sus cuentas.
+    expect(screen.getByText('Hoja aceptada').closest('p')).toHaveTextContent(/7 progresivas.*35 lecturas/)
+  })
+
+  it('elegir otra calle sí descarta una hoja a medio leer', async () => {
+    const usuario = userEvent.setup()
+    render(<EspacioObra />)
+    fireEvent.change(screen.getByLabelText(/pegar/i), { target: { value: 'Punto\tLectura\nBM-1\t1.234' } })
+    await usuario.click(screen.getByRole('button', { name: 'Abrir Jr. Lima' }))
+    expect(screen.getByLabelText(/pegar/i)).toHaveValue('')
   })
 
   it('cambiar de calle desarma un borrado a medio confirmar', async () => {
@@ -458,6 +486,34 @@ describe('Obra › Calles: obra vacía', () => {
     expect(screen.getByRole('button', { name: 'Nueva jornada' })).toBeDisabled()
     expect(screen.getByText(/falta una calle, un banco de nivel/)).toBeInTheDocument()
     expect(screen.getByText(/Todavía no hay ninguna jornada/)).toBeInTheDocument()
+  })
+
+  it('al aceptar la primera hoja nace la calle y el «Hoja aceptada» sigue a la vista', async () => {
+    const usuario = userEvent.setup()
+    const vacio = proyectoVacio()
+    vacio.bms.push({ id: 'bm-1', nombre: 'BM-1', cota: 3245.18, tipo: 'oficial' } as Proyecto['bms'][number])
+    useAlmacen.getState().cargarProyecto(vacio)
+    render(<EspacioObra />)
+    await usuario.upload(
+      screen.getByLabelText(/archivo de la hoja/i),
+      new File([bytesDetrasDelColegio()], 'detras-del-colegio.xlsx'),
+    )
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Importar la hoja' })).toBeInTheDocument())
+    for (const [palabra, lado] of [['IZQ', /izquierd/i], ['DER', /derech/i]] as const) {
+      const selector = screen.queryByLabelText(new RegExp(`dónde va la columna ${palabra}`, 'i')) as HTMLSelectElement | null
+      const opciones = selector ? [...selector.options] : []
+      const opcion =
+        opciones.find((o) => lado.test(o.textContent ?? '') && /borde/i.test(o.textContent ?? '')) ??
+        opciones.find((o) => lado.test(o.textContent ?? ''))
+      if (selector && opcion) await usuario.selectOptions(selector, opcion.value)
+    }
+    await usuario.click(screen.getByRole('button', { name: 'Importar la hoja' }))
+
+    // La primera calle ya existe y su panel reemplaza al de «Subir la primera hoja»…
+    expect(useAlmacen.getState().proyecto.calles).toHaveLength(1)
+    expect(screen.getByRole('region', { name: 'Panel de detras-del-colegio' })).toBeInTheDocument()
+    // …sin llevarse el aviso de lo que entró.
+    expect(screen.getByText('Hoja aceptada').closest('p')).toHaveTextContent(/7 progresivas.*35 lecturas/)
   })
 })
 

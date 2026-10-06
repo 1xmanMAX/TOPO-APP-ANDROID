@@ -200,7 +200,8 @@ export default function PestanaEspesores({ calle }: { calle: Calle }) {
                       type="button"
                       onClick={() => seleccionar(d.clave)}
                       aria-label={`${formatearProgresiva(d.progresiva)} ${nombres.get(d.elementoClave) ?? ''}: ${formatearCota(d.espesor!)} m, faltan ${-(d.diferenciaMm ?? 0)} mm`}
-                      className="min-h-11 w-full rounded border border-falla px-3 text-left text-falla"
+                      // △ al límite va en el color de aviso, como en el mapa; solo ✗ va en rojo.
+                      className={`min-h-11 w-full rounded border px-3 text-left ${d.estado === 'fuera' ? 'border-falla text-falla' : 'border-aviso text-aviso'}`}
                     >
                       <span aria-hidden="true">{d.estado === 'fuera' ? '✗' : '△'} </span>
                       {formatearProgresiva(d.progresiva)} {nombres.get(d.elementoClave) ?? ''}:{' '}

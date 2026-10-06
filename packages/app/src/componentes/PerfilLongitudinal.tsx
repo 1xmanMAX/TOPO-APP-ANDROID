@@ -132,11 +132,20 @@ export default function PerfilLongitudinal({ elementoClave, idCampaniaReferencia
             {puntos.map((punto) => {
               const activo = seleccion.clave === punto.clave
               return (
+                <g key={punto.clave}>
                 <circle
-                  key={punto.clave}
+                  aria-hidden="true"
                   cx={x(punto.progresiva)}
                   cy={y(punto.cota)}
                   r={activo ? 7 : 4.5}
+                  className={activo ? 'fill-falla' : 'fill-marca'}
+                />
+                {/* Lo que se toca: un círculo invisible de 44 px alrededor del punto. */}
+                <circle
+                  cx={x(punto.progresiva)}
+                  cy={y(punto.cota)}
+                  r={22}
+                  fill="transparent"
                   role="button"
                   tabIndex={0}
                   data-activo={activo}
@@ -145,8 +154,9 @@ export default function PerfilLongitudinal({ elementoClave, idCampaniaReferencia
                   onKeyDown={(evento) => {
                     if (evento.key === 'Enter' || evento.key === ' ') seleccionar(punto.clave)
                   }}
-                  className={`cursor-pointer outline-none ${activo ? 'fill-falla' : 'fill-marca'}`}
+                  className="cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-marca"
                 />
+                </g>
               )
             })}
           </>

@@ -1,11 +1,23 @@
 import { formatearPendiente, formatearProgresiva, type CotaSobrePista, type Rasante } from '@topo/core'
 import { useId, useState } from 'react'
-import { rasanteDesdeCotas } from './datosPista'
+import { cambioDeCotaProyecto, rasanteDesdeCotas, RESIDUO_AVISO_MM, textoMm } from './datosPista'
 import { BOTON_PRINCIPAL, BOTON_SECUNDARIO } from './estilos'
 
 /** «3244.400 m en 0+000, −0.50 %»: así se lee una rasante de una sola pendiente. */
 export function textoRasante(r: Rasante): string {
   return `${r.cotaArranque.toFixed(3)} m en ${formatearProgresiva(r.progresivaArranque)}, ${formatearPendiente(r.pendienteLongitudinal)}`
+}
+
+/** «· +2 mm de la nueva»; desde `RESIDUO_AVISO_MM`, con △ y en negrita. */
+function ResiduoDeCota({ mm }: { mm: number }) {
+  const grande = Math.abs(mm) >= RESIDUO_AVISO_MM
+  return (
+    <span className={grande ? 'font-medium' : 'text-slate-500 dark:text-slate-400'}>
+      {' · '}
+      {grande && <span aria-hidden="true">△ </span>}
+      {textoMm(mm)} de la nueva
+    </span>
+  )
 }
 
 interface Props {
@@ -31,6 +43,14 @@ export default function TomarRasante({ cotas, actual, nivelacionesConTomas, alCo
   const [descartadas, setDescartadas] = useState<ReadonlySet<number>>(() => new Set())
   const usadas = cotas.filter((_, i) => !descartadas.has(i))
   const resultado = rasanteDesdeCotas(usadas, actual)
+  const residuoDe = new Map(resultado?.residuos.map((r) => [r.progresiva, r.mm]) ?? [])
+  // Lo que cambia la cota de proyecto en las cotas usadas: ahí se ve si el
+  // reemplazo es cosa de redondeo o mueve lecturas de mira.
+  const cambios = actual && resultado ? cambioDeCotaProyecto(actual, resultado.rasante, usadas.map((c) => c.progresiva)) : []
+  const mayorCambio = cambios.reduce<(typeof cambios)[number] | null>(
+    (mayor, c) => (mayor === null || Math.abs(c.mm) > Math.abs(mayor.mm) ? c : mayor),
+    null,
+  )
 
   function alternar(i: number, usar: boolean) {
     setDescartadas((antes) => {
@@ -46,6 +66,8 @@ export default function TomarRasante({ cotas, actual, nivelacionesConTomas, alCo
     const { rasante, aviso, valeHasta } = resultado
     if (valeHasta !== null) {
       alConfirmar(rasante, `Rasante tomada solo del primer tramo: ${textoRasante(rasante)}. ${aviso}`, 'aviso')
+    } else if (aviso) {
+      alConfirmar(rasante, `△ Rasante tomada: ${textoRasante(rasante)}. ${aviso}`, 'aviso')
     } else {
       alConfirmar(rasante, `✓ Rasante tomada: ${textoRasante(rasante)}.`, 'ok')
     }
@@ -64,9 +86,13 @@ export default function TomarRasante({ cotas, actual, nivelacionesConTomas, alCo
           {cotas.map((c, i) => (
             <li key={`${c.progresiva}-${i}`}>
               <label className="flex min-h-11 items-center gap-2 rounded px-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-                <input type="checkbox" className="size-5" checked={!descartadas.has(i)} onChange={(e) => alternar(i, e.target.checked)} />
-                {formatearProgresiva(c.progresiva)} · cota {c.cota.toFixed(3)} m
-                {Math.abs(c.desplazamiento) >= 0.5 ? ` · a ${Math.abs(c.desplazamiento).toFixed(1)} m del eje` : ''}
+                <input type="checkbox" className="size-5 shrink-0" checked={!descartadas.has(i)} onChange={(e) => alternar(i, e.target.checked)} />
+                {/* Un solo bloque de texto, para que en el celular corra de corrido y no en columnas. */}
+                <span className="min-w-0 flex-1">
+                  {formatearProgresiva(c.progresiva)} · cota {c.cota.toFixed(3)} m
+                  {Math.abs(c.desplazamiento) >= 0.5 ? ` · a ${Math.abs(c.desplazamiento).toFixed(1)} m del eje` : ''}
+                  {!descartadas.has(i) && residuoDe.has(c.progresiva) && <ResiduoDeCota mm={residuoDe.get(c.progresiva)!} />}
+                </span>
               </label>
             </li>
           ))}
@@ -95,7 +121,16 @@ export default function TomarRasante({ cotas, actual, nivelacionesConTomas, alCo
       {actual && (
         <p className="rounded border border-aviso/60 bg-aviso/10 p-2">
           <span aria-hidden="true">△ </span>
-          La calle ya tiene rasante: <span className="numerico">{textoRasante(actual)}</span>. Se reemplaza
+          La calle ya tiene rasante: <span className="numerico">{textoRasante(actual)}</span>.
+          {mayorCambio && resultado && (
+            <>
+              {' '}
+              Con la nueva, la cota de proyecto del eje cambia hasta{' '}
+              <span className="numerico font-medium">{textoMm(mayorCambio.mm)}</span> (en{' '}
+              {formatearProgresiva(mayorCambio.progresiva)}).
+            </>
+          )}{' '}
+          Se reemplaza
           {nivelacionesConTomas > 0
             ? ` y cambian la cota de proyecto y la diferencia de ${nivelacionesConTomas === 1 ? 'una nivelación' : `${nivelacionesConTomas} nivelaciones`} ya medidas.`
             : '.'}

@@ -71,14 +71,16 @@ function textoObjetivo(objetivo: number | null, reglas: ReglasMira): string {
   if (objetivo === null) return 'falta altura instr.'
   if (!esNumero(objetivo)) return DATO_INVALIDO
   const t = formatearCota(objetivo)
+  // Una lectura que la mira no puede marcar no lleva número: un «-0.075» o un
+  // «4.250» copiados en campo se marcarían como si valieran.
   // La mira no puede marcar negativo: el punto queda por encima del instrumento.
-  if (objetivo < 0) return `${t} (cota sobre el instrumento: cambiar de estación)`
+  if (objetivo < 0) return 'sin lectura (cota sobre el instrumento: cambie de estación)'
   const rango = clasificarLectura(objetivo, reglas)
   if (rango === 'imposible')
     return objetivo > reglas.largoMira
-      ? `${t} (no cabe en la mira de ${reglas.largoMira} m: cambiar de estación)`
+      ? `sin lectura (no cabe en la mira de ${reglas.largoMira} m: cambie de estación)`
       : // El cero: el hilo no cae en el pie de la mira.
-        `${t} (lectura imposible: cambiar de estación)`
+        'sin lectura (lectura imposible: cambie de estación)'
   if (rango === 'pocoPrecisa') return `${t} (poco precisa)`
   return t
 }

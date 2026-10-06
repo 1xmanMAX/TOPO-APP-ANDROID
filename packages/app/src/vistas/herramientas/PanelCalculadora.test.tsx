@@ -1,7 +1,7 @@
 import type { Proyecto } from '@topo/core'
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAlmacen } from '../../estado/almacen'
 import { proyectoEjemplo } from '../../estado/ejemplo'
 import PanelCalculadora from './PanelCalculadora'
@@ -236,15 +236,17 @@ describe('PanelCalculadora', () => {
       expect(notasDeLaCalle()[0]!.texto).toMatch(/no comprobado/)
     })
 
-    it('deja de marcarlo si la AI y la lectura se escriben a mano', async () => {
+    it('si la AI se escribe a mano sigue sin comprobar, pero dice que es por la AI a mano', async () => {
       const usuario = userEvent.setup()
       render(<PanelCalculadora />)
       for (const campo of ['Altura instrumental', 'Lectura']) {
         await usuario.clear(screen.getByLabelText(campo))
         await usuario.type(screen.getByLabelText(campo), campo === 'Lectura' ? '1.5' : '100')
       }
-      expect(within(resultado('Cota')).getByText('98.500 m')).toBeInTheDocument()
-      expect(within(resultado('Cota')).queryByText(/No comprobado/)).not.toBeInTheDocument()
+      const cota = within(resultado('Cota'))
+      expect(cota.getByText('98.500 m')).toBeInTheDocument()
+      expect(cota.getByText(/No comprobado: AI escrita a mano/)).toBeInTheDocument()
+      expect(cota.queryByText(/datos de la libreta/)).not.toBeInTheDocument()
     })
   })
 
@@ -354,7 +356,90 @@ describe('PanelCalculadora', () => {
     const ai = screen.getByLabelText('Altura instrumental')
     await usuario.clear(ai)
     await usuario.type(ai, '3246.606')
-    expect(within(resultado('Lo que marca la mira')).getByText(/no comprobada/)).toBeInTheDocument()
+    const control = within(resultado('Lo que marca la mira'))
+    expect(control.getByText(/No comprobado/)).toBeInTheDocument()
+    // La libreta de este ejemplo SÍ cierra: lo que no está respaldado es la AI
+    // escrita a mano, y eso es lo que se dice (no «nivelación sin cerrar»).
+    expect(control.getByText(/escrita a mano/)).toBeInTheDocument()
+    expect(control.queryByText(/nivelación sin cerrar/)).not.toBeInTheDocument()
+    // Y la lectura objetivo misma, el número grande, también lo lleva: no
+    // basta con el ✓ de la cabecera, que habla de la AI de la libreta.
+    const objetivo = within(resultado('Lectura objetivo'))
+    expect(objetivo.getByText('2.066 m')).toBeInTheDocument()
+    expect(objetivo.getByText(/No comprobado: AI escrita a mano/)).toBeInTheDocument()
+    expect(screen.getByText(/AI de la estación activa comprobada/)).toBeInTheDocument()
+  })
+
+  it('la AI sacada de un punto conocido marca la cota como no comprobada, también en la nota', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelCalculadora />)
+    expect(within(resultado('Cota')).queryByText(/No comprobado/)).not.toBeInTheDocument()
+    await usuario.click(screen.getByText('Altura instrumental desde un punto conocido'))
+    await usuario.type(screen.getByLabelText('Cota del punto conocido'), '3245.180')
+    await usuario.type(screen.getByLabelText('Vista atrás'), '1.500')
+    await usuario.click(screen.getByRole('button', { name: 'Usar esta altura instrumental' }))
+    const cota = within(resultado('Cota'))
+    expect(cota.getByText('3244.624 m')).toBeInTheDocument()
+    expect(cota.getByText(/No comprobado: AI escrita a mano o sacada de un punto conocido/)).toBeInTheDocument()
+    await usuario.click(cota.getByRole('button', { name: 'Guardar como nota' }))
+    expect(notasDeLaCalle()[0]!.texto).toMatch(/no comprobado, AI escrita a mano/)
+    // En Lectura objetivo pasa lo mismo: la AI llegó de un punto conocido.
+    await usuario.click(screen.getByRole('tab', { name: 'Lectura objetivo' }))
+    expect(within(resultado('Lectura objetivo')).getByText(/No comprobado: AI escrita a mano/)).toBeInTheDocument()
+  })
+
+  it('una lectura nueva con la AI comprobada de la libreta no se marca', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelCalculadora />)
+    await usuario.clear(screen.getByLabelText('Lectura'))
+    await usuario.type(screen.getByLabelText('Lectura'), '1.605')
+    expect(within(resultado('Cota')).getByText('3245.000 m')).toBeInTheDocument()
+    expect(within(resultado('Cota')).queryByText(/No comprobado/)).not.toBeInTheDocument()
+  })
+
+  it('el corte/relleno sale justo debajo de los casilleros, antes que la lectura objetivo', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelCalculadora />)
+    await usuario.click(screen.getByRole('tab', { name: 'Lectura objetivo' }))
+    const mira = screen.getByLabelText('Lectura en la mira')
+    const control = resultado('Lo que marca la mira')
+    const objetivo = resultado('Lectura objetivo')
+    // En el celular el teclado tapa lo que queda abajo: el resultado de la
+    // mira va pegado a su casillero y antes que el objetivo.
+    expect(mira.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(control.compareDocumentPosition(objetivo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByLabelText('Tolerancia').compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Con la AI de la libreta y una nivelación que cerró, se dice que la cota
+    // no reparte el error de cierre (Revisar sí lo reparte).
+    expect(within(control).getByText(/sin repartir el error de cierre/)).toBeInTheDocument()
+  })
+
+  describe('en el celular', () => {
+    const subir = vi.fn()
+    beforeEach(() => {
+      subir.mockClear()
+      vi.stubGlobal('matchMedia', (consulta: string) => ({ matches: consulta.includes('max-width'), media: consulta }))
+      Element.prototype.scrollIntoView = subir
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      // jsdom no trae scrollIntoView: se quita para no dejarlo a otras pruebas.
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+    })
+
+    it('al tocar la lectura en la mira sube su casillero, para que el resultado quede sobre el teclado', async () => {
+      const usuario = userEvent.setup()
+      render(<PanelCalculadora />)
+      await usuario.click(screen.getByRole('tab', { name: 'Lectura objetivo' }))
+      expect(subir).not.toHaveBeenCalled()
+      await usuario.click(screen.getByLabelText('Lectura en la mira'))
+      expect(subir).toHaveBeenCalledWith({ block: 'start' })
+      expect(subir.mock.contexts.at(-1)).toBe(screen.getByLabelText('Lectura en la mira').closest('label'))
+      // La AI no tiene nada suyo debajo que el teclado tape: no se mueve.
+      subir.mockClear()
+      await usuario.click(screen.getByLabelText('Altura instrumental'))
+      expect(subir).not.toHaveBeenCalled()
+    })
   })
 
   it('sin rasante, Lectura objetivo pide la cota de proyecto', async () => {

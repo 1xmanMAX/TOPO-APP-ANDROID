@@ -1,7 +1,7 @@
 import { formatearProgresiva, progresivasDeLaToma, type EstadoTolerancia, type Id } from '@topo/core'
 import { useMemo } from 'react'
 import { useAlmacen } from '../estado/almacen'
-import { useContextoDe, useEvaluacionRasante } from '../estado/derivados'
+import { useContextoDe, useEvaluacionRasante, useResultadoDe } from '../estado/derivados'
 import { etiquetaAccesibleCelda, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasante'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import MapaGrilla, { type CeldaPintada } from './MapaGrilla'
@@ -58,6 +58,10 @@ interface Props {
 export default function MapaEstado({ idCampaniaReferencia }: Props) {
   const contexto = useContextoDe(idCampaniaReferencia)
   const evaluacion = useEvaluacionRasante(idCampaniaReferencia ?? '')
+  // Sin cierre dentro de tolerancia, nada de lo pintado está comprobado
+  // (diseño §3): lo dicen la leyenda y cada celda, no solo quien monte el mapa.
+  const resultado = useResultadoDe(idCampaniaReferencia)
+  const noComprobado = resultado !== null && resultado.cierre.pasa !== true
 
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
@@ -106,7 +110,10 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
 
     return {
       simbolo: SIMBOLO_ESTADO[celda.estado],
-      etiqueta: etiquetaAccesibleCelda(etiqueta, celda),
+      etiqueta:
+        noComprobado && celda.diferenciaMm !== null
+          ? `${etiquetaAccesibleCelda(etiqueta, celda)}, no comprobado`
+          : etiquetaAccesibleCelda(etiqueta, celda),
       clases: CLASES_ESTADO[celda.estado],
     }
   }
@@ -134,10 +141,18 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
             >
               {SIMBOLO_ESTADO[estado]}
             </span>
-            <span>{texto}</span>
+            <span>
+              {texto}
+              {noComprobado && (estado === 'conforme' || estado === 'alLimite' || estado === 'fuera') && ' (no comprobado)'}
+            </span>
           </li>
         ))}
       </ul>
+      {noComprobado && (
+        <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+          <span aria-hidden="true">△ </span>No comprobado: la nivelación no cerró dentro de tolerancia.
+        </p>
+      )}
     </div>
   )
 }

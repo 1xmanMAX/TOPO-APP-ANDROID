@@ -151,6 +151,51 @@ describe('PantallaGuia', () => {
     expect(notaVuelta).not.toHaveTextContent('✓')
   })
 
+  it('la orden de cerrar va también junto a «Hecho, siguiente», con la tolerancia y sin el ambiguo «si pasa»', async () => {
+    const recorrido = recorridoEsperado()
+    const llegada = recorrido.pasos.find((p) => p.sentido === 'ida' && p.llegaA)!
+    const vuelta = recorrido.pasos.find((p) => p.sentido === 'vuelta' && p.llegaA)!
+    const usuario = userEvent.setup()
+    render(<PantallaGuia />)
+    const recordatorio = () => screen.queryByRole('note', { name: 'Recordatorio de cierre' })
+    const siguiente = () => screen.getByRole('button', { name: 'Hecho, siguiente' })
+    const tolerancia = (el: HTMLElement) => /± \d+\.\d mm/.exec(el.textContent ?? '')?.[0]
+
+    // Un paso que no llega a un control no lleva recordatorio.
+    expect(recordatorio()).toBeNull()
+
+    // La lectura adelante va junto al botón en cada paso, igual que en la tarjeta.
+    for (const p of recorrido.pasos) {
+      if (p.indice > 0) await usuario.click(siguiente())
+      const barra = screen.getByLabelText('Lectura adelante')
+      expect(barra.parentElement).toBe(siguiente().parentElement)
+      expect(barra).toHaveTextContent(`Adelante: ${p.adelante.nombre} (`)
+      expect(barra).toHaveTextContent(`≈ ${p.adelante.lectura.toFixed(2)} m`)
+      expect(screen.getByRole('article')).toHaveTextContent(`lee adelante ≈ ${p.adelante.lectura.toFixed(2)} m`)
+    }
+    await usuario.click(siguiente())
+    expect(screen.queryByLabelText('Lectura adelante')).toBeNull()
+    await usuario.click(screen.getByRole('button', { name: 'Empezar de nuevo' }))
+
+    for (let i = 0; i < llegada.indice; i++) await usuario.click(siguiente())
+    expect(recordatorio()).toHaveTextContent(`Llegaste al ${llegada.llegaA!.nombre}`)
+    expect(recordatorio()).toHaveTextContent(/cerrar el tramo \(± \d+\.\d mm\)/)
+    // En la misma barra fija que el botón: si el botón se ve, el recordatorio también.
+    expect(recordatorio()!.parentElement).toBe(siguiente().parentElement)
+
+    for (let i = llegada.indice; i < vuelta.indice; i++) await usuario.click(siguiente())
+    const notaVuelta = within(screen.getByRole('article')).getByRole('note')
+    const tol = tolerancia(notaVuelta)!
+    expect(tol).toBeDefined()
+    expect(recordatorio()).toHaveTextContent(`cierra el tramo en el ${vuelta.llegaA!.nombre}`)
+    expect(tolerancia(recordatorio()!)).toBe(tol)
+    expect(recordatorio()).toHaveTextContent('Si se pasa, repítelo')
+    expect(recordatorio()).not.toHaveTextContent('✓')
+    // «Pasa» en la app es conforme: aquí se dice «si se pasa de la tolerancia».
+    expect(notaVuelta).toHaveTextContent(`Si se pasa de ${tol}, repite el tramo`)
+    expect(notaVuelta).not.toHaveTextContent(/Si pasa/)
+  })
+
   it('al terminar dice que la guía está completa y deja empezar de nuevo', async () => {
     const total = recorridoEsperado().pasos.length
     const usuario = userEvent.setup()

@@ -1125,6 +1125,13 @@ describe('guardar un .topo en el disco', () => {
     expect(nombres).toEqual(['Jr Lima  2.topo'])
   })
 
+  it('las tildes y la eñe se quedan en el nombre del archivo', () => {
+    // Pasó en el navegador: «Pavimentación» bajaba como «Pavimentacin».
+    descargarTopo(conNombre('Pavimentación Ñaña — Huancayo'))
+
+    expect(nombres).toEqual(['Pavimentación Ñaña  Huancayo.topo'])
+  })
+
   it('un nombre que se queda en nada no da un archivo llamado solo «.topo»', () => {
     // En la carpeta de descargas, un archivo llamado «.topo» no le dice nada
     // a nadie —y el siguiente lo pisaría—.

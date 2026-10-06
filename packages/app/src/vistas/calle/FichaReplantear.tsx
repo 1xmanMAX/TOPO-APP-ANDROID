@@ -13,6 +13,8 @@ import { useAlmacen } from '../../estado/almacen'
 import { useContexto, useProgresivas } from '../../estado/derivados'
 import { formatearCota } from '../../formato'
 import {
+  alturaInstrumentalDeEstacion,
+  AVISO_DESTACADO,
   BOTON_PRINCIPAL,
   BOTON_SECUNDARIO,
   estacionComprobada,
@@ -85,9 +87,17 @@ export default function FichaReplantear() {
   const vistaAtrasEscrita = textoVistaAtras.trim() !== ''
   const indiceSeguro = contexto ? Math.min(estacionActiva, Math.max(0, contexto.campania.estaciones.length - 1)) : 0
   let alturaInstrumental = Number.NaN
+  let correccionMm = 0
   let comprobado = false
   if (origen === 'libreta') {
-    alturaInstrumental = resultado?.cotasInstrumento[indiceSeguro] ?? Number.NaN
+    // Compensada si el circuito cerró: el objetivo tiene que cuadrar con lo que Revisar juzgará después.
+    if (contexto && resultado) {
+      ;({ altura: alturaInstrumental, correccionMm } = alturaInstrumentalDeEstacion(
+        resultado,
+        contexto.campania,
+        indiceSeguro,
+      ))
+    }
     // Solo si el cierre respalda esta estación (no una de antes de volver a arrancar en un BM).
     comprobado = resultado ? estacionComprobada(resultado, indiceSeguro) : false
   } else if (bm) {
@@ -231,7 +241,24 @@ export default function FichaReplantear() {
           {Number.isFinite(alturaInstrumental) ? (
             <>
               AI <strong className="numerico">{formatearCota(alturaInstrumental)}</strong>
+              {origen === 'libreta' && correccionMm !== 0 && (
+                <>
+                  {' '}
+                  compensada (
+                  <span className="numerico">
+                    {correccionMm > 0 ? '+' : '−'}
+                    {Math.abs(correccionMm).toFixed(1)} mm
+                  </span>{' '}
+                  sobre la CI de la libreta)
+                </>
+              )}
               {origen === 'libreta' && <> · estación {indiceSeguro + 1} de la libreta</>}
+              {origen === 'bm' && bm && (
+                <>
+                  {' '}
+                  · {bm.nombre} {bm.tipo === 'oficial' ? 'oficial' : 'auxiliar'}
+                </>
+              )}
             </>
           ) : origen === 'libreta' ? (
             'La estación de la libreta no tiene vista atrás: escríbela en Medir o parte de un BM.'
@@ -247,9 +274,11 @@ export default function FichaReplantear() {
       </fieldset>
 
       {!hoja.comprobado && (
-        <p className="rounded border border-aviso bg-aviso/10 px-3 py-2 text-sm text-aviso">
+        <p className={AVISO_DESTACADO}>
           <span aria-hidden="true">△ </span>
-          {AVISO_HOJA_SIN_COMPROBAR}
+          {origen === 'bm' && bm && bm.tipo !== 'oficial'
+            ? `${bm.nombre} es un BM auxiliar: su cota vale lo que la nivelación que lo dejó. Cotas no comprobadas.`
+            : AVISO_HOJA_SIN_COMPROBAR}
         </p>
       )}
 
@@ -343,7 +372,7 @@ export default function FichaReplantear() {
                   <p className="text-sm font-semibold">{VISUAL_ESTADO[veredicto.estado].texto}</p>
                   {veredicto.sospechosa && <p className="text-base font-bold">¿Leíste bien?</p>}
                   {veredicto.avisos.map((aviso) => (
-                    <p key={aviso} className="text-xs">
+                    <p key={aviso} className="text-sm font-semibold">
                       {aviso}
                     </p>
                   ))}
@@ -392,7 +421,7 @@ export default function FichaReplantear() {
         {hoja.avisos
           .filter((aviso) => aviso !== AVISO_HOJA_SIN_COMPROBAR)
           .map((aviso) => (
-          <p key={aviso} className="text-xs text-aviso">
+          <p key={aviso} className={AVISO_DESTACADO}>
             <span aria-hidden="true">△ </span>
             {aviso}
           </p>

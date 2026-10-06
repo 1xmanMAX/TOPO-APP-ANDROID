@@ -2,7 +2,17 @@ import { chromium } from 'playwright'
 import { unzipSync, strFromU8 } from 'fflate'
 import { readFileSync, mkdirSync } from 'node:fs'
 
-const BASE = 'http://localhost:4173/'
+/**
+ * El recorrido de punta a punta sobre el proyecto de ejemplo con que arranca
+ * la app (Av. Sol, SUBRASANTE y BASE), por la navegación de la ola 2:
+ * Obra › Calles (sección y bancos de nivel), Calle › Medir y Revisar,
+ * Informes (tablas para Excel) y el menú Archivo.
+ *
+ * Uso: node verificacion/recorrido.mjs <carpeta-de-salida>
+ * La URL sale de BASE (por defecto http://localhost:4173/).
+ */
+
+const BASE = process.env.BASE ?? 'http://localhost:4173/'
 const SALIDA = process.argv[2] ?? '.'
 mkdirSync(SALIDA, { recursive: true })
 
@@ -13,23 +23,55 @@ function comprobar(nombre, ok, detalle = '') {
 }
 
 const navegador = await chromium.launch()
-const contexto = await navegador.newContext({ acceptDownloads: true })
+const contexto = await navegador.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 800 } })
 const pagina = await contexto.newPage()
 
 const erroresConsola = []
 pagina.on('console', (m) => { if (m.type() === 'error') erroresConsola.push(m.text()) })
 pagina.on('pageerror', (e) => erroresConsola.push('pageerror: ' + e.message))
 
-await pagina.goto(BASE, { waitUntil: 'networkidle' })
+// Con el servidor de desarrollo, 'networkidle' no llega nunca: se espera a 'load'.
+await pagina.goto(BASE, { waitUntil: 'load', timeout: 120000 })
 
-// 1. La app arranca y muestra la navegación
+// Atajos de la navegación nueva: la barra de espacios y las sub-barras.
+const espacios = pagina.getByRole('navigation', { name: 'Espacios' })
+async function irA(espacio) {
+  await espacios.getByRole('button', { name: espacio, exact: true }).click()
+}
+async function irAModo(modo) {
+  await irA('Calle')
+  await pagina.getByRole('navigation', { name: 'Modos de la calle' }).getByRole('button', { name: modo, exact: true }).click()
+  await pagina.getByRole('heading', { name: modo, exact: true, level: 2 }).waitFor({ timeout: 10000 })
+}
+async function irAObraCalles() {
+  await irA('Obra')
+  await pagina.getByRole('navigation', { name: 'Pantallas de la obra' }).getByRole('button', { name: 'Calles', exact: true }).click()
+}
+/** Abre un apartado plegable de Obra › Calles si está cerrado (se pliegan al salir de Obra). */
+async function abrirApartado(nombre) {
+  const boton = pagina.getByRole('button', { name: nombre, exact: true })
+  if ((await boton.getAttribute('aria-expanded')) !== 'true') await boton.click()
+}
+/** El corte nombra cada punto dibujado con su cota: «0+000 Eje · cota 3244.597 m». */
+async function cotaEnElCorte(progresiva, punto) {
+  const nombre = `${progresiva} ${punto} · cota`
+  return pagina
+    .getByRole('img', { name: /Corte transversal/ })
+    .locator(`circle[aria-label^="${nombre}"]`)
+    .first()
+    .getAttribute('aria-label')
+    .catch(() => null)
+}
+
+// 1. La app arranca y muestra la navegación: Obra · Calle · Informes.
+const botonesEspacio = (await espacios.getByRole('button').allTextContents()).map((t) => t.trim())
 comprobar('la app arranca y muestra la navegación',
-  await pagina.getByRole('button', { name: 'Libreta', exact: true }).isVisible())
+  ['Obra', 'Calle', 'Informes'].every((n) => botonesEspacio.includes(n)), botonesEspacio.join(' · '))
 
 // 2. RIESGO ABIERTO: el foco al reordenar la sección por distancia.
-// La pantalla «Plantilla» ya no existe: los puntos y sus distancias viven en
-// la sección declarada de la calle, y es esa lista la que se reordena sola.
-await pagina.getByRole('button', { name: 'Sección', exact: true }).click()
+// La sección vive en Obra › Calles, en el panel de la calle (el apartado
+// «Sección» viene abierto), y es esa lista la que se reordena sola.
+await irAObraCalles()
 const distanciaVereda = pagina.getByLabel('Distancia al eje de Vereda izquierda')
 await distanciaVereda.click()
 await distanciaVereda.fill('')
@@ -42,31 +84,33 @@ const valorTrasEscribir = await distanciaVereda.inputValue()
 comprobar('el foco se mantiene al reordenar la sección en un navegador real',
   foco === 'Distancia al eje de Vereda izquierda', `foco en "${foco}", valor "${valorTrasEscribir}"`)
 
-// Devolver la sección a su estado: salir del campo es lo que cierra el cambio.
+// Devolver la sección a su estado: Enter cierra el cambio.
 await distanciaVereda.fill('-5.60')
-await pagina.getByRole('button', { name: 'Proyecto', exact: true }).click()
+await distanciaVereda.press('Enter')
+await distanciaVereda.blur()
 
-// 3. Corregir la cota de un BM recalcula
-await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
-// El nombre accesible de la celda lleva el nombre completo del punto («Eje»),
-// no la palabra corta de la cabecera: la sección permite la misma palabra a
-// los dos lados, y dos celdas anunciadas igual no se distinguirían de oído.
-const cotaAntes = await pagina.getByRole('button', { name: /^Cota en 0\+000 Eje/ }).textContent()
-await pagina.getByRole('button', { name: 'Proyecto', exact: true }).click()
-const campoCota = pagina.getByLabel('Cota').first()
+// 3. Corregir la cota de un BM recalcula. La cota se lee en el corte de
+// Calle › Revisar, que nombra cada punto con su cota; el BM se corrige en
+// Obra › Calles › Bancos de nivel.
+await irAModo('Revisar')
+const cotaAntes = await cotaEnElCorte('0+000', 'Eje')
+await irAObraCalles()
+await abrirApartado('Bancos de nivel')
+const campoCota = pagina.getByLabel('Cota de BM-1')
 await campoCota.fill('3245.280')
 await campoCota.blur()
-await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
-const cotaDespues = await pagina.getByRole('button', { name: /^Cota en 0\+000 Eje/ }).textContent()
+await irAModo('Revisar')
+const cotaDespues = await cotaEnElCorte('0+000', 'Eje')
 comprobar('corregir la cota del BM recalcula todo el proyecto',
-  cotaAntes !== cotaDespues && cotaDespues.startsWith('3244.697'),
+  cotaAntes !== cotaDespues && /cota 3244\.697/.test(cotaDespues ?? ''),
   `${cotaAntes} -> ${cotaDespues}`)
-await pagina.getByRole('button', { name: 'Proyecto', exact: true }).click()
-await pagina.getByLabel('Cota').first().fill('3245.180')
-await pagina.getByLabel('Cota').first().blur()
+await irAObraCalles()
+await abrirApartado('Bancos de nivel')
+await pagina.getByLabel('Cota de BM-1').fill('3245.180')
+await pagina.getByLabel('Cota de BM-1').blur()
 
-// 4. La libreta: escribir una lectura con Enter
-await pagina.getByRole('button', { name: 'Libreta', exact: true }).click()
+// 4. La libreta (Calle › Medir): escribir una lectura con Enter.
+await irAModo('Medir')
 const llenasAntes = await pagina.getByText(/llenadas \d+ de \d+/).textContent()
 const campoLectura = pagina.getByLabel('Lectura de mira')
 await campoLectura.click()
@@ -76,33 +120,31 @@ const llenasDespues = await pagina.getByText(/llenadas \d+ de \d+/).textContent(
 comprobar('escribir una lectura y pulsar Enter la registra',
   llenasAntes !== llenasDespues, `${llenasAntes} -> ${llenasDespues}`)
 
-// 5. La barra de cierre da el veredicto
-const barra = await pagina.getByText(/PASA|FUERA DE TOLERANCIA|sin verificación|falta cerrar/).first().textContent()
-comprobar('la barra de cierre da un veredicto', Boolean(barra), barra?.trim())
+// 5. El cierre en vivo da el veredicto, con su símbolo.
+const barra = (await pagina.getByRole('region', { name: 'Cierre en vivo' }).innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
+comprobar('el cierre en vivo da un veredicto con su símbolo',
+  /^(✓ Cierra|✗ No cierra|△ Sin cerrar|✗ No se puede calcular)/.test(barra), barra.slice(0, 120))
 
 await pagina.screenshot({ path: `${SALIDA}/libreta.png`, fullPage: true })
 
-// 6. El corte transversal se dibuja
+// 6. El corte transversal se dibuja en Medir.
 const corte = pagina.getByRole('img', { name: /Corte transversal/ })
 comprobar('el corte transversal se dibuja en la libreta', await corte.isVisible(),
   await corte.getAttribute('aria-label'))
 
-// 7. El deslizador mueve la progresiva
-await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
-const deslizador = pagina.getByLabel('Progresiva')
+// 7. El deslizador mueve la progresiva (en Revisar).
+await irAModo('Revisar')
+const deslizador = pagina.getByRole('slider', { name: 'Progresiva' })
 await deslizador.focus()
+await deslizador.press('Home')
 await deslizador.press('ArrowRight')
 const corteTras = await pagina.getByRole('img', { name: /Corte transversal/ }).getAttribute('aria-label')
-comprobar('el deslizador mueve el corte de progresiva', /0\+0[24]0/.test(corteTras), corteTras)
+comprobar('el deslizador mueve el corte de progresiva', /0\+0[24]0/.test(corteTras ?? ''), corteTras)
 
 // 8. Una celda sin medir se enseña como tal, y el corte no se la inventa.
-//    Esto pulsaba 0+100, una progresiva que la calle traía configurada y que
-//    nadie había medido, para ver el aviso de «no tiene lecturas». Ya no hay
-//    forma de llegar ahí desde la tabla: se arma con las progresivas MEDIDAS,
-//    así que una progresiva entera vacía no llega a salir en ella. Lo que sí
-//    queda —y es lo mismo que se vigilaba: que no se enseñe un dato que no
-//    existe— es la celda sin medir dentro de una progresiva que sí se midió.
-const celdaSinMedir = pagina.getByRole('button', { name: /^Cota en 0\+080 Vereda derecha/ })
+// En Revisar el mapa nombra cada celda con su estado; la vereda derecha no
+// la midió nadie en el ejemplo.
+const celdaSinMedir = pagina.getByRole('button', { name: /^0\+080 Vereda derecha/ })
 const etiquetaSinMedir = await celdaSinMedir.getAttribute('aria-label')
 await celdaSinMedir.click()
 comprobar('una celda sin medir se anuncia como sin medir, no con un número',
@@ -116,14 +158,16 @@ comprobar('el corte no dibuja ningún punto para la celda sin medir',
   puntosDelCorte.length > 0 && !puntosDelCorte.some((n) => n?.includes('Vereda derecha')),
   puntosDelCorte.join(' | '))
 
-// 8b. Volver a una progresiva medida devuelve el corte
-await pagina.getByRole('button', { name: /^Cota en 0\+020 Eje/ }).click()
+// 8b. Volver a una progresiva medida devuelve el corte.
+await pagina.getByRole('button', { name: /^0\+020 Eje:/ }).click()
 const corteVuelta = await pagina.getByRole('img', { name: /Corte transversal/ }).getAttribute('aria-label')
-comprobar('volver a una progresiva medida devuelve el corte', /0\+020/.test(corteVuelta), corteVuelta)
+comprobar('volver a una progresiva medida devuelve el corte', /0\+020/.test(corteVuelta ?? ''), corteVuelta)
 
 await pagina.screenshot({ path: `${SALIDA}/resultados.png`, fullPage: true })
 
-// 9. RIESGO ABIERTO: exportar a Excel y validar el archivo
+// 9. RIESGO ABIERTO: exportar a Excel y validar el archivo. Las tablas para
+// Excel están ahora en Informes, debajo de los PDF.
+await irA('Informes')
 const descarga = await Promise.all([
   pagina.waitForEvent('download'),
   pagina.getByRole('button', { name: 'Exportar cotas a Excel' }).click(),
@@ -141,23 +185,24 @@ comprobar('la hoja contiene las cotas como número',
   /<c r="[A-Z]+\d+"><v>3244\.\d{3}<\/v><\/c>/.test(hoja),
   (hoja.match(/<c r="[A-Z]+2"[^>]*>.{0,40}/g) ?? []).slice(0, 3).join(' | '))
 
-// 10. Descargar y reabrir el .topo
+// 10. Descargar el .topo desde el menú Archivo.
+await pagina.getByRole('button', { name: 'Archivo', exact: true }).click()
 const descargaTopo = await Promise.all([
   pagina.waitForEvent('download'),
-  pagina.getByRole('button', { name: 'Guardar' }).click(),
+  pagina.getByRole('group', { name: 'Archivo del proyecto' }).getByRole('button', { name: 'Guardar', exact: true }).click(),
 ]).then(([d]) => d)
 const rutaTopo = `${SALIDA}/proyecto.topo`
 await descargaTopo.saveAs(rutaTopo)
 const contenidoTopo = unzipSync(new Uint8Array(readFileSync(rutaTopo)))
 const proyecto = JSON.parse(strFromU8(contenidoTopo['proyecto.json']))
-// Las tomas ya no cuelgan del proyecto: cuelgan de la nivelación de su calle,
-// que es lo que las agrupa desde que una calle puede tener varias.
+// Las tomas cuelgan de la nivelación de su calle.
 const tomas = proyecto.calles.flatMap((calle) => calle.nivelaciones.flatMap((n) => n.tomas))
 comprobar('el .topo guarda el proyecto con sus lecturas',
   tomas.length > 0 && tomas[0].estaciones[0].intermedias.length >= 2,
   `${tomas.length} tomas, ${tomas[0]?.estaciones.length} estaciones, ${proyecto.meta.nombre}`)
+await pagina.keyboard.press('Escape')
 
-// 11. Modo oscuro
+// 11. Modo oscuro: el botón de tema pasa de «Sistema» a «Oscuro».
 const botonTema = pagina.getByRole('button', { name: 'Cambiar tema' })
 const temaInicial = await botonTema.textContent()
 await botonTema.click()
@@ -166,7 +211,7 @@ comprobar('el botón de tema activa el modo oscuro', oscuroActivo,
   `${temaInicial} -> ${await botonTema.textContent()}`)
 await pagina.screenshot({ path: `${SALIDA}/oscuro.png`, fullPage: true })
 
-// 12. Sin errores de consola
+// 12. Sin errores de consola.
 comprobar('la app no produce errores en la consola del navegador',
   erroresConsola.length === 0, erroresConsola.slice(0, 3).join(' | '))
 

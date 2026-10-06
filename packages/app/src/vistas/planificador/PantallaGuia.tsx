@@ -220,6 +220,26 @@ export default function PantallaGuia() {
       )}
 
       <div className="sticky bottom-0 grid grid-cols-2 gap-2 bg-white py-2 dark:bg-slate-950">
+        {/*
+          En el celular el final de la tarjeta puede quedar bajo el borde. Lo último que se hace antes de
+          pulsar «Hecho, siguiente» (leer adelante y, al llegar a un control, cerrar el tramo) va junto al botón.
+        */}
+        {paso && (
+          <p aria-label="Lectura adelante" className="col-span-2 text-sm">
+            Adelante: {paso.adelante.nombre} ({formatearProgresiva(paso.adelante.progresiva)}) ≈{' '}
+            <strong className="numerico">{paso.adelante.lectura.toFixed(2)} m</strong>
+          </p>
+        )}
+        {paso?.llegaA && (
+          <p
+            role="note"
+            aria-label="Recordatorio de cierre"
+            className="col-span-2 rounded border border-marca bg-marca/10 px-2 py-1 text-sm font-medium"
+          >
+            <span aria-hidden="true">⚑ </span>
+            {recordatorioDeCierre(paso)}
+          </p>
+        )}
         <button type="button" className={BOTON} disabled={indice === 0} onClick={() => ir(indice - 1)}>
           Anterior
         </button>
@@ -235,6 +255,18 @@ export default function PantallaGuia() {
       </div>
     </section>
   )
+}
+
+/**
+ * La orden de cerrar, corta, para la barra del botón: así no se pulsa
+ * «Hecho, siguiente» sin haberla visto.
+ */
+export function recordatorioDeCierre(paso: PasoGuia): string {
+  const llega = paso.llegaA!
+  const tol = `± ${llega.tramo.toleranciaMm.toFixed(1)} mm`
+  return paso.sentido === 'vuelta'
+    ? `Antes de seguir, cierra el tramo en el ${llega.nombre}: ida y vuelta dentro de ${tol}. Si se pasa, repítelo.`
+    : `Llegaste al ${llega.nombre}: compara su cota y vuelve por los mismos PC para cerrar el tramo (${tol}).`
 }
 
 /** Qué hacer si una lectura no se ve, según el borde de la mira al que está cerca. */
@@ -340,8 +372,8 @@ function Tarjeta({
             <p>
               <span aria-hidden="true">⚑ </span>
               Llegaste de vuelta al <strong>{paso.llegaA.nombre}</strong>. Cierra el tramo: la diferencia entre ida y
-              vuelta debe quedar dentro de ± {tramo.toleranciaMm.toFixed(1)} mm. Si pasa, repite el tramo antes de
-              seguir.
+              vuelta debe quedar dentro de ± {tramo.toleranciaMm.toFixed(1)} mm. Si se pasa de ±{' '}
+              {tramo.toleranciaMm.toFixed(1)} mm, repite el tramo antes de seguir.
             </p>
           ) : (
             <p>

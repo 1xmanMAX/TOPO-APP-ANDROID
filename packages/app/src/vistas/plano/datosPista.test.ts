@@ -1,6 +1,16 @@
-import { seccionDeFabrica, type Calle, type PistaCalibrada } from '@topo/core'
+import { cotaEjeRasante, seccionDeFabrica, type Calle, type PistaCalibrada } from '@topo/core'
 import { describe, expect, it } from 'vitest'
-import { anguloHaciaDondeBaja, datosDePista, estacasDeCroquis, rasanteDeCroquis, rasanteDesdeCotas, trozoDePista } from './datosPista'
+import { construirObraSimulada, IDS } from '../../pruebas/obraSimulada'
+import {
+  anguloHaciaDondeBaja,
+  cambioDeCotaProyecto,
+  datosDePista,
+  estacasDeCroquis,
+  estadoDeNivelaciones,
+  rasanteDeCroquis,
+  rasanteDesdeCotas,
+  trozoDePista,
+} from './datosPista'
 
 /** Pista quebrada: 60 m hacia +X y 40 m hacia +Y, en metros. */
 const pista: PistaCalibrada = {
@@ -114,5 +124,83 @@ describe('datos de una pista sobre el plano', () => {
     expect(estacasDeCroquis([{ x: 0, y: 0 }], { metrosPorUnidad: 1 })).toEqual([])
     expect(estacasDeCroquis([{ x: 0, y: 0 }, { x: 50, y: 0 }], null)).toEqual([])
     expect(estacasDeCroquis([{ x: 0, y: 0 }, { x: 50, y: 0 }], { metrosPorUnidad: 1 }).map((e) => e.progresiva)).toEqual([0, 20, 40, 50])
+  })
+})
+
+describe('rasante desde las cotas del plano sin quiebres (Psje. Las Lomas)', () => {
+  // Las cotas del DXF de la obra simulada: +7.37 % y +7.40 %, que no llegan a quiebre (0.5 %).
+  const cotasLasLomas = [
+    { progresiva: 0, cota: 3244, desplazamiento: 0 },
+    { progresiva: 60, cota: 3248.42, desplazamiento: 0 },
+    { progresiva: 120, cota: 3252.86, desplazamiento: 0 },
+  ]
+
+  it('la pendiente sale de la primera y la última cota, no del primer tramo', () => {
+    const r = rasanteDesdeCotas(cotasLasLomas, null)!
+    expect(r.valeHasta).toBeNull()
+    expect(r.rasante.pendienteLongitudinal).toBeCloseTo((8.86 / 120) * 100, 9)
+    // La cota de proyecto en 0+120 es la del plano, no 3252.840 (20 mm abajo, la tolerancia entera de la subrasante).
+    expect(cotaEjeRasante(r.rasante, 120)).toBe(3252.86)
+    expect(cotaEjeRasante(r.rasante, 0)).toBe(3244)
+  })
+
+  it('dice cuánto se aparta cada cota y avisa la de 0+060 (−10 mm)', () => {
+    const r = rasanteDesdeCotas(cotasLasLomas, null)!
+    expect(r.residuos).toEqual([
+      { progresiva: 0, mm: 0 },
+      { progresiva: 60, mm: -10 },
+      { progresiva: 120, mm: 0 },
+    ])
+    expect(r.mayorResiduo).toEqual({ progresiva: 60, mm: -10 })
+    expect(r.aviso).toMatch(/0\+060 queda a -10 mm/)
+  })
+
+  it('un residuo chico se muestra pero no se avisa', () => {
+    const r = rasanteDesdeCotas(
+      [
+        { progresiva: 0, cota: 100, desplazamiento: 0 },
+        { progresiva: 50, cota: 101.003, desplazamiento: 0 },
+        { progresiva: 100, cota: 102, desplazamiento: 0 },
+      ],
+      null,
+    )!
+    expect(r.mayorResiduo).toEqual({ progresiva: 50, mm: 3 })
+    expect(r.aviso).toBeNull()
+  })
+
+  it('las cotas desordenadas dan la misma rasante', () => {
+    const r = rasanteDesdeCotas([cotasLasLomas[2]!, cotasLasLomas[0]!, cotasLasLomas[1]!], null)!
+    expect(r.rasante.cotaArranque).toBe(3244)
+    expect(cotaEjeRasante(r.rasante, 120)).toBe(3252.86)
+  })
+
+  it('contra la +7.38 % que ya tenía la calle, la cota de proyecto cambia +4 mm en 0+120', () => {
+    const { proyecto } = construirObraSimulada()
+    const actual = proyecto.calles.find((c) => c.id === IDS.lasLomas)!.rasante!
+    const nueva = rasanteDesdeCotas(cotasLasLomas, actual)!.rasante
+    expect(cambioDeCotaProyecto(actual, nueva, [0, 60, 120])).toEqual([
+      { progresiva: 0, mm: 0 },
+      { progresiva: 60, mm: 2 },
+      { progresiva: 120, mm: 4 },
+    ])
+  })
+})
+
+describe('capas medidas de la ficha (obra simulada)', () => {
+  const { proyecto } = construirObraSimulada()
+  const calleDe = (id: string) => proyecto.calles.find((c) => c.id === id)!
+
+  it('la nivelación sin cerrar de Jr. Lima se dice «no comprobada» con ·, nunca con △', () => {
+    const [lima] = estadoDeNivelaciones(calleDe(IDS.jrLima), proyecto)
+    expect(lima).toMatchObject({ simbolo: '·', texto: 'SUBRASANTE · 02/10/2026' })
+    expect(lima!.estado).toMatch(/no comprobad/i)
+  })
+
+  it('las de Av. Sol cerraron: ✓ y fecha en dd/mm/aaaa', () => {
+    const sol = estadoDeNivelaciones(calleDe(IDS.avSol), proyecto)
+    expect(sol.map((n) => [n.simbolo, n.texto, n.estado])).toEqual([
+      ['✓', 'SUBRASANTE · 14/09/2026', 'cerró'],
+      ['✓', 'BASE · 28/09/2026', 'cerró'],
+    ])
   })
 })

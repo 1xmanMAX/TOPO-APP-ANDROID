@@ -809,7 +809,9 @@ export function descargarTopo(proyecto: Proyecto, archivosDePlano: ArchivosDePla
   const url = URL.createObjectURL(new Blob([datos], { type: 'application/zip' }))
 
   enlace.href = url
-  enlace.download = `${proyecto.meta.nombre.replace(/[^\w\s-]/g, '').trim() || 'proyecto'}.topo`
+  // Letras de cualquier idioma, no solo las del inglés: con `\w` la
+  // «Pavimentación» se descargaba como «Pavimentacin» y la «Ñaña», como «aa».
+  enlace.download = `${proyecto.meta.nombre.replace(/[^\p{L}\p{N}\s-]/gu, '').trim() || 'proyecto'}.topo`
   enlace.click()
   URL.revokeObjectURL(url)
 }

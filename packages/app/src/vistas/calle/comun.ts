@@ -1,5 +1,6 @@
 import {
   claveCelda,
+  correccionesDeLaToma,
   instrumentoCompleto,
   type Accion,
   type EstadoAviso,
@@ -88,6 +89,38 @@ export function estacionComprobada(resultado: ResultadoCampania, indiceEstacion:
   const primera = resultado.tramoComprobado?.primeraEstacion
   return primera !== undefined && indiceEstacion >= primera
 }
+
+/**
+ * La altura del instrumento con la que se cuenta en una estación: la misma
+ * que respalda las cotas de Revisar. Si el circuito cerró, lleva la
+ * compensación de esa estación (`correccionesDeLaToma`, la única regla de
+ * compensación del motor); si no, es la de la libreta tal cual, y lo que se
+ * calcule con ella no está comprobado.
+ *
+ * Sin esto, en una toma que cerró con −4 mm, el aviso al anotar y el
+ * replanteo contaban con la AI sin compensar: daban un número hasta 4 mm
+ * corrido del que Revisar juzga después, y lo daban por comprobado.
+ * `correccionMm` es lo que se le sumó (0 si no se compensó).
+ */
+export function alturaInstrumentalDeEstacion(
+  resultado: ResultadoCampania,
+  toma: Toma,
+  indiceEstacion: number,
+): { altura: number; correccionMm: number } {
+  const cruda = resultado.cotasInstrumento[indiceEstacion] ?? Number.NaN
+  const { errorMm, pasa } = resultado.cierre
+  if (pasa !== true || errorMm === null || !Number.isFinite(cruda)) return { altura: cruda, correccionMm: 0 }
+  const correccion = correccionesDeLaToma(errorMm, toma)[indiceEstacion] ?? 0
+  return { altura: cruda + correccion, correccionMm: Math.round(correccion * 1e4) / 10 }
+}
+
+/**
+ * Cómo se escribe un aviso de «no comprobado»: tiene que leerse a pleno sol
+ * en el celular. El ámbar del tema sobre blanco no se lee en letra chica, así
+ * que el texto va en ámbar oscuro, de 14 px y en negrita, sobre su recuadro.
+ */
+export const AVISO_DESTACADO =
+  'rounded border border-aviso bg-aviso/10 px-3 py-2 text-sm font-semibold text-amber-900 dark:text-amber-200'
 
 /** La estación de la última lectura que cayó en la celda: es la que manda en su cota. Null si no se midió. */
 export function estacionDeCelda(toma: Toma, clave: string): number | null {

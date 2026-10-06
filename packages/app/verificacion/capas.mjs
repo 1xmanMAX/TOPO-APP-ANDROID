@@ -2,7 +2,23 @@ import { chromium } from 'playwright'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { unzipSync, strFromU8 } from 'fflate'
 
-const BASE = 'http://localhost:4173/'
+/**
+ * Entrega 2A por la navegación de la ola 2: registrar una segunda jornada
+ * sobre la misma calle, en otra capa, y comparar las dos. Sobre el proyecto
+ * de ejemplo con que arranca la app (Av. Sol, SUBRASANTE y BASE).
+ *
+ * - Obra › Calles: «Nueva jornada», y en «Jornadas y hojas» se le corrige la
+ *   capa a TERRENO EXISTENTE y se abre en la libreta.
+ * - Calle › Medir: vista atrás, progresivas declaradas y dos lecturas.
+ * - Calle › Análisis › Espesores: la comparación de las dos capas y las
+ *   casillas «Dibujar …»; Calle › Revisar dibuja las dos en el corte.
+ * - Informes › Control de espesores: el Excel de espesores.
+ *
+ * Uso: node verificacion/capas.mjs <carpeta-de-salida>
+ * La URL sale de BASE (por defecto http://localhost:4173/).
+ */
+
+const BASE = process.env.BASE ?? 'http://localhost:4173/'
 const SALIDA = process.argv[2] ?? '.'
 mkdirSync(SALIDA, { recursive: true })
 
@@ -13,36 +29,75 @@ function comprobar(nombre, ok, detalle = '') {
 }
 
 const navegador = await chromium.launch()
-const pagina = await navegador.newPage()
+const contexto = await navegador.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 800 } })
+const pagina = await contexto.newPage()
 
 const erroresConsola = []
 pagina.on('console', (m) => { if (m.type() === 'error') erroresConsola.push(m.text()) })
 pagina.on('pageerror', (e) => erroresConsola.push('pageerror: ' + e.message))
 
-await pagina.goto(BASE, { waitUntil: 'networkidle' })
+await pagina.goto(BASE, { waitUntil: 'load', timeout: 120000 })
 
-// 1. Registrar una segunda campaña sobre la misma calle, en la capa de abajo.
-// Al crearla, la app salta sola a la libreta, así que se vuelve para contar.
-await pagina.getByRole('button', { name: 'Campañas', exact: true }).click()
-await pagina.getByRole('button', { name: /nueva campaña/i }).click()
-await pagina.getByRole('button', { name: 'Campañas', exact: true }).click()
-comprobar('se puede registrar una segunda campaña sobre la misma calle',
-  (await pagina.getByRole('button', { name: /Abrir campaña del/ }).count()) >= 2)
+const espacios = pagina.getByRole('navigation', { name: 'Espacios' })
+async function irA(espacio) {
+  await espacios.getByRole('button', { name: espacio, exact: true }).click()
+}
+async function irAObraCalles() {
+  await irA('Obra')
+  await pagina.getByRole('navigation', { name: 'Pantallas de la obra' }).getByRole('button', { name: 'Calles', exact: true }).click()
+}
+async function abrirApartado(nombre) {
+  const boton = pagina.getByRole('button', { name: nombre, exact: true })
+  if ((await boton.getAttribute('aria-expanded')) !== 'true') await boton.click()
+}
+async function irAModo(modo) {
+  await irA('Calle')
+  await pagina.getByRole('navigation', { name: 'Modos de la calle' }).getByRole('button', { name: modo, exact: true }).click()
+  await pagina.getByRole('heading', { name: modo, exact: true, level: 2 }).waitFor({ timeout: 10000 })
+}
+async function irAAnalisisEspesores() {
+  await irA('Calle')
+  await pagina.getByRole('navigation', { name: 'Pantallas de la calle' }).getByRole('button', { name: 'Análisis', exact: true }).click()
+  await pagina.getByRole('tab', { name: 'Espesores' }).click()
+}
+const jornadasDeLaCalle = () =>
+  pagina.getByRole('button', { name: /^Abrir la jornada / }).evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
+
+// 1. Registrar una segunda jornada sobre la misma calle, en la capa de abajo.
+// «Nueva jornada» salta sola a la libreta, así que se vuelve para contar.
+await irAObraCalles()
+await abrirApartado('Jornadas y hojas')
+const antes = await jornadasDeLaCalle()
+await pagina.getByRole('button', { name: 'Nueva jornada', exact: true }).click()
+await pagina.getByRole('heading', { name: 'Medir', exact: true, level: 2 }).waitFor({ timeout: 10000 })
+await irAObraCalles()
+await abrirApartado('Jornadas y hojas')
+const despues = await jornadasDeLaCalle()
+comprobar('se puede registrar otra jornada sobre la misma calle',
+  despues.length === antes.length + 1, `${antes.length} -> ${despues.length} jornadas`)
+
+// La jornada nueva hereda la capa de la última de la calle (BASE); se le
+// corrige a TERRENO EXISTENTE, la capa de abajo, desde su ficha.
+const nueva = despues.find((n) => !antes.includes(n)) ?? ''
+const senia = nueva.replace(/^Abrir la jornada /, '')
+await pagina.getByRole('button', { name: `Corregir la jornada ${senia}`, exact: true }).click()
+await pagina.getByLabel(`Capa de la jornada ${senia}`).selectOption({ label: 'TERRENO EXISTENTE' })
+const seniaTerreno = senia.replace(/ · .*$/, ' · TERRENO EXISTENTE')
+await pagina.getByRole('button', { name: `Abrir la jornada ${seniaTerreno}`, exact: true }).click()
 
 // 2. La libreta nueva nace con su estación, pero sin la visada al banco de
 // nivel no hay altura de aparato y por tanto ninguna cota. Se escribe primero.
-await pagina.getByRole('button', { name: 'Libreta', exact: true }).click()
+await pagina.getByRole('heading', { name: 'Medir', exact: true, level: 2 }).waitFor({ timeout: 10000 })
 comprobar('la libreta nueva avisa de que falta la vista atrás',
   await pagina.getByText(/Falta la lectura de vista atrás/).isVisible())
 
-const vistaAtras = pagina.getByLabel(/Vista atrás|^Lectura de BM$/).first()
+const vistaAtras = pagina.getByLabel(/^Vista atrás a /).first()
 await vistaAtras.fill('1.425')
 await vistaAtras.blur()
 
-// 2b. La jornada nueva nace sin ninguna fila: las progresivas ya no salen de
-// un rango de la calle, se declaran según se mide. Se declaran las dos donde
-// va a trabajar esta campaña de terreno — 0+000, que va a medir, y 0+020, que
-// deja declarada y sin medir a propósito, para comprobar más abajo que una
+// 2b. La jornada nueva nace sin ninguna fila: las progresivas se declaran
+// según se mide. Se declaran 0+000, que va a medir, y 0+020, que deja
+// declarada y sin medir a propósito, para comprobar más abajo que una
 // progresiva sin pareja sale vacía en el Excel y no en cero.
 const campoProgresiva = pagina.getByLabel('Añadir progresiva')
 for (const progresiva of ['0+000', '0+020']) {
@@ -50,11 +105,9 @@ for (const progresiva of ['0+000', '0+020']) {
   await pagina.getByRole('button', { name: 'Añadir', exact: true }).click()
 }
 
-// 3. Ahora sí, una lectura en la misma celda que midió la campaña anterior.
-// En la libreta la celda pertenece al mapa de grilla: ahí la celda muestra si
-// está medida o no, no una cifra. Se nombra con el nombre completo del punto
-// («Eje»), no con la palabra corta de la cabecera, porque la sección permite
-// la misma palabra a los dos lados del eje.
+// 3. Ahora sí, una lectura en la misma celda que midió la jornada de
+// subrasante. En Medir el mapa dice qué está medido y qué falta; la celda se
+// nombra con el nombre completo del punto («Eje»).
 await pagina.getByRole('button', { name: '0+000 Eje', exact: true }).first().click()
 const campo = pagina.getByLabel('Lectura de mira')
 await campo.click()
@@ -63,37 +116,34 @@ await campo.press('Enter')
 
 const llenas = await pagina.getByText(/llenadas \d+ de \d+/).textContent()
 comprobar('con la vista atrás escrita, la lectura produce cota',
-  /llenadas 1 de/.test(llenas), llenas?.trim())
+  /llenadas 1 de/.test(llenas ?? ''), llenas?.trim())
 
-// Una segunda celda de la misma progresiva, también medida por la campaña
-// anterior: hacen falta dos puntos en común para que haya área que rellenar.
+// Una segunda celda de la misma progresiva, también medida en la subrasante:
+// hacen falta dos puntos en común para que haya área que rellenar.
 await pagina.getByRole('button', { name: '0+000 Borde izquierdo', exact: true }).first().click()
 await campo.click()
 await campo.type('2.290', { delay: 20 })
 await campo.press('Enter')
 
 const llenasDos = await pagina.getByText(/llenadas \d+ de \d+/).textContent()
-comprobar('la segunda celda también se registra', /llenadas 2 de/.test(llenasDos), llenasDos?.trim())
+comprobar('la segunda celda también se registra', /llenadas 2 de/.test(llenasDos ?? ''), llenasDos?.trim())
 
-// 3. Elegir las dos capas a comparar en la pantalla de resultados.
-await pagina.getByRole('button', { name: 'Resultados', exact: true }).click()
+// 4. Elegir las dos capas a comparar en Calle › Análisis › Espesores.
+await irAAnalisisEspesores()
 await pagina.screenshot({ path: `${SALIDA}/antes-de-comparar.png`, fullPage: true })
 
-const desplegables = pagina.locator('select')
-const cuantos = await desplegables.count()
-comprobar('el selector de capas está en la pantalla de resultados', cuantos >= 2,
-  `${cuantos} desplegables`)
+const selectorAbajo = pagina.getByLabel('Capa de abajo en la comparación')
+const selectorArriba = pagina.getByLabel('Capa de arriba en la comparación')
+comprobar('el selector de capas está en Análisis › Espesores',
+  (await selectorAbajo.count()) === 1 && (await selectorArriba.count()) === 1)
 
-const selectorAbajo = pagina.getByLabel(/capa de abajo|inferior/i).first()
 const opcionesAbajo = await selectorAbajo.locator('option').allTextContents().catch(() => [])
-comprobar('el selector ofrece las campañas de la calle', opcionesAbajo.length >= 2,
+comprobar('el selector ofrece las jornadas de la calle', opcionesAbajo.filter((o) => o !== '—').length >= 3,
   opcionesAbajo.join(' | '))
 
-// 4. Comparar las dos capas y comprobar que sale el espesor colocado.
-// Abajo el terreno (campaña nueva), arriba la subrasante (campaña del ejemplo).
+// Abajo el terreno (jornada nueva), arriba la subrasante (la del ejemplo).
 const valores = await selectorAbajo.locator('option').evaluateAll((os) => os.map((o) => o.value))
 const idTerreno = valores.find((_, i) => /TERRENO/.test(opcionesAbajo[i] ?? ''))
-const selectorArriba = pagina.getByLabel(/capa de arriba|superior/i).first()
 const opcionesArriba = await selectorArriba.locator('option').allTextContents()
 const valoresArriba = await selectorArriba.locator('option').evaluateAll((os) => os.map((o) => o.value))
 const idSubrasante = valoresArriba.find((_, i) => /SUBRASANTE/.test(opcionesArriba[i] ?? ''))
@@ -102,36 +152,59 @@ await selectorAbajo.selectOption(idTerreno)
 await selectorArriba.selectOption(idSubrasante)
 await pagina.waitForTimeout(200)
 
-// Cota del terreno en 0+000 EJE: 3245.180 + 1.425 − 2.230 = 3244.375
-// Cota de la subrasante ahí: 3244.628 → espesor ≈ 0.253 m
-const espesor = await pagina.getByText(/^0\.2\d{2}$/).first().textContent().catch(() => null)
-comprobar('la tabla muestra el espesor colocado entre las dos capas',
-  espesor !== null, `espesor mostrado: ${espesor}`)
+// Cota del terreno en 0+000 Eje: 3245.180 + 1.425 − 2.230 = 3244.375.
+// La subrasante ahí está a 3244.597: el espesor colocado es 0.2xx m.
+const espesor = await pagina.getByRole('button', { name: /^Espesor en 0\+000 Eje: 0\.2\d{2} m/ }).first().getAttribute('aria-label').catch(() => null)
+comprobar('el mapa de espesores muestra el espesor colocado entre las dos capas',
+  espesor !== null, `celda: ${espesor}`)
 
-const resumen = await pagina.getByText(/mínimo|comparables/i).first().textContent().catch(() => null)
-comprobar('el resumen dice cuántas celdas son comparables', resumen !== null, resumen?.trim())
+const resumen = await pagina.getByText(/^Mínimo$/).first().locator('..').innerText().catch(() => null)
+comprobar('el resumen da el espesor mínimo de las celdas comparables', resumen !== null && /\d\.\d{3} m/.test(resumen),
+  resumen?.replace(/\s+/g, ' ').trim())
 
 await pagina.screenshot({ path: `${SALIDA}/espesores.png`, fullPage: true })
 
-// 5. Dibujar las dos capas superpuestas en el corte.
-const casillas = pagina.getByRole('checkbox')
+// 5. Dibujar las dos capas superpuestas en el corte: se marcan aquí y
+// Calle › Revisar las dibuja juntas.
+const casillas = pagina.getByRole('checkbox', { name: /^Dibujar / })
 const cuantasCasillas = await casillas.count()
 for (let i = 0; i < cuantasCasillas; i += 1) {
   const casilla = casillas.nth(i)
   const nombre = await casilla.getAttribute('aria-label')
   if (nombre && /TERRENO|SUBRASANTE/.test(nombre)) await casilla.check()
 }
+await irAModo('Revisar')
+const deslizador = pagina.getByRole('slider', { name: 'Progresiva' })
+await deslizador.focus()
+await deslizador.press('Home')
 await pagina.waitForTimeout(200)
 
-const trazos = await pagina.locator('polyline').count()
+const corteRevisar = pagina.getByRole('img', { name: /Corte transversal/ })
+const trazos = await corteRevisar.locator('polyline[data-capa-id]').count()
 comprobar('el corte dibuja un trazo por cada capa visible', trazos >= 2, `${trazos} trazos`)
 
-const rellenos = await pagina.locator('polygon, path[fill]:not([fill="none"])').count()
+const rellenos = await corteRevisar.locator('polygon[data-relleno-capas]').count()
 comprobar('hay relleno entre las capas', rellenos >= 1, `${rellenos} rellenos`)
 
 await pagina.screenshot({ path: `${SALIDA}/capas-apiladas.png`, fullPage: true })
 
-// 6. Descargar el Excel de espesores y comprobar qué dice de verdad.
+// 6. Descargar el Excel de espesores desde Informes y comprobar qué dice.
+await irA('Informes')
+await pagina.getByRole('button', { name: 'Control de espesores', exact: true }).click()
+const arribaInforme = pagina.getByLabel('Capa de arriba', { exact: true })
+const opcionesInforme = await arribaInforme.locator('option').evaluateAll((os) => os.map((o) => ({ v: o.value, t: o.textContent })))
+const subrasanteInforme = opcionesInforme.find((o) => /SUBRASANTE/.test(o.t ?? ''))
+// Sin la opción, el Excel saldría de otra comparación y podría pasar por casualidad: se dice.
+comprobar('en Informes se puede elegir SUBRASANTE como capa de arriba', Boolean(subrasanteInforme),
+  opcionesInforme.map((o) => o.t).join(' | '))
+if (subrasanteInforme) await arribaInforme.selectOption(subrasanteInforme.v)
+const abajoInforme = pagina.getByLabel('Capa de abajo', { exact: true })
+const opcionesAbajoInforme = await abajoInforme.locator('option').evaluateAll((os) => os.map((o) => ({ v: o.value, t: o.textContent })))
+const terrenoInforme = opcionesAbajoInforme.find((o) => /TERRENO/.test(o.t ?? ''))
+comprobar('en Informes se puede elegir TERRENO como capa de abajo', Boolean(terrenoInforme),
+  opcionesAbajoInforme.map((o) => o.t).join(' | '))
+if (terrenoInforme) await abajoInforme.selectOption(terrenoInforme.v)
+
 const botonEspesores = pagina.getByRole('button', { name: /espesores a Excel/i })
 const descarga = await Promise.all([
   pagina.waitForEvent('download'),
@@ -147,7 +220,7 @@ const hoja = strFromU8(contenido['xl/worksheets/sheet1.xml'])
 comprobar('el Excel de espesores nombra las dos capas comparadas',
   /TERRENO EXISTENTE/.test(hoja) && /SUBRASANTE/.test(hoja))
 
-// La campaña del terreno no cierra contra ningún banco de nivel, así que sus
+// La jornada del terreno no cierra contra ningún banco de nivel, así que sus
 // cotas no están comprobadas — y un espesor calculado sobre ellas, tampoco.
 comprobar('el Excel avisa de que los espesores no están comprobados',
   /NO COMPROBADOS/.test(hoja),
@@ -157,47 +230,42 @@ comprobar('el Excel lleva los espesores como número',
   /<c r="[A-Z]+\d+"><v>0\.2\d{2}<\/v><\/c>/.test(hoja),
   (hoja.match(/<v>0\.2\d{2}<\/v>/g) ?? []).join(' '))
 
-// La progresiva 0+020 la midió la campaña de subrasante (la del ejemplo), y
-// la campaña nueva de terreno la dejó declarada sin medir: la fila está en la
-// tabla, pero de esta capa no hay cota. Tiene que salir vacía en el archivo
-// real, no en 0.000 — un cero ahí diría que no se colocó material, cuando lo
-// que pasa es que no hay con qué compararla.
-// Se parte la hoja por filas antes de buscar: un regex de <row> a </row>
-// sobre la hoja entera empieza en la primera fila y se traga todas las de
-// en medio, con sus cifras dentro.
+// La progresiva 0+020 la midió la subrasante, y la jornada de terreno la dejó
+// declarada sin medir: la fila está, pero de esta capa no hay cota. Tiene que
+// salir vacía en el archivo real, no en 0.000. Se parte la hoja por filas
+// antes de buscar, para no tragarse las filas de en medio.
 const filaVeinte = hoja.split('</row>').find((f) => f.includes('0+020')) ?? ''
 comprobar('la progresiva sin pareja en la otra capa sale vacía en el Excel, no en cero',
   filaVeinte !== '' && !/<v>/.test(filaVeinte),
   filaVeinte)
 
-// 7. Tarea F2.4: el corte de la libreta tiene que dibujar siempre la campaña
-// activa, nunca lo que haya quedado marcado en el selector de capas de
-// Resultados. Las dos casillas (TERRENO y SUBRASANTE) siguen marcadas desde
-// el paso 5; si el corte de la libreta las heredara, saldrían dos trazos con
-// su etiqueta en vez de uno solo sin etiqueta.
-await pagina.getByRole('button', { name: 'Libreta', exact: true }).click()
+// 7. El corte de la libreta (Medir) tiene que dibujar siempre la jornada
+// activa, nunca lo que haya quedado marcado en las casillas «Dibujar». Las
+// dos casillas (TERRENO y SUBRASANTE) siguen marcadas desde el paso 5; si el
+// corte de Medir las heredara, saldrían dos trazos con su etiqueta.
+await irAModo('Medir')
+await deslizador.focus()
+await deslizador.press('Home')
 await pagina.waitForTimeout(200)
 
-// Solo los trazos de campaña: la rasante de proyecto tambien se dibuja como
-// polilinea, y desde que el ejemplo la trae definida contaria como uno mas.
-const trazosLibreta = await pagina.locator('polyline[data-capa-id]').count()
-comprobar('el corte de la libreta dibuja una sola campaña aunque Resultados tenga dos marcadas',
+const corteLibreta = pagina.getByRole('img', { name: /Corte transversal/ })
+const trazosLibreta = await corteLibreta.locator('polyline[data-capa-id]').count()
+comprobar('el corte de la libreta dibuja una sola jornada aunque haya dos marcadas para comparar',
   trazosLibreta === 1, `${trazosLibreta} trazos`)
 
-const etiquetaCapaEnLibreta = await pagina.getByText(/^(TERRENO EXISTENTE|SUBRASANTE)$/).count()
-comprobar('el corte de la libreta no rotula la capa (una sola serie, como antes de esta tarea)',
+const etiquetaCapaEnLibreta = await corteLibreta.getByText(/^(TERRENO EXISTENTE|SUBRASANTE)$/).count()
+comprobar('el corte de la libreta no rotula la capa (una sola serie)',
   etiquetaCapaEnLibreta === 0, `${etiquetaCapaEnLibreta} etiquetas de capa`)
 
-// Contar un solo trazo no basta: hay que comprobar que ese trazo es el de la
-// campaña ACTIVA y no el de la otra. La celda del borde izquierdo en 0+000 la
-// midió la campaña nueva (la activa) y no la del ejemplo, así que su presencia
-// en el corte de la libreta es la firma de que se dibuja la campaña correcta.
-const puntosLibreta = await pagina
-  .locator('svg [aria-label]')
+// Contar un solo trazo no basta: hay que comprobar que es el de la jornada
+// ACTIVA. El borde izquierdo en 0+000 lo midió la jornada nueva y su cota
+// (3245.180 + 1.425 − 2.290 = 3244.315) no es la de la subrasante.
+const puntosLibreta = await corteLibreta
+  .locator('[aria-label]')
   .evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
 
-comprobar('el corte de la libreta dibuja los puntos de la campaña que se está midiendo',
-  puntosLibreta.some((n) => n?.includes('Borde izquierdo')),
+comprobar('el corte de la libreta dibuja los puntos de la jornada que se está midiendo',
+  puntosLibreta.some((n) => n?.includes('Borde izquierdo') && n.includes('3244.315')),
   puntosLibreta.join(' | ') || '(ningún punto)')
 
 await navegador.close()

@@ -319,7 +319,7 @@ export default function EspacioPlano() {
         <>
           <div className="flex flex-wrap items-end gap-2">
             {planos.length > 1 ? (
-              <label className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none">
+              <label className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:flex-none">
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Plano a la vista</span>
                 <select
                   value={plano.id}

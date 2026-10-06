@@ -1,7 +1,7 @@
 import { AVISO_SIN_COMPROBAR, evaluarLectura, rangoEsperado, type ReglasMira } from '@topo/core'
 import { formatearDiferencia } from '../../estadoRasante'
 import { formatearCota } from '../../formato'
-import { leerNumero, llegaAlMilimetro, textoAccion, VISUAL_ESTADO } from './comun'
+import { AVISO_DESTACADO, leerNumero, llegaAlMilimetro, textoAccion, VISUAL_ESTADO } from './comun'
 
 interface Props {
   /** El texto tal como está en el campo: se juzga mientras se escribe. */
@@ -125,7 +125,7 @@ export default function AvisoAlAnotar({
 
       {/* Lo no comprobado se dice siempre, también antes de escribir. */}
       {(juzgar ? aviso.avisos : comprobado ? [] : [AVISO_SIN_COMPROBAR]).map((linea) => (
-        <p key={linea} className="text-xs text-aviso">
+        <p key={linea} className={AVISO_DESTACADO}>
           <span aria-hidden="true">△ </span>
           {linea}
         </p>

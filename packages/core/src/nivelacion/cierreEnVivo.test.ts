@@ -318,9 +318,24 @@ describe('estadoCierreEnVivo: lo que la pantalla de cierre necesita antes de vis
     expect(previo.toleranciaMm).toBeCloseTo(6.5727, 3)
     // 3246.137 − 3245.180 = 0.957
     expect(previo.lecturaParaCerrarExacto).toBeCloseTo(0.957, 6)
-    // 0.957 ∓ 0.0065727 → [0.9504273, 0.9635727]
-    expect(previo.rangoLecturaQuePasa[0]).toBeCloseTo(0.9504273, 6)
-    expect(previo.rangoLecturaQuePasa[1]).toBeCloseTo(0.9635727, 6)
+    // 0.957 ∓ 0.0065727 → [0.9504273, 0.9635727]; al mm y hacia dentro: [0.951, 0.963]
+    expect(previo.rangoLecturaQuePasa[0]).toBeCloseTo(0.951, 9)
+    expect(previo.rangoLecturaQuePasa[1]).toBeCloseTo(0.963, 9)
+  })
+
+  it('los límites del rango son lecturas que el cierre acepta (redondeados hacia dentro)', () => {
+    // Como Av. Sol: exacta 0.744, ±5.88 mm. Hacia fuera saldría 0.738–0.750, y 0.750 da 6 mm: no pasa.
+    const toma = tomaAbierta()
+    const base = estadoCierreEnVivo(toma, [BM_A]).previo!
+    const exacta = base.lecturaParaCerrarExacto
+    const [minima, maxima] = base.rangoLecturaQuePasa
+    for (const lectura of [minima, maxima]) {
+      const errorMm = Math.abs(exacta - lectura) * 1000
+      expect(errorMm).toBeLessThanOrEqual(base.toleranciaMm + 1e-3)
+    }
+    // Un milímetro más allá de cada límite ya no pasa.
+    expect(Math.abs(exacta - (minima - 0.001)) * 1000).toBeGreaterThan(base.toleranciaMm + 1e-3)
+    expect(Math.abs(exacta - (maxima + 0.001)) * 1000).toBeGreaterThan(base.toleranciaMm + 1e-3)
   })
 
   it('sin BM de cierre, con la última estación sin cota instrumento o en toma abierta, no hay previo', () => {

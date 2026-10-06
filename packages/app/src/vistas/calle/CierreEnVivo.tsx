@@ -35,7 +35,8 @@ export default function CierreEnVivo({ toma, bms, largoMira }: Props) {
   } else {
     simbolo = '△'
     veredicto = 'Sin cerrar: nada comprobado aún'
-    clases = 'border-aviso bg-aviso/10 text-aviso'
+    // Ámbar oscuro para el texto: el ámbar del tema sobre blanco no se lee al sol.
+    clases = 'border-aviso bg-aviso/10 text-amber-900 dark:text-amber-200'
   }
 
   return (
@@ -45,7 +46,7 @@ export default function CierreEnVivo({ toma, bms, largoMira }: Props) {
         {veredicto}
       </h3>
       <p className="text-sm">{estado.texto}</p>
-      {estado.motivo && <p className="text-xs">{estado.motivo}</p>}
+      {estado.motivo && <p className="text-sm font-semibold">{estado.motivo}</p>}
       {estado.circuito === 'abierto' && estado.previo && (
         <p className="text-sm text-slate-700 dark:text-slate-200">
           Para cerrar en {estado.previo.bmCierre.nombre}: lee{' '}

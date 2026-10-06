@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   acercar,
   aSvg,
+  desfaseAlCostado,
   encuadrar,
   limitesDePuntos,
   metrosPorUnidadDe,
@@ -81,5 +82,36 @@ describe('geometría del visor', () => {
       calleId: 'c',
     })
     expect(pistaCalibrada(pista, { ...plano, calibracion: null })).toBeNull()
+  })
+})
+
+describe('rótulos al costado de la pista', () => {
+  it('en una pista que sube por la pantalla, las estacas van a la derecha y las pendientes a la izquierda', () => {
+    // Rumbo 90°: hacia +Y del plano, hacia arriba en la pantalla.
+    const derecha = desfaseAlCostado(90, 'derecha', 10)
+    const izquierda = desfaseAlCostado(90, 'izquierda', 10)
+    expect(derecha.dx).toBeCloseTo(10)
+    expect(derecha.dy).toBeCloseTo(0)
+    expect(derecha.ancla).toBe('start')
+    expect(izquierda.dx).toBeCloseTo(-10)
+    expect(izquierda.ancla).toBe('end')
+  })
+
+  it('en una pista que va hacia +X, la derecha es abajo en la pantalla y el rótulo se centra', () => {
+    const derecha = desfaseAlCostado(0, 'derecha', 12)
+    expect(derecha.dx).toBeCloseTo(0)
+    expect(derecha.dy).toBeCloseTo(12)
+    expect(derecha.ancla).toBe('middle')
+    expect(desfaseAlCostado(0, 'izquierda', 12).dy).toBeCloseTo(-12)
+  })
+
+  it('los dos costados quedan siempre opuestos, sea cual sea el rumbo', () => {
+    for (const rumbo of [-135, -30, 17, 245]) {
+      const d = desfaseAlCostado(rumbo, 'derecha', 10)
+      const i = desfaseAlCostado(rumbo, 'izquierda', 10)
+      expect(d.dx + i.dx).toBeCloseTo(0)
+      expect(d.dy + i.dy).toBeCloseTo(0)
+      expect(Math.hypot(d.dx, d.dy)).toBeCloseTo(10)
+    }
   })
 })

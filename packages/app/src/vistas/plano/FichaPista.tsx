@@ -1,16 +1,7 @@
-import {
-  calcularCampania,
-  formatearPendiente,
-  formatearProgresiva,
-  instrumentoCompleto,
-  type Calle,
-  type PendienteTramo,
-  type Pista,
-  type Proyecto,
-} from '@topo/core'
+import { formatearPendiente, formatearProgresiva, type PendienteTramo, type Pista } from '@topo/core'
 import { forwardRef, useId, useState } from 'react'
 import { useAlmacen } from '../../estado/almacen'
-import type { DatosPista } from './datosPista'
+import { estadoDeNivelaciones, type DatosPista } from './datosPista'
 import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAJA, type AvisoPantalla } from './estilos'
 import TomarRasante from './TomarRasante'
 
@@ -55,37 +46,6 @@ export function ListaPendientes({ datos }: { datos: DatosPista }) {
       )}
     </div>
   )
-}
-
-interface EstadoNivelacion {
-  id: string
-  texto: string
-  simbolo: '✓' | '✗' | '△'
-  estado: string
-}
-
-/** La última toma de cada nivelación de la calle, con si cerró: lo calcula el motor. */
-function estadoDeNivelaciones(calle: Calle, proyecto: Proyecto): EstadoNivelacion[] {
-  const largoMira = instrumentoCompleto(proyecto.instrumento).largoMira
-  const salida: EstadoNivelacion[] = []
-  for (const nivelacion of calle.nivelaciones) {
-    const toma = nivelacion.tomas[nivelacion.tomas.length - 1]
-    if (!toma) continue
-    const capa = proyecto.capas.find((c) => c.id === toma.capaId)?.nombre ?? 'capa sin nombre'
-    let pasa: boolean | null = null
-    try {
-      pasa = calcularCampania({ campania: toma, calle, bms: proyecto.bms, largoMira }).cierre.pasa
-    } catch {
-      pasa = null
-    }
-    salida.push({
-      id: nivelacion.id,
-      texto: `${capa} · ${toma.fecha}`,
-      simbolo: pasa === true ? '✓' : pasa === false ? '✗' : '△',
-      estado: pasa === true ? 'cerró' : pasa === false ? 'no cerró' : 'sin comprobar',
-    })
-  }
-  return salida
 }
 
 interface PropsFicha {
@@ -159,7 +119,7 @@ export const FichaPista = forwardRef<HTMLHeadingElement, PropsFicha>(function Fi
           <ul aria-label="Capas medidas" className="flex flex-col gap-1 text-sm">
             {nivelaciones.map((n) => (
               <li key={n.id}>
-                <span aria-hidden="true" className={n.simbolo === '✓' ? 'text-pasa' : n.simbolo === '✗' ? 'text-falla' : 'text-aviso'}>
+                <span aria-hidden="true" className={n.simbolo === '✓' ? 'text-pasa' : n.simbolo === '✗' ? 'text-falla' : 'text-slate-500 dark:text-slate-400'}>
                   {n.simbolo}{' '}
                 </span>
                 {n.texto} — {n.estado}

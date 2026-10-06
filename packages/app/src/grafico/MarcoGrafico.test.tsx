@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import MarcoGrafico from './MarcoGrafico'
 
 describe('MarcoGrafico', () => {
@@ -43,5 +43,40 @@ describe('MarcoGrafico', () => {
     // defecto del marco. getAllByText confirma que el formato de 3 decimales
     // aparece sin forzar esa unicidad.
     expect(screen.getAllByText(/^3244\.\d{3}$/).length).toBeGreaterThan(0)
+  })
+
+  it('en una caja estrecha (celular) dibuja a su ancho real, para que los rótulos se lean', () => {
+    // El celular deja 366 px: con el viewBox de 720 los rótulos de 10 px quedaban en 5.
+    class ObservadorFalso {
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', ObservadorFalso)
+    const medida = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ width: 366 } as DOMRect)
+    render(
+      <MarcoGrafico valoresX={[0, 10]} valoresY={[1, 2]} rotuloX="x" formatearX={String} etiqueta="Estrecho" alto={240}>
+        {() => null}
+      </MarcoGrafico>,
+    )
+    expect(screen.getByRole('img', { name: 'Estrecho' })).toHaveAttribute('viewBox', '0 0 366 240')
+    medida.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('en la laptop sigue con el ancho de siempre', () => {
+    class ObservadorFalso {
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', ObservadorFalso)
+    const medida = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ width: 900 } as DOMRect)
+    render(
+      <MarcoGrafico valoresX={[0, 10]} valoresY={[1, 2]} rotuloX="x" formatearX={String} etiqueta="Ancho" alto={240}>
+        {() => null}
+      </MarcoGrafico>,
+    )
+    expect(screen.getByRole('img', { name: 'Ancho' })).toHaveAttribute('viewBox', '0 0 720 240')
+    medida.mockRestore()
+    vi.unstubAllGlobals()
   })
 })

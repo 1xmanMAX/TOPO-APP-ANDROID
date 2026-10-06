@@ -39,7 +39,7 @@ interface Aceptada {
 
 const AVISO_NO_CIERRA =
   'Esta toma no cierra: la hoja trae un solo punto de control y ninguna vuelta, así que las' +
-  ' cotas salen pero quedan sin comprobar.'
+  ' cotas salen, pero no comprobadas.'
 
 function hoyISO(): string {
   return new Date().toISOString().slice(0, 10)

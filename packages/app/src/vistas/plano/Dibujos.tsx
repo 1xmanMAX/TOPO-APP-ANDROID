@@ -1,8 +1,8 @@
-import { formatearPendiente, formatearProgresiva, type EstacaSobrePlano, type Punto2 } from '@topo/core'
+import { formatearPendiente, formatearProgresiva, puntoA, type EstacaSobrePlano, type Punto2 } from '@topo/core'
 import { memo } from 'react'
 import type { AnclaTexto, PlanoVectorial, TextoPlano } from '../../planos/dxf'
 import { anguloHaciaDondeBaja, type DatosPista } from './datosPista'
-import { aSvg, puntosSvg } from './geometriaVisor'
+import { aSvg, desfaseAlCostado, puntosSvg, type DesfaseRotulo } from './geometriaVisor'
 import type { PdfCargado } from './cargarPlano'
 
 /**
@@ -15,7 +15,7 @@ import type { PdfCargado } from './cargarPlano'
 /** Rótulo con halo, para que se lea sobre el dibujo en los dos temas. */
 const ROTULO = 'fill-slate-900 stroke-white dark:fill-white dark:stroke-slate-900'
 
-function Rotulo({ punto, texto, upp, tamano = 12, clase = ROTULO, dx = 0, dy = 0 }: {
+function Rotulo({ punto, texto, upp, tamano = 12, clase = ROTULO, dx = 0, dy = 0, costado }: {
   punto: Punto2
   texto: string
   upp: number
@@ -23,12 +23,16 @@ function Rotulo({ punto, texto, upp, tamano = 12, clase = ROTULO, dx = 0, dy = 0
   clase?: string
   dx?: number
   dy?: number
+  /** Al costado de la pista: reemplaza dx y dy, y centra el rótulo en su línea. */
+  costado?: DesfaseRotulo
 }) {
   const p = aSvg(punto)
   return (
     <text
-      x={p.x + dx * upp}
-      y={p.y + dy * upp}
+      x={p.x + (costado ? costado.dx : dx) * upp}
+      y={p.y + (costado ? costado.dy : dy) * upp}
+      textAnchor={costado?.ancla}
+      dominantBaseline={costado ? 'central' : undefined}
       fontSize={tamano * upp}
       strokeWidth={3 * upp}
       paintOrder="stroke"
@@ -161,7 +165,8 @@ function Estacas({ estacas, upp }: { estacas: EstacaSobrePlano[]; upp: number })
         return (
           <g key={e.progresiva}>
             <circle cx={p.x} cy={p.y} r={2.5 * upp} className="fill-white stroke-slate-900 dark:fill-slate-900 dark:stroke-white" strokeWidth={upp} />
-            <Rotulo punto={e} texto={formatearProgresiva(e.progresiva)} upp={upp} tamano={10} dx={5} dy={12} />
+            {/* Las estacas a la derecha del avance; las pendientes y el nombre, a la izquierda: no se pisan. */}
+            <Rotulo punto={e} texto={formatearProgresiva(e.progresiva)} upp={upp} tamano={10} costado={desfaseAlCostado(e.rumbo, 'derecha', 7)} />
           </g>
         )
       })}
@@ -225,8 +230,7 @@ export function DibujoPista({
               punto={t.rotulo}
               texto={`${formatearPendiente(t.tramo.porcentaje)}${t.empinada ? ' △ empinada' : ''}`}
               upp={upp}
-              dx={9}
-              dy={-8}
+              costado={desfaseAlCostado(t.rotulo.rumbo, 'izquierda', 11)}
             />
           </g>
         )
@@ -252,7 +256,16 @@ export function DibujoPista({
           </g>
         )
       })}
-      {polilinea[0] && <Rotulo punto={polilinea[0]} texto={nombre} upp={upp} tamano={13} dx={6} dy={18} clase={`${ROTULO} font-semibold`} />}
+      {polilinea[0] && (
+        <Rotulo
+          punto={polilinea[0]}
+          texto={nombre}
+          upp={upp}
+          tamano={13}
+          costado={desfaseAlCostado(puntoA(polilinea, 0)?.rumbo ?? 0, 'izquierda', 10)}
+          clase={`${ROTULO} font-semibold`}
+        />
+      )}
     </g>
   )
 }
