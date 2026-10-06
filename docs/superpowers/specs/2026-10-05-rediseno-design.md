@@ -99,3 +99,75 @@ sobre el motor de la ola 1. Tiene su propio plan cuando la ola 1 esté integrada
 **Ola 3 — verificación con datos simulados:** obra completa simulada (tres
 calles, una pista empinada, un DXF y un PDF de expediente) recorrida en
 navegador real con Playwright.
+
+---
+
+## 5. Ola 2: el contrato que comparten las pantallas
+
+Lo fija primero un solo agente («armazón»); después siete agentes llenan cada
+uno su carpeta sin tocar los archivos de los demás.
+
+### 5.1 Navegación (nombres visibles: los usan las pruebas de navegador)
+
+- Barra superior: botones **Obra**, **Calle**, **Informes**, y a la derecha
+  **Calcular** (abre la calculadora encima de cualquier pantalla), tema y archivo.
+- Dentro de Obra: **Calles** (inicio: calles con el estado de sus capas, BMs,
+  capas, ajustes de cada calle, subir hoja, historial) y **Plano** (plano de
+  obra, visor DXF/PDF, pistas y croquis).
+- Dentro de Calle: modos **Medir**, **Revisar**, **Replantear**; y tres
+  pantallas de la calle: **Análisis** (espesores, volúmenes, drenaje),
+  **Cierre** (cierre y compensación) y **Planificar** (cambios y puntos de
+  control, con su **Guía de campo** paso a paso).
+- Nada de router ni URL: estado en el almacén.
+
+### 5.2 Estado nuevo (en `estado/almacen.ts`, lo pone el armazón)
+
+- `espacio: 'obra' | 'calle' | 'informes'`, `subObra: 'calles' | 'plano'`,
+  `modoCalle: 'medir' | 'revisar' | 'replantear'`,
+  `pantallaCalle: null | 'analisis' | 'cierre' | 'planificar' | 'guia'`,
+  `calculadoraAbierta: boolean`.
+- `calleActivaId: Id | null` explícito (hoy se deduce de la toma activa; se
+  mantienen sincronizados: activar una toma activa su calle; cambiar de calle
+  activa su última toma).
+- El tipo `Vista` viejo desaparece de la navegación; las vistas viejas se
+  reutilizan como piezas dentro de las nuevas.
+
+### 5.3 Modelo nuevo (en `core/src/modelo/tipos.ts`, todo opcional, con migración idempotente en `archivo/topo.ts`)
+
+- `Proyecto.instrumento?: { largoMira: number (5 de fábrica), alturaInstrumento: 1.5, lecturaMin: 0.30, visualMax: 50, desequilibrioMax: 5, coeficienteK: 12, sigmaPorEstacionMm: 1, maxCambiosPorTramo: 4 }`
+  — UNA sola fuente para la libreta, el aviso al anotar, el replanteo, la
+  calculadora y el planificador (deuda de la ola 1: hoy la libreta acepta 5 m
+  fijos y el replanteo 4 m).
+- `Proyecto.planos?: PlanoImportado[]` = `{ id, nombre, formato: 'dxf'|'pdf', pagina?, calibracion: { metrosPorUnidad } | null, capasOcultas?: string[] }`.
+  Los bytes del archivo NO van en el JSON: viven en el almacén como
+  `archivosDePlano: Record<Id, Uint8Array>`, se guardan en el autoguardado y
+  viajan dentro del .topo como entradas `planos/<id>.dxf|pdf` del zip.
+- `Proyecto.pistas?: Pista[]` = `{ id, nombre, planoId, polilinea: {x,y}[], calleId?: Id, origen: 'croquis'|'dxf' }`.
+- `Calle.notas?: Nota[]` = `{ id, progresiva, texto, fecha, foto?: string(dataURL) }`.
+- `Calle.planControles?: { opciones, controles: {progresiva, cota, motivos}[] } | null` — lo que se decidió en el planificador, para dibujarlo en el plano y en la guía.
+
+### 5.4 Acciones nuevas (las pone el armazón; las pantallas solo las llaman)
+
+`irAEspacio`, `irASubObra`, `fijarModoCalle`, `abrirPantallaCalle(p|null)`,
+`activarCalle(id)`, `abrirCalculadora(bool)`, `fijarInstrumento(parcial)`,
+`agregarPlano(datos, bytes)`, `actualizarPlano`, `eliminarPlano`,
+`agregarPista`, `actualizarPista`, `eliminarPista`, `crearCalleDesdePista(pistaId)`,
+`agregarNota`, `eliminarNota`, `fijarPlanControles(calleId, plan|null)`.
+Si una pantalla necesita algo más, lo hace en su carpeta (estado local o un
+almacén propio pequeño), sin editar `almacen.ts`.
+
+### 5.5 Archivos de cada pantalla (el armazón deja un esqueleto en cada uno)
+
+| Agente | Carpeta | Entrada que monta el armazón |
+|---|---|---|
+| Obra | `vistas/obra/` | `EspacioObra.tsx` (sub Calles) |
+| Calle | `vistas/calle/` | `EspacioCalle.tsx` (modos) |
+| Análisis y cierre | `vistas/analisis/`, `vistas/cierre/` | `PantallaAnalisis.tsx`, `PantallaCierre.tsx` |
+| Informes | `vistas/informes/` | `EspacioInformes.tsx` |
+| Plano | `vistas/plano/` | `EspacioPlano.tsx` (sub Plano) |
+| Planificador | `vistas/planificador/` | `PantallaPlanificar.tsx`, `PantallaGuia.tsx` |
+| Herramientas | `vistas/herramientas/` | `PanelCalculadora.tsx`, `NotasDeCalle.tsx`, tema «sol» |
+
+Reglas para todos: primero el celular (≥ 44 px por botón, se apila en
+pantalla estrecha) y bien en laptop; el color nunca va solo (símbolo y texto);
+nada calculado en la interfaz que ya calcule el motor; lo no comprobado se dice.
