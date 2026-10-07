@@ -632,6 +632,10 @@ async function recorrer(ancho, alto) {
   // --- Calle › Análisis › Espesores ----------------------------------------
   await pagina.getByRole('navigation', { name: 'Pantallas de la calle' }).getByRole('button', { name: 'Análisis', exact: true }).click()
   await pagina.getByRole('tab', { name: 'Espesores' }).click()
+  // El cambio de capas va plegado bajo la línea «Comparando …»: se abre para usarlo.
+  const comparando = pagina.locator('summary', { hasText: 'Comparando' }).first()
+  await comparando.waitFor({ timeout: ESPERA })
+  if (!(await comparando.evaluate((s) => s.parentElement.open))) await comparando.click()
   const abajo = pagina.getByLabel('Capa de abajo en la comparación')
   const arriba = pagina.getByLabel('Capa de arriba en la comparación')
   await abajo.waitFor({ timeout: ESPERA })

@@ -39,6 +39,12 @@ await pagina.getByRole('navigation', { name: 'Espacios' }).getByRole('button', {
 // capas del modelo 3D dibuja justo las que estén marcadas ahí.
 await pagina.getByRole('navigation', { name: 'Pantallas de la calle' }).getByRole('button', { name: 'Análisis', exact: true }).click()
 await pagina.getByRole('tab', { name: 'Espesores' }).click()
+// Las casillas van plegadas bajo la línea «Comparando …»: se abre para usarlas.
+{
+  const comparando = pagina.locator('summary', { hasText: 'Comparando' }).first()
+  await comparando.waitFor({ timeout: 10000 })
+  if (!(await comparando.evaluate((s) => s.parentElement.open))) await comparando.click()
+}
 const casillas = pagina.getByRole('checkbox', { name: /^Dibujar / })
 await casillas.first().waitFor({ timeout: 10000 })
 const cuantasCasillas = await casillas.count()

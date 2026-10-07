@@ -216,12 +216,19 @@ async function pestana(pagina, nombre) {
   await pagina.getByRole('tab', { name: nombre, exact: true }).click()
   await pagina.locator('[role=tab][aria-selected=true]', { hasText: new RegExp(`^${nombre}$`) }).waitFor({ timeout: 10000 })
   const panel = pagina.getByRole('tabpanel')
+  // La capa de Espesores y la de Drenaje van en un plegable cerrado: se espera su línea.
   const propio = {
-    Espesores: panel.getByLabel('Capa de abajo en la comparación').or(panel.getByText(/hacen falta dos nivelaciones de esta calle/)),
+    Espesores: panel.locator('summary', { hasText: 'Comparando' }).or(panel.getByText(/hacen falta dos nivelaciones de esta calle/)),
     Volúmenes: panel.getByLabel('Superficie de arriba'),
-    Drenaje: panel.getByLabel('Capa analizada'),
+    Drenaje: panel.locator('summary', { hasText: 'Analizando' }),
   }[nombre]
   await propio.first().waitFor({ timeout: 10000 })
+}
+
+/** Abre un plegable por el texto de su línea, si no está ya abierto: lo de dentro no se puede tocar cerrado. */
+async function abrirPlegable(pagina, titulo) {
+  const resumen = pagina.locator('summary', { hasText: titulo }).first()
+  if (!(await resumen.evaluate((s) => s.parentElement.open))) await resumen.click()
 }
 
 /** La pantalla abierta (Análisis o Cierre): la sección que lleva su título. */
@@ -279,6 +286,7 @@ async function controlesBajos(pagina, titulo) {
 
 /** Elige la base sobre la subrasante de Av. Sol en el selector de Espesores. */
 async function compararBaseSobreSubrasante(pagina) {
+  await abrirPlegable(pagina, 'Comparando')
   await pagina.getByLabel('Capa de abajo en la comparación').selectOption({ label: `SUBRASANTE · ${SOL.subrasante.fecha}` })
   await pagina.getByLabel('Capa de arriba en la comparación').selectOption({ label: `BASE · ${SOL.base.fecha}` })
   await pagina.getByRole('heading', { name: 'Volumen colocado' }).waitFor({ timeout: 10000 })
@@ -297,6 +305,18 @@ const analisis = seccion(pagina, 'Análisis')
 await analisis.waitFor({ timeout: 10000 })
 comprobar('Calle › Análisis abre con sus tres pestañas',
   (await analisis.getByRole('tab').allInnerTexts()).join('|') === 'Espesores|Volúmenes|Drenaje')
+
+// Sin tocar nada, Espesores ya compara la base sobre la subrasante y pinta el
+// resultado; el cambio de capas queda plegado.
+const corta = (f) => `${f.slice(8, 10)}/${f.slice(5, 7)}`
+const lineaComparando = analisis.locator('summary', { hasText: 'Comparando' })
+await analisis.getByRole('heading', { name: 'Volumen colocado' }).waitFor({ timeout: 10000 }).catch(() => {})
+const textoComparando = (await lineaComparando.innerText()).replace(/\s+/g, ' ').trim()
+comprobar('al entrar, Espesores ya compara BASE sobre SUBRASANTE, con el cambio de capas plegado',
+  textoComparando.includes(`BASE ${corta(SOL.base.fecha)} − SUBRASANTE ${corta(SOL.subrasante.fecha)}`) &&
+    !(await lineaComparando.evaluate((s) => s.parentElement.open)) &&
+    (await analisis.getByRole('heading', { name: 'Volumen colocado' }).count()) === 1,
+  textoComparando)
 
 await compararBaseSobreSubrasante(pagina)
 
@@ -414,6 +434,8 @@ async function revisarBombeo(analisis, esperados, nombre) {
 }
 
 await pestana(pagina, 'Drenaje')
+// La capa y el punto van plegados bajo la línea «Analizando …»: se abre para leerlos.
+await abrirPlegable(pagina, 'Analizando')
 const capaAnalizada = analisis.getByLabel('Capa analizada')
 comprobar('Drenaje dice qué capa analiza: la subrasante de Av. Sol, la toma activa al abrir',
   (await capaAnalizada.locator('option:checked').innerText()) === `SUBRASANTE · ${SOL.subrasante.fecha}`,
@@ -426,6 +448,7 @@ comprobar('subrasante de Av. Sol: el bombeo de 0+080 sale ✗ fuera a los dos la
 comprobar('subrasante de Av. Sol: 0+040 derecha △ al límite (borde bajo 26 mm)',
   filasSub.find((f) => f[0] === '0+040' && f[1] === 'derecha')?.[4].startsWith('△') === true)
 
+await abrirPlegable(pagina, 'Analizando')
 await capaAnalizada.selectOption({ label: `BASE · ${SOL.base.fecha}` })
 await analisis.getByLabel('Capa analizada').locator('option:checked', { hasText: 'BASE' }).waitFor({ state: 'attached', timeout: 10000 })
 comprobar('elegir la base en «Capa analizada» la hace la capa activa (la cabecera de Cierre la nombra)',
@@ -436,6 +459,7 @@ comprobar('elegir la base en «Capa analizada» la hace la capa activa (la cabec
     await pestana(pagina, 'Drenaje')
     return ok
   })())
+await abrirPlegable(pagina, 'Analizando')
 comprobar('al volver, Drenaje sigue en la base',
   (await analisis.getByLabel('Capa analizada').locator('option:checked').innerText()) === `BASE · ${SOL.base.fecha}`)
 await revisarBombeo(analisis, bombeosEsperados(DIF_SOL_BASE, SOL.progresivas), 'bombeo de la base de Av. Sol (desde la libreta)')
@@ -452,6 +476,7 @@ await analisis.getByRole('list', { name: 'Resumen del drenaje' }).waitFor({ time
 const textoDrenaje = await analisis.innerText()
 comprobar('el drenaje de Jr. Lima se dice NO COMPROBADO (la nivelación no cerró)',
   NO_COMPROBADO.test(textoDrenaje) && textoDrenaje.includes('no se ha cerrado contra un BM'))
+await abrirPlegable(pagina, 'Analizando')
 comprobar('drenaje por el eje de fábrica',
   (await analisis.getByLabel('Punto del perfil').locator('option:checked').innerText()) === 'Eje')
 comprobar('Drenaje de Jr. Lima nombra su capa: la subrasante del 02/10',
@@ -588,6 +613,8 @@ async function revisarCierreCerrado(cierre, toma, nombre) {
   comprobar(`${nombre}: error ${c.errorMm} mm`, Math.round(numero(err)) === c.errorMm, barra)
   comprobar(`${nombre}: tolerancia 12·√${c.longitudK} = ±${c.toleranciaMm} mm`,
     Math.abs(numero(tol) - 12 * Math.sqrt(c.longitudK)) <= 0.05 && Math.abs(numero(tol) - c.toleranciaMm) <= 0.05, barra)
+  // k y K van plegados bajo la línea «Tolerancia ±… · cambiar»: se abre para leerlos.
+  await abrirPlegable(cierre, 'Tolerancia')
   comprobar(`${nombre}: k = 12 elegido y K = ${c.longitudK} km`,
     (await cierre.getByRole('button', { name: 'k = 12' }).getAttribute('aria-pressed')) === 'true' &&
       Math.abs(numero(await cierre.getByLabel('Longitud K').inputValue()) - c.longitudK) < 0.0005,
@@ -618,6 +645,8 @@ const aplicada = cierre.getByText(/Compensación aplicada/)
 const aplicar = cierre.getByRole('button', { name: 'Aplicar compensación' })
 comprobar('base de Av. Sol: al abrir, la compensación guardada se dice «aplicada» y no hay botón',
   (await aplicada.count()) === 1 && (await aplicar.count()) === 0)
+// k y K van plegados bajo la línea «Tolerancia ±… · cambiar».
+await abrirPlegable(pagina, 'Tolerancia')
 await cierre.getByLabel('Longitud K').fill('0.25')
 await aplicar.waitFor({ timeout: 10000 })
 comprobar('con otro K, la compensación ya no se dice aplicada y aparece «Aplicar compensación»',

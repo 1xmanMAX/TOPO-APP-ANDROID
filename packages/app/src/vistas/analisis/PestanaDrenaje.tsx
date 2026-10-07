@@ -9,9 +9,11 @@ import {
 import { useMemo } from 'react'
 import PerfilLongitudinal from '../../componentes/PerfilLongitudinal'
 import { useAlmacen } from '../../estado/almacen'
+import Plegable from '../../componentes/Plegable'
+import { CEJA, TARJETA } from '../../componentes/ui'
 import { useResultado, type ContextoCampania } from '../../estado/derivados'
-import { formatearCota } from '../../formato'
-import { Aviso, AvisoNoComprobado, formatearPorcentaje, motivoSinCierre, SELECTOR } from './comunes'
+import { cuenta, formatearCota } from '../../formato'
+import { Aviso, AvisoNoComprobado, ETIQUETA, fechaCorta, formatearPorcentaje, motivoSinCierre, SELECTOR } from './comunes'
 import { bombeosPorProgresiva, leerListaDeProgresivas, perfilDeProyecto, perfilMedido } from './superficies'
 
 const FLECHA: Record<SentidoDelAgua, string> = { avanza: '→', retrocede: '←', plano: '·' }
@@ -79,6 +81,7 @@ export default function PestanaDrenaje({
     return { medido, drenaje, bombeos }
   }, [resultado, punto, rasante, capas, capaId, sumideros, calle])
 
+
   if (puntos.length === 0) {
     return (
       <Aviso tono="aviso" simbolo="△">
@@ -87,18 +90,53 @@ export default function PestanaDrenaje({
       </Aviso>
     )
   }
-  const capaAnalizada = (
-    <CapaAnalizada
-      calle={calle}
-      campaniaId={contexto.campania.id}
-      nombreCapa={(id) => capas.find((c) => c.id === id)?.nombre ?? 'Sin capa'}
-      alElegir={activarCampania}
-    />
-  )
+
+  const nombreCapa = (id: string) => capas.find((c) => c.id === id)?.nombre ?? 'Sin capa'
+  const resumenEleccion =
+    `Capa ${nombreCapa(capaId)} ${fechaCorta(contexto.campania.fecha)} · ${punto?.nombre ?? '—'} · ` +
+    `${sumideros.progresivas.length === 0 ? 'sin sumideros' : cuenta(sumideros.progresivas.length, 'sumidero', 'sumideros')} · cambiar`
+
+  function bloqueEleccion(abierto: boolean) {
+    return (
+      <Plegable titulo="Analizando" resumen={resumenEleccion} abierto={abierto} className={`${TARJETA} py-1`}>
+        <div className="grid gap-3 pb-3 sm:grid-cols-3">
+          <CapaAnalizada calle={calle} campaniaId={contexto.campania.id} nombreCapa={nombreCapa} alElegir={activarCampania} />
+          <label className="flex min-w-0 flex-col gap-1">
+            <span className={ETIQUETA}>Punto del perfil</span>
+            <select aria-label="Punto del perfil" value={elementoId} onChange={(e) => alCambiar({ elemento: e.target.value })} className={SELECTOR}>
+              {puntos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-w-0 flex-col gap-1">
+            <span className={ETIQUETA}>Sumideros (progresivas)</span>
+            <input
+              aria-label="Sumideros"
+              value={textoSumideros}
+              onChange={(e) => alCambiar({ sumideros: e.target.value })}
+              placeholder="0+040; 0+120"
+              // Teclado de texto a propósito: el decimal del celular no trae «+», «;» ni espacio.
+              inputMode="text"
+              className={`${SELECTOR} numerico placeholder:text-tenue`}
+            />
+            {sumideros.noEntendidas.length > 0 && (
+              <span className="text-sm text-aviso">
+                <span aria-hidden="true">△ </span>No se entiende: {sumideros.noEntendidas.join(', ')}
+              </span>
+            )}
+          </label>
+        </div>
+      </Plegable>
+    )
+  }
+
   if (!resultado || !calculo) {
     return (
-      <div className="flex flex-col gap-3">
-        {capaAnalizada}
+      <div className="flex flex-col gap-4">
+        {bloqueEleccion(true)}
         <Aviso tono="neutro" simbolo="△">
           Esta capa todavía no tiene cotas calculadas. Anota sus lecturas en Calle › Medir.
         </Aviso>
@@ -107,10 +145,10 @@ export default function PestanaDrenaje({
   }
   const { drenaje, bombeos, medido } = calculo
   const contrapendientes = drenaje.tramos.filter((t) => t.contraPendiente)
+  const hayProblema = drenaje.empozamientos.length > 0 || contrapendientes.length > 0
 
   return (
-    <div className="flex flex-col gap-3">
-      {capaAnalizada}
+    <div className="flex flex-col gap-4">
       {!drenaje.comprobado && <AvisoNoComprobado que="DRENAJE Y BOMBEO" motivo={motivoSinCierre(resultado.cierre.pasa)} />}
       {!rasante && (
         <Aviso tono="aviso" simbolo="△">
@@ -119,35 +157,40 @@ export default function PestanaDrenaje({
         </Aviso>
       )}
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Punto del perfil</span>
-          <select aria-label="Punto del perfil" value={elementoId} onChange={(e) => alCambiar({ elemento: e.target.value })} className={SELECTOR}>
-            {puntos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Sumideros (progresivas)</span>
-          <input
-            aria-label="Sumideros"
-            value={textoSumideros}
-            onChange={(e) => alCambiar({ sumideros: e.target.value })}
-            placeholder="0+040; 0+120"
-            // Teclado de texto a propósito: el decimal del celular no trae «+», «;» ni espacio.
-            inputMode="text"
-            className={`${SELECTOR} numerico`}
+      {medido.length >= 2 && (
+        <ul
+          aria-label="Resumen del drenaje"
+          className={`flex flex-col gap-1 rounded-[14px] p-4 [.sol_&]:border-2 [.sol_&]:border-current ${hayProblema ? 'bg-falla-suave text-falla' : 'bg-pasa-suave text-pasa'}`}
+        >
+          <Resumen
+            principal
+            bien={drenaje.empozamientos.length === 0}
+            texto={
+              drenaje.empozamientos.length === 0
+                ? 'Ningún empozamiento'
+                : `${drenaje.empozamientos.length} ${drenaje.empozamientos.length === 1 ? 'empozamiento' : 'empozamientos'}`
+            }
           />
-          {sumideros.noEntendidas.length > 0 && (
-            <span className="text-aviso">
-              <span aria-hidden="true">△ </span>No se entiende: {sumideros.noEntendidas.join(', ')}
-            </span>
-          )}
-        </label>
-      </div>
+          <Resumen
+            bien={contrapendientes.length === 0}
+            texto={
+              !rasante
+                ? 'Contrapendiente: sin proyecto'
+                : contrapendientes.length === 0
+                  ? 'Ningún tramo a contrapendiente'
+                  : `${contrapendientes.length} ${contrapendientes.length === 1 ? 'tramo' : 'tramos'} a contrapendiente`
+            }
+            neutro={!rasante}
+          />
+          <Resumen
+            bien={drenaje.puntosBajos.length === 0}
+            neutro
+            texto={`${drenaje.puntosBajos.length} ${drenaje.puntosBajos.length === 1 ? 'punto bajo' : 'puntos bajos'}`}
+          />
+        </ul>
+      )}
+
+      {bloqueEleccion(sumideros.noEntendidas.length > 0)}
 
       {medido.length < 2 ? (
         <Aviso tono="aviso" simbolo="△">
@@ -155,127 +198,113 @@ export default function PestanaDrenaje({
           dónde corre el agua hacen falta al menos dos progresivas medidas en él. Mídelo en Calle › Medir o elige otro
           punto.
         </Aviso>
-      ) : (
-        <>
-          <PerfilLongitudinal elementoClave={elementoId} idCampaniaReferencia={campaniaActivaId} />
+      ) : null}
 
-          <ul aria-label="Resumen del drenaje" className="grid gap-2 text-sm sm:grid-cols-3">
-            <Resumen
-              bien={drenaje.empozamientos.length === 0}
-              texto={
-                drenaje.empozamientos.length === 0
-                  ? 'Ningún empozamiento'
-                  : `${drenaje.empozamientos.length} ${drenaje.empozamientos.length === 1 ? 'empozamiento' : 'empozamientos'}`
-              }
-            />
-            <Resumen
-              bien={contrapendientes.length === 0}
-              texto={
-                !rasante
-                  ? 'Contrapendiente: sin proyecto'
-                  : contrapendientes.length === 0
-                    ? 'Ningún tramo a contrapendiente'
-                    : `${contrapendientes.length} ${contrapendientes.length === 1 ? 'tramo' : 'tramos'} a contrapendiente`
-              }
-              neutro={!rasante}
-            />
-            <Resumen
-              bien={drenaje.puntosBajos.length === 0}
-              neutro
-              texto={`${drenaje.puntosBajos.length} ${drenaje.puntosBajos.length === 1 ? 'punto bajo' : 'puntos bajos'}`}
-            />
-          </ul>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+        {medido.length >= 2 && (
+          <aside aria-label="Lo que encontró" className={`${TARJETA} flex min-w-0 flex-col gap-4 lg:order-2`}>
+            <span className={CEJA}>Lo que encontró</span>
+            <section className="flex flex-col gap-2 text-sm">
+              <h3 className="text-[15px] font-semibold">Puntos bajos</h3>
+              {drenaje.puntosBajos.length === 0 ? (
+                <p className="text-tenue">Ninguno: el agua sale de lo medido.</p>
+              ) : (
+                <ul aria-label="Puntos bajos" className="flex flex-col gap-2">
+                  {drenaje.puntosBajos.map((p) => {
+                    const empoza = drenaje.empozamientos.includes(p)
+                    const lugar =
+                      p.hasta !== p.progresiva
+                        ? `${formatearProgresiva(p.progresiva)} a ${formatearProgresiva(p.hasta)}`
+                        : formatearProgresiva(p.progresiva)
+                    return (
+                      <li
+                        key={`${p.progresiva}-${p.hasta}`}
+                        className={`rounded-[10px] px-3 py-2 [.sol_&]:border [.sol_&]:border-current ${empoza ? 'bg-falla-suave text-falla' : p.enSumidero ? 'bg-pasa-suave text-pasa' : 'bg-aviso-suave text-aviso'}`}
+                      >
+                        <span aria-hidden="true">{empoza ? '✗ ' : p.enSumidero ? '✓ ' : '△ '}</span>
+                        <span className="numerico font-semibold">{lugar}</span> · cota{' '}
+                        <span className="numerico">{formatearCota(p.cota)}</span> ·{' '}
+                        {empoza
+                          ? `se empoza: junta ${p.profundidadMm} mm antes de rebalsar${p.profundidadMm <= 2 ? ' (dentro del ruido de la nivelación)' : ''}`
+                          : p.enSumidero
+                            ? 'lo recoge un sumidero'
+                            : 'en el extremo de lo medido: mira más allá antes de darlo por bueno'}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </section>
 
-          <section className="flex flex-col gap-1 text-sm">
-            <h3 className="font-semibold">Sentido del agua</h3>
-            <ul aria-label="Sentido del agua por tramo" className="flex flex-col gap-1">
-              {drenaje.tramos.map((t) => (
-                <TramoAgua key={`${t.desde}-${t.hasta}`} tramo={t} />
-              ))}
-            </ul>
-          </section>
-
-          <section className="flex flex-col gap-1 text-sm">
-            <h3 className="font-semibold">Puntos bajos</h3>
-            {drenaje.puntosBajos.length === 0 ? (
-              <p className="text-slate-600 dark:text-slate-300">Ninguno: el agua sale de lo medido.</p>
-            ) : (
-              <ul aria-label="Puntos bajos" className="flex flex-col gap-1">
-                {drenaje.puntosBajos.map((p) => {
-                  const empoza = drenaje.empozamientos.includes(p)
-                  const lugar =
-                    p.hasta !== p.progresiva
-                      ? `${formatearProgresiva(p.progresiva)} a ${formatearProgresiva(p.hasta)}`
-                      : formatearProgresiva(p.progresiva)
-                  return (
-                    <li
-                      key={`${p.progresiva}-${p.hasta}`}
-                      className={`rounded border px-3 py-2 ${empoza ? 'border-falla text-falla' : p.enSumidero ? 'border-pasa text-pasa' : 'border-aviso text-aviso'}`}
-                    >
-                      <span aria-hidden="true">{empoza ? '✗ ' : p.enSumidero ? '✓ ' : '△ '}</span>
-                      <span className="numerico">{lugar}</span> · cota {formatearCota(p.cota)} ·{' '}
-                      {empoza
-                        ? `se empoza: junta ${p.profundidadMm} mm antes de rebalsar${p.profundidadMm <= 2 ? ' (dentro del ruido de la nivelación)' : ''}`
-                        : p.enSumidero
-                          ? 'lo recoge un sumidero'
-                          : 'en el extremo de lo medido: mira más allá antes de darlo por bueno'}
-                    </li>
-                  )
-                })}
+            <section className="flex flex-col gap-2 text-sm">
+              <h3 className="text-[15px] font-semibold">Sentido del agua</h3>
+              <ul aria-label="Sentido del agua por tramo" className="flex flex-col">
+                {drenaje.tramos.map((t) => (
+                  <TramoAgua key={`${t.desde}-${t.hasta}`} tramo={t} />
+                ))}
               </ul>
+            </section>
+          </aside>
+        )}
+
+        <div className="flex min-w-0 flex-col gap-4 lg:order-1">
+          {medido.length >= 2 && (
+            <div className={`${TARJETA} flex min-w-0 flex-col gap-2`}>
+              <h3 className="text-[17px] font-bold">Por dónde corre el agua</h3>
+              <PerfilLongitudinal elementoClave={elementoId} idCampaniaReferencia={campaniaActivaId} />
+            </div>
+          )}
+
+          <section className={`${TARJETA} flex min-w-0 flex-col gap-2 text-sm`}>
+            <h3 className="text-[17px] font-bold">Bombeo de la calzada</h3>
+            {bombeos.length === 0 ? (
+              <p className="text-tenue">
+                La sección no tiene eje y bordes de calzada: declara esos puntos en Obra › Calles para ver el bombeo.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table aria-label="Bombeo por progresiva" className="w-full min-w-max border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-tinta text-left text-tenue">
+                      <th className="px-2 py-1.5 font-medium">Progresiva</th>
+                      <th className="px-2 py-1.5 font-medium">Lado</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Medido</th>
+                      <th className="px-2 py-1.5 text-right font-medium">Proyecto</th>
+                      <th className="px-2 py-1.5 font-medium">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bombeos.map((b) => (
+                      <tr key={`${b.progresiva}-${b.lado}`} className="border-t border-borde">
+                        <td className="numerico px-2 py-1.5">{formatearProgresiva(b.progresiva)}</td>
+                        <td className="px-2 py-1.5">{b.lado}</td>
+                        <td className="numerico px-2 py-1.5 text-right whitespace-nowrap">{b.medido !== null ? formatearPorcentaje(b.medido) : '—'}</td>
+                        <td className="numerico px-2 py-1.5 text-right whitespace-nowrap">{b.proyecto !== null ? formatearPorcentaje(b.proyecto) : '—'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">
+                          {b.comparacion ? (
+                            <span className={CLASE_BOMBEO[b.comparacion.estado]}>
+                              {SIMBOLO_BOMBEO[b.comparacion.estado]} {PALABRA_BOMBEO[b.comparacion.estado]}
+                              {b.comparacion.aguaAlReves
+                                ? ' · el agua va al revés'
+                                : b.comparacion.menosQueProyecto
+                                  ? ' · más tendido'
+                                  : ''}
+                            </span>
+                          ) : b.medido === null ? (
+                            <span className="text-tenue">sin medir</span>
+                          ) : (
+                            <span className="text-tenue">sin proyecto</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
-        </>
-      )}
-
-      <section className="flex flex-col gap-1 text-sm">
-        <h3 className="font-semibold">Bombeo de la calzada</h3>
-        {bombeos.length === 0 ? (
-          <p className="text-slate-600 dark:text-slate-300">
-            La sección no tiene eje y bordes de calzada: declara esos puntos en Obra › Calles para ver el bombeo.
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-800">
-            <table aria-label="Bombeo por progresiva" className="w-full border-collapse text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-900">
-                <tr className="text-left text-slate-500">
-                  <th className="px-2 py-1.5 font-medium">Progresiva</th>
-                  <th className="px-2 py-1.5 font-medium">Lado</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Medido</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Proyecto</th>
-                  <th className="px-2 py-1.5 font-medium">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bombeos.map((b) => (
-                  <tr key={`${b.progresiva}-${b.lado}`} className="border-t border-slate-100 dark:border-slate-800">
-                    <td className="numerico px-2 py-1.5">{formatearProgresiva(b.progresiva)}</td>
-                    <td className="px-2 py-1.5">{b.lado}</td>
-                    <td className="numerico whitespace-nowrap px-2 py-1.5 text-right">{b.medido !== null ? formatearPorcentaje(b.medido) : '—'}</td>
-                    <td className="numerico whitespace-nowrap px-2 py-1.5 text-right">{b.proyecto !== null ? formatearPorcentaje(b.proyecto) : '—'}</td>
-                    <td className="px-2 py-1.5">
-                      {b.comparacion ? (
-                        <span className={CLASE_BOMBEO[b.comparacion.estado]}>
-                          {SIMBOLO_BOMBEO[b.comparacion.estado]} {PALABRA_BOMBEO[b.comparacion.estado]}
-                          {b.comparacion.aguaAlReves
-                            ? ' · el agua va al revés'
-                            : b.comparacion.menosQueProyecto
-                              ? ' · más tendido'
-                              : ''}
-                        </span>
-                      ) : b.medido === null ? (
-                        <span className="text-slate-500">sin medir</span>
-                      ) : (
-                        <span className="text-slate-500">sin proyecto</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        </div>
+      </div>
 
       {drenaje.descartados.length > 0 && (
         <p className="text-sm text-aviso">
@@ -305,8 +334,8 @@ function CapaAnalizada({
   alElegir: (id: string) => void
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="font-medium">Capa analizada</span>
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className={ETIQUETA}>Capa analizada</span>
       <select aria-label="Capa analizada" value={campaniaId} onChange={(e) => alElegir(e.target.value)} className={SELECTOR}>
         {calle.nivelaciones.map((nivelacion) =>
           nivelacion.tomas.length === 0 ? null : (
@@ -320,18 +349,29 @@ function CapaAnalizada({
           ),
         )}
       </select>
-      <span className="text-xs text-slate-600 dark:text-slate-300">
-        Drenaje y bombeo de esta capa. Cambiarla cambia la capa activa de la calle.
-      </span>
+      <span className="text-xs text-tenue">Cambiarla cambia la capa activa de la calle.</span>
     </label>
   )
 }
 
-function Resumen({ bien, texto, neutro = false }: { bien: boolean; texto: string; neutro?: boolean }) {
-  const clase = neutro ? 'border-slate-300 dark:border-slate-700' : bien ? 'border-pasa text-pasa' : 'border-falla text-falla'
+/**
+ * Una línea del veredicto del drenaje. La primera (los empozamientos) va en
+ * grande: es lo que se pregunta. Las neutras van sin símbolo de estado.
+ */
+function Resumen({
+  bien,
+  texto,
+  neutro = false,
+  principal = false,
+}: {
+  bien: boolean
+  texto: string
+  neutro?: boolean
+  principal?: boolean
+}) {
   return (
-    <li className={`rounded border px-3 py-2 font-medium ${clase}`}>
-      {!neutro && <span aria-hidden="true">{bien ? '✓ ' : '✗ '}</span>}
+    <li className={principal ? 'text-xl font-bold' : 'text-[15px] font-medium text-tinta'}>
+      <span aria-hidden="true">{neutro ? '· ' : bien ? '✓ ' : '✗ '}</span>
       {texto}
     </li>
   )
@@ -344,22 +384,18 @@ function TramoAgua({ tramo }: { tramo: TramoDeDrenaje }) {
     (tramo.pendienteProyecto !== null ? `, proyecto ${formatearPorcentaje(tramo.pendienteProyecto)}` : '') +
     (tramo.contraPendiente ? ', a contrapendiente' : '') +
     (tramo.casiPlano && !tramo.contraPendiente ? ', casi plano' : '')
-  const clase = tramo.contraPendiente
-    ? 'border-falla text-falla'
-    : tramo.casiPlano
-      ? 'border-aviso text-aviso'
-      : 'border-slate-200 dark:border-slate-800'
+  const clase = tramo.contraPendiente ? 'text-falla' : tramo.casiPlano ? 'text-aviso' : ''
   return (
-    <li aria-label={etiqueta} className={`flex flex-wrap items-center gap-x-3 rounded border px-3 py-1.5 ${clase}`}>
-      <span aria-hidden="true" className="w-6 text-center text-lg leading-none">
+    <li aria-label={etiqueta} className={`flex min-h-9 flex-wrap items-center gap-x-3 border-b border-borde py-1 last:border-b-0 ${clase}`}>
+      <span aria-hidden="true" className="w-5 text-center text-lg leading-none font-bold">
         {FLECHA[tramo.sentidoMedido]}
       </span>
       <span className="numerico">
         {formatearProgresiva(tramo.desde)} → {formatearProgresiva(tramo.hasta)}
       </span>
-      <span className="numerico">{formatearPorcentaje(tramo.pendienteMedida)}</span>
+      <span className="numerico font-semibold">{formatearPorcentaje(tramo.pendienteMedida)}</span>
       {tramo.pendienteProyecto !== null && (
-        <span className="numerico text-slate-500">proyecto {formatearPorcentaje(tramo.pendienteProyecto)}</span>
+        <span className="numerico text-tenue">proyecto {formatearPorcentaje(tramo.pendienteProyecto)}</span>
       )}
       {tramo.contraPendiente && (
         <span className="font-semibold">

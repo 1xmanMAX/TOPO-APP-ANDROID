@@ -27,14 +27,14 @@ describe('PantallaAnalisis', () => {
   })
 
   describe('Espesores', () => {
-    it('pide elegir las dos capas y luego enseña el mapa, las delgadas y el volumen colocado', async () => {
-      const usuario = userEvent.setup()
+    it('al entrar elige sola la pareja lógica y enseña el mapa, las delgadas y el volumen colocado', () => {
       render(<PantallaAnalisis />)
 
-      expect(screen.getByText(/Elige arriba la capa de abajo y la de arriba/)).toBeInTheDocument()
-
-      await usuario.selectOptions(screen.getByLabelText('Capa de abajo en la comparación'), 'toma-sub')
-      await usuario.selectOptions(screen.getByLabelText('Capa de arriba en la comparación'), 'toma-base')
+      // Abajo la subrasante (la activa, la más baja), arriba la base: la siguiente capa medida.
+      expect(screen.queryByText(/Elige arriba la capa de abajo y la de arriba/)).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Capa de abajo en la comparación')).toHaveValue('toma-sub')
+      expect(screen.getByLabelText('Capa de arriba en la comparación')).toHaveValue('toma-base')
+      expect(screen.getByText(/^BASE .* − SUBRASANTE .* · cambiar$/)).toBeInTheDocument()
 
       expect(screen.getByText(/ESPESORES VERIFICADOS/)).toBeInTheDocument()
       expect(screen.getByText('0.200 m ± 10 mm')).toBeInTheDocument()
@@ -47,6 +47,24 @@ describe('PantallaAnalisis', () => {
       const volumen = within(screen.getByRole('region', { name: 'Volumen colocado' }))
       expect(volumen.getByText(/m³/)).toBeInTheDocument()
       expect(volumen.queryByText(/no comprobado/)).not.toBeInTheDocument()
+    })
+
+    it('si la toma activa es la de arriba, la compara con la capa de debajo', () => {
+      useAlmacen.getState().activarCampania('toma-base')
+      render(<PantallaAnalisis />)
+
+      expect(screen.getByLabelText('Capa de abajo en la comparación')).toHaveValue('toma-sub')
+      expect(screen.getByLabelText('Capa de arriba en la comparación')).toHaveValue('toma-base')
+    })
+
+    it('respeta la pareja ya elegida y deja quitar una capa sin volver a elegirla', async () => {
+      const usuario = userEvent.setup()
+      useAlmacen.getState().fijarComparacion('toma-base', 'toma-sub')
+      render(<PantallaAnalisis />)
+
+      expect(screen.getByLabelText('Capa de abajo en la comparación')).toHaveValue('toma-base')
+      await usuario.selectOptions(screen.getByLabelText('Capa de arriba en la comparación'), '')
+      expect(screen.getByText(/Elige arriba la capa de abajo y la de arriba/)).toBeInTheDocument()
     })
 
     it('dice que faltan nivelaciones si la calle tiene una sola', () => {

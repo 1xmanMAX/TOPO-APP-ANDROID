@@ -1,15 +1,15 @@
 import type { Calle } from '@topo/core'
 import type { ReactNode } from 'react'
+import AvisoLinea from '../../componentes/AvisoLinea'
 import { useAlmacen } from '../../estado/almacen'
 import { useContexto, type ContextoCampania } from '../../estado/derivados'
 
-/** Lo mismo que los botones de la sub-barra: 44 px de alto para el dedo en campo. */
-export const BOTON = 'min-h-11 rounded px-3 py-1 text-sm'
-export const BOTON_INACTIVO =
-  'border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
-export const BOTON_ACTIVO = 'border border-marca bg-marca font-medium text-white'
+/** Los selectores y campos de estas pantallas: 44 px de alto, con los tokens del lienzo. */
 export const SELECTOR =
-  'min-h-11 min-w-0 rounded border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900'
+  'min-h-11 w-full min-w-0 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-[15px] text-tinta'
+
+/** La etiqueta de un selector, encima de él. */
+export const ETIQUETA = 'text-sm font-medium text-tenue'
 
 /**
  * La calle activa y, si la tiene, la toma activa de esa calle. Las pantallas
@@ -36,13 +36,13 @@ export function Aviso({
   children: ReactNode
 }) {
   const clases = {
-    pasa: 'border-pasa bg-pasa/10 text-pasa',
-    falla: 'border-falla bg-falla/10 text-falla',
-    aviso: 'border-aviso bg-aviso/10 text-aviso',
-    neutro: 'border-dashed border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300',
+    pasa: 'bg-pasa-suave text-pasa [.sol_&]:border [.sol_&]:border-current',
+    falla: 'bg-falla-suave text-falla [.sol_&]:border [.sol_&]:border-current',
+    aviso: 'bg-aviso-suave text-aviso [.sol_&]:border [.sol_&]:border-current',
+    neutro: 'border border-dashed border-borde-fuerte bg-tarjeta text-tenue',
   }[tono]
   return (
-    <div className={`rounded border px-3 py-2 text-sm ${clases}`}>
+    <div className={`rounded-[10px] px-3 py-2 text-sm leading-5 ${clases}`}>
       {simbolo && <span aria-hidden="true">{simbolo} </span>}
       {children}
     </div>
@@ -51,24 +51,21 @@ export function Aviso({
 
 /**
  * Lo calculado sobre una nivelación que no cerró tampoco está comprobado
- * (spec §3). Se dice arriba de cada resultado, con un atajo al cierre.
+ * (spec §3). Se dice arriba de cada resultado, con un atajo al cierre. Va en
+ * aviso (△), no en rojo: no dice que esté mal, dice que falta comprobarlo.
  */
 export function AvisoNoComprobado({ que, motivo }: { que: string; motivo: string }) {
   const abrirPantallaCalle = useAlmacen((s) => s.abrirPantallaCalle)
   return (
-    <div className="flex flex-col gap-2 rounded border border-falla bg-falla/10 px-3 py-2 text-sm text-falla sm:flex-row sm:items-center">
-      <p className="flex-1 font-semibold">
-        <span aria-hidden="true">✗ </span>
+    <AvisoLinea
+      tono="aviso"
+      className="[.sol_&]:border [.sol_&]:border-current"
+      accion={{ texto: 'Ver el cierre', alPulsar: () => abrirPantallaCalle('cierre') }}
+    >
+      <p className="font-semibold">
         {que} NO COMPROBADOS — {motivo}
       </p>
-      <button
-        type="button"
-        onClick={() => abrirPantallaCalle('cierre')}
-        className={`${BOTON} border border-falla bg-white text-falla dark:bg-slate-950`}
-      >
-        Ver el cierre
-      </button>
-    </div>
+    </AvisoLinea>
   )
 }
 
@@ -89,4 +86,10 @@ export function formatearPorcentaje(valor: number): string {
   const texto = Math.abs(valor).toFixed(2)
   if (Number(texto) === 0) return '0.00 %'
   return `${valor < 0 ? '−' : '+'}${texto} %`
+}
+
+/** «2026-09-28» → «28/09», como se dice en obra. Si no es una fecha así, tal cual. */
+export function fechaCorta(fecha: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fecha)
+  return m ? `${m[3]}/${m[2]}` : fecha
 }

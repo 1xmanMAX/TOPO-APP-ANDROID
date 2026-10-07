@@ -10,10 +10,13 @@ import {
 } from '@topo/core'
 import { useId, useMemo, useState } from 'react'
 import CampoNumero from '../../componentes/CampoNumero'
+import Plegable from '../../componentes/Plegable'
+import Segmentado from '../../componentes/Segmentado'
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, TARJETA } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
 import { useResultado } from '../../estado/derivados'
 import { formatearCota } from '../../formato'
-import { Aviso, BOTON, BOTON_ACTIVO, BOTON_INACTIVO, useCalleYToma } from '../analisis/comunes'
+import { Aviso, useCalleYToma } from '../analisis/comunes'
 import { armarRecorrido, type PasoRecorrido } from './recorrido'
 
 /** Los k de la tolerancia k·√K que se usan en obra, del más holgado al más exigente. */
@@ -33,12 +36,15 @@ function mmConSigno(valor: number): string {
   return `${valor < 0 ? '−' : '+'}${texto} mm`
 }
 
+/** En el modo sol los fondos suaves son negros: el borde dice el estado. */
+const BORDE_SOL = '[.sol_&]:border-2 [.sol_&]:border-current'
+
 /**
- * Calle › Cierre: el recorrido de la toma activa, la lectura de cierre (antes
- * de visar el BM se puede probar con `simularCierre`), k y K, el error contra
- * la tolerancia y la corrección por estación. Aplicarla guarda k y K en la
- * toma: desde ahí `calcularCampania` compensa las cotas, igual que hacía la
- * barra de cierre de Revisar. Las cuentas son todas de
+ * Calle › Cierre: la lectura de cierre si falta (antes de visar el BM se
+ * puede probar con `simularCierre`), el veredicto con su barra, el recorrido
+ * de la toma activa, k y K plegados, y la corrección por estación. Aplicarla
+ * guarda k y K en la toma: desde ahí `calcularCampania` compensa las cotas,
+ * igual que hacía la barra de cierre de Revisar. Las cuentas son todas de
  * `nivelacion/cierreEnVivo` del motor.
  */
 export default function PantallaCierre() {
@@ -46,13 +52,13 @@ export default function PantallaCierre() {
   const { calle, contexto } = useCalleYToma()
 
   return (
-    <section aria-labelledby={idTitulo} className="mx-auto flex w-full max-w-4xl flex-col gap-3 p-3 sm:p-6">
-      <div className="flex flex-col gap-1">
-        <h2 id={idTitulo} className="text-lg font-semibold">
+    <section aria-labelledby={idTitulo} className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4 sm:p-6">
+      <div className="flex flex-col">
+        <h2 id={idTitulo} className="text-[26px] leading-tight font-bold">
           Cierre
         </h2>
         {calle && (
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-[15px] text-tenue">
             {calle.nombre}
             {contexto && ` · ${contexto.capa?.nombre ?? '—'} · ${contexto.campania.fecha}`}
           </p>
@@ -116,61 +122,91 @@ function CierreDeLaToma({ toma }: { toma: Toma }) {
     ? COEFICIENTES
     : [...COEFICIENTES, toma.cierre.coeficiente]
   const cierre = estado.cierre
+  const aplicada = guardadoIgual && resultado?.cierre.pasa === true
+  const puedeAplicar = cierre?.pasa === true && !aplicada
+  const toleranciaMm = cierre?.toleranciaMm ?? k * Math.sqrt(Math.max(0, km))
+
+  const veredicto = <Veredicto estado={estado} tipo={toma.cierre.tipo} />
+  const lectura = estado.previo ? <LecturaDeCierre toma={toma} estado={estado} k={k} km={km} largoMira={largoMira} /> : null
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Sin cierre todavía, lo primero es la lectura que lo cierra; con cierre, el veredicto. */}
+      {cierre ? (
+        <>
+          {veredicto}
+          {/* Ya cerrado, probar otra lectura es lo raro: va plegado. */}
+          {lectura && estado.previo && (
+            <Plegable
+              titulo="Probar otra lectura"
+              resumen={`en ${estado.previo.bmCierre.nombre}`}
+              className="border-y border-borde"
+            >
+              <div className="pb-3">{lectura}</div>
+            </Plegable>
+          )}
+        </>
+      ) : (
+        <>
+          {lectura}
+          {veredicto}
+        </>
+      )}
+
       <Recorrido pasos={recorrido} primeraDelCircuito={tramo.primeraEstacion} cotasInstrumento={resultado?.cotasInstrumento ?? []} />
 
       {toma.cierre.tipo !== 'abierto' && (
-        <section aria-label="Tolerancia" className="flex flex-col gap-2 rounded border border-slate-200 p-3 dark:border-slate-800">
-          <h3 className="font-semibold">Tolerancia k·√K</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-slate-600 dark:text-slate-300">k</span>
-            {coeficientes.map((valor) => (
-              <button
-                key={valor}
-                type="button"
-                aria-pressed={k === valor}
-                onClick={() => setK(valor)}
-                className={`${BOTON} ${k === valor ? BOTON_ACTIVO : BOTON_INACTIVO}`}
-              >
-                k = {valor}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="flex items-center gap-1.5">
-              K
-              <CampoNumero ariaLabel="Longitud K" valor={km} soloLectura={kmAuto} ancho="w-24" alCambiar={setKmManual} />
-              km
-            </span>
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="checkbox"
-                className="h-5 w-5"
-                checked={kmAuto}
-                onChange={(e) => {
-                  if (!e.target.checked) setKmManual(kmDeLoMedido)
-                  setKmAuto(e.target.checked)
-                }}
+        <section aria-label="Tolerancia" className="border-y border-borde">
+          <Plegable
+            titulo="Tolerancia"
+            resumen={`±${toleranciaMm.toFixed(1)} mm (${k}·√${km.toFixed(3)} km) · cambiar`}
+            abierto={!guardadoIgual || puedeAplicar}
+          >
+            <div className="flex flex-col gap-3 pb-3">
+              <Segmentado
+                etiqueta="Constante k"
+                opciones={coeficientes.map((valor) => ({ valor: String(valor), texto: `k = ${valor}` }))}
+                valor={String(k)}
+                alCambiar={(valor) => setK(Number(valor))}
+                anchoCompleto
+                className="sm:w-auto"
               />
-              K de lo medido
-            </label>
-          </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[15px]">
+                <span className="flex items-center gap-2">
+                  <span className="text-tenue">Longitud K</span>
+                  <CampoNumero ariaLabel="Longitud K" valor={km} soloLectura={kmAuto} ancho="w-28" alCambiar={setKmManual} />
+                  <span className="text-tenue">km</span>
+                </span>
+                <label className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-marca"
+                    checked={kmAuto}
+                    onChange={(e) => {
+                      if (!e.target.checked) setKmManual(kmDeLoMedido)
+                      setKmAuto(e.target.checked)
+                    }}
+                  />
+                  K de lo medido
+                </label>
+              </div>
+              {puedeAplicar && (
+                <button type="button" onClick={aplicar} className={`${BOTON_PRINCIPAL} w-full sm:w-auto sm:self-start`}>
+                  Aplicar compensación
+                </button>
+              )}
+            </div>
+          </Plegable>
         </section>
       )}
 
-      <Veredicto estado={estado} tipo={toma.cierre.tipo} />
-
-      {estado.previo && <LecturaDeCierre toma={toma} estado={estado} k={k} km={km} largoMira={largoMira} />}
-
       {cierre?.pasa && (
-        <section aria-label="Compensación" className="flex flex-col gap-2">
-          <h3 className="font-semibold">Corrección por estación</h3>
-          <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-800">
-            <table aria-label="Corrección por estación" className="w-full border-collapse text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-900">
-                <tr className="text-left text-slate-500">
+        <section aria-label="Compensación" className={`${TARJETA} flex flex-col gap-3`}>
+          <h3 className="text-[17px] font-bold">Corrección por estación</h3>
+          <div className="overflow-x-auto">
+            <table aria-label="Corrección por estación" className="w-full border-collapse text-[15px]">
+              <thead>
+                <tr className="border-b border-tinta text-left text-sm text-tenue">
                   <th className="px-2 py-1.5 font-medium">Estación</th>
                   <th className="px-2 py-1.5 text-right font-medium">Altura instrumental</th>
                   <th className="px-2 py-1.5 text-right font-medium">Corrección acumulada</th>
@@ -181,14 +217,14 @@ function CierreDeLaToma({ toma }: { toma: Toma }) {
                   const ai = resultado?.cotasInstrumento[indice]
                   const fuera = indice < cierre.tramoComprobado.primeraEstacion
                   return (
-                    <tr key={estacion.id} className="border-t border-slate-100 dark:border-slate-800">
+                    <tr key={estacion.id} className="border-t border-borde">
                       <td className="px-2 py-1.5">E{indice + 1}</td>
                       <td className="numerico px-2 py-1.5 text-right">
                         {ai !== undefined && Number.isFinite(ai) ? formatearCota(ai) : '—'}
                       </td>
-                      <td className="numerico px-2 py-1.5 text-right">
+                      <td className="numerico px-2 py-1.5 text-right font-semibold">
                         {fuera ? (
-                          <span className="text-aviso">
+                          <span className="font-normal text-aviso">
                             <span aria-hidden="true">△ </span>fuera del circuito
                           </span>
                         ) : (
@@ -201,24 +237,24 @@ function CierreDeLaToma({ toma }: { toma: Toma }) {
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-tenue">
             Cada punto leído desde una estación recibe la corrección de esa estación. La última anula el error.
           </p>
 
-          {guardadoIgual && resultado?.cierre.pasa === true ? (
+          {aplicada ? (
             <Aviso tono="pasa" simbolo="✓">
               Compensación aplicada: las cotas de Revisar y de los informes ya van corregidas.
             </Aviso>
           ) : (
-            <button type="button" onClick={aplicar} className={`${BOTON} self-start bg-marca font-medium text-white`}>
-              Aplicar compensación
-            </button>
+            <Aviso tono="aviso" simbolo="△">
+              Todavía sin aplicar: las cotas no van corregidas. Aplícala en «Tolerancia».
+            </Aviso>
           )}
         </section>
       )}
 
       {cierre && !cierre.pasa && (
-        <section aria-label="Qué revisar" className="flex flex-col gap-2">
+        <section aria-label="Qué revisar" className={`${TARJETA} flex flex-col gap-3`}>
           <Aviso tono="falla" simbolo="✗">
             No se compensa: un cierre fuera de tolerancia no se reparte entre las estaciones. Las cotas de esta toma
             quedan NO COMPROBADAS.
@@ -229,13 +265,13 @@ function CierreDeLaToma({ toma }: { toma: Toma }) {
               compensadas con él.
             </Aviso>
           )}
-          <h3 className="font-semibold">Qué revisar</h3>
-          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+          <h3 className="text-[17px] font-bold">Qué revisar</h3>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-[15px]">
             {queRevisar(estado, toma, bms).map((texto) => (
               <li key={texto}>{texto}</li>
             ))}
           </ul>
-          <button type="button" onClick={() => fijarModoCalle('medir')} className={`${BOTON} self-start ${BOTON_INACTIVO}`}>
+          <button type="button" onClick={() => fijarModoCalle('medir')} className={`${BOTON_SECUNDARIO} self-start`}>
             Revisar la libreta
           </button>
         </section>
@@ -261,36 +297,42 @@ function Recorrido({
     )
   }
   const clases: Record<PasoRecorrido['tipo'], string> = {
-    bm: 'border-2 border-marca font-semibold',
-    estacion: 'border border-slate-400 bg-slate-100 dark:bg-slate-800',
-    cambio: 'border border-slate-400',
-    punto: 'border border-slate-300 text-slate-600 dark:text-slate-300',
-    falta: 'border-2 border-dashed border-aviso text-aviso',
+    bm: 'border-2 border-tinta bg-tarjeta font-semibold',
+    estacion: 'border border-borde bg-tarjeta',
+    cambio: 'border-2 border-dashed border-borde-fuerte bg-tarjeta',
+    punto: 'border border-borde bg-tarjeta text-tenue',
+    falta: 'border-2 border-dashed border-marca bg-tarjeta font-semibold text-marca',
   }
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="font-semibold">Recorrido</h3>
+      <h3 className="text-[15px] font-semibold text-tenue">Recorrido</h3>
       <ol aria-label="Recorrido de la nivelación" className="flex flex-wrap items-center gap-x-1 gap-y-2 text-sm">
         {pasos.map((paso, indice) => {
           const fuera = paso.estacionIndice !== undefined && paso.estacionIndice < primeraDelCircuito
           const ai = paso.estacionIndice !== undefined ? cotasInstrumento[paso.estacionIndice] : undefined
+          const falta = paso.tipo === 'falta'
           return (
             <li key={`${paso.tipo}-${paso.nombre}-${indice}`} className="flex items-center gap-1">
-              {indice > 0 && (
-                <span aria-hidden="true" className="text-slate-400">
-                  →
-                </span>
-              )}
-              <div className={`flex min-h-11 flex-col justify-center rounded px-2.5 py-1 ${clases[paso.tipo]}`}>
+              {indice > 0 &&
+                (falta ? (
+                  // El tramo que falta: discontinuo y en el color de la marca.
+                  <span aria-hidden="true" className="flex items-center text-marca">
+                    <span className="w-5 border-t-2 border-dashed border-current" />
+                    <span className="-ml-0.5 leading-none">▸</span>
+                  </span>
+                ) : (
+                  <span aria-hidden="true" className="text-[#8B96A2]">
+                    →
+                  </span>
+                ))}
+              <div className={`numerico flex min-h-11 flex-col justify-center rounded-[10px] px-2.5 py-1 ${clases[paso.tipo]}`}>
                 <span>
-                  {paso.tipo === 'falta' && <span aria-hidden="true">? </span>}
+                  {falta && <span aria-hidden="true">? </span>}
                   {paso.nombre}
-                  {paso.tipo === 'falta' && ' (falta visar)'}
+                  {falta && ' (falta visar)'}
                   {paso.tipo === 'cambio' && <span className="sr-only"> (punto de cambio)</span>}
                 </span>
-                {ai !== undefined && Number.isFinite(ai) && (
-                  <span className="numerico text-xs text-slate-600 dark:text-slate-300">AI {formatearCota(ai)}</span>
-                )}
+                {ai !== undefined && Number.isFinite(ai) && <span className="text-xs text-tenue">AI {formatearCota(ai)}</span>}
                 {fuera && <span className="text-xs text-aviso">fuera del circuito</span>}
               </div>
             </li>
@@ -332,31 +374,47 @@ function Veredicto({ estado, tipo }: { estado: EstadoCierreEnVivo; tipo: Toma['c
     )
   }
   const tolerancia = cierre.toleranciaMm
-  const fraccion = tolerancia > 0 ? Math.min(1, Math.abs(cierre.errorMm) / (2 * tolerancia)) : cierre.errorMm === 0 ? 0 : 1
+  // La barra va de −2·tol a +2·tol: la franja verde del centro es lo que pasa.
+  const posicion =
+    tolerancia > 0 ? 50 + (cierre.errorMm / tolerancia) * 25 : cierre.errorMm === 0 ? 50 : cierre.errorMm > 0 ? 100 : 0
+  const marcador = Math.max(1, Math.min(99, posicion))
   return (
-    <section aria-label="Veredicto del cierre" className="flex flex-col gap-2">
-      <p className={`text-xl font-bold ${cierre.pasa ? 'text-pasa' : 'text-falla'}`}>
-        <span aria-hidden="true">{cierre.pasa ? '✓ ' : '✗ '}</span>
-        {cierre.pasa ? 'Cierra' : 'No cierra'}
-      </p>
-      <div
-        role="img"
-        aria-label={`Error ${mmConSigno(cierre.errorMmRedondeado)} contra una tolerancia de ±${tolerancia.toFixed(1)} mm`}
-        className="relative h-4 w-full rounded bg-slate-100 dark:bg-slate-800"
-      >
+    <section
+      aria-label="Veredicto del cierre"
+      className={`flex flex-col gap-3 rounded-[14px] p-4 ${BORDE_SOL} ${cierre.pasa ? 'bg-pasa-suave text-pasa' : 'bg-falla-suave text-falla'}`}
+    >
+      <div>
+        <p className="text-3xl leading-tight font-bold">
+          <span aria-hidden="true" className="mr-3 inline-block align-middle text-5xl leading-none">
+            {cierre.pasa ? '✓' : '✗'}
+          </span>{' '}
+          {cierre.pasa ? 'Cierra' : 'No cierra'}
+        </p>
+        <p className="mt-1 text-base">
+          Error <span className="numerico font-semibold">{mmConSigno(cierre.errorMmRedondeado)}</span> de{' '}
+          <span className="numerico">±{tolerancia.toFixed(1)} mm</span> permitidos
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
         <div
-          className={`h-4 rounded ${cierre.pasa ? 'bg-pasa' : 'bg-falla'}`}
-          style={{ width: `${fraccion * 100}%` }}
-        />
-        {/* La raya de la tolerancia va a la mitad: la barra llega hasta el doble. */}
-        <div className="absolute inset-y-[-4px] left-1/2 w-0.5 bg-slate-700 dark:bg-slate-200" />
+          role="img"
+          aria-label={`Error ${mmConSigno(cierre.errorMmRedondeado)} contra una tolerancia de ±${tolerancia.toFixed(1)} mm`}
+          className="relative h-10 w-full overflow-hidden rounded-md border border-borde-fuerte bg-tarjeta"
+        >
+          <div className="absolute inset-0 bg-falla-suave" />
+          <div className="absolute inset-y-0 left-1/4 w-1/2 border-x-2 border-pasa bg-pasa/25" />
+          <div className="absolute inset-y-0 left-1/2 w-px bg-tenue" />
+          <div
+            className="absolute inset-y-0 w-1.5 -translate-x-1/2 rounded-sm bg-tinta"
+            style={{ left: `${marcador}%` }}
+          />
+        </div>
+        <div className="numerico relative h-4 text-xs text-tinta">
+          <span className="absolute left-1/4 -translate-x-1/2">−{tolerancia.toFixed(1)}</span>
+          <span className="absolute left-1/2 -translate-x-1/2">0</span>
+          <span className="absolute left-3/4 -translate-x-1/2">+{tolerancia.toFixed(1)} mm</span>
+        </div>
       </div>
-      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
-        <span>0</span>
-        <span>tolerancia ±{tolerancia.toFixed(1)} mm</span>
-        <span>2×</span>
-      </div>
-      <p className="numerico text-sm">{estado.texto}</p>
       {estado.motivo && (
         <p className="text-sm text-aviso">
           <span aria-hidden="true">△ </span>
@@ -401,22 +459,25 @@ function LecturaDeCierre({
   const puedeAnotar = simulacion !== null && ultima !== undefined && !ultima.vistaAdelante
 
   return (
-    <section aria-label="Lectura de cierre" className="flex flex-col gap-2 rounded border border-slate-200 p-3 dark:border-slate-800">
-      <h3 className="font-semibold">Lectura de cierre en {previo.bmCierre.nombre}</h3>
-      <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-slate-500">Cota del BM</dt>
-          <dd className="numerico">{formatearCota(previo.bmCierre.cota)}</dd>
+    <section aria-label="Lectura de cierre" className={`${TARJETA} flex flex-col gap-3`}>
+      <h3 className="text-[17px] leading-snug font-bold">
+        Lectura de cierre en {previo.bmCierre.nombre}
+        {ultimaIndice >= 0 && <span className="font-normal text-tenue"> · desde la Estación {ultimaIndice + 1}</span>}
+      </h3>
+      <dl className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <dt className="text-[15px]">Para cerrar exacto</dt>
+          <dd className="numerico text-3xl font-semibold">{formatearCota(previo.lecturaParaCerrarExacto)}</dd>
         </div>
-        <div>
-          <dt className="text-slate-500">Para cerrar exacto</dt>
-          <dd className="numerico font-semibold">{formatearCota(previo.lecturaParaCerrarExacto)}</dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">Pasa si lees entre</dt>
+        <div className="flex flex-wrap items-baseline gap-x-1.5 text-sm text-tenue">
+          <dt>Pasa si lees entre</dt>
           <dd className="numerico">
             {formatearCota(previo.rangoLecturaQuePasa[0])} y {formatearCota(previo.rangoLecturaQuePasa[1])}
           </dd>
+        </div>
+        <div className="flex flex-wrap items-baseline gap-x-1.5 text-sm text-tenue">
+          <dt>Cota del BM</dt>
+          <dd className="numerico">{formatearCota(previo.bmCierre.cota)}</dd>
         </div>
       </dl>
       {anotada !== undefined && (
@@ -424,15 +485,15 @@ function LecturaDeCierre({
           Anotada en la libreta: <span className="numerico font-semibold">{formatearCota(anotada)}</span>
         </p>
       )}
-      <label className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center">
-        <span>{anotada !== undefined ? 'Probar otra lectura' : 'Lectura en el BM'}</span>
+      <label className="flex flex-col gap-1">
+        <span className="text-[15px] font-semibold">{anotada !== undefined ? 'Probar otra lectura' : 'Lectura en el BM'}</span>
         <input
           aria-label="Lectura en el BM de cierre"
           inputMode="decimal"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          placeholder={formatearCota(previo.lecturaParaCerrarExacto)}
-          className="numerico min-h-11 w-full rounded border border-slate-300 bg-white px-2 sm:w-36 dark:border-slate-700 dark:bg-slate-900"
+          placeholder="escribe la lectura"
+          className="numerico h-16 w-full min-w-0 rounded-[10px] border-2 border-tinta sm:max-w-sm bg-tarjeta px-3 text-[32px] font-semibold placeholder:text-lg placeholder:font-normal placeholder:text-tenue"
         />
       </label>
       {fallo && (
@@ -442,7 +503,9 @@ function LecturaDeCierre({
         </p>
       )}
       {simulacion && (
-        <p className={`text-sm font-semibold ${simulacion.pasa ? 'text-pasa' : 'text-falla'}`}>
+        <p
+          className={`rounded-[10px] px-3 py-2 text-base font-semibold ${BORDE_SOL} ${simulacion.pasa ? 'bg-pasa-suave text-pasa' : 'bg-falla-suave text-falla'}`}
+        >
           <span aria-hidden="true">{simulacion.pasa ? '✓ ' : '✗ '}</span>
           Con {formatearCota(lectura)}: {simulacion.pasa ? 'cierra' : 'no cierra'}, error{' '}
           {mmConSigno(simulacion.errorMmRedondeado)} de ±{simulacion.toleranciaMm.toFixed(1)} mm
@@ -455,7 +518,7 @@ function LecturaDeCierre({
             fijarVistaAdelante(toma.id, ultimaIndice, { destino: { tipo: 'bm', bmId: previo.bmCierre.id }, valor: lectura })
             setTexto('')
           }}
-          className={`${BOTON} self-start ${BOTON_INACTIVO}`}
+          className={`${BOTON_PRINCIPAL} w-full`}
         >
           Anotar en la libreta
         </button>

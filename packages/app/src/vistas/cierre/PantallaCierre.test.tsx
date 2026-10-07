@@ -41,6 +41,14 @@ describe('PantallaCierre', () => {
     expect(filas[2]).toHaveTextContent('+6.0 mm')
     expect(screen.getByText(/Compensación aplicada/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Aplicar compensación' })).not.toBeInTheDocument()
+    // Con lo guardado, la tolerancia es una línea plegada que la resume.
+    const tolerancia = within(screen.getByRole('region', { name: 'Tolerancia' }))
+    expect(tolerancia.getByText('±12.0 mm (12·√1.000 km) · cambiar')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Tolerancia' }).querySelector('details')).not.toHaveAttribute('open')
+    // El veredicto va antes que el recorrido.
+    const veredicto = screen.getByRole('region', { name: 'Veredicto del cierre' })
+    const recorrido = screen.getByRole('list', { name: 'Recorrido de la nivelación' })
+    expect(veredicto.compareDocumentPosition(recorrido) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('con k = 4 no cierra: no se compensa y dice qué revisar', async () => {
@@ -144,6 +152,14 @@ describe('PantallaCierre', () => {
     const seccion = screen.getByRole('region', { name: 'Lectura de cierre' })
     // AI de E2 101.700 − BM 100.000.
     expect(within(seccion).getByText('1.700')).toBeInTheDocument()
+    // Sin cierre, la lectura va primero: antes del aviso y del recorrido.
+    const aviso = screen.getByText(/Falta cerrar en BM-1/)
+    expect(seccion.compareDocumentPosition(aviso) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(seccion).getByRole('heading', { name: /Lectura de cierre en BM-1 · desde la Estación 2/ })).toBeInTheDocument()
+    // El campo empieza vacío y sin la lectura exacta de muestra: al sol parecería ya escrita.
+    const campo = screen.getByLabelText('Lectura en el BM de cierre')
+    expect(campo).toHaveValue('')
+    expect(campo).toHaveAttribute('placeholder', 'escribe la lectura')
 
     await usuario.type(screen.getByLabelText('Lectura en el BM de cierre'), '1.703')
     expect(screen.getByText(/Con 1\.703: cierra, error −3\.0 mm de ±12\.0 mm/)).toBeInTheDocument()

@@ -12,7 +12,8 @@ import CampoNumero from '../../componentes/CampoNumero'
 import { useAlmacen } from '../../estado/almacen'
 import { useResultadosDe, type ContextoCampania } from '../../estado/derivados'
 import { cuenta } from '../../formato'
-import { Aviso, AvisoNoComprobado, formatearM3, motivoSinCierre, SELECTOR } from './comunes'
+import { CEJA, TARJETA } from '../../componentes/ui'
+import { Aviso, AvisoNoComprobado, ETIQUETA, formatearM3, motivoSinCierre, SELECTOR } from './comunes'
 import {
   progresivasDeTomas,
   seccionesEntreSuperficies,
@@ -167,29 +168,30 @@ export default function PestanaVolumenes({
     return 'Falta la otra superficie: el proyecto tiene una sola capa. Declara las capas en Obra › Calles, o mide otra capa en Calle › Medir.'
   }
 
+
+  const selectores = sinNada ? null : (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+      <ElegirSuperficie etiqueta="Superficie de arriba" valor={arribaValor} opciones={opciones} alCambiar={(v) => alCambiar({ arriba: v })} />
+      <ElegirSuperficie etiqueta="Superficie de abajo" valor={abajoValor} opciones={opciones} alCambiar={(v) => alCambiar({ abajo: v })} />
+    </div>
+  )
+  const listo = calculo !== null && !calculo.sinTomas
+
   return (
-    <div className="flex flex-col gap-3">
-      {sinNada ? (
+    <div className="flex flex-col gap-4">
+      {sinNada && (
         <Aviso tono="neutro" simbolo="△">
           Para sacar volúmenes hacen falta dos superficies, y esta calle no tiene ninguna. Mide el terreno en Calle ›
           Medir y carga la rasante del proyecto en Obra › Calles.
         </Aviso>
-      ) : (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <ElegirSuperficie
-            etiqueta="Superficie de arriba"
-            valor={arribaValor}
-            opciones={opciones}
-            alCambiar={(v) => alCambiar({ arriba: v })}
-          />
-          <ElegirSuperficie
-            etiqueta="Superficie de abajo"
-            valor={abajoValor}
-            opciones={opciones}
-            alCambiar={(v) => alCambiar({ abajo: v })}
-          />
-        </div>
       )}
+
+      {listo && !calculo.volumenes.comprobado && (
+        <AvisoNoComprobado que="VOLÚMENES" motivo={calculo.motivos.join('; ')} />
+      )}
+
+      {/* Sin cálculo, lo primero es elegir qué comparar. */}
+      {!listo && selectores && <div className={TARJETA}>{selectores}</div>}
 
       {!sinNada && faltaUna && (
         <Aviso tono="aviso" simbolo="△">
@@ -201,65 +203,77 @@ export default function PestanaVolumenes({
           Arriba y abajo son la misma superficie: elige otra para una de las dos.
         </Aviso>
       )}
-
       {calculo && calculo.sinTomas && (
         <Aviso tono="aviso" simbolo="△">
           Dos superficies de proyecto no tienen progresivas propias: elige al menos una nivelación medida.
         </Aviso>
       )}
 
-      {calculo && !calculo.sinTomas && (
-        <>
-          {!calculo.volumenes.comprobado && <AvisoNoComprobado que="VOLÚMENES" motivo={calculo.motivos.join('; ')} />}
-          {calculo.lectura === 'entreMedidas' && (
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Las dos son medidas: no hay sobra ni falta contra el proyecto, solo cuánto queda la de arriba encima o
-              debajo de la de abajo (por ejemplo, el material colocado entre dos capas).
-            </p>
-          )}
-          {calculo.volumenes.sinDatos ? (
-            <Aviso tono="aviso" simbolo="△">
-              No se puede calcular: hacen falta al menos dos progresivas donde se conozcan las dos superficies.
-              Mide más progresivas o revisa que la sección del proyecto cubra los puntos medidos.
-            </Aviso>
-          ) : (
-            <Resultado volumenes={calculo.volumenes} lectura={calculo.lectura} factor={factor} capacidad={capacidad} />
-          )}
+      {listo && (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+          {/* En el celular el metrado va primero; en la laptop, a la derecha. */}
+          <aside aria-label="Metrado" className={`${TARJETA} flex flex-col gap-4 lg:order-2`}>
+            <span className={CEJA}>Metrado</span>
+            {calculo.volumenes.sinDatos ? (
+              <Aviso tono="aviso" simbolo="△">
+                No se puede calcular: hacen falta al menos dos progresivas donde se conozcan las dos superficies.
+                Mide más progresivas o revisa que la sección del proyecto cubra los puntos medidos.
+              </Aviso>
+            ) : (
+              <Totales volumenes={calculo.volumenes} lectura={calculo.lectura} factor={factor} capacidad={capacidad} />
+            )}
+            {calculo.lectura === 'entreMedidas' && (
+              <p className="text-sm text-tenue">
+                Las dos son medidas: no hay sobra ni falta contra el proyecto, solo cuánto queda la de arriba encima o
+                debajo de la de abajo (por ejemplo, el material colocado entre dos capas).
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex min-w-0 flex-col gap-1">
+                <CampoNumero
+                  etiqueta="Esponjamiento"
+                  ariaLabel="Factor de esponjamiento"
+                  valor={factor}
+                  decimales={2}
+                  ancho="w-full"
+                  alCambiar={(v) => alCambiar({ factor: v })}
+                />
+                {!(factor > 0) && (
+                  <span className="text-falla">
+                    <span aria-hidden="true">✗ </span>El esponjamiento tiene que ser mayor que cero (suele ir de 1.10 a
+                    1.40).
+                  </span>
+                )}
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <CampoNumero
+                  etiqueta="Volquete (m³)"
+                  ariaLabel="Capacidad del volquete"
+                  valor={capacidad}
+                  decimales={1}
+                  ancho="w-full"
+                  alCambiar={(v) => alCambiar({ capacidad: v })}
+                />
+                {!(capacidad > 0) && (
+                  <span className="text-falla">
+                    <span aria-hidden="true">✗ </span>La capacidad del volquete tiene que ser mayor que cero.
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 border-t border-borde pt-3">
+              <span className="text-[15px] font-semibold">Qué se compara</span>
+              {selectores}
+            </div>
+          </aside>
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="flex flex-col gap-1 rounded border border-slate-200 p-2 text-sm dark:border-slate-800">
-              <CampoNumero
-                etiqueta="Esponjamiento"
-                ariaLabel="Factor de esponjamiento"
-                valor={factor}
-                decimales={2}
-                ancho="w-full"
-                alCambiar={(v) => alCambiar({ factor: v })}
-              />
-              {!(factor > 0) && (
-                <span className="text-falla">
-                  <span aria-hidden="true">✗ </span>El esponjamiento tiene que ser mayor que cero (suele ir de 1.10 a
-                  1.40).
-                </span>
-              )}
+          {!calculo.volumenes.sinDatos && (
+            <div className={`${TARJETA} flex min-w-0 flex-col gap-3 lg:order-1`}>
+              <h3 className="text-[17px] font-bold">Volumen por tramo</h3>
+              <Tramos volumenes={calculo.volumenes} lectura={calculo.lectura} />
             </div>
-            <div className="flex flex-col gap-1 rounded border border-slate-200 p-2 text-sm dark:border-slate-800">
-              <CampoNumero
-                etiqueta="Volquete (m³)"
-                ariaLabel="Capacidad del volquete"
-                valor={capacidad}
-                decimales={1}
-                ancho="w-full"
-                alCambiar={(v) => alCambiar({ capacidad: v })}
-              />
-              {!(capacidad > 0) && (
-                <span className="text-falla">
-                  <span aria-hidden="true">✗ </span>La capacidad del volquete tiene que ser mayor que cero.
-                </span>
-              )}
-            </div>
-          </div>
-        </>
+          )}
+        </div>
       )}
     </div>
   )
@@ -277,8 +291,8 @@ function ElegirSuperficie({
   alCambiar: (valor: string) => void
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="font-medium">{etiqueta}</span>
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className={ETIQUETA}>{etiqueta}</span>
       <select aria-label={etiqueta} value={valor} onChange={(e) => alCambiar(e.target.value)} className={SELECTOR}>
         <option value="">— elige —</option>
         {opciones.map((o) => (
@@ -291,13 +305,16 @@ function ElegirSuperficie({
   )
 }
 
-function Resultado({
+type Volumenes = ReturnType<typeof volumenesPorAreasMedias>
+
+/** Los dos totales en grande, con lo suelto y los viajes de volquete. */
+function Totales({
   volumenes,
   lectura,
   factor,
   capacidad,
 }: {
-  volumenes: ReturnType<typeof volumenesPorAreasMedias>
+  volumenes: Volumenes
   lectura: Lectura
   factor: number
   capacidad: number
@@ -305,7 +322,6 @@ function Resultado({
   const rotulos = ROTULOS[lectura]
   // Con un factor o un volquete imposibles no se inventan viajes: se dice en el campo y aquí queda en blanco.
   const valido = factor > 0 && capacidad > 0
-  const mayor = Math.max(1e-9, ...volumenes.tramos.map((t) => Math.max(t.volCorte, t.volRelleno)))
 
   function suelto(total: number): string {
     if (!valido) return 'suelto y viajes: revisa el factor y el volquete'
@@ -314,29 +330,36 @@ function Resultado({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <dl className="grid grid-cols-2 gap-2 text-sm">
-        <div className="rounded border border-aviso p-2">
-          <dt className="text-slate-600 dark:text-slate-300">
-            <span aria-hidden="true">▲ </span>
-            {rotulos.encima}
-          </dt>
-          <dd className="numerico text-lg font-semibold">{formatearM3(volumenes.totalCorte)}</dd>
-          <dd className="text-xs text-slate-600 dark:text-slate-300">{suelto(volumenes.totalCorte)}</dd>
-        </div>
-        <div className="rounded border border-marca p-2">
-          <dt className="text-slate-600 dark:text-slate-300">
-            <span aria-hidden="true">▼ </span>
-            {rotulos.debajo}
-          </dt>
-          <dd className="numerico text-lg font-semibold">{formatearM3(volumenes.totalRelleno)}</dd>
-          <dd className="text-xs text-slate-600 dark:text-slate-300">{suelto(volumenes.totalRelleno)}</dd>
-        </div>
-      </dl>
+    <dl className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 lg:grid-cols-1">
+      <div className="flex min-w-0 flex-col gap-0.5 rounded-[10px] bg-marca-suave p-3 text-marca [.sol_&]:border [.sol_&]:border-current">
+        <dt className="text-sm">
+          <span aria-hidden="true">▲ </span>
+          {rotulos.encima}
+        </dt>
+        <dd className="numerico text-[28px] leading-tight font-semibold">{formatearM3(volumenes.totalCorte)}</dd>
+        <dd className="text-xs text-tinta">{suelto(volumenes.totalCorte)}</dd>
+      </div>
+      <div className="flex min-w-0 flex-col gap-0.5 rounded-[10px] bg-proyecto/10 p-3 text-proyecto [.sol_&]:border [.sol_&]:border-current">
+        <dt className="text-sm">
+          <span aria-hidden="true">▼ </span>
+          {rotulos.debajo}
+        </dt>
+        <dd className="numerico text-[28px] leading-tight font-semibold">{formatearM3(volumenes.totalRelleno)}</dd>
+        <dd className="text-xs text-tinta">{suelto(volumenes.totalRelleno)}</dd>
+      </div>
+    </dl>
+  )
+}
 
-      <ul aria-label="Volumen por tramo" className="flex flex-col gap-2 text-sm">
+/** Cada tramo con sus dos barras, y lo que falta medir. */
+function Tramos({ volumenes, lectura }: { volumenes: Volumenes; lectura: Lectura }) {
+  const rotulos = ROTULOS[lectura]
+  const mayor = Math.max(1e-9, ...volumenes.tramos.map((t) => Math.max(t.volCorte, t.volRelleno)))
+  return (
+    <>
+      <ul aria-label="Volumen por tramo" className="flex flex-col text-sm">
         {volumenes.tramos.map((t) => (
-          <li key={`${t.desde}-${t.hasta}`} className="flex flex-col gap-1 rounded border border-slate-200 p-2 dark:border-slate-800">
+          <li key={`${t.desde}-${t.hasta}`} className="flex flex-col gap-1 border-b border-borde py-2 last:border-b-0">
             <span className="numerico font-medium">
               {formatearProgresiva(t.desde)} → {formatearProgresiva(t.hasta)}
               {t.hueco && (
@@ -345,8 +368,8 @@ function Resultado({
                 </span>
               )}
             </span>
-            <Barra texto={`${rotulos.barraEncima} ${formatearM3(t.volCorte)}`} fraccion={t.volCorte / mayor} clase="bg-aviso" />
-            <Barra texto={`${rotulos.barraDebajo} ${formatearM3(t.volRelleno)}`} fraccion={t.volRelleno / mayor} clase="bg-marca" />
+            <Barra texto={`${rotulos.barraEncima} ${formatearM3(t.volCorte)}`} fraccion={t.volCorte / mayor} clase="bg-marca" />
+            <Barra texto={`${rotulos.barraDebajo} ${formatearM3(t.volRelleno)}`} fraccion={t.volRelleno / mayor} clase="bg-proyecto" />
           </li>
         ))}
       </ul>
@@ -363,7 +386,7 @@ function Resultado({
           {volumenes.descartadas.map((d) => (d.progresiva === null ? '—' : formatearProgresiva(d.progresiva))).join(', ')}.
         </p>
       )}
-    </div>
+    </>
   )
 }
 
@@ -371,8 +394,8 @@ function Barra({ texto, fraccion, clase }: { texto: string; fraccion: number; cl
   return (
     <div className="flex items-center gap-2">
       <span className="numerico w-32 shrink-0 text-xs">{texto}</span>
-      <div className="h-3 flex-1 rounded bg-slate-100 dark:bg-slate-800" aria-hidden="true">
-        <div className={`h-3 rounded ${clase}`} style={{ width: `${Math.max(0, Math.min(1, fraccion)) * 100}%` }} />
+      <div className="h-3 flex-1 rounded bg-fondo [.sol_&]:border [.sol_&]:border-borde" aria-hidden="true">
+        <div className={`h-full rounded ${clase}`} style={{ width: `${Math.max(0, Math.min(1, fraccion)) * 100}%` }} />
       </div>
     </div>
   )

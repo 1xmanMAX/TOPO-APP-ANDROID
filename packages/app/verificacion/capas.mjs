@@ -139,6 +139,12 @@ comprobar('la segunda celda también se registra', /llenadas 2 de/.test(llenasDo
 // 4. Elegir las dos capas a comparar en Calle › Análisis › Espesores.
 await irAAnalisisEspesores()
 await pagina.screenshot({ path: `${SALIDA}/antes-de-comparar.png`, fullPage: true })
+// El cambio de capas va plegado bajo la línea «Comparando …»: se abre para usarlo.
+{
+  const comparando = pagina.locator('summary', { hasText: 'Comparando' }).first()
+  await comparando.waitFor({ timeout: 10000 })
+  if (!(await comparando.evaluate((s) => s.parentElement.open))) await comparando.click()
+}
 
 const selectorAbajo = pagina.getByLabel('Capa de abajo en la comparación')
 const selectorArriba = pagina.getByLabel('Capa de arriba en la comparación')
