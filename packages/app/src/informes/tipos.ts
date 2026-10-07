@@ -224,4 +224,10 @@ export interface DatosEstacas extends BaseInforme {
   mira?: MiraInforme
   /** Avisos generales (los de `hojaDeReplanteo` del núcleo), impresos tal cual. */
   avisos?: string[]
+  /**
+   * Por defecto `normal`: la mira apoyada en el punto (lectura = AI − cota).
+   * `invertida`: colgada de un techo (lectura = cota − AI); la hoja imprime
+   * esa fórmula y la regla de corta y rellena al revés.
+   */
+  sentidoMira?: 'normal' | 'invertida'
 }

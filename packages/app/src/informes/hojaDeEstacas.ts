@@ -67,14 +67,16 @@ export function datosDeEstacasDesdeHoja(
  * las reglas de la mira (diseño §2). Nada que no se pueda leer sale como si
  * fuera una lectura normal.
  */
-function textoObjetivo(objetivo: number | null, reglas: ReglasMira): string {
+function textoObjetivo(objetivo: number | null, reglas: ReglasMira, invertida: boolean): string {
   if (objetivo === null) return 'falta altura instr.'
   if (!esNumero(objetivo)) return DATO_INVALIDO
   const t = formatearCota(objetivo)
   // Una lectura que la mira no puede marcar no lleva número: un «-0.075» o un
   // «4.250» copiados en campo se marcarían como si valieran.
-  // La mira no puede marcar negativo: el punto queda por encima del instrumento.
-  if (objetivo < 0) return 'sin lectura (cota sobre el instrumento: cambie de estación)'
+  // La mira no puede marcar negativo: el punto queda por encima del instrumento
+  // (por debajo, si la mira va invertida).
+  if (objetivo < 0)
+    return `sin lectura (cota ${invertida ? 'bajo' : 'sobre'} el instrumento: cambie de estación)`
   const rango = clasificarLectura(objetivo, reglas)
   if (rango === 'imposible')
     return objetivo > reglas.largoMira
@@ -85,15 +87,15 @@ function textoObjetivo(objetivo: number | null, reglas: ReglasMira): string {
   return t
 }
 
-function lecturaDeFila(f: FilaEstaca, ai: number | null, reglas: ReglasMira): string {
+function lecturaDeFila(f: FilaEstaca, ai: number | null, reglas: ReglasMira, invertida: boolean): string {
   const cota = f.cotaProyecto
   if (faltaDato(cota)) return `sin cota de proyecto${f.motivoSinCota === undefined ? '' : ` (${f.motivoSinCota})`}`
   if (!esNumero(cota)) return DATO_INVALIDO
   let objetivo: number | null
   if (!faltaDato(f.lecturaObjetivo)) objetivo = f.lecturaObjetivo
   else if (ai === null) objetivo = null
-  else objetivo = esNumero(ai) ? redondear3(ai - cota) : Number.NaN
-  const texto = textoObjetivo(objetivo, reglas)
+  else objetivo = esNumero(ai) ? redondear3(invertida ? cota - ai : ai - cota) : Number.NaN
+  const texto = textoObjetivo(objetivo, reglas, invertida)
   return f.visualLarga === true ? `${texto} (visual demasiado larga)` : texto
 }
 
@@ -108,11 +110,12 @@ export function hojaDeEstacas(datos: DatosEstacas): Uint8Array {
   // Con reglas absurdas cada aviso de la hoja sería falso: mejor no hacerla.
   if (reglas === null) throw new Error('Las reglas de la mira no son válidas (largo, lectura mínima, margen).')
   const ai = datos.alturaInstrumental
+  const invertida = datos.sentidoMira === 'invertida'
   const filas: Celda[][] = datos.filas.map((f) => [
     textoProgresiva(f.progresiva),
     f.punto,
     textoCota(f.cotaProyecto),
-    lecturaDeFila(f, ai, reglas),
+    lecturaDeFila(f, ai, reglas, invertida),
     '',
   ])
 
@@ -125,9 +128,15 @@ export function hojaDeEstacas(datos: DatosEstacas): Uint8Array {
     },
     {
       tipo: 'parrafo',
-      texto:
-        'Lectura objetivo = altura instrumental - cota de proyecto. ' +
-        'Si la mira marca más que el objetivo, falta material (rellena); si marca menos, sobra (corta).',
+      // Con la mira colgada (invertida) la cota crece con la lectura: la regla
+      // de corta y rellena va al revés. Imprimir la de la mira apoyada haría
+      // rellenar donde hay que cortar.
+      texto: invertida
+        ? 'Mira invertida: lectura objetivo = cota de proyecto - altura instrumental. ' +
+          'Si la mira marca más que el objetivo, sobra material (corta); si marca menos, falta (rellena).'
+        : 'Lectura objetivo = altura instrumental - cota de proyecto. ' +
+          'Si la mira marca más que el objetivo, falta material (rellena); si marca menos, sobra (corta).',
+      ...(invertida ? { resaltado: true } : {}),
     },
     {
       tipo: 'parrafo',
