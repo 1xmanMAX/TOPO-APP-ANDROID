@@ -15,7 +15,7 @@ Funciona **sin internet**. Guía completa: [docs/uso.md](docs/uso.md).
 
 ## Android y Windows
 
-La misma app sale como **APK para Android** (Capacitor, en `packages/app/android`) y como **EXE para Windows** (Electron, en `escritorio/`). En Android los archivos exportados (Excel, CSV, PDF, `.topo`) se entregan con el menú de compartir del teléfono.
+La misma app sale como **APK para Android** (Capacitor, en `packages/app/android`) y como **EXE para Windows** (Electron, en `escritorio/`). En Android la app ocupa toda la pantalla (la barra de la hora se esconde; deslizando desde arriba asoma) y los archivos exportados (Excel, CSV, PDF, `.topo`) se entregan con el menú de compartir del teléfono.
 
 Para publicar una versión, se sube una etiqueta y GitHub Actions compila los dos y crea la release con el APK, el instalador y el portable de Windows:
 
@@ -46,6 +46,7 @@ En local: `npx cap sync android` y `./gradlew assembleRelease` desde `packages/a
 - **Rasante de proyecto**, por calle: cota de arranque, pendiente longitudinal y tramos transversales (pendiente o salto), con un dibujo en vivo del corte tipo mientras se define.
 - **Comparación contra la rasante**, celda por celda: cuánto sobra o falta, en milímetros con signo, con semáforo de tolerancia (conforme, al límite, fuera) en cuatro vistas — tabla, mapa de la calle, corte transversal con corte y relleno sombreados, y perfil longitudinal.
 - **Visor 3D** de la calle, dibujado a mano en SVG: gírala arrastrando o con las vistas Planta, Alzado e Isométrico, inclínala y exagera su relieve con deslizadores, y sécciónala con el mismo deslizador de progresiva del corte transversal. En modo Estado colorea por el semáforo de tolerancia; en modo Capas apila una superficie por cada campaña marcada. Un párrafo debajo dice con palabras lo que el color enseña con formas.
+- **Pistas y veredas** (la herramienta de Max, integrada): en Replantear, la **capa siguiente desde una capa medida** («base = subrasante + 0.20 m») con cota y lectura de mira por progresiva —interpolada, proyectada o extrapolada, comparada con el proyecto— y su hoja de estacas; en Análisis › **Separación**, la separación mínima entre dos niveles a cada lado, con punto crítico, escáner y ajuste en cm.
 - **Exportación** a Excel, CSV y portapapeles — de cotas, de espesores o de diferencias contra el proyecto, y siempre con el estado de verificación en la cabecera.
 - Modo claro, oscuro y automático.
 
@@ -67,6 +68,7 @@ node packages/app/verificacion/importar.mjs <carpeta-de-salida>    # 34 comproba
 node packages/app/verificacion/recorrido.mjs <carpeta-de-salida>   # 15 comprobaciones
 node packages/app/verificacion/capas.mjs <carpeta-de-salida>       # 17 comprobaciones
 node packages/app/verificacion/rasante.mjs <carpeta-de-salida>     # 19 comprobaciones
+node packages/app/verificacion/niveles.mjs <carpeta-de-salida>     # 21 comprobaciones: capa siguiente y separación, laptop y celular
 node packages/app/verificacion/visor3d.mjs <carpeta-de-salida>     # el visor en modo Capas: capas apiladas y corte vivo
 node packages/app/verificacion/vista3d.mjs <carpeta-de-salida>     # el visor en modo Estado: se dibuja, gira arrastrando, secciona y resume la peor zona
 ```

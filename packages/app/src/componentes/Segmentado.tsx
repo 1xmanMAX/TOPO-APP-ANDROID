@@ -49,6 +49,8 @@ export default function Segmentado<V extends string>({
   const claseActivo = oscuro ? 'bg-white text-[#10161D]' : 'bg-tarjeta text-tinta shadow-sm'
   const claseInactivo = oscuro ? 'text-cabecera-texto hover:text-white' : 'text-tenue hover:text-tinta'
 
+  // Con cuatro opciones o más (Análisis) no caben a 15 px en un celular de 360: se aprietan un poco.
+  const apretado = opciones.length >= 4 ? 'max-sm:px-1 max-sm:text-[14px] max-[379px]:text-[13px]' : ''
   const botones = opciones.map((opcion) => {
     const activo = opcion.valor === valor
     const estado = como === 'tablist' ? { role: 'tab', 'aria-selected': activo } : { 'aria-pressed': activo }
@@ -58,7 +60,7 @@ export default function Segmentado<V extends string>({
         type="button"
         {...estado}
         onClick={() => alCambiar(opcion.valor)}
-        className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-2 text-[15px] font-semibold sm:gap-2 sm:px-3 ${
+        className={`inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] px-2 text-[15px] font-semibold sm:gap-2 sm:px-3 ${apretado} ${
           activo ? claseActivo : claseInactivo
         }`}
       >

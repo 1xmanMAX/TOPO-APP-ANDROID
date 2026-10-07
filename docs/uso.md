@@ -292,6 +292,29 @@ DIFERENCIAS NO COMPROBADAS — el circuito no se verificó
 
 El archivo de diferencias lleva además, en la cabecera, la **pendiente longitudinal** y la **tolerancia de la capa** contra las que se juzgó cada celda — para que quien lo reciba sepa con qué se comparó, no solo el resultado.
 
+## Pistas y veredas: la capa siguiente y la separación entre niveles
+
+Tu herramienta «Pistas y veredas: separación entre niveles» ya está dentro de la app, con tus calles y tus capas: no hace falta volver a escribir los datos.
+
+### Dar la capa siguiente desde la que ya mediste
+
+En **Calle › Replantear › Desde una capa medida**:
+
+1. Elige la **capa medida** de la que partes (de entrada, la de la jornada activa). La app propone **sumar** el espesor de la capa de encima: «BASE = SUBRASANTE + 0.200 m». Lo puedes cambiar.
+2. Toca el **punto de la sección** que vas a estacar (borde izquierdo, eje, vereda…).
+3. La **AI** sale de la estación de la libreta (compensada si cerró) o de una vista atrás a un BM.
+4. Mueve el deslizador o toca una fila: sale la **cota** y, en grande, lo que **la mira debe marcar**. Siguen las pendientes que de verdad quedaron en la capa medida, no las del plano.
+
+Cada fila dice cómo se obtuvo: **interpolado** sobre lo medido (✓), **proyectado** desde la línea más cercana cuando el punto no tiene medida ahí, o **extrapolado** más allá del último punto (△, no comprobado; más de 20 m no se extrapola). Si la calle tiene rasante, la columna **Proy.** dice cuántos mm queda la cota a dar sobre la del proyecto: seguir una capa que quedó alta arrastra el error, y la app lo avisa con ✗ antes de estacar.
+
+Puedes añadir progresivas que no están en las jornadas («0+130, 140»), leer en m, cm o mm, con la mira invertida, y bajar la **hoja de estacas** en PDF.
+
+### Comprobar la separación entre dos niveles
+
+En **Calle › Análisis › Separación** (o con «Comprobar separación» desde Replantear): a cada lado de la calle eliges la **línea de arriba** y la **de abajo** —una capa medida en un punto de la sección, p. ej. el terreno en la vereda y la base en el borde— y la **separación mínima** en cm. Sale si **cumple**, la menor separación y en qué progresiva, los puntos que no llegan, la pendiente de cada tramo y un **escáner** para recorrer la calle. Con ▲ ▼ subes o bajas una línea unos cm para probar «¿y si doy 2 cm más?» sin tocar lo medido. La tabla se descarga en Excel.
+
+Lo que sale de una nivelación sin cerrar se marca **no comprobado**, igual que en el resto de la app.
+
 ## La barra de cierre: qué significa cada color
 
 Aparece al pie de la libreta y es lo que te dice si tu trabajo sirve, **mientras sigues en la calle**.

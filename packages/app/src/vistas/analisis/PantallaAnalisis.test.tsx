@@ -17,11 +17,12 @@ describe('PantallaAnalisis', () => {
     useAlmacen.getState().cargarProyecto(proyectoDePrueba())
   })
 
-  it('tiene el título y las tres pestañas, con Espesores de entrada', () => {
+  it('tiene el título y las cuatro pestañas, con Espesores de entrada', () => {
     render(<PantallaAnalisis />)
 
     expect(screen.getByRole('heading', { name: 'Análisis' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Espesores' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Separación' })).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByRole('tab', { name: 'Volúmenes' })).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByRole('tab', { name: 'Drenaje' })).toBeInTheDocument()
   })
@@ -340,6 +341,55 @@ describe('PantallaAnalisis', () => {
     })
   })
 
+  describe('Separación', () => {
+    /*
+     * Base sobre subrasante en el borde izquierdo: 100.140 − 99.943 = 0.197,
+     * 100.110 − 99.913 = 0.197 y 100.080 − 99.886 = 0.194 (la subrasante,
+     * compensada). La menor, 19.4 cm en la 0+020.
+     */
+    it('propone base sobre subrasante a cada lado y dice la menor separación y dónde', async () => {
+      await abrirPestana('Separación')
+      const izquierdo = within(screen.getByRole('region', { name: 'Lado izquierdo' }))
+      expect(izquierdo.getByLabelText('Línea de arriba: capa')).toHaveDisplayValue('BASE')
+      expect(izquierdo.getByLabelText('Línea de abajo: capa')).toHaveDisplayValue('SUBRASANTE')
+      expect(izquierdo.getByLabelText('Línea de arriba: punto')).toHaveDisplayValue('Borde izquierdo')
+      expect(izquierdo.getByRole('status')).toHaveTextContent('✓ CUMPLE — separación mínima 19.4 cm (requerido ≥ 5.0 cm)')
+      expect(izquierdo.getByRole('status')).toHaveTextContent('En 0+020')
+      expect(screen.getByRole('region', { name: 'Lado derecho' })).toBeInTheDocument()
+    })
+
+    it('con un mínimo mayor no cumple y lista los puntos; subir la línea de arriba lo arregla', async () => {
+      const usuario = await abrirPestana('Separación')
+      const minimo = screen.getByLabelText('Separación mínima (cm)')
+      await usuario.clear(minimo)
+      await usuario.type(minimo, '20')
+      const izquierdo = within(screen.getByRole('region', { name: 'Lado izquierdo' }))
+      expect(izquierdo.getByRole('status')).toHaveTextContent('✗ NO CUMPLE — separación mínima 19.4 cm (requerido ≥ 20.0 cm)')
+      const puntos = within(izquierdo.getByRole('region', { name: 'Puntos que no cumplen, lado izquierdo' }))
+      expect(puntos.getAllByRole('button')).toHaveLength(3)
+
+      await usuario.click(izquierdo.getByRole('button', { name: 'Subir línea de arriba 1 cm' }))
+      expect(izquierdo.getByLabelText('Línea de arriba: ajuste en cm')).toHaveValue('1')
+      expect(izquierdo.getByRole('status')).toHaveTextContent('✓ CUMPLE — separación mínima 20.4 cm')
+    })
+
+    it('el escáner lee la separación en la progresiva elegida', async () => {
+      const usuario = await abrirPestana('Separación')
+      const izquierdo = within(screen.getByRole('region', { name: 'Lado izquierdo' }))
+      // Arranca en el punto crítico.
+      expect(izquierdo.getByLabelText('Escáner de progresiva, lado izquierdo')).toHaveValue('20')
+      await usuario.click(within(screen.getByRole('region', { name: 'Criterio de separación' })).getByRole('checkbox'))
+      expect(screen.queryByRole('region', { name: 'Lado derecho' })).not.toBeInTheDocument()
+    })
+
+    it('la misma línea arriba y abajo se avisa', async () => {
+      const usuario = await abrirPestana('Separación')
+      const izquierdo = within(screen.getByRole('region', { name: 'Lado izquierdo' }))
+      await usuario.selectOptions(izquierdo.getByLabelText('Línea de arriba: capa'), 'cap-sub')
+      expect(izquierdo.getByText(/Arriba y abajo es la misma línea/)).toBeInTheDocument()
+    })
+  })
+
   it('al pasar de una pestaña a otra no se pierde lo escrito', async () => {
     const usuario = await abrirPestana('Drenaje')
     await usuario.type(screen.getByLabelText('Sumideros'), '0+010')
@@ -369,8 +419,8 @@ describe('PantallaAnalisis', () => {
 
     espesores.focus()
     await usuario.keyboard('{ArrowRight}')
-    expect(screen.getByRole('tab', { name: 'Volúmenes' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Volúmenes' })).toHaveFocus()
+    expect(screen.getByRole('tab', { name: 'Separación' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Separación' })).toHaveFocus()
 
     await usuario.keyboard('{End}')
     expect(screen.getByRole('tab', { name: 'Drenaje' })).toHaveFocus()

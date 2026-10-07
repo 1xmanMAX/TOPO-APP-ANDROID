@@ -56,6 +56,8 @@ export type SubObra = 'calles' | 'plano'
 export type ModoCalle = 'medir' | 'revisar' | 'replantear'
 /** Pantallas de la calle que tapan los modos mientras están abiertas. */
 export type PantallaCalle = 'analisis' | 'cierre' | 'planificar' | 'guia'
+/** Las pestañas de Calle › Análisis. */
+export type PestanaAnalisis = 'espesores' | 'separacion' | 'volumenes' | 'drenaje'
 
 /**
  * Las siete pantallas de antes del rediseño. Ya no mandan en la navegación:
@@ -100,6 +102,11 @@ interface EstadoApp {
   modoCalle: ModoCalle
   /** Null: se ven los modos. Con valor, esa pantalla de la calle tapa los modos. */
   pantallaCalle: PantallaCalle | null
+  /**
+   * La pestaña abierta en Análisis. Vive aquí y no en la pantalla para que
+   * Replantear pueda abrir Análisis › Separación directamente.
+   */
+  pestanaAnalisis: PestanaAnalisis
   calculadoraAbierta: boolean
   /**
    * La calle en la que se trabaja. Va sincronizada con la toma activa:
@@ -136,6 +143,9 @@ interface EstadoApp {
   irASubObra(sub: SubObra): void
   fijarModoCalle(modo: ModoCalle): void
   abrirPantallaCalle(pantalla: PantallaCalle | null): void
+  /** Abre Calle › Análisis en esa pestaña. */
+  abrirAnalisis(pestana: PestanaAnalisis): void
+  fijarPestanaAnalisis(pestana: PestanaAnalisis): void
   activarCalle(id: Id | null): void
   abrirCalculadora(abierta: boolean): void
 
@@ -471,6 +481,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
   subObra: 'calles',
   modoCalle: 'medir',
   pantallaCalle: null,
+  pestanaAnalisis: 'espesores',
   calculadoraAbierta: false,
   calleActivaId: calleParaToma(proyectoInicial, tomaInicial, null),
   campaniaActivaId: tomaInicial,
@@ -494,6 +505,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       // Una pantalla de la calle abierta (el cierre, el planificador) era de
       // la calle del proyecto anterior: se cierra. El espacio se conserva.
       pantallaCalle: null,
+      pestanaAnalisis: 'espesores',
       seleccion: { clave: null, progresiva: null },
       capasVisibles: [],
       comparacion: SIN_COMPARACION,
@@ -511,6 +523,7 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
       espacio: 'obra',
       subObra: 'calles',
       pantallaCalle: null,
+      pestanaAnalisis: 'espesores',
       seleccion: { clave: null, progresiva: null },
       capasVisibles: [],
       comparacion: SIN_COMPARACION,
@@ -526,6 +539,10 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
   fijarModoCalle: (modo) => set({ espacio: 'calle', modoCalle: modo, pantallaCalle: null }),
 
   abrirPantallaCalle: (pantalla) => set({ espacio: 'calle', pantallaCalle: pantalla }),
+
+  abrirAnalisis: (pestana) => set({ espacio: 'calle', pantallaCalle: 'analisis', pestanaAnalisis: pestana }),
+
+  fijarPestanaAnalisis: (pestana) => set({ pestanaAnalisis: pestana }),
 
   activarCalle: (id) =>
     set((s) => {
