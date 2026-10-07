@@ -3,6 +3,7 @@
   "appName": "TOPO",
   "webDir": "dist",
   "android": {
-    "allowMixedContent": false
+    "allowMixedContent": false,
+    "adjustMarginsForEdgeToEdge": "force"
   }
 }
