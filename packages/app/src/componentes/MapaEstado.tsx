@@ -5,6 +5,7 @@ import { useContextoDe, useEvaluacionRasante, useResultadoDe } from '../estado/d
 import { etiquetaAccesibleCelda, SIMBOLO_ESTADO_TOLERANCIA } from '../estadoRasante'
 import { armarEsqueletoTabla } from '../esqueletoTabla'
 import MapaGrilla, { type CeldaPintada } from './MapaGrilla'
+import { CLASES_ESTADO } from './ui'
 
 const MENSAJE_SIN_RASANTE = 'Define la rasante del proyecto para pintar el mapa de la calle.'
 
@@ -24,22 +25,10 @@ const SIMBOLO_ESTADO: Record<EstadoTolerancia, string> = {
   sinRasante: '—',
 }
 
-const CLASES_ESTADO: Record<EstadoTolerancia, string> = {
-  conforme: 'bg-pasa/20 text-pasa',
-  alLimite: 'bg-aviso/30 text-aviso',
-  fuera: 'bg-falla/20 text-falla',
-  sinMedir: 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500',
-  sinRasante:
-    'border border-dashed border-slate-300 bg-slate-50 text-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-600',
+/** La diferencia dentro de la celda: con signo y sin unidad («+46», «−4», «0»). */
+function diferenciaCorta(diferenciaMm: number): string {
+  return `${diferenciaMm > 0 ? '+' : diferenciaMm < 0 ? '−' : ''}${Math.abs(diferenciaMm)}`
 }
-
-const LEYENDA: { estado: EstadoTolerancia; texto: string }[] = [
-  { estado: 'conforme', texto: 'Dentro de tolerancia' },
-  { estado: 'alLimite', texto: 'Al límite de tolerancia' },
-  { estado: 'fuera', texto: 'Fuera de tolerancia' },
-  { estado: 'sinMedir', texto: 'Sin medir' },
-  { estado: 'sinRasante', texto: 'Sin rasante definida en el proyecto' },
-]
 
 interface Props {
   /**
@@ -53,13 +42,21 @@ interface Props {
    * ofrecer como referencia.
    */
   idCampaniaReferencia: Id | null
+  /** Ver `MapaGrilla`. Por defecto, un punto por fila y la calle entera a lo ancho. */
+  orientacion?: 'porElemento' | 'porProgresiva'
 }
 
-export default function MapaEstado({ idCampaniaReferencia }: Props) {
+/**
+ * La rejilla de la calle pintada por estado: símbolo, diferencia en mm y
+ * color en cada celda. La leyenda (los conteos del semáforo) y el aviso de
+ * «no comprobado» los pone quien la monta, en su cabecera; además, cada
+ * celda medida sobre una nivelación sin cerrar lo dice en su nombre accesible.
+ */
+export default function MapaEstado({ idCampaniaReferencia, orientacion = 'porProgresiva' }: Props) {
   const contexto = useContextoDe(idCampaniaReferencia)
   const evaluacion = useEvaluacionRasante(idCampaniaReferencia ?? '')
   // Sin cierre dentro de tolerancia, nada de lo pintado está comprobado
-  // (diseño §3): lo dicen la leyenda y cada celda, no solo quien monte el mapa.
+  // (diseño §3): lo dice cada celda, no solo quien monte el mapa.
   const resultado = useResultadoDe(idCampaniaReferencia)
   const noComprobado = resultado !== null && resultado.cierre.pasa !== true
 
@@ -86,7 +83,7 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
 
   if (!evaluacion) {
     return (
-      <p className="rounded border border-dashed border-slate-300 p-3 text-sm text-slate-500 dark:border-slate-700">
+      <p className="rounded-[10px] border border-dashed border-borde-fuerte p-3 text-sm text-tenue">
         {MENSAJE_SIN_RASANTE}
       </p>
     )
@@ -96,12 +93,10 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
     // `clave` sale de `progresivas`/`elementos`, que a su vez salen de
     // `armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(...))` — la
     // misma calle y las mismas progresivas medidas que `useEvaluacionRasante`
-    // usó para construir `evaluacion.celdas` (ambos cuelgan ahora del mismo
-    // `idCampaniaReferencia`,
-    // sin un segundo camino que pudiera desalinearlos). Por eso el motor
-    // garantiza una celda en el mapa por cada progresiva × elemento y esta
-    // búsqueda nunca falla: `construirGrilla` genera ese producto completo y
-    // `evaluarContraRasante` evalúa cada una, sin huecos.
+    // usó para construir `evaluacion.celdas` (ambos cuelgan del mismo
+    // `idCampaniaReferencia`, sin un segundo camino que pudiera
+    // desalinearlos). Por eso el motor garantiza una celda en el mapa por
+    // cada progresiva × elemento y esta búsqueda nunca falla.
     const celda = evaluacion!.celdas.get(clave)!
     const separador = clave.indexOf('|')
     const progresiva = Number(clave.slice(0, separador))
@@ -110,6 +105,7 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
 
     return {
       simbolo: SIMBOLO_ESTADO[celda.estado],
+      texto: celda.diferenciaMm === null ? undefined : diferenciaCorta(celda.diferenciaMm),
       etiqueta:
         noComprobado && celda.diferenciaMm !== null
           ? `${etiquetaAccesibleCelda(etiqueta, celda)}, no comprobado`
@@ -119,40 +115,14 @@ export default function MapaEstado({ idCampaniaReferencia }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <MapaGrilla
-        progresivas={progresivas}
-        elementos={elementos}
-        llenas={new Set()}
-        claveActiva={seleccion.clave}
-        alElegir={seleccionar}
-        pintarCelda={pintarCelda}
-        orientacion="porProgresiva"
-      />
-      <ul
-        className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300"
-        aria-label="Qué significa cada color del mapa"
-      >
-        {LEYENDA.map(({ estado, texto }) => (
-          <li key={estado} className="flex items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className={`flex h-5 w-5 items-center justify-center rounded text-[11px] ${CLASES_ESTADO[estado]}`}
-            >
-              {SIMBOLO_ESTADO[estado]}
-            </span>
-            <span>
-              {texto}
-              {noComprobado && (estado === 'conforme' || estado === 'alLimite' || estado === 'fuera') && ' (no comprobado)'}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {noComprobado && (
-        <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-          <span aria-hidden="true">△ </span>No comprobado: la nivelación no cerró dentro de tolerancia.
-        </p>
-      )}
-    </div>
+    <MapaGrilla
+      progresivas={progresivas}
+      elementos={elementos}
+      llenas={new Set()}
+      claveActiva={seleccion.clave}
+      alElegir={seleccionar}
+      pintarCelda={pintarCelda}
+      orientacion={orientacion}
+    />
   )
 }

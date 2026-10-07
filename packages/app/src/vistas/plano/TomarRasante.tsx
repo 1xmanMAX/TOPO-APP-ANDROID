@@ -12,7 +12,7 @@ export function textoRasante(r: Rasante): string {
 function ResiduoDeCota({ mm }: { mm: number }) {
   const grande = Math.abs(mm) >= RESIDUO_AVISO_MM
   return (
-    <span className={grande ? 'font-medium' : 'text-slate-500 dark:text-slate-400'}>
+    <span className={grande ? 'font-medium' : 'text-tenue'}>
       {' · '}
       {grande && <span aria-hidden="true">△ </span>}
       {textoMm(mm)} de la nueva
@@ -74,19 +74,19 @@ export default function TomarRasante({ cotas, actual, nivelacionesConTomas, alCo
   }
 
   return (
-    <section aria-labelledby={idTitulo} className="flex flex-col gap-2 rounded border border-marca/60 p-2 text-sm">
-      <h4 id={idTitulo} className="font-medium">
+    <section aria-labelledby={idTitulo} className="flex flex-col gap-2 rounded-xl border border-borde-fuerte bg-fondo p-3 text-sm">
+      <h4 id={idTitulo} className="text-[15px] font-semibold">
         Rasante desde las cotas del plano
       </h4>
       <fieldset className="flex flex-col gap-1">
-        <legend className="text-xs text-slate-500 dark:text-slate-400">
+        <legend className="text-xs text-tenue">
           Cotas que se usan (quita las de un cruce o de otra calle):
         </legend>
         <ul className="numerico flex flex-col gap-1">
           {cotas.map((c, i) => (
             <li key={`${c.progresiva}-${i}`}>
-              <label className="flex min-h-11 items-center gap-2 rounded px-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-                <input type="checkbox" className="size-5 shrink-0" checked={!descartadas.has(i)} onChange={(e) => alternar(i, e.target.checked)} />
+              <label className="flex min-h-11 items-center gap-2 rounded-lg px-1 hover:bg-tarjeta">
+                <input type="checkbox" className="size-5 shrink-0 accent-marca" checked={!descartadas.has(i)} onChange={(e) => alternar(i, e.target.checked)} />
                 {/* Un solo bloque de texto, para que en el celular corra de corrido y no en columnas. */}
                 <span className="min-w-0 flex-1">
                   {formatearProgresiva(c.progresiva)} · cota {c.cota.toFixed(3)} m
@@ -105,7 +105,7 @@ export default function TomarRasante({ cotas, actual, nivelacionesConTomas, alCo
             Nueva: <span className="numerico font-medium">{textoRasante(resultado.rasante)}</span>
           </p>
           {resultado.aviso && (
-            <p className="rounded border border-aviso/60 bg-aviso/10 p-2">
+            <p className="rounded-[10px] bg-aviso-suave px-3 py-2 text-aviso">
               <span aria-hidden="true">△ </span>
               {resultado.aviso}
             </p>
@@ -119,7 +119,7 @@ export default function TomarRasante({ cotas, actual, nivelacionesConTomas, alCo
       )}
 
       {actual && (
-        <p className="rounded border border-aviso/60 bg-aviso/10 p-2">
+        <p className="rounded-[10px] bg-aviso-suave px-3 py-2 text-aviso">
           <span aria-hidden="true">△ </span>
           La calle ya tiene rasante: <span className="numerico">{textoRasante(actual)}</span>.
           {mayorCambio && resultado && (
@@ -137,7 +137,7 @@ export default function TomarRasante({ cotas, actual, nivelacionesConTomas, alCo
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="flex flex-col gap-2">
         <button type="button" className={BOTON_PRINCIPAL} disabled={!resultado} onClick={confirmar}>
           {actual ? 'Sí, reemplazar la rasante' : 'Sí, tomar esta rasante'}
         </button>

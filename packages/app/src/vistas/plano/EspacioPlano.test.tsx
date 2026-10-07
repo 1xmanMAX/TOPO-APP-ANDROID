@@ -143,6 +143,11 @@ function archivo(bytes: Uint8Array<ArrayBuffer>, nombre: string): File {
 }
 
 /** El SVG mide 800 × 500 en pantalla; jsdom no mide nada por su cuenta. */
+/** Abre un menú «⋯» (lo que se usa poco va plegado detrás de uno). */
+async function abrirMenu(usuario: ReturnType<typeof userEvent.setup>, nombre: string) {
+  await usuario.click(screen.getByRole('button', { name: nombre }))
+}
+
 function visor(): SVGSVGElement {
   const svg = screen.getByRole('application', { name: 'Visor del plano' }) as unknown as SVGSVGElement
   svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 500, right: 800, bottom: 500, x: 0, y: 0, toJSON: () => ({}) })
@@ -222,7 +227,7 @@ describe('Plano de obra: importar', () => {
     expect(guardados.byteLength).toBe(DXF.byteLength)
     expect(guardados.every((b, i) => b === DXF[i])).toBe(true)
     expect(JSON.stringify(proyecto)).not.toMatch(/ENTITIES/)
-    expect(screen.getByText(/Escala: 1 unidad del dibujo = 1 m/)).toBeInTheDocument()
+    expect(screen.getByText(/^Escala: 1 u = 1 m$/)).toBeInTheDocument()
 
     const capas = screen.getByRole('group', { name: 'Capas del plano' })
     expect(within(capas).getAllByRole('checkbox')).toHaveLength(7)
@@ -357,6 +362,7 @@ describe('Plano de obra: pistas', () => {
     const usuario = userEvent.setup()
     render(<EspacioPlano />)
     await usuario.click(screen.getByRole('button', { name: /PSJE\. LAS LOMAS/ }))
+    await abrirMenu(usuario, 'Más de la pista')
     await usuario.click(screen.getByRole('button', { name: 'Tomar la rasante de las cotas del plano' }))
     // Antes de guardar: qué cotas y en qué progresiva cae cada una (y a cuánto del eje).
     const vista = screen.getByRole('region', { name: 'Rasante desde las cotas del plano' })
@@ -388,6 +394,7 @@ describe('Plano de obra: pistas', () => {
     useAlmacen.getState().cargarProyecto(conRasante, { 'plano-dxf': DXF })
     render(<EspacioPlano />)
     await usuario.click(screen.getByRole('button', { name: /PSJE\. LAS LOMAS/ }))
+    await abrirMenu(usuario, 'Más de la pista')
     await usuario.click(screen.getByRole('button', { name: 'Tomar la rasante de las cotas del plano' }))
     const vista = screen.getByRole('region', { name: 'Rasante desde las cotas del plano' })
     expect(vista).toHaveTextContent('La calle ya tiene rasante: 3240.000 m en 0+000, +2.00 %')
@@ -399,6 +406,7 @@ describe('Plano de obra: pistas', () => {
     await usuario.click(within(vista).getByRole('button', { name: 'No, dejarla como está' }))
     expect(useAlmacen.getState().proyecto.calles[0]!.rasante).toEqual(conRasante.calles[0]!.rasante)
 
+    await abrirMenu(usuario, 'Más de la pista')
     await usuario.click(screen.getByRole('button', { name: 'Tomar la rasante de las cotas del plano' }))
     await usuario.click(screen.getByRole('button', { name: 'Sí, reemplazar la rasante' }))
     const rasante = useAlmacen.getState().proyecto.calles[0]!.rasante!
@@ -411,6 +419,7 @@ describe('Plano de obra: pistas', () => {
     const usuario = userEvent.setup()
     render(<EspacioPlano />)
     await usuario.click(screen.getByRole('button', { name: /PSJE\. LAS LOMAS/ }))
+    await abrirMenu(usuario, 'Más de la pista')
     await usuario.click(screen.getByRole('button', { name: 'Tomar la rasante de las cotas del plano' }))
     const vista = screen.getByRole('region', { name: 'Rasante desde las cotas del plano' })
     await usuario.click(within(vista).getByRole('checkbox', { name: /0\+000 · cota/ }))
@@ -441,6 +450,7 @@ describe('Plano de obra: pistas', () => {
     expect(within(lista).getByRole('button', { name: /PSJE\. LAS LOMAS/ })).toHaveTextContent('sin escala')
     await usuario.click(within(lista).getByRole('button', { name: /PSJE\. LAS LOMAS/ }))
     expect(screen.getByText(/Este plano no tiene escala/)).toBeInTheDocument()
+    await abrirMenu(usuario, 'Más de la pista')
     expect(screen.queryByRole('button', { name: 'Tomar la rasante de las cotas del plano' })).not.toBeInTheDocument()
   })
 
@@ -469,6 +479,7 @@ describe('Plano de obra: pistas', () => {
     expect(within(lista).getByRole('button', { name: /PSJE\. LAS LOMAS/ })).toHaveTextContent('sin calle')
     await usuario.click(within(lista).getByRole('button', { name: /PSJE\. LAS LOMAS/ }))
     expect(screen.getByRole('button', { name: 'Crear su calle' })).toBeInTheDocument()
+    await abrirMenu(usuario, 'Más de la pista')
     await usuario.click(screen.getByRole('button', { name: 'Tomar la rasante de las cotas del plano' }))
     await usuario.click(screen.getByRole('button', { name: 'Sí, tomar esta rasante' }))
     const { proyecto } = useAlmacen.getState()
@@ -503,6 +514,7 @@ describe('Plano de obra: pistas', () => {
     expect(within(screen.getByRole('list', { name: 'Pendientes por tramo' })).getAllByRole('listitem')[0]).toHaveTextContent(
       '0+000 → 0+120: -3.00 % baja',
     )
+    await abrirMenu(usuario, 'Más de la pista')
     expect(screen.queryByRole('button', { name: 'Tomar la rasante de las cotas del plano' })).not.toBeInTheDocument()
   })
 
@@ -539,6 +551,7 @@ describe('Plano de obra: pistas', () => {
     const usuario = userEvent.setup()
     render(<EspacioPlano />)
     await usuario.click(screen.getByRole('button', { name: /PSJE\. LAS LOMAS/ }))
+    await abrirMenu(usuario, 'Más de la pista')
     await usuario.click(screen.getByRole('button', { name: 'Quitar la pista' }))
     await usuario.click(screen.getByRole('button', { name: 'Sí, quitar la pista' }))
     expect(useAlmacen.getState().proyecto.pistas).toEqual([])
@@ -900,6 +913,7 @@ describe('Plano de obra: páginas de un PDF', () => {
     const usuario = userEvent.setup()
     useAlmacen.getState().cargarProyecto({ ...proyectoVacio(), planos: [{ ...PLANO_PDF, calibracion: null }] }, { 'plano-pdf': PDF })
     render(<EspacioPlano />)
+    await abrirMenu(usuario, 'Más del plano')
     await usuario.selectOptions(await screen.findByLabelText('Página'), '2')
     expect(useAlmacen.getState().proyecto.planos![0]!.pagina).toBe(2)
   })
@@ -915,6 +929,7 @@ describe('Plano de obra: páginas de un PDF', () => {
       { 'plano-pdf': PDF },
     )
     render(<EspacioPlano />)
+    await abrirMenu(usuario, 'Más del plano')
     await usuario.selectOptions(await screen.findByLabelText('Página'), '2')
     expect(screen.getByText(/son de la página 1/)).toBeInTheDocument()
     expect(useAlmacen.getState().proyecto.planos![0]!.pagina).toBe(1)
@@ -974,10 +989,50 @@ describe('Plano de obra: quitar el plano', () => {
     const usuario = userEvent.setup()
     useAlmacen.getState().cargarProyecto(proyectoConDxf(), { 'plano-dxf': DXF })
     render(<EspacioPlano />)
+    await abrirMenu(usuario, 'Más del plano')
     await usuario.click(screen.getByRole('button', { name: 'Quitar este plano' }))
     await usuario.click(screen.getByRole('button', { name: 'Sí, quitar el plano' }))
     await waitFor(() => expect(useAlmacen.getState().proyecto.planos).toEqual([]))
     expect(useAlmacen.getState().proyecto.pistas).toEqual([])
     expect(screen.getByText(/todavía no hay planos/i)).toBeInTheDocument()
+  })
+})
+
+describe('Plano de obra: lo que flota sobre el plano', () => {
+  it('la escala se lee arriba del plano; sin ella, «△ Sin escala» lleva a calibrarla', async () => {
+    const usuario = userEvent.setup()
+    useAlmacen.getState().cargarProyecto(proyectoConDxf({ planos: [{ ...PLANO_DXF, calibracion: null }] }), { 'plano-dxf': DXF })
+    render(<EspacioPlano />)
+    expect(screen.getByRole('button', { name: 'Calibrar escala' })).toHaveAttribute('aria-pressed', 'false')
+    await usuario.click(screen.getByRole('button', { name: '△ Sin escala' }))
+    expect(screen.getByRole('button', { name: 'Calibrar escala' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: 'Calibrar escala' })).toBeInTheDocument()
+  })
+
+  it('las herramientas son un solo grupo y los botones del zoom tienen nombre aunque sean un ícono', () => {
+    useAlmacen.getState().cargarProyecto(proyectoConDxf(), { 'plano-dxf': DXF })
+    render(<EspacioPlano />)
+    const herramientas = screen.getByRole('group', { name: 'Herramientas del plano' })
+    expect(within(herramientas).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ver', 'Calibrar escala', 'Dibujar croquis'])
+    expect(screen.getByRole('button', { name: 'Encuadrar' })).toHaveTextContent('⤢')
+    expect(screen.getByText(/^Escala: 1 u = 1 m$/)).toBeInTheDocument()
+  })
+
+  it('importar y quitar el plano van en «Más del plano»; los ejes y las capas, plegados con su resumen', async () => {
+    const usuario = userEvent.setup()
+    useAlmacen.getState().cargarProyecto(proyectoConDxf(), { 'plano-dxf': DXF })
+    render(<EspacioPlano />)
+    expect(screen.queryByRole('button', { name: 'Quitar este plano' })).not.toBeInTheDocument()
+    await abrirMenu(usuario, 'Más del plano')
+    const menu = screen.getByRole('group', { name: 'Opciones del plano' })
+    expect(within(menu).getByLabelText('Importar plano (DXF o PDF)')).toBeInTheDocument()
+    expect(within(menu).getByRole('button', { name: 'Quitar este plano' })).toBeInTheDocument()
+
+    const ejes = screen.getByRole('region', { name: 'Ejes del DXF' })
+    expect(ejes.querySelector('details')).not.toHaveAttribute('open')
+    expect(ejes.querySelector('summary')).toHaveTextContent('Ejes sin calle2 del plano, sin pista todavía')
+    const capas = screen.getByRole('group', { name: 'Capas del plano' }).closest('details')!
+    expect(capas).not.toHaveAttribute('open')
+    expect(capas.querySelector('summary')).toHaveTextContent('Capas del plano7 visibles de 7')
   })
 })

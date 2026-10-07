@@ -1,6 +1,7 @@
 import { claveCelda, formatearProgresiva } from '@topo/core'
 import { useMemo } from 'react'
 import type { ElementoTabla } from '../esqueletoTabla'
+import { CLASES_ESTADO } from './ui'
 
 /**
  * Cómo se pinta una celda cuando el mapa colorea por estado en vez de solo
@@ -10,6 +11,8 @@ import type { ElementoTabla } from '../esqueletoTabla'
  */
 export interface CeldaPintada {
   simbolo: string
+  /** Un texto corto que va tras el símbolo en la celda («+5»). Opcional. */
+  texto?: string
   etiqueta: string
   clases: string
 }
@@ -106,15 +109,22 @@ export default function MapaGrilla({
   }, [porElemento, progresivas, elementos])
 
   return (
-    <div className="overflow-auto rounded border border-slate-200 dark:border-slate-800">
+    // El borde y el fondo los pone la tarjeta que lo contiene; aquí solo se
+    // desplaza (VistaComun lo busca como [&_div.overflow-auto]).
+    <div className="overflow-auto">
       <table className="w-full border-collapse text-xs">
-        <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-900">
+        <thead className="sticky top-0 z-20 bg-tarjeta">
           <tr>
-            <th className="sticky left-0 z-10 bg-slate-50 px-2 py-1.5 text-left font-medium text-slate-500 dark:bg-slate-900">
+            <th className="sticky left-0 z-10 bg-tarjeta px-2 py-1.5 text-left text-[13px] font-medium text-tenue">
               {porElemento ? 'Progresiva' : 'Elemento'}
             </th>
             {cabecera.map(({ clave, titulo }) => (
-              <th key={clave} className="px-2 py-1.5 font-medium text-slate-500">
+              <th
+                key={clave}
+                className={`px-1 py-1.5 text-[13px] ${
+                  porElemento ? 'font-medium text-slate-700 dark:text-slate-300' : 'font-mono font-normal text-tenue'
+                }`}
+              >
                 {titulo}
               </th>
             ))}
@@ -122,8 +132,12 @@ export default function MapaGrilla({
         </thead>
         <tbody>
           {filas.map((fila) => (
-            <tr key={fila.clave} className="border-t border-slate-100 dark:border-slate-800">
-              <td className="numerico sticky left-0 z-10 bg-white px-2 py-1 text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+            <tr key={fila.clave}>
+              <td
+                className={`sticky left-0 z-10 bg-tarjeta px-2 py-0.5 text-[13px] whitespace-nowrap ${
+                  porElemento ? 'numerico text-tenue' : 'font-medium text-slate-700 dark:text-slate-300'
+                }`}
+              >
                 {fila.titulo}
               </td>
               {fila.celdas.map(({ clave, progresiva, elementoNombre }) => {
@@ -136,17 +150,12 @@ export default function MapaGrilla({
                       type="button"
                       aria-label={pintado?.etiqueta ?? `${formatearProgresiva(progresiva)} ${elementoNombre}`}
                       onClick={() => alElegir(clave)}
-                      className={`h-11 w-full rounded text-xs md:h-6 ${
-                        activa
-                          ? 'bg-marca text-white'
-                          : pintado
-                            ? pintado.clases
-                            : llena
-                              ? 'bg-pasa/20 text-pasa'
-                              : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
-                      }`}
+                      className={`h-11 w-full min-w-[52px] rounded-md font-mono text-[13px] font-semibold whitespace-nowrap md:h-[38px] ${
+                        pintado ? pintado.clases : llena ? CLASES_ESTADO.sinMedir : 'bg-sin-suave text-sin'
+                      } ${activa ? 'ring-2 ring-tinta ring-inset' : ''}`}
                     >
-                      {pintado ? pintado.simbolo : llena ? '✓' : '·'}
+                      <span aria-hidden="true">{pintado ? pintado.simbolo : llena ? '●' : '·'}</span>
+                      {pintado?.texto && ' ' + pintado.texto}
                     </button>
                   </td>
                 )

@@ -19,7 +19,8 @@ beforeEach(() => {
 })
 
 describe('App', () => {
-  it('muestra la navegación principal: los tres espacios, la calculadora, el tema y el archivo', async () => {
+  it('muestra la navegación principal: los tres espacios, la calculadora, el sol, el archivo y, dentro, el tema', async () => {
+    const usuario = userEvent.setup()
     render(<App />)
 
     const espacios = await screen.findByRole('navigation', { name: 'Espacios' })
@@ -27,8 +28,12 @@ describe('App', () => {
     expect(within(espacios).getByRole('button', { name: 'Calle' })).toHaveAttribute('aria-pressed', 'false')
     expect(within(espacios).getByRole('button', { name: 'Informes' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Calcular' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cambiar tema' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Archivo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Modo sol' })).toBeInTheDocument()
+    // El tema de base se cambia poco: vive dentro del menú Archivo.
+    expect(screen.queryByRole('button', { name: 'Cambiar tema' })).not.toBeInTheDocument()
+    await usuario.click(screen.getByRole('button', { name: 'Archivo' }))
+    const menu = screen.getByRole('group', { name: 'Archivo del proyecto' })
+    expect(within(menu).getByRole('button', { name: 'Cambiar tema' })).toBeInTheDocument()
   })
 
   it('el menú Archivo guarda Nuevo, Abrir y Guardar hasta que se abre', async () => {
@@ -56,8 +61,11 @@ describe('App', () => {
   it('la sección de la calle está en Obra › Calles', async () => {
     // Sin ella la pantalla existe y nadie puede abrirla, y es donde se
     // declaran las palabras con las que se lee la hoja.
+    // Viene plegada en su apartado: se abre con un toque.
+    const usuario = userEvent.setup()
     render(<App />)
 
+    await usuario.click(await screen.findByRole('button', { name: /^Sección$/ }))
     expect(await screen.findByRole('heading', { name: /sección de la calle/i })).toBeInTheDocument()
   })
 
@@ -101,7 +109,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Planificar' })).toBeInTheDocument()
 
     await usuario.click(screen.getByRole('button', { name: 'Guía de campo' }))
-    expect(screen.getByRole('heading', { name: 'Guía de campo' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Guía de campo/ })).toBeInTheDocument()
     expect(within(pantallas).getByRole('button', { name: 'Planificar' })).toHaveAttribute('aria-pressed', 'true')
 
     // Volver a un modo cierra la pantalla.
@@ -143,15 +151,15 @@ describe('App', () => {
 
     await usuario.click(await screen.findByRole('button', { name: 'Calcular' }))
     const dialogo = screen.getByRole('dialog', { name: 'Calculadora de campo' })
-    expect(within(dialogo).getByRole('heading', { name: 'Calculadora de campo' })).toBeInTheDocument()
+    expect(within(dialogo).getByRole('heading', { name: 'Calcular' })).toBeInTheDocument()
     // La pantalla de debajo sigue ahí.
-    expect(screen.getByRole('heading', { name: /sección de la calle/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Calles y sus capas' })).toBeInTheDocument()
 
     await usuario.click(within(dialogo).getByRole('button', { name: 'Cerrar calculadora' }))
     expect(screen.queryByRole('dialog', { name: 'Calculadora de campo' })).not.toBeInTheDocument()
   })
 
-  it('Informes ofrece exportar las cotas y guardar el proyecto, y dice si no están comprobadas', async () => {
+  it('Informes ofrece exportar las cotas y dice si no están comprobadas (el .topo se guarda desde Archivo)', async () => {
     const usuario = userEvent.setup()
     render(<App />)
 
@@ -159,8 +167,9 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { name: 'Informes' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Exportar cotas a Excel' })).toBeInTheDocument()
+    // CSV y Copiar van en el «⋯» de cada tabla, para que haya un solo botón a la vista.
+    await usuario.click(screen.getByRole('button', { name: 'Más formatos de cotas' }))
     expect(screen.getByRole('button', { name: 'Exportar cotas a CSV' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Guardar el proyecto (.topo)' })).toBeInTheDocument()
     expect(screen.getByText(/[✓✗△] .*(cerró|sin cerrar)/)).toBeInTheDocument()
   })
 
@@ -196,7 +205,8 @@ describe('App', () => {
     await usuario.clear(vistaAtras)
     await usuario.type(vistaAtras, '1.425')
 
-    await usuario.click(screen.getByRole('button', { name: '0+006 Eje' }))
+    // Con rasante, el mapa de Medir nombra la celda con su estado («0+006 Eje, sin medir»).
+    await usuario.click(screen.getByRole('button', { name: /^0\+006 Eje([:,]|$)/ }))
     await usuario.type(screen.getByLabelText(/lectura de mira/i), '2.230{Enter}')
 
     expect(screen.getByText(/llenadas 1 de 7/)).toBeInTheDocument()

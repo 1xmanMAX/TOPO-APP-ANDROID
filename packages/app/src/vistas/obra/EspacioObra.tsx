@@ -39,9 +39,12 @@ export default function EspacioObra() {
 
   /** Solo cuenta en el celular: si el panel de la calle tapa la lista. */
   const [panelAbierto, setPanelAbierto] = useState(false)
-  // Sección abierta como en el lienzo; Subir hoja también, porque es donde se
-  // suelta el Excel y no tiene que esconderse detrás de un toque más.
-  const [apartadosCalle, setApartadosCalle] = useState<Set<ApartadoCalle>>(() => new Set(['seccion', 'subir']))
+  // Todo plegado: cada apartado dice en una línea qué tiene, y la calle se
+  // recorre de un vistazo. «Subir hoja» se abre al tocar ese botón o, con la
+  // obra todavía sin calles, desde el principio: es lo único que hay que hacer.
+  const [apartadosCalle, setApartadosCalle] = useState<Set<ApartadoCalle>>(() =>
+    proyecto.calles.length === 0 ? new Set(['subir']) : new Set(),
+  )
   const [apartadosObra, setApartadosObra] = useState<Set<ApartadoObra>>(() => new Set())
   const panel = useRef<HTMLDivElement>(null)
   const inicio = useRef<HTMLDivElement>(null)

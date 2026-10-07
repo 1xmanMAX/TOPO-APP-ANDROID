@@ -1,5 +1,6 @@
 import { formatearProgresiva, parsearProgresiva, type Id, type Nota } from '@topo/core'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, TARJETA } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
 import { reducirFoto } from './fotos'
 
@@ -11,6 +12,10 @@ interface Props {
 const FRASES_RAPIDAS = ['Buzón', 'Sardinel vaciado', 'Material acopiado', 'Interferencia', 'Agua empozada']
 
 const SIN_NOTAS: Nota[] = []
+
+/** Los casilleros de la nota, con los tokens del lienzo. */
+const CASILLERO =
+  'rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-base text-tinta outline-none focus:border-marca focus:ring-2 focus:ring-marca'
 
 function fechaLegible(iso: string): string {
   const fecha = new Date(iso)
@@ -32,30 +37,30 @@ function FilaNota({ nota, alBorrar }: { nota: Nota; alBorrar: () => void }) {
   const resumen = nota.texto.trim() || 'foto'
 
   return (
-    <li className="flex flex-col gap-2 rounded border border-slate-200 p-3 dark:border-slate-700">
-      {nota.texto.trim() !== '' && <p className="text-base break-words">{nota.texto}</p>}
+    <li className="flex flex-col gap-1.5">
+      {nota.texto.trim() !== '' && <p className="text-[15px] break-words text-tinta">{nota.texto}</p>}
       {nota.foto && (
         <img
           src={nota.foto}
           alt={`Foto de la nota en ${progresiva}`}
-          className="max-h-64 w-full rounded object-contain sm:w-auto"
+          className="max-h-64 w-full rounded-lg object-contain sm:w-auto"
         />
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs text-slate-500 dark:text-slate-400">{fechaLegible(nota.fecha)}</span>
+        <span className="text-xs text-tenue">{fechaLegible(nota.fecha)}</span>
         {confirmando ? (
           <span className="flex gap-2">
             <button
               type="button"
               onClick={alBorrar}
-              className="min-h-11 rounded border border-falla px-3 text-sm font-semibold text-falla hover:bg-falla/10"
+              className="inline-flex min-h-11 items-center rounded-[10px] border border-falla bg-tarjeta px-3 text-sm font-semibold text-falla hover:bg-falla-suave"
             >
               Sí, borrar
             </button>
             <button
               type="button"
               onClick={() => setConfirmando(false)}
-              className="min-h-11 rounded border border-slate-300 px-3 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+              className={BOTON_SECUNDARIO}
             >
               No
             </button>
@@ -65,7 +70,7 @@ function FilaNota({ nota, alBorrar }: { nota: Nota; alBorrar: () => void }) {
             type="button"
             aria-label={`Borrar la nota «${resumen}» en ${progresiva}`}
             onClick={() => setConfirmando(true)}
-            className="min-h-11 rounded px-3 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="-mr-2 inline-flex min-h-11 items-center rounded-[10px] px-2 text-sm text-tenue hover:bg-fondo"
           >
             <span aria-hidden="true">✗ </span>Borrar
           </button>
@@ -168,8 +173,10 @@ export default function NotasDeCalle({ calleId }: Props) {
   }
 
   return (
-    <section aria-labelledby={idTitulo} className="mx-auto flex w-full max-w-4xl flex-col gap-3 p-4 sm:p-6">
-      <h2 id={idTitulo} className="text-lg font-semibold">
+    // Va dentro del plegable «Notas de la calle (n)» de Revisar, que ya lo
+    // titula: el título queda para el lector de pantalla.
+    <section aria-labelledby={idTitulo} className="flex w-full flex-col gap-3">
+      <h2 id={idTitulo} className="sr-only">
         Notas de la calle
       </h2>
 
@@ -179,10 +186,10 @@ export default function NotasDeCalle({ calleId }: Props) {
           evento.preventDefault()
           guardar()
         }}
-        className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+        className={`${TARJETA} flex flex-col gap-3`}
       >
-        <label className="flex w-40 flex-col gap-1">
-          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Progresiva</span>
+        <label className="flex items-center gap-3">
+          <span className="flex-1 text-[15px] text-tinta">Progresiva</span>
           <input
             type="text"
             inputMode="decimal"
@@ -190,7 +197,7 @@ export default function NotasDeCalle({ calleId }: Props) {
             value={progresivaTexto}
             onChange={(evento) => setProgresivaEscrita(evento.target.value)}
             aria-invalid={progresivaTexto.trim() !== '' && progresiva === null}
-            className="numerico min-h-11 rounded border border-slate-300 bg-white px-2 text-base outline-none focus:border-marca focus:ring-2 focus:ring-marca dark:border-slate-600 dark:bg-slate-900"
+            className={`numerico h-12 w-40 shrink-0 text-right text-lg ${CASILLERO}`}
           />
         </label>
 
@@ -200,7 +207,7 @@ export default function NotasDeCalle({ calleId }: Props) {
               key={frase}
               type="button"
               onClick={() => setTexto((t) => conFrase(t, frase))}
-              className="min-h-11 rounded-full border border-slate-300 px-3 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+              className="inline-flex min-h-11 items-center rounded-full border border-borde-fuerte bg-fondo px-4 text-sm text-tinta hover:bg-tarjeta"
             >
               {frase}
             </button>
@@ -208,17 +215,22 @@ export default function NotasDeCalle({ calleId }: Props) {
         </div>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Texto de la nota</span>
+          <span className="sr-only">Texto de la nota</span>
           <textarea
             rows={2}
             value={texto}
+            placeholder="Escribe o toca una de arriba"
             onChange={(evento) => setTexto(evento.target.value)}
-            className="rounded border border-slate-300 bg-white px-2 py-2 text-base outline-none focus:border-marca focus:ring-2 focus:ring-marca dark:border-slate-600 dark:bg-slate-900"
+            className={`py-2.5 text-[15px] ${CASILLERO}`}
           />
         </label>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex min-h-11 cursor-pointer items-center rounded border border-slate-300 px-3 text-sm font-medium hover:bg-slate-100 focus-within:ring-2 focus-within:ring-marca dark:border-slate-600 dark:hover:bg-slate-800">
+          <label className={`${BOTON_SECUNDARIO} cursor-pointer focus-within:ring-2 focus-within:ring-marca`}>
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+              <circle cx="12" cy="13" r="3.5" />
+            </svg>
             <span>{foto ? 'Cambiar foto' : 'Tomar foto'}</span>
             <input
               type="file"
@@ -235,14 +247,14 @@ export default function NotasDeCalle({ calleId }: Props) {
               }}
             />
           </label>
-          {cargandoFoto && <span className="text-sm text-slate-600 dark:text-slate-300">Reduciendo la foto…</span>}
+          {cargandoFoto && <span className="text-sm text-tenue">Reduciendo la foto…</span>}
           {foto && (
             <>
-              <img src={foto} alt="Foto por guardar" className="h-16 w-16 rounded object-cover" />
+              <img src={foto} alt="Foto por guardar" className="h-16 w-16 rounded-lg object-cover" />
               <button
                 type="button"
                 onClick={() => setFoto(null)}
-                className="min-h-11 rounded px-3 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="inline-flex min-h-11 items-center rounded-[10px] px-3 text-sm text-tenue hover:bg-fondo"
               >
                 Quitar foto
               </button>
@@ -254,29 +266,33 @@ export default function NotasDeCalle({ calleId }: Props) {
           <button
             type="submit"
             disabled={!puedeGuardar}
-            className="min-h-11 rounded bg-marca px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
+            className={BOTON_PRINCIPAL}
           >
             Guardar nota
           </button>
           {progresiva === null && (
-            <span className="text-sm text-slate-600 dark:text-slate-300">Escriba la progresiva (por ejemplo 0+020).</span>
+            <span className="text-sm text-tenue">Escriba la progresiva (por ejemplo 0+020).</span>
           )}
         </div>
-        <p role="status" className="min-h-5 text-sm text-slate-700 dark:text-slate-200">
+        <p role="status" className="min-h-5 text-sm text-tinta">
           {mensaje}
         </p>
       </form>
 
       {grupos.length === 0 ? (
-        <p className="text-sm text-slate-600 dark:text-slate-300">Todavía no hay notas en esta calle.</p>
+        <p className="text-sm text-tenue">Todavía no hay notas en esta calle.</p>
       ) : (
-        <ol aria-label="Notas por progresiva" className="flex flex-col gap-4">
+        <ol aria-label="Notas por progresiva" className="flex flex-col gap-2.5">
           {grupos.map((grupo) => {
             const titulo = formatearProgresiva(grupo.progresiva)
             return (
-              <li key={grupo.progresiva} className="flex flex-col gap-2">
-                <h3 className="numerico text-sm font-semibold">{titulo}</h3>
-                <ul aria-label={`Notas en ${titulo}`} className="flex flex-col gap-2">
+              // Como en el lienzo: la progresiva a la izquierda y lo anotado a la derecha.
+              <li key={grupo.progresiva} className="flex gap-3 rounded-xl border border-borde bg-tarjeta px-3 py-2.5">
+                <h3 className="numerico w-14 shrink-0 pt-0.5 text-[15px] font-semibold text-tinta">{titulo}</h3>
+                <ul
+                  aria-label={`Notas en ${titulo}`}
+                  className="flex min-w-0 flex-1 flex-col gap-3 divide-y divide-borde [&>li+li]:pt-3"
+                >
                   {grupo.notas.map((nota) => (
                     <FilaNota key={nota.id} nota={nota} alBorrar={() => eliminarNota(calleId, nota.id)} />
                   ))}

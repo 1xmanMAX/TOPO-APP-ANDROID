@@ -3,7 +3,7 @@ import { useId, type ReactNode } from 'react'
 interface Props {
   /** Nombre corto y fijo: es el nombre accesible del botón («Sección»). */
   titulo: string
-  /** Lo que tiene dentro, dicho sin abrirlo. */
+  /** Lo que tiene dentro, dicho en una línea sin abrirlo. */
   resumen: ReactNode
   abierto: boolean
   alAlternar: () => void
@@ -16,18 +16,34 @@ interface Props {
 }
 
 /**
- * Un apartado plegable del panel de la calle. Cerrado, dice qué tiene en una
- * línea; así se recorre la calle entera sin abrir nada. El resumen va como
- * descripción y no dentro del nombre del botón, para que el nombre siga
- * siendo «Sección» aunque cambie lo que la sección tiene.
+ * Un apartado plegable del panel de la calle (lienzo «Ajustes»). Cerrado,
+ * dice qué tiene en una línea; así se recorre la calle entera sin abrir nada.
+ * El resumen va como descripción y no dentro del nombre del botón, para que
+ * el nombre siga siendo «Sección» aunque cambie lo que la sección tiene. A la
+ * vista se corta con «…» si no cabe; el lector de pantalla lo lee entero.
  */
 export default function Apartado({ titulo, resumen, abierto, alAlternar, conservarMontado = false, children }: Props) {
   const idContenido = useId()
   const idResumen = useId()
   const idTitulo = useId()
 
+  const signo = (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={`h-4 w-4 shrink-0 text-tenue transition-transform ${abierto ? 'rotate-90' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  )
+
   return (
-    <section className="@container rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <section className="@container rounded-xl border border-borde bg-tarjeta">
       <button
         type="button"
         aria-expanded={abierto}
@@ -36,25 +52,21 @@ export default function Apartado({ titulo, resumen, abierto, alAlternar, conserv
         aria-labelledby={idTitulo}
         aria-describedby={idResumen}
         onClick={alAlternar}
-        className="flex min-h-14 w-full flex-col items-start gap-0.5 px-4 py-2 text-left @lg:flex-row @lg:items-center @lg:gap-4"
+        className="flex min-h-14 w-full min-w-0 flex-col items-start gap-0.5 px-4 py-2 text-left @lg:flex-row @lg:items-center @lg:gap-3"
       >
-        <span className="flex w-full items-center justify-between gap-2 @lg:w-44 @lg:flex-none">
+        <span className="flex w-full items-center justify-between gap-2 @lg:w-52 @lg:flex-none">
           <span id={idTitulo} className="text-base font-semibold">
             {titulo}
           </span>
-          <span aria-hidden="true" className="text-lg text-slate-500 @lg:hidden">
-            {abierto ? '−' : '+'}
-          </span>
+          <span className="@lg:hidden">{signo}</span>
         </span>
-        <span id={idResumen} className="flex-1 text-sm text-slate-600 dark:text-slate-300">
+        <span id={idResumen} className="block w-full min-w-0 truncate text-sm text-tenue @lg:flex-1">
           {resumen}
         </span>
-        <span aria-hidden="true" className="hidden text-lg text-slate-500 @lg:inline">
-          {abierto ? '−' : '+'}
-        </span>
+        <span className="hidden @lg:inline">{signo}</span>
       </button>
       {(abierto || conservarMontado) && (
-        <div id={idContenido} hidden={!abierto} className="border-t border-slate-200 dark:border-slate-800">
+        <div id={idContenido} hidden={!abierto} className="border-t border-borde">
           {children}
         </div>
       )}

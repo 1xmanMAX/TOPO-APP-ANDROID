@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { borrarBorrador, contarLecturas, leerBorrador, type Borrador } from './archivo/autoguardado'
 import { useAutoguardado } from './archivo/useAutoguardado'
 import BarraSuperior from './componentes/BarraSuperior'
-import { NavegacionCalle, NavegacionObra } from './componentes/SubNavegacion'
+import AvisoLinea from './componentes/AvisoLinea'
+import { NavegacionCalle, NavegacionObra, NavegacionPantallasCalle } from './componentes/SubNavegacion'
+import { BOTON_ICONO, BOTON_PRINCIPAL, BOTON_SECUNDARIO } from './componentes/ui'
 import { useAlmacen } from './estado/almacen'
 import PantallaAnalisis from './vistas/analisis/PantallaAnalisis'
 import EspacioCalle from './vistas/calle/EspacioCalle'
@@ -52,17 +54,27 @@ function Calculadora() {
     <aside
       role="dialog"
       aria-label="Calculadora de campo"
-      className="min-h-0 flex-1 overflow-auto border-slate-200 bg-white sm:fixed sm:top-14 sm:right-0 sm:bottom-0 sm:z-20 sm:w-96 sm:flex-none sm:border-l sm:shadow-2xl dark:border-slate-800 dark:bg-slate-950"
+      className="relative min-h-0 flex-1 overflow-auto bg-fondo md:fixed md:top-16 md:right-0 md:bottom-0 md:z-20 md:w-96 md:flex-none md:border-l md:border-borde md:shadow-2xl"
     >
-      <div className="flex justify-end p-2">
-        <button
-          type="button"
-          onClick={() => abrirCalculadora(false)}
-          className="min-h-11 rounded px-3 text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+      <button
+        type="button"
+        aria-label="Cerrar calculadora"
+        onClick={() => abrirCalculadora(false)}
+        className={`${BOTON_ICONO} absolute top-3 right-3 z-10`}
+      >
+        <svg
+          aria-hidden="true"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.2}
+          strokeLinecap="round"
         >
-          Cerrar calculadora
-        </button>
-      </div>
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
       <PanelCalculadora />
     </aside>
   )
@@ -94,16 +106,18 @@ export default function App() {
   }, [])
 
   return (
-    <div className="flex h-full flex-col">
+    // En el celular la barra de los espacios va fija abajo (72 px): el
+    // contenido y los pies pegados (la Guía) terminan encima de ella.
+    <div className="flex h-full flex-col max-md:pb-[72px]">
       <BarraSuperior />
       {falloAutoguardado && (
-        <p className="border-b border-aviso bg-aviso/10 px-4 py-2 text-sm text-aviso">
-          {falloAutoguardado}
-        </p>
+        <div className="border-b border-borde bg-fondo px-3 py-2 md:px-4">
+          <AvisoLinea tono="aviso">{falloAutoguardado}</AvisoLinea>
+        </div>
       )}
       {borrador && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-aviso bg-aviso/10 px-4 py-2 text-sm">
-          <span>
+        <div className="flex flex-col gap-2 border-b border-borde bg-fondo px-3 py-3 md:px-4">
+          <AvisoLinea tono="aviso">
             Recuperé tu trabajo del{' '}
             {new Date(borrador.guardado).toLocaleString('es-PE', {
               day: '2-digit',
@@ -114,33 +128,37 @@ export default function App() {
             — {borrador.proyecto.meta.nombre}, {contarLecturas(borrador.proyecto)} lecturas. Elige
             antes de seguir: lo de abajo no se guarda hasta que decidas. Si abres otro archivo, este
             borrador se descarta.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              cargarProyecto(borrador.proyecto, borrador.archivosDePlano)
-              setBorrador(null)
-            }}
-            className="min-h-11 rounded bg-marca px-3 py-1 text-white"
-          >
-            Recuperar
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              void borrarBorrador()
-              setBorrador(null)
-            }}
-            className="min-h-11 rounded px-3 py-1"
-          >
-            Descartar
-          </button>
+          </AvisoLinea>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                cargarProyecto(borrador.proyecto, borrador.archivosDePlano)
+                setBorrador(null)
+              }}
+              className={BOTON_PRINCIPAL}
+            >
+              Recuperar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void borrarBorrador()
+                setBorrador(null)
+              }}
+              className={BOTON_SECUNDARIO}
+            >
+              Descartar
+            </button>
+          </div>
         </div>
       )}
       {/*
-        La sub-barra va fuera de lo que se desplaza: la libreta enfoca su
-        campo al abrirse y, si la sub-barra se desplazara con ella, quedaría
-        fuera de la vista justo cuando hace falta cambiar de modo.
+        La banda de los modos va fuera de lo que se desplaza: la libreta
+        enfoca su campo al abrirse y, si la banda se desplazara con ella,
+        quedaría fuera de la vista justo cuando hace falta cambiar de modo.
+        Las pantallas de la calle (Análisis, Cierre, Planificar) sí van
+        dentro de <main>: se desplazan con el contenido.
       */}
       {/* En la laptop, con la calculadora abierta, la pantalla se corre a su izquierda en vez de quedar tapada. */}
       {/*
@@ -149,11 +167,12 @@ export default function App() {
       */}
       <div
         inert={borrador !== null}
-        className={`flex min-h-0 flex-1 flex-col ${calculadoraAbierta ? 'max-sm:hidden sm:pr-96' : ''} ${borrador ? 'opacity-40' : ''}`}
+        className={`flex min-h-0 flex-1 flex-col ${calculadoraAbierta ? 'max-md:hidden md:pr-96' : ''} ${borrador ? 'opacity-40' : ''}`}
       >
         {espacio === 'obra' && <NavegacionObra />}
         {espacio === 'calle' && <NavegacionCalle />}
         <main className="flex-1 overflow-auto">
+          {espacio === 'calle' && <NavegacionPantallasCalle />}
           {espacio === 'obra' && <Obra />}
           {espacio === 'calle' && <Calle />}
           {espacio === 'informes' && <EspacioInformes />}

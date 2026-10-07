@@ -3,29 +3,35 @@ import {
   claveCelda,
   formatearProgresiva,
   hojaDeReplanteo,
+  palabraDePunto,
   redondear3,
   veredictoReplanteo,
   type FilaReplanteo,
   type MotivoSinObjetivo,
 } from '@topo/core'
 import { useState } from 'react'
+import AvisoLinea from '../../componentes/AvisoLinea'
+import Segmentado from '../../componentes/Segmentado'
+import { BOTON_ICONO, BOTON_PRINCIPAL, CLASES_ESTADO, TARJETA_OSCURA } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
 import { useContexto, useProgresivas } from '../../estado/derivados'
 import { formatearCota } from '../../formato'
 import {
   alturaInstrumentalDeEstacion,
-  AVISO_DESTACADO,
-  BOTON_PRINCIPAL,
-  BOTON_SECUNDARIO,
   estacionComprobada,
   instrumentoDe,
   leerNumero,
   reglasMiraDe,
   VISUAL_ESTADO,
 } from './comun'
-import { useResultadoCalle } from './resultadoCalle'
+import { useEvaluacionCalle, useResultadoCalle } from './resultadoCalle'
 
 type OrigenAltura = 'libreta' | 'bm'
+
+const ORIGENES: { valor: OrigenAltura; texto: string }[] = [
+  { valor: 'libreta', texto: 'De la libreta' },
+  { valor: 'bm', texto: 'Desde un BM' },
+]
 
 const MOTIVO: Record<MotivoSinObjetivo, string> = {
   sinRasante: 'la calle no tiene rasante de proyecto',
@@ -47,14 +53,17 @@ const VEREDICTO: Record<'corta' | 'rellena' | 'enCota', string> = {
   enCota: 'EN COTA',
 }
 
+const CAMPO_GRANDE =
+  'numerico h-16 w-full min-w-0 rounded-[10px] border-2 border-tinta bg-tarjeta px-3 text-right text-[40px] font-semibold placeholder:font-normal placeholder:text-tenue md:text-[28px]'
+
 /**
- * Replantear: la hoja de replanteo de la progresiva elegida para la capa
- * activa. Por estaca, la lectura que tiene que marcar la mira; se escribe la
- * que se leyó (con ±1 mm para ir afinando mientras el ayudante mueve la
- * estaca) y sale el veredicto grande: CORTA, RELLENA o EN COTA.
+ * Replantear: la estaca en la que se trabaja, con lo que la mira tiene que
+ * marcar en grande; se escribe lo que se leyó (con ±1 mm para ir afinando
+ * mientras el ayudante mueve la estaca) y sale el veredicto: CORTA, RELLENA
+ * o EN COTA. Debajo, la hoja de la progresiva entera.
  *
- * La estaca en la que se trabaja es la selección del almacén, como en los
- * otros modos: tocar un punto del corte o del mapa la elige, y «Siguiente
+ * La estaca es la selección del almacén, como en los otros modos: tocar un
+ * punto del corte, del mapa o de la fila de estacas la elige, y «Siguiente
  * estaca» mueve la selección (y con ella el corte).
  *
  * Las lecturas leídas son de este rato en el terreno y no se guardan en el
@@ -64,6 +73,7 @@ const VEREDICTO: Record<'corta' | 'rellena' | 'enCota', string> = {
 export default function FichaReplantear() {
   const contexto = useContexto()
   const resultado = useResultadoCalle()
+  const evaluacion = useEvaluacionCalle(resultado)
   const proyecto = useAlmacen((s) => s.proyecto)
   const estacionActiva = useAlmacen((s) => s.estacionActiva)
   const seleccion = useAlmacen((s) => s.seleccion)
@@ -122,11 +132,11 @@ export default function FichaReplantear() {
         })
 
   if (!contexto || !resultado) {
-    return <p className="text-sm text-slate-500">Elige una capa para replantearla.</p>
+    return <p className="text-sm text-tenue">Elige una capa para replantearla.</p>
   }
   if (progresiva === null || !hoja) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-tenue">
         Esta capa todavía no tiene progresivas: añádelas en Medir para tener dónde replantear.
       </p>
     )
@@ -157,6 +167,10 @@ export default function FichaReplantear() {
   const indiceProgresiva = progresivas.findIndex((p) => redondear3(p) === redondear3(progresiva))
   const hayOtraProgresiva = indiceProgresiva >= 0 && indiceProgresiva < progresivas.length - 1
   const esUltimaEstaca = indiceFila >= filas.length - 1 && !hayOtraProgresiva
+  const palabra = (puntoId: string, nombre: string) => {
+    const punto = contexto.calle.seccion.puntos.find((p) => p.id === puntoId)
+    return punto ? palabraDePunto(punto) : nombre
+  }
 
   function escribirLeida(texto: string) {
     setLeidas((antes) => ({ ...antes, [claveLeida]: texto }))
@@ -182,84 +196,118 @@ export default function FichaReplantear() {
     if (primerPunto) seleccionar(claveCelda(proxima, primerPunto.id))
   }
 
+  // De dónde sale la AI, en una línea corta debajo del número.
+  const detalleAI = !Number.isFinite(alturaInstrumental) ? null : origen === 'libreta' ? (
+    <>
+      {correccionMm !== 0 && (
+        <>
+          {' '}
+          compensada (
+          <span className="numerico">
+            {correccionMm > 0 ? '+' : '−'}
+            {Math.abs(correccionMm).toFixed(1)} mm
+          </span>{' '}
+          sobre la CI de la libreta)
+        </>
+      )}{' '}
+      · estación {indiceSeguro + 1} de la libreta
+    </>
+  ) : bm ? (
+    <>
+      {' '}
+      · {bm.nombre} {bm.tipo === 'oficial' ? 'oficial' : 'auxiliar'}
+    </>
+  ) : null
+
   return (
     <div className="flex flex-col gap-3">
-      <fieldset className="flex flex-col gap-2 rounded border border-slate-200 p-3 dark:border-slate-800">
-        <legend className="px-1 text-sm font-medium">Altura del instrumento</legend>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            aria-pressed={origen === 'libreta'}
-            onClick={() => setOrigen('libreta')}
-            className={origen === 'libreta' ? BOTON_PRINCIPAL : BOTON_SECUNDARIO}
-          >
-            De la libreta
-          </button>
-          <button
-            type="button"
-            aria-pressed={origen === 'bm'}
-            onClick={() => setOrigen('bm')}
-            className={origen === 'bm' ? BOTON_PRINCIPAL : BOTON_SECUNDARIO}
-          >
-            Desde un BM
-          </button>
-        </div>
-        {origen === 'bm' && proyecto.bms.length === 0 && (
-          <p className="rounded border border-aviso px-3 py-2 text-sm text-aviso">
-            <span aria-hidden="true">△ </span>No hay BMs en este proyecto: créalos en Obra para partir de uno.
-          </p>
-        )}
-        {origen === 'bm' && proyecto.bms.length > 0 && (
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1 text-sm">
-              <span>BM de partida</span>
-              <select
-                value={bm?.id ?? ''}
-                onChange={(evento) => setBmId(evento.target.value)}
-                className="min-h-11 rounded border border-slate-300 bg-white px-2 dark:border-slate-700 dark:bg-slate-900"
-              >
-                {proyecto.bms.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.nombre} · {formatearCota(b.cota)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span>Vista atrás al BM</span>
-              <input
-                inputMode="decimal"
-                autoComplete="off"
-                value={textoVistaAtras}
-                onChange={(evento) => setTextoVistaAtras(evento.target.value)}
-                className="numerico min-h-11 w-28 rounded border border-slate-300 px-2 text-right dark:border-slate-700 dark:bg-slate-900"
-              />
-            </label>
+      {fila && (
+        <section aria-label="Estaca actual" className="flex flex-col gap-3">
+          {/* (a) */}
+          <div className="-mt-2">
+            <h3 className="text-[26px] leading-tight font-bold">
+              <span className="numerico">{formatearProgresiva(fila.progresiva)}</span> · {fila.nombre}
+            </h3>
+            <p className="text-[13px] text-tenue">
+              Estaca {indiceFila + 1} de {filas.length}
+            </p>
           </div>
-        )}
-        <p className="text-sm">
+
+          {/* (b) Las estacas de la progresiva, con lo que ya se midió en cada una. */}
+          <div role="group" aria-label="Estacas de la progresiva" className="grid grid-cols-[repeat(auto-fit,minmax(3rem,1fr))] gap-1">
+            {filas.map((f, indice) => {
+              const claveFila = claveCelda(f.progresiva, f.puntoId)
+              const estado = evaluacion?.celdas.get(claveFila)?.estado
+              const activa = indice === indiceFila
+              return (
+                <button
+                  key={claveFila}
+                  type="button"
+                  aria-pressed={activa}
+                  onClick={() => seleccionar(claveFila)}
+                  className={`min-h-11 rounded-lg border-2 px-1 text-[13px] font-semibold ${
+                    estado ? CLASES_ESTADO[estado] : CLASES_ESTADO.sinMedir
+                  } ${activa ? 'border-tinta' : 'border-transparent'}`}
+                >
+                  {palabra(f.puntoId, f.nombre)}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* (c) Lo que la mira tiene que marcar, lo más grande de la pantalla. */}
+          <div className={`${TARJETA_OSCURA} flex flex-col gap-0.5`}>
+            {fila.lecturaObjetivo === null ? (
+              <p className="text-[15px] text-cabecera-texto">
+                <span aria-hidden="true">△ </span>Sin lectura objetivo: {MOTIVO[fila.motivoSinObjetivo ?? 'alturaInvalida']}.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-cabecera-tenue">La mira debe marcar</p>
+                <p className="numerico text-[44px] leading-[1.05] font-semibold text-[#FDBA74]">
+                  {formatearCota(fila.lecturaObjetivo)}
+                </p>
+                <p className="text-sm text-cabecera-texto">
+                  para estar en <span className="numerico">{formatearCota(fila.cotaProyecto!)}</span>
+                  {fila.aceptable && (
+                    <span className="text-cabecera-tenue">
+                      {' '}
+                      · conforme entre <span className="numerico">{formatearCota(fila.aceptable.desde)}</span> y{' '}
+                      <span className="numerico">{formatearCota(fila.aceptable.hasta)}</span>
+                    </span>
+                  )}
+                </p>
+              </>
+            )}
+          </div>
+          {fila.rangoObjetivo === 'imposible' && (
+            <AvisoLinea tono="falla">El objetivo no cabe en la mira de {instrumento.largoMira} m: cambia de estación.</AvisoLinea>
+          )}
+          {fila.rangoObjetivo === 'pocoPrecisa' && (
+            <AvisoLinea tono="aviso">El objetivo cae cerca del suelo o de la punta de la mira: poco preciso.</AvisoLinea>
+          )}
+        </section>
+      )}
+
+      {/* (d) De dónde sale la AI: una línea, y los campos del BM solo si se parte de uno. */}
+      <fieldset className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+        <legend className="sr-only">Altura del instrumento</legend>
+        <Segmentado
+          etiqueta="Origen de la altura"
+          opciones={ORIGENES}
+          valor={origen}
+          alCambiar={setOrigen}
+          className="col-start-2 row-start-1"
+        />
+        <p className="col-start-1 row-start-1 text-[13px] text-tenue">
+          AI{' '}
+          <b className="numerico text-[17px] font-semibold text-tinta">
+            {Number.isFinite(alturaInstrumental) ? formatearCota(alturaInstrumental) : '—'}
+          </b>
+        </p>
+        <p className="col-span-2 text-[13px] text-tenue">
           {Number.isFinite(alturaInstrumental) ? (
-            <>
-              AI <strong className="numerico">{formatearCota(alturaInstrumental)}</strong>
-              {origen === 'libreta' && correccionMm !== 0 && (
-                <>
-                  {' '}
-                  compensada (
-                  <span className="numerico">
-                    {correccionMm > 0 ? '+' : '−'}
-                    {Math.abs(correccionMm).toFixed(1)} mm
-                  </span>{' '}
-                  sobre la CI de la libreta)
-                </>
-              )}
-              {origen === 'libreta' && <> · estación {indiceSeguro + 1} de la libreta</>}
-              {origen === 'bm' && bm && (
-                <>
-                  {' '}
-                  · {bm.nombre} {bm.tipo === 'oficial' ? 'oficial' : 'auxiliar'}
-                </>
-              )}
-            </>
+            detalleAI
           ) : origen === 'libreta' ? (
             'La estación de la libreta no tiene vista atrás: escríbela en Medir o parte de un BM.'
           ) : !bm ? null : vistaAtrasEscrita ? (
@@ -271,144 +319,141 @@ export default function FichaReplantear() {
             'Escribe la vista atrás al BM para tener la altura del instrumento.'
           )}
         </p>
+        {origen === 'bm' && proyecto.bms.length === 0 && (
+          <AvisoLinea tono="aviso" className="col-span-2">
+            No hay BMs en este proyecto: créalos en Obra para partir de uno.
+          </AvisoLinea>
+        )}
+        {origen === 'bm' && proyecto.bms.length > 0 && (
+          <div className="col-span-2 flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-[13px] text-tenue">
+              <span>BM de partida</span>
+              <select
+                value={bm?.id ?? ''}
+                onChange={(evento) => setBmId(evento.target.value)}
+                className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-sm text-tinta"
+              >
+                {proyecto.bms.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.nombre} · {formatearCota(b.cota)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[13px] text-tenue">
+              <span>Vista atrás al BM</span>
+              <input
+                inputMode="decimal"
+                autoComplete="off"
+                value={textoVistaAtras}
+                onChange={(evento) => setTextoVistaAtras(evento.target.value)}
+                className="numerico min-h-11 w-28 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-right text-base text-tinta"
+              />
+            </label>
+          </div>
+        )}
       </fieldset>
 
       {!hoja.comprobado && (
-        <p className={AVISO_DESTACADO}>
-          <span aria-hidden="true">△ </span>
+        <AvisoLinea tono="aviso" className="font-semibold">
           {origen === 'bm' && bm && bm.tipo !== 'oficial'
             ? `${bm.nombre} es un BM auxiliar: su cota vale lo que la nivelación que lo dejó. Cotas no comprobadas.`
             : AVISO_HOJA_SIN_COMPROBAR}
-        </p>
+        </AvisoLinea>
       )}
 
+      {fila && fila.lecturaObjetivo !== null && (
+        <>
+          {/* (e) Lo que marcó la mira, afinado de a 1 mm. */}
+          <div className="flex flex-col gap-1">
+            <span aria-hidden="true" className="text-sm text-tenue">
+              Lectura leída
+            </span>
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2">
+              {/* El nombre accesible es el texto visible («−1 mm»): el control por voz dice lo que ve. */}
+              <button type="button" onClick={() => ajustar(-1)} className={`${BOTON_ICONO} numerico h-16 w-auto min-w-14 px-2 text-[15px]`}>
+                −1 mm
+              </button>
+              <input
+                aria-label="Lectura leída"
+                inputMode="decimal"
+                autoComplete="off"
+                value={textoLeida}
+                onChange={(evento) => escribirLeida(evento.target.value)}
+                placeholder={formatearCota(fila.lecturaObjetivo)}
+                className={CAMPO_GRANDE}
+              />
+              <button type="button" onClick={() => ajustar(1)} className={`${BOTON_ICONO} numerico h-16 w-auto min-w-14 px-2 text-[15px]`}>
+                +1 mm
+              </button>
+            </div>
+          </div>
+
+          {/* (f) La región viva queda montada aunque esté vacía: una que aparece ya llena muchas veces no se anuncia. */}
+          <div
+            role="status"
+            aria-label="Veredicto"
+            className={veredicto ? `flex flex-col gap-1 rounded-xl px-4 py-3 ${VISUAL_ESTADO[veredicto.estado].clases}` : undefined}
+          >
+            {veredicto && (
+              <>
+                <p className="text-3xl font-bold">
+                  <span aria-hidden="true">{VISUAL_ESTADO[veredicto.estado].simbolo} </span>
+                  {veredicto.tipo ? VEREDICTO[veredicto.tipo] : 'VUELVE A LEER'}
+                  {veredicto.tipo && veredicto.tipo !== 'enCota' && <> {veredicto.mm} mm</>}
+                </p>
+                <p className="text-[15px] font-semibold">{VISUAL_ESTADO[veredicto.estado].texto}</p>
+                {veredicto.sospechosa && <p className="text-[15px] font-bold">¿Leíste bien?</p>}
+                {veredicto.avisos.map((aviso) => (
+                  <p key={aviso} className="text-sm font-semibold">
+                    {aviso}
+                  </p>
+                ))}
+              </>
+            )}
+          </div>
+          <p className="text-[13px] text-tenue">
+            Marca más que el objetivo → falta, <b>rellena</b>. Marca menos → sobra, <b>corta</b>.
+          </p>
+        </>
+      )}
+
+      {/* (g) */}
       {fila && (
-        <section aria-label="Estaca actual" className="flex flex-col gap-2 rounded border-2 border-marca p-3">
-          <h3 className="font-semibold">
-            Estaca {indiceFila + 1} de {filas.length} · {formatearProgresiva(fila.progresiva)} {fila.nombre}
-          </h3>
-          {fila.lecturaObjetivo === null ? (
-            <p className="text-sm text-aviso">
-              <span aria-hidden="true">△ </span>Sin lectura objetivo: {MOTIVO[fila.motivoSinObjetivo ?? 'alturaInvalida']}.
-            </p>
+        <button type="button" onClick={siguienteEstaca} disabled={esUltimaEstaca} className={`${BOTON_PRINCIPAL} w-full`}>
+          {esUltimaEstaca ? (
+            'Última estaca'
           ) : (
             <>
-              <p className="text-sm">
-                Lectura objetivo{' '}
-                <strong className="numerico text-3xl">
-                  {formatearCota(fila.lecturaObjetivo)}
-                </strong>
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Cota de proyecto <span className="numerico">{formatearCota(fila.cotaProyecto!)}</span>
-                {fila.aceptable && (
-                  <>
-                    {' '}
-                    · conforme entre <span className="numerico">{formatearCota(fila.aceptable.desde)}</span> y{' '}
-                    <span className="numerico">{formatearCota(fila.aceptable.hasta)}</span>
-                  </>
-                )}
-              </p>
-              {fila.rangoObjetivo === 'imposible' && (
-                <p className="text-sm text-falla">
-                  <span aria-hidden="true">✗ </span>El objetivo no cabe en la mira de {instrumento.largoMira} m: cambia de estación.
-                </p>
-              )}
-              {fila.rangoObjetivo === 'pocoPrecisa' && (
-                <p className="text-sm text-aviso">
-                  <span aria-hidden="true">△ </span>El objetivo cae cerca del suelo o de la punta de la mira: poco preciso.
-                </p>
-              )}
-
-              <div className="flex flex-col gap-1 text-sm">
-                <span aria-hidden="true" className="font-medium">
-                  Lectura leída
-                </span>
-                <div className="grid grid-cols-[auto_1fr_auto] gap-2">
-                  {/* El nombre accesible es el texto visible («−1 mm»): el control por voz dice lo que ve. */}
-                  <button
-                    type="button"
-                    onClick={() => ajustar(-1)}
-                    className={`${BOTON_SECUNDARIO} min-w-14 text-base`}
-                  >
-                    −1 mm
-                  </button>
-                  <input
-                    aria-label="Lectura leída"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    value={textoLeida}
-                    onChange={(evento) => escribirLeida(evento.target.value)}
-                    placeholder={formatearCota(fila.lecturaObjetivo)}
-                    className="numerico min-h-11 min-w-0 rounded border-2 border-marca px-3 text-right text-xl dark:bg-slate-900"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => ajustar(1)}
-                    className={`${BOTON_SECUNDARIO} min-w-14 text-base`}
-                  >
-                    +1 mm
-                  </button>
-                </div>
-              </div>
-
-              {/* La región viva queda montada aunque esté vacía: una que aparece ya llena muchas veces no se anuncia. */}
-              <div
-                role="status"
-                aria-label="Veredicto"
-                className={
-                  veredicto
-                    ? `flex flex-col items-center gap-1 rounded border-2 px-3 py-4 text-center ${VISUAL_ESTADO[veredicto.estado].clases}`
-                    : undefined
-                }
-              >
-                {veredicto && (
-                  <>
-                  <p className="text-4xl font-black tracking-wide">
-                    <span aria-hidden="true">{VISUAL_ESTADO[veredicto.estado].simbolo} </span>
-                    {veredicto.tipo ? VEREDICTO[veredicto.tipo] : 'VUELVE A LEER'}
-                    {veredicto.tipo && veredicto.tipo !== 'enCota' && <> {veredicto.mm} mm</>}
-                  </p>
-                  <p className="text-sm font-semibold">{VISUAL_ESTADO[veredicto.estado].texto}</p>
-                  {veredicto.sospechosa && <p className="text-base font-bold">¿Leíste bien?</p>}
-                  {veredicto.avisos.map((aviso) => (
-                    <p key={aviso} className="text-sm font-semibold">
-                      {aviso}
-                    </p>
-                  ))}
-                  </>
-                )}
-              </div>
+              Siguiente estaca <span aria-hidden="true">›</span>
             </>
           )}
-
-          <button type="button" onClick={siguienteEstaca} disabled={esUltimaEstaca} className={BOTON_PRINCIPAL}>
-            {esUltimaEstaca ? 'Última estaca' : 'Siguiente estaca'}
-          </button>
-        </section>
+        </button>
       )}
 
-      <section aria-label="Hoja de replanteo" className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold">Hoja de {formatearProgresiva(progresiva)}</h3>
+      {/* (h) La hoja de la progresiva entera, para llevarla al campo. */}
+      <section aria-label="Hoja de replanteo" className="flex flex-col gap-1 border-t border-borde pt-3">
+        <h3 className="text-[15px] font-semibold">
+          Hoja de <span className="numerico">{formatearProgresiva(progresiva)}</span>
+        </h3>
         <ul className="flex flex-col gap-1">
           {filas.map((f, indice) => {
             const claveFila = claveCelda(f.progresiva, f.puntoId)
             const objetivo = f.lecturaObjetivo === null ? 'sin objetivo' : `objetivo ${formatearCota(f.lecturaObjetivo)}`
+            const activa = indice === indiceFila
             return (
               <li key={claveFila}>
                 <button
                   type="button"
-                  aria-current={indice === indiceFila ? 'true' : undefined}
+                  aria-current={activa ? 'true' : undefined}
                   aria-label={`Estaca ${f.nombre}, ${objetivo}`}
                   onClick={() => seleccionar(claveFila)}
-                  className={`flex min-h-11 w-full items-center justify-between rounded px-3 text-left text-sm ${
-                    indice === indiceFila
-                      ? 'bg-marca text-white'
-                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700'
+                  className={`flex min-h-11 w-full items-center justify-between rounded-lg border-2 px-3 text-left text-sm ${
+                    activa ? 'border-tinta bg-fondo' : 'border-transparent hover:bg-fondo'
                   }`}
                 >
                   <span>{f.nombre}</span>
-                  <span className="numerico">
+                  <span className="numerico font-semibold">
                     {f.lecturaObjetivo === null ? '—' : formatearCota(f.lecturaObjetivo)}
                     {f.rangoObjetivo === 'imposible' && ' ✗'}
                     {f.rangoObjetivo === 'pocoPrecisa' && ' △'}
@@ -421,11 +466,10 @@ export default function FichaReplantear() {
         {hoja.avisos
           .filter((aviso) => aviso !== AVISO_HOJA_SIN_COMPROBAR)
           .map((aviso) => (
-          <p key={aviso} className={AVISO_DESTACADO}>
-            <span aria-hidden="true">△ </span>
-            {aviso}
-          </p>
-        ))}
+            <AvisoLinea key={aviso} tono="aviso">
+              {aviso}
+            </AvisoLinea>
+          ))}
       </section>
     </div>
   )

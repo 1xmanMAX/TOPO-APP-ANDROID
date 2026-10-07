@@ -71,7 +71,20 @@ comprobar('cada superficie del modelo 3D lleva el nombre de su capa junto al dib
 // 3. El corte vivo: mover el deslizador de progresiva tiene que reducir el
 // modelo (filtrar antes de proyectar), no dibujarlo entero y taparlo. Se
 // cuenta con el deslizador al final (todo el tramo) y luego en 0+020.
-const deslizador = dibujo.getByRole('slider', { name: 'Progresiva' })
+// La progresiva se recorre con las flechas «Progresiva anterior / siguiente»
+// de la cabecera del dibujo (ya no hay deslizador). Esto las pulsa como
+// pulsaba antes las teclas del deslizador: End = la última, Home = la primera.
+const deslizador = {
+  async focus() {},
+  async press(tecla) {
+    const anterior = dibujo.getByRole('button', { name: 'Progresiva anterior', exact: true })
+    const siguiente = dibujo.getByRole('button', { name: 'Progresiva siguiente', exact: true })
+    if (tecla === 'ArrowRight') return siguiente.click()
+    if (tecla === 'ArrowLeft') return anterior.click()
+    const boton = tecla === 'End' ? siguiente : anterior
+    while (await boton.isEnabled()) await boton.click()
+  },
+}
 await deslizador.focus()
 await deslizador.press('End')
 await pagina.waitForTimeout(200)

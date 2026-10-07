@@ -24,6 +24,8 @@ export interface CotaVecina {
 export interface ContextoCalculadora {
   instrumento: Instrumento
   calleId: Id | null
+  /** Nombre de la calle activa, para decir de dónde son los datos («Av. Sol»). */
+  nombreCalle: string | null
   /** Altura instrumental de la estación activa: desde ella se replantea. */
   alturaInstrumental: number | null
   /** Número de la estación activa, contando desde 1, para decirlo en pantalla. */
@@ -142,6 +144,7 @@ export function useContextoCalculadora(): ContextoCalculadora {
     return {
       instrumento,
       calleId: calleActivaId,
+      nombreCalle: proyecto.calles.find((c) => c.id === calleActivaId)?.nombre ?? null,
       alturaInstrumental,
       numeroEstacion: alturaInstrumental !== null ? estacionActiva + 1 : null,
       alturaComprobada: estacionComprobada(estacionActiva),

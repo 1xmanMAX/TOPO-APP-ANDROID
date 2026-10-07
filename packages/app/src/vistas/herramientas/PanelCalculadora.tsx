@@ -20,6 +20,10 @@ import {
   type ReglasMira,
 } from '@topo/core'
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
+import AvisoLinea from '../../componentes/AvisoLinea'
+import Plegable from '../../componentes/Plegable'
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CEJA, ENLACE, TARJETA } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
 import { formatearDiferencia } from '../../estadoRasante'
 import { useContextoCalculadora, type ContextoCalculadora } from './contextoCalculadora'
@@ -149,15 +153,43 @@ function firma(ctx: ContextoCalculadora): string {
   ])
 }
 
-function describirPunto(ctx: ContextoCalculadora): string {
-  if (ctx.progresiva === null) return 'ningún punto'
-  return [formatearProgresiva(ctx.progresiva), ctx.nombrePunto].filter(Boolean).join(' ')
+/** El punto de un contexto en palabras: «0+060 · Eje». Vacío si no hay punto. */
+function textoPunto(ctx: ContextoCalculadora): string {
+  if (ctx.progresiva === null) return ''
+  return [formatearProgresiva(ctx.progresiva), ctx.nombrePunto].filter(Boolean).join(' · ')
+}
+
+/** De dónde son los datos, con la calle si se pide: «Av. Sol · 0+060 · Eje» o «Av. Sol · estación 4». */
+function describirDatos(ctx: ContextoCalculadora, conCalle: boolean): string {
+  const punto = textoPunto(ctx) || (ctx.numeroEstacion !== null ? `estación ${ctx.numeroEstacion}` : 'ningún punto')
+  return [conCalle ? ctx.nombreCalle : null, punto].filter(Boolean).join(' · ')
+}
+
+/** Las filas de casilleros van juntas en una tarjeta, una debajo de otra. */
+const FILAS = `${TARJETA.replace('p-4', 'p-3.5')} flex flex-col gap-2.5`
+
+/**
+ * Los chips del lienzo para elegir qué calcular (y desde qué unidad): el
+ * elegido oscuro como la cabecera. En modo sol la cabecera es negra como el
+ * fondo, así que el elegido va en amarillo.
+ */
+function claseChip(elegido: boolean): string {
+  return `inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold ${
+    elegido
+      ? 'border border-cabecera bg-cabecera text-white [.sol_&]:border-marca [.sol_&]:bg-marca [.sol_&]:text-black'
+      : 'border border-borde-fuerte bg-tarjeta text-tinta hover:bg-fondo'
+  }`
 }
 
 // ---------------------------------------------------------------------------
 // Piezas
 // ---------------------------------------------------------------------------
 
+/**
+ * Una fila de la tarjeta: el nombre a la izquierda y el casillero a la
+ * derecha, como en el lienzo. Debajo del nombre puede ir de qué estación es
+ * la AI y si está comprobada.
+ */
 function Casillero({
   etiqueta,
   valor,
@@ -165,35 +197,37 @@ function Casillero({
   sufijo,
   ayuda,
   modo = 'decimal',
-  subirAlEnfocar = false,
+  subirAlEnfocar,
 }: {
   etiqueta: string
   valor: string
   alCambiar: (valor: string) => void
   sufijo?: string
-  ayuda?: string
+  ayuda?: ReactNode
   modo?: 'decimal' | 'text'
   /** En el celular, al tocarlo sube a la parte de arriba: lo de debajo queda sobre el teclado. */
-  subirAlEnfocar?: boolean
+  subirAlEnfocar?: () => void
 }) {
   return (
     // scroll-mt deja libre la barra de arriba cuando el casillero sube.
-    <label className="flex min-w-0 scroll-mt-16 flex-col gap-1">
-      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{etiqueta}</span>
-      <span className="flex items-center gap-1">
-        <input
-          type="text"
-          inputMode={modo}
-          // Nombre propio: sin él, la unidad de al lado se pegaría al nombre («Lecturam»).
-          aria-label={etiqueta}
-          value={valor}
-          onChange={(evento) => alCambiar(evento.target.value)}
-          onFocus={subirAlEnfocar ? (evento) => subirSobreElTeclado(evento.currentTarget) : undefined}
-          className="numerico min-h-11 w-full min-w-0 rounded border border-slate-300 bg-white px-2 text-right text-base outline-none focus:border-marca focus:ring-2 focus:ring-marca dark:border-slate-600 dark:bg-slate-900"
-        />
-        {sufijo && <span className="w-6 shrink-0 text-xs text-slate-500 dark:text-slate-400">{sufijo}</span>}
+    <label className="flex min-w-0 scroll-mt-16 items-center gap-2.5">
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-[15px] leading-tight text-tinta">
+          {etiqueta}
+          {sufijo && <span className="text-tenue"> {sufijo}</span>}
+        </span>
+        {ayuda && <span className="mt-0.5 text-[13px] leading-snug text-tenue">{ayuda}</span>}
       </span>
-      {ayuda && <span className="text-xs text-slate-500 dark:text-slate-400">{ayuda}</span>}
+      <input
+        type="text"
+        inputMode={modo}
+        // Nombre propio: sin él, la unidad de al lado se pegaría al nombre («Lecturam»).
+        aria-label={etiqueta}
+        value={valor}
+        onChange={(evento) => alCambiar(evento.target.value)}
+        onFocus={subirAlEnfocar ? (evento) => subirSobreElTeclado(evento.currentTarget, subirAlEnfocar) : undefined}
+        className="numerico h-12 w-[150px] shrink-0 rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-right text-lg text-tinta outline-none focus:border-marca focus:ring-2 focus:ring-marca"
+      />
     </label>
   )
 }
@@ -204,9 +238,46 @@ function Casillero({
  * todo para que el resultado quede entre él y el teclado, sin cerrar el
  * teclado ni desplazarse. En la laptop no hace falta y no se mueve nada.
  */
-function subirSobreElTeclado(casillero: HTMLElement) {
+function subirSobreElTeclado(casillero: HTMLElement, hacerLugar: () => void) {
   if (typeof window.matchMedia !== 'function' || !window.matchMedia('(max-width: 639px)').matches) return
+  // Si debajo queda poco, no hay a dónde subir: primero se hace lugar abajo
+  // (un espacio vacío, como el que ocupará el teclado) y luego se sube.
+  flushSync(hacerLugar)
   casillero.closest('label')?.scrollIntoView?.({ block: 'start' })
+}
+
+/**
+ * Lo que va debajo del nombre de la AI: de qué estación es y si un cierre la
+ * respalda, con su símbolo. Si ya no es la que trajo la libreta, se dice.
+ */
+function EstadoAi({
+  estacion,
+  comprobada,
+  leyoElPunto,
+  aMano,
+}: {
+  estacion: number | null
+  comprobada: boolean
+  leyoElPunto: boolean
+  aMano: boolean
+}) {
+  if (aMano) return <>Escrita a mano</>
+  if (estacion === null) return null
+  return (
+    <>
+      Estación {estacion}
+      {leyoElPunto && ', la que leyó el punto'} ·{' '}
+      {comprobada ? (
+        <span className="font-semibold text-pasa">
+          <span aria-hidden="true">✓ </span>comprobada
+        </span>
+      ) : (
+        <span className="font-semibold text-aviso">
+          <span aria-hidden="true">△ </span>sin comprobar
+        </span>
+      )}
+    </>
+  )
 }
 
 interface Estado {
@@ -214,29 +285,23 @@ interface Estado {
   texto: string
 }
 
-const CLASE_ESTADO: Record<Estado['simbolo'], string> = {
-  '✓': 'border-pasa bg-pasa/10 text-pasa',
-  '△': 'border-aviso bg-aviso/10 text-amber-800 dark:text-aviso',
-  '✗': 'border-falla bg-falla/10 text-falla',
-}
+const TONO_ESTADO = { '✓': 'pasa', '△': 'aviso', '✗': 'falla' } as const
 
 function Marca({ estado }: { estado: Estado }) {
   return (
-    <p className={`rounded border px-2 py-1.5 text-sm font-medium ${CLASE_ESTADO[estado.simbolo]}`}>
-      <span aria-hidden="true">{estado.simbolo} </span>
+    <AvisoLinea tono={TONO_ESTADO[estado.simbolo]} simbolo={estado.simbolo}>
       {estado.texto}
-    </p>
+    </AvisoLinea>
   )
 }
 
 function Avisos({ avisos }: { avisos: string[] }) {
   if (avisos.length === 0) return null
   return (
-    <ul className="flex flex-col gap-1 text-sm text-amber-800 dark:text-aviso">
+    <ul className="flex flex-col gap-2">
       {avisos.map((aviso) => (
         <li key={aviso}>
-          <span aria-hidden="true">△ </span>
-          {aviso}
+          <AvisoLinea tono="aviso">{aviso}</AvisoLinea>
         </li>
       ))}
     </ul>
@@ -251,6 +316,14 @@ interface Calculo {
   /** Lo que «Copiar» pone en el portapapeles: el número solo, para pegarlo. */
   copiable: string | null
   detalle?: string
+  /**
+   * Datos que acompañan al número grande, en la misma tarjeta: «Objetivo
+   * 2.065 m · mira 2.056 m». Así un cálculo con dos respuestas sigue siendo
+   * una sola tarjeta con un solo par de botones.
+   */
+  secundarios?: { nombre: string; valor: string }[]
+  /** Lo que se guarda en la nota si no basta con «título: valor». */
+  nota?: string
   estados?: Estado[]
   avisos?: string[]
   /** Por qué no hay resultado, en palabras. */
@@ -284,9 +357,14 @@ const NOTA_NO_COMPROBADO: Record<Exclude<Motivo, null>, string> = {
 }
 
 /**
- * La tarjeta se monta de nuevo cada vez que se traen datos (su key lleva la
- * generación de la foto), así que la progresiva de la nota arranca en el
- * punto traído y no en el de antes.
+ * La tarjeta oscura del resultado, como en el lienzo: el número grande en
+ * naranja claro sobre la cabecera. Debajo, sus avisos con símbolo y, solo si
+ * hay resultado, «Copiar resultado» y «Guardar como nota».
+ *
+ * La nota se guarda en la progresiva del punto de donde salieron los datos.
+ * Si no hay punto, la progresiva se pide al pulsar «Guardar como nota». La
+ * tarjeta se monta de nuevo cada vez que se traen datos (su key lleva la
+ * generación de la foto), así que lo pedido no se arrastra a otro punto.
  */
 function TarjetaResultado({
   calculo,
@@ -302,9 +380,9 @@ function TarjetaResultado({
   calleViva: string | null
 }) {
   const agregarNota = useAlmacen((s) => s.agregarNota)
-  const [progresivaNota, setProgresivaNota] = useState(
-    ctx.progresiva !== null ? formatearProgresiva(ctx.progresiva) : '',
-  )
+  // Sin punto elegido, la progresiva se escribe; con punto, ni se ve.
+  const [pidiendoProgresiva, setPidiendoProgresiva] = useState(false)
+  const [progresivaEscrita, setProgresivaEscrita] = useState('')
   const [mensaje, setMensaje] = useState<string | null>(null)
   // «Copiado: X» o «Nota guardada» hablan del resultado de antes: si el
   // resultado cambia, el mensaje se va (patrón de estado previo de React).
@@ -316,9 +394,9 @@ function TarjetaResultado({
   const idTitulo = useId()
 
   const estados = [...(calculo.estados ?? []), ...(noComprobado && calculo.valor ? [NO_COMPROBADO[noComprobado]] : [])]
-  const progresiva = parsearProgresiva(progresivaNota)
+  const progresiva = ctx.progresiva ?? parsearProgresiva(progresivaEscrita)
   const mismaCalle = ctx.calleId !== null && ctx.calleId === calleViva
-  const puedeGuardar = calculo.valor !== null && mismaCalle && progresiva !== null
+  const hayResultado = calculo.valor !== null
 
   async function copiar() {
     if (!calculo.copiable) return
@@ -331,75 +409,105 @@ function TarjetaResultado({
   }
 
   function guardarNota() {
-    if (!puedeGuardar || ctx.calleId === null || progresiva === null) return
-    const partes = [`${calculo.titulo}: ${calculo.valor}`]
+    if (!hayResultado || !mismaCalle || ctx.calleId === null) return
+    if (progresiva === null) {
+      setPidiendoProgresiva(true)
+      setMensaje(progresivaEscrita.trim() === '' ? null : 'Escriba la progresiva como 0+020.')
+      return
+    }
+    const partes = [calculo.nota ?? `${calculo.titulo}: ${calculo.valor}`]
     if (calculo.detalle) partes.push(calculo.detalle)
     if (noComprobado) partes.push(NOTA_NO_COMPROBADO[noComprobado])
     agregarNota(ctx.calleId, { progresiva, texto: partes.join(' · '), fecha: new Date().toISOString() })
+    setPidiendoProgresiva(false)
+    setProgresivaEscrita('')
     setMensaje(`Nota guardada en ${formatearProgresiva(progresiva)}.`)
   }
 
   return (
-    <section
-      aria-labelledby={idTitulo}
-      className="flex flex-col gap-2 rounded-lg border-2 border-slate-300 p-3 dark:border-slate-600"
-    >
-      <h3 id={idTitulo} className="text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
-        Resultado · {calculo.titulo}
-      </h3>
-      <output aria-live="polite" className="numerico block text-4xl leading-tight font-bold break-words">
-        {calculo.valor ?? '—'}
-      </output>
-      {calculo.valor === null && calculo.falta && (
-        <p className="text-sm text-slate-600 dark:text-slate-300">{calculo.falta}</p>
-      )}
-      {calculo.valor !== null && calculo.detalle && (
-        <p className="text-sm text-slate-700 dark:text-slate-200">{calculo.detalle}</p>
-      )}
+    <section aria-labelledby={idTitulo} className="flex flex-col gap-2">
+      {/* En modo sol la cabecera es negra como el fondo: un borde blanco la recorta. */}
+      <div className="flex flex-col gap-1 rounded-[14px] bg-cabecera p-4 [.sol_&]:border [.sol_&]:border-white">
+        <h3 id={idTitulo} className={CEJA.replace('text-tenue', 'text-cabecera-tenue')}>
+          Resultado · {calculo.titulo}
+        </h3>
+        <output
+          aria-live="polite"
+          className="numerico block text-[40px] leading-tight md:text-[34px] font-semibold break-words text-[#FDBA74]"
+        >
+          {calculo.valor ?? '—'}
+        </output>
+        {calculo.valor === null && calculo.falta && <p className="text-sm text-cabecera-texto">{calculo.falta}</p>}
+        {calculo.valor !== null && calculo.secundarios && calculo.secundarios.length > 0 && (
+          <p className="text-[15px] text-cabecera-texto">
+            {calculo.secundarios.map((dato, i) => (
+              <span key={dato.nombre}>
+                {i > 0 && ' · '}
+                {dato.nombre}{' '}
+                <span className="numerico font-semibold text-white">{dato.valor}</span>
+              </span>
+            ))}
+          </p>
+        )}
+        {calculo.valor !== null && calculo.detalle && (
+          <p className="text-sm text-cabecera-texto">{calculo.detalle}</p>
+        )}
+      </div>
       {estados.map((estado) => (
         <Marca key={estado.texto} estado={estado} />
       ))}
       <Avisos avisos={calculo.avisos ?? []} />
 
-      <div className="flex flex-wrap items-end gap-2 pt-1">
-        <button
-          type="button"
-          onClick={copiar}
-          disabled={!calculo.copiable}
-          className="min-h-11 rounded border border-slate-300 px-4 text-sm font-medium hover:bg-slate-100 disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-800"
-        >
-          Copiar
-        </button>
-        <label className="flex w-28 flex-col gap-1">
-          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Progresiva de la nota</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={progresivaNota}
-            placeholder="0+020"
-            onChange={(evento) => setProgresivaNota(evento.target.value)}
-            className="numerico min-h-11 w-full rounded border border-slate-300 bg-white px-2 text-base outline-none focus:border-marca focus:ring-2 focus:ring-marca dark:border-slate-600 dark:bg-slate-900"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={guardarNota}
-          disabled={!puedeGuardar}
-          className="min-h-11 rounded bg-marca px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
-        >
-          Guardar como nota
-        </button>
-      </div>
-      {calleViva === null ? (
-        <p className="text-xs text-slate-500 dark:text-slate-400">Elija una calle para poder guardar notas.</p>
-      ) : (
-        !mismaCalle && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Estos datos son de otra calle: traiga los de la calle activa para guardar la nota.
-          </p>
-        )
+      {hayResultado && (
+        <>
+          {pidiendoProgresiva && ctx.progresiva === null && (
+            <label className="flex items-center gap-3">
+              <span className="flex-1 text-[15px] text-tinta">Progresiva de la nota</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                value={progresivaEscrita}
+                placeholder="0+020"
+                onChange={(evento) => setProgresivaEscrita(evento.target.value)}
+                onKeyDown={(evento) => {
+                  if (evento.key === 'Enter') guardarNota()
+                }}
+                className="numerico h-12 w-[150px] shrink-0 rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-right text-lg text-tinta outline-none focus:border-marca focus:ring-2 focus:ring-marca"
+              />
+            </label>
+          )}
+          {/* Menos relleno a los lados: en el panel de 384 px «Guardar como nota» cabe en una línea. */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={copiar}
+              disabled={!calculo.copiable}
+              className={BOTON_SECUNDARIO.replace('px-4', 'px-2')}
+            >
+              Copiar resultado
+            </button>
+            <button
+              type="button"
+              onClick={guardarNota}
+              disabled={!mismaCalle}
+              className={BOTON_PRINCIPAL.replace('px-4', 'px-2')}
+            >
+              Guardar como nota
+            </button>
+          </div>
+          {calleViva === null ? (
+            <p className="text-[13px] text-tenue">Elija una calle para poder guardar notas.</p>
+          ) : (
+            !mismaCalle && (
+              <p className="text-[13px] text-tenue">
+                Estos datos son de otra calle: toque «cambiar» arriba para guardar la nota en la calle activa.
+              </p>
+            )
+          )}
+        </>
       )}
-      <p role="status" className="min-h-5 text-sm text-slate-700 dark:text-slate-200">
+      <p role="status" className="min-h-5 text-sm text-tinta">
         {mensaje}
       </p>
     </section>
@@ -452,13 +560,19 @@ function textoAccion(tipo: 'corta' | 'rellena' | 'enCota', mm: number): string {
   return 'En cota'
 }
 
+/**
+ * Lectura objetivo (AI − cota de proyecto) y, si se escribió lo que marca la
+ * mira, si corta o rellena. Es UNA sola respuesta: con lectura de mira, lo
+ * grande es «Cortar 9 mm» y el objetivo va al lado como dato; sin ella, lo
+ * grande es el objetivo. Un solo par de botones y un solo «no comprobado».
+ */
 function calculoObjetivo(
   v: Valores,
   reglas: ReglasMira | null,
   alturaComprobada: boolean,
   tarjetaMarcaNoComprobado: boolean,
   sinRepartir: boolean,
-): { principal: Calculo; control: Calculo | null } {
+): Calculo {
   const ai = numero(v.ai)
   const cotaProyecto = numero(v.cotaProyecto)
   const objetivo = lecturaObjetivo(ai, cotaProyecto)
@@ -467,7 +581,7 @@ function calculoObjetivo(
     const aviso = avisoDeMira(objetivo, reglas)
     if (aviso) avisos.push(`Objetivo: ${aviso}`)
   }
-  const principal: Calculo = {
+  const soloObjetivo: Calculo = {
     titulo: 'Lectura objetivo',
     valor: objetivo !== null ? `${m3(objetivo)} m` : null,
     copiable: objetivo !== null ? m3(objetivo) : null,
@@ -476,38 +590,51 @@ function calculoObjetivo(
     falta: 'Escriba la altura instrumental y la cota de proyecto.',
   }
 
-  if ((v.lecturaMira ?? '').trim() === '' || objetivo === null) return { principal, control: null }
+  if ((v.lecturaMira ?? '').trim() === '' || objetivo === null) return soloObjetivo
 
+  const lecturaMira = numero(v.lecturaMira)
   const evaluado = evaluarLectura({
     alturaInstrumental: ai,
-    lectura: numero(v.lecturaMira),
+    lectura: lecturaMira,
     cotaProyecto,
     toleranciaMm: numero(v.tolerancia),
     alturaComprobada,
     mira: reglas ?? undefined,
   })
   const estado = estadoDeAvisoLectura(evaluado.estado, evaluado.diferenciaMm)
+  const estados = estado ? [estado] : []
+  // La tarjeta ya pone el «no comprobado» con su símbolo y su motivo: el
+  // aviso genérico del motor («nivelación sin cerrar») no se repite, y
+  // confundiría si la AI se escribió a mano en una calle que sí cerró.
+  const avisosMira = tarjetaMarcaNoComprobado
+    ? evaluado.avisos.filter((a) => a !== AVISO_SIN_COMPROBAR)
+    : evaluado.avisos
+  const accion = evaluado.accion ? textoAccion(evaluado.accion.tipo, evaluado.accion.mm) : null
+  // La mira no se puede juzgar (no cabe, no es un número…): lo grande sigue
+  // siendo el objetivo y el aviso dice por qué no hay corte ni relleno.
+  if (accion === null) return { ...soloObjetivo, estados, avisos: [...avisos, ...avisosMira] }
+
+  const textoObjetivo = `${m3(objetivo)} m`
+  const textoMira = `${m3(lecturaMira)} m`
+  // Con la AI de la libreta tal cual (sin compensar), Revisar puede dar
+  // unos milímetros distintos cuando la nivelación cerró: se dice.
+  const cotaMedida =
+    evaluado.cota !== null
+      ? `Cota medida ${m3(evaluado.cota)} m${sinRepartir ? ', sin repartir el error de cierre' : ''}`
+      : null
   return {
-    principal,
-    control: {
-      titulo: 'Lo que marca la mira',
-      valor: evaluado.accion ? textoAccion(evaluado.accion.tipo, evaluado.accion.mm) : null,
-      copiable: evaluado.diferenciaMm !== null ? String(evaluado.diferenciaMm) : null,
-      // Con la AI de la libreta tal cual (sin compensar), Revisar puede dar
-      // unos milímetros distintos cuando la nivelación cerró: se dice.
-      detalle:
-        evaluado.cota !== null
-          ? `Cota medida ${m3(evaluado.cota)} m${sinRepartir ? ', sin repartir el error de cierre' : ''}`
-          : undefined,
-      estados: estado ? [estado] : [],
-      // La tarjeta ya pone el «no comprobado» con su símbolo y su motivo: el
-      // aviso genérico del motor («nivelación sin cerrar») no se repite, y
-      // confundiría si la AI se escribió a mano en una calle que sí cerró.
-      avisos: tarjetaMarcaNoComprobado
-        ? evaluado.avisos.filter((a) => a !== AVISO_SIN_COMPROBAR)
-        : evaluado.avisos,
-      falta: 'La lectura no se puede juzgar todavía.',
-    },
+    titulo: 'Lectura objetivo',
+    valor: accion,
+    copiable: evaluado.diferenciaMm !== null ? String(evaluado.diferenciaMm) : null,
+    secundarios: [
+      { nombre: 'Objetivo', valor: textoObjetivo },
+      { nombre: 'mira', valor: textoMira },
+    ],
+    detalle: cotaMedida ?? undefined,
+    nota: `Lectura objetivo ${textoObjetivo}, mira ${textoMira}: ${accion}`,
+    estados,
+    avisos: [...avisos, ...avisosMira],
+    falta: soloObjetivo.falta,
   }
 }
 
@@ -607,8 +734,8 @@ function calculoConversion(v: Valores, unidad: UnidadPendiente): Calculo {
  * punto seleccionado, el mismo punto en las progresivas vecinas—, y todas las
  * cuentas son las de `campo/calculadora` del motor.
  *
- * Los casilleros son una foto de la libreta al abrir (o al pulsar «Traer
- * datos de la libreta»): en la laptop el panel queda abierto mientras se
+ * Los casilleros son una foto de la libreta al abrir (o al pulsar «cambiar»
+ * junto a «Con datos de…»): en la laptop el panel queda abierto mientras se
  * tocan otros puntos, y lo que se escribió no se borra solo. Si el punto
  * seleccionado cambia, se avisa en vez de mezclar datos de dos puntos.
  */
@@ -618,6 +745,14 @@ export default function PanelCalculadora() {
   const [valores, setValores] = useState<Valores>(() => foto.valores)
   const [pestana, setPestana] = useState<IdPestana>('cota')
   const [unidad, setUnidad] = useState<UnidadPendiente>('porcentaje')
+  /**
+   * En el celular, al tocar la lectura en la mira se deja un espacio vacío al
+   * final (lo que tapa el teclado) para que su casillero pueda subir arriba
+   * del todo. Se queda puesto: quitarlo al soltar el casillero movería los
+   * botones justo cuando se van a tocar.
+   */
+  const [lugarTeclado, setLugarTeclado] = useState(false)
+  const hacerLugarAlTeclado = () => setLugarTeclado(true)
   const idBase = useId()
   const refPestanas = useRef<Partial<Record<IdPestana, HTMLButtonElement | null>>>({})
 
@@ -664,26 +799,34 @@ export default function PanelCalculadora() {
           numero(v('vistaAtras')),
           ctx.instrumento.largoMira,
         )
-        const deOtraEstacion =
-          datos.estacionLectura !== null && datos.estacionLectura !== datos.numeroEstacion && deLaLibreta('aiCota')
+        // La AI de la cota es la de la estación que leyó el punto, que no
+        // siempre es la activa: se dice cuál es y si un cierre la respalda.
+        const estacionAiCota = datos.lectura !== null ? datos.estacionLectura : datos.numeroEstacion
+        const leyoOtra = datos.lectura !== null && estacionAiCota !== null && estacionAiCota !== datos.numeroEstacion
         return (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={FILAS}>
               <Casillero
                 etiqueta="Altura instrumental"
                 sufijo="m"
                 valor={v('aiCota')}
                 alCambiar={cambiar('aiCota')}
-                ayuda={deOtraEstacion ? `La de la estación ${datos.estacionLectura}, que leyó este punto.` : undefined}
+                ayuda={
+                  v('aiCota') !== '' && (
+                    <EstadoAi
+                      estacion={estacionAiCota}
+                      comprobada={foto.comprobados.aiCota === true}
+                      leyoElPunto={leyoOtra}
+                      aMano={!deLaLibreta('aiCota')}
+                    />
+                  )
+                }
               />
               <Casillero etiqueta="Lectura" sufijo="m" valor={v('lectura')} alCambiar={cambiar('lectura')} />
             </div>
             {tarjeta('cota', calculoCota(valores, ctx, reglas), motivo('aiCota', ['lectura']))}
-            <details className="rounded border border-slate-200 p-3 dark:border-slate-700">
-              <summary className="min-h-11 cursor-pointer content-center text-sm font-medium">
-                Altura instrumental desde un punto conocido
-              </summary>
-              <div className="mt-2 grid grid-cols-2 gap-3">
+            <Plegable titulo="Altura instrumental desde un punto conocido">
+              <div className={FILAS}>
                 <Casillero
                   etiqueta="Cota del punto conocido"
                   sufijo="m"
@@ -692,42 +835,59 @@ export default function PanelCalculadora() {
                 />
                 <Casillero etiqueta="Vista atrás" sufijo="m" valor={v('vistaAtras')} alCambiar={cambiar('vistaAtras')} />
               </div>
-              <p className="numerico mt-2 text-lg font-semibold">AI = {aiPunto !== null ? `${m3(aiPunto)} m` : '—'}</p>
-              <button
-                type="button"
-                disabled={aiPunto === null}
-                // Sirve para las dos pestañas que usan AI: la cota y la lectura objetivo.
-                onClick={() => aiPunto !== null && setValores((x) => ({ ...x, aiCota: m3(aiPunto), ai: m3(aiPunto) }))}
-                className="mt-2 min-h-11 rounded border border-slate-300 px-3 text-sm font-medium hover:bg-slate-100 disabled:opacity-40 dark:border-slate-600 dark:hover:bg-slate-800"
-              >
-                Usar esta altura instrumental
-              </button>
-            </details>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="numerico text-lg font-semibold">AI = {aiPunto !== null ? `${m3(aiPunto)} m` : '—'}</p>
+                <button
+                  type="button"
+                  disabled={aiPunto === null}
+                  // Sirve para las dos pestañas que usan AI: la cota y la lectura objetivo.
+                  onClick={() => aiPunto !== null && setValores((x) => ({ ...x, aiCota: m3(aiPunto), ai: m3(aiPunto) }))}
+                  className={BOTON_SECUNDARIO}
+                >
+                  Usar esta altura instrumental
+                </button>
+              </div>
+            </Plegable>
           </>
         )
       }
       case 'objetivo': {
-        const marcarControl = motivo('ai', ['lecturaMira'])
+        const hayMira = v('lecturaMira').trim() !== ''
+        const marcar = hayMira ? motivo('ai', ['lecturaMira']) : motivo('ai')
         // La cota que sale de AI − lectura no reparte el error de cierre;
         // Revisar sí. Solo importa si la nivelación cerró y la AI es la suya.
         const sinRepartir = deLaLibreta('ai') && foto.comprobados.ai === true
-        const { principal, control } = calculoObjetivo(
+        const calculo = calculoObjetivo(
           valores,
           reglas,
           alturaComprobada,
-          marcarControl !== null,
+          marcar !== null,
           sinRepartir,
         )
         const lecturaDeOtra =
           datos.lectura !== null && datos.estacionLectura !== null && !lecturaDeLaActiva(datos)
-        // Los cuatro casilleros van juntos arriba y el corte/relleno sale
-        // justo debajo, antes que la lectura objetivo: en el celular, con el
-        // teclado abierto al escribir la lectura, el resultado sigue a la
-        // vista sin cerrar el teclado ni desplazarse.
+        // Los cuatro casilleros van juntos arriba y la única tarjeta sale
+        // justo debajo: en el celular, con el teclado abierto al escribir la
+        // lectura, el corte/relleno sigue a la vista sin desplazarse.
         return (
           <>
-            <div className="grid grid-cols-2 gap-3">
-              <Casillero etiqueta="Altura instrumental" sufijo="m" valor={v('ai')} alCambiar={cambiar('ai')} />
+            <div className={FILAS}>
+              <Casillero
+                etiqueta="Altura instrumental"
+                sufijo="m"
+                valor={v('ai')}
+                alCambiar={cambiar('ai')}
+                ayuda={
+                  v('ai') !== '' && (
+                    <EstadoAi
+                      estacion={datos.numeroEstacion}
+                      comprobada={foto.comprobados.ai === true}
+                      leyoElPunto={false}
+                      aMano={!deLaLibreta('ai')}
+                    />
+                  )
+                }
+              />
               <Casillero
                 etiqueta="Cota de proyecto"
                 sufijo="m"
@@ -739,30 +899,29 @@ export default function PanelCalculadora() {
                 sufijo="m"
                 valor={v('lecturaMira')}
                 alCambiar={cambiar('lecturaMira')}
-                subirAlEnfocar
+                subirAlEnfocar={hacerLugarAlTeclado}
               />
               <Casillero
                 etiqueta="Tolerancia"
                 sufijo="mm"
                 valor={v('tolerancia')}
                 alCambiar={cambiar('tolerancia')}
-                subirAlEnfocar
+                subirAlEnfocar={hacerLugarAlTeclado}
               />
             </div>
-            <p className="-mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="-mt-1 text-[13px] text-tenue">
               {lecturaDeOtra
                 ? `La lectura anotada en este punto es de la estación ${datos.estacionLectura}, no de la activa: lea la mira ahora.`
                 : 'La lectura en la mira es opcional: dice si corta o rellena.'}
             </p>
-            {control && tarjeta('control', control, marcarControl)}
-            {tarjeta('objetivo', principal, motivo('ai'))}
+            {tarjeta('objetivo', calculo, marcar)}
           </>
         )
       }
       case 'pendiente':
         return (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className={FILAS}>
               <Casillero etiqueta="Cota inicial" sufijo="m" valor={v('pendInicial')} alCambiar={cambiar('pendInicial')} />
               <Casillero etiqueta="Cota final" sufijo="m" valor={v('pendFinal')} alCambiar={cambiar('pendFinal')} />
               <Casillero etiqueta="Distancia" sufijo="m" valor={v('pendDist')} alCambiar={cambiar('pendDist')} />
@@ -773,7 +932,7 @@ export default function PanelCalculadora() {
       case 'interpolar':
         return (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={FILAS}>
               <Casillero etiqueta="Progresiva A" modo="text" valor={v('progA')} alCambiar={cambiar('progA')} />
               <Casillero etiqueta="Cota A" sufijo="m" valor={v('cotaA')} alCambiar={cambiar('cotaA')} />
               <Casillero etiqueta="Progresiva B" modo="text" valor={v('progB')} alCambiar={cambiar('progB')} />
@@ -786,7 +945,7 @@ export default function PanelCalculadora() {
       case 'volumen':
         return (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className={FILAS}>
               <Casillero etiqueta="Área inicial" sufijo="m²" valor={v('areaA')} alCambiar={cambiar('areaA')} />
               <Casillero etiqueta="Área final" sufijo="m²" valor={v('areaB')} alCambiar={cambiar('areaB')} />
               <Casillero
@@ -803,8 +962,8 @@ export default function PanelCalculadora() {
         return (
           <>
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Convertir desde</legend>
-              <div className="grid grid-cols-3 gap-2">
+              <legend className={`${CEJA} mb-2`}>Convertir desde</legend>
+              <div className="flex flex-wrap gap-2">
                 {(
                   [
                     ['porcentaje', 'Porcentaje'],
@@ -817,24 +976,22 @@ export default function PanelCalculadora() {
                     type="button"
                     aria-pressed={unidad === id}
                     onClick={() => setUnidad(id)}
-                    className={`min-h-11 rounded border px-2 text-sm font-medium ${
-                      unidad === id
-                        ? 'border-marca bg-marca text-white'
-                        : 'border-slate-300 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800'
-                    }`}
+                    className={claseChip(unidad === id)}
                   >
                     {texto}
                   </button>
                 ))}
               </div>
             </fieldset>
-            <Casillero
-              etiqueta="Pendiente a convertir"
-              modo={unidad === 'relacion' ? 'text' : 'decimal'}
-              sufijo={unidad === 'porcentaje' ? '%' : unidad === 'grados' ? '°' : undefined}
-              valor={v('convValor')}
-              alCambiar={cambiar('convValor')}
-            />
+            <div className={FILAS}>
+              <Casillero
+                etiqueta="Pendiente a convertir"
+                modo={unidad === 'relacion' ? 'text' : 'decimal'}
+                sufijo={unidad === 'porcentaje' ? '%' : unidad === 'grados' ? '°' : undefined}
+                valor={v('convValor')}
+                alCambiar={cambiar('convValor')}
+              />
+            </div>
             {tarjeta('conversion', calculoConversion(valores, unidad), null)}
           </>
         )
@@ -858,62 +1015,65 @@ export default function PanelCalculadora() {
 
   const hayLibreta = datos.alturaInstrumental !== null
   const otroPunto = firma(ctx) !== firma(datos)
-  const lecturaDeOtraEstacion =
-    datos.lectura !== null && datos.estacionLectura !== null && datos.estacionLectura !== datos.numeroEstacion
+  const hayAlgoQueTraer = hayLibreta || ctx.alturaInstrumental !== null
+
+  /**
+   * La línea de debajo del título: de dónde son los datos y «cambiar». Si en
+   * la calle se eligió otro punto (u otra estación) desde que se trajeron,
+   * lo dice en ámbar en vez de mezclar datos de dos puntos.
+   */
+  function lineaDeDatos(): ReactNode {
+    if (otroPunto && hayAlgoQueTraer) {
+      const mismoPunto =
+        datos.calleId === ctx.calleId && datos.progresiva === ctx.progresiva && datos.nombrePunto === ctx.nombrePunto
+      const otraCalle = datos.calleId !== ctx.calleId
+      let texto: string
+      if (!mismoPunto) {
+        texto = `Con datos de ${describirDatos(datos, true)} · ahora tienes ${describirDatos(ctx, otraCalle)} elegido`
+      } else if (datos.numeroEstacion !== ctx.numeroEstacion) {
+        // El punto se sigue diciendo: la nota se guarda en él, y se tiene
+        // que ver dónde va a caer antes de pulsar «Guardar como nota».
+        const punto = textoPunto(datos) ? `${describirDatos(datos, true)} · ` : ''
+        const de = `Con datos de ${punto}estación ${datos.numeroEstacion ?? '—'}`
+        texto =
+          ctx.numeroEstacion !== null
+            ? `${de} · ahora tienes la estación ${ctx.numeroEstacion} activa`
+            : `${de} · ahora no hay estación activa`
+      } else {
+        texto = `Con datos de ${describirDatos(datos, true)} · la libreta cambió desde entonces`
+      }
+      return (
+        <p className="text-sm font-medium text-aviso">
+          <span aria-hidden="true">△ </span>
+          {texto} ·{' '}
+          <button type="button" onClick={traerDeLaLibreta} className={`${ENLACE} -my-3 align-middle`}>
+            cambiar
+          </button>
+        </p>
+      )
+    }
+    if (!hayLibreta) return <p className="text-sm text-tenue">Sin estación activa: escriba los datos a mano.</p>
+    return (
+      <p className="text-sm text-tenue">
+        Con datos de <b className="font-semibold text-tinta">{describirDatos(datos, true)}</b> ·{' '}
+        <button type="button" onClick={traerDeLaLibreta} className={`${ENLACE} -my-3 align-middle`}>
+          cambiar
+        </button>
+      </p>
+    )
+  }
 
   return (
-    <section aria-labelledby={`${idBase}-titulo`} className="flex flex-col gap-3 px-4 pb-6">
-      <h2 id={`${idBase}-titulo`} className="text-lg font-semibold">
-        Calculadora de campo
-      </h2>
+    <section aria-labelledby={`${idBase}-titulo`} className="flex flex-col gap-3 px-4 pt-4 pb-6">
+      {/* pr-14: la ✕ de cerrar va arriba a la derecha y no se pisa con el título. */}
+      <header className="flex flex-col pr-14">
+        <h2 id={`${idBase}-titulo`} className="text-[26px] leading-tight font-bold">
+          Calcular
+        </h2>
+        {lineaDeDatos()}
+      </header>
 
-      <div className="flex flex-col gap-2 rounded bg-slate-100 p-2 text-sm dark:bg-slate-900">
-        {hayLibreta ? (
-          <p>
-            Estación {datos.numeroEstacion} · AI <span className="numerico">{m3(datos.alturaInstrumental)}</span> m
-            {datos.progresiva !== null && ` · ${formatearProgresiva(datos.progresiva)}`}
-            {datos.nombrePunto && ` · ${datos.nombrePunto}`}
-          </p>
-        ) : (
-          <p>Sin estación activa: escriba los datos a mano.</p>
-        )}
-        {hayLibreta &&
-          (datos.alturaComprobada ? (
-            <Marca estado={{ simbolo: '✓', texto: 'AI de la estación activa comprobada por el cierre.' }} />
-          ) : (
-            <Marca
-              estado={{
-                simbolo: '△',
-                texto:
-                  'AI de la estación activa sin comprobar: la nivelación todavía no cierra, o esta estación queda antes del último circuito.',
-              }}
-            />
-          ))}
-        {lecturaDeOtraEstacion && (
-          <p>
-            La lectura de este punto se tomó desde la estación {datos.estacionLectura} (AI{' '}
-            <span className="numerico">{m3(datos.alturaInstrumentalLectura)}</span> m
-            {datos.lecturaComprobada ? ', comprobada' : ', sin comprobar'}).
-          </p>
-        )}
-        {otroPunto && (
-          <Marca
-            estado={{
-              simbolo: '△',
-              texto: `Los datos son de ${describirPunto(datos)}; ahora está seleccionado ${describirPunto(ctx)}. Toque «Traer datos de la libreta» para cambiarlos.`,
-            }}
-          />
-        )}
-        <button
-          type="button"
-          onClick={traerDeLaLibreta}
-          className="min-h-11 self-start rounded border border-slate-300 px-3 font-medium hover:bg-white dark:border-slate-600 dark:hover:bg-slate-800"
-        >
-          Traer datos de la libreta
-        </button>
-      </div>
-
-      <div role="tablist" aria-label="Cálculos" onKeyDown={alTeclaEnPestanas} className="grid grid-cols-3 gap-1">
+      <div role="tablist" aria-label="Cálculos" onKeyDown={alTeclaEnPestanas} className="flex flex-wrap gap-2">
         {PESTANAS.map((p) => (
           <button
             key={p.id}
@@ -927,13 +1087,7 @@ export default function PanelCalculadora() {
             aria-controls={`${idBase}-panel`}
             tabIndex={pestana === p.id ? 0 : -1}
             onClick={() => setPestana(p.id)}
-            // Con borde también la no elegida: en modo sol el fondo slate-900 se
-            // pierde en el negro y la pestaña parecería texto suelto.
-            className={`min-h-11 rounded border px-1 text-sm leading-tight font-medium ${
-              pestana === p.id
-                ? 'border-marca bg-marca text-white'
-                : 'border-transparent bg-slate-100 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800'
-            }`}
+            className={claseChip(pestana === p.id)}
           >
             {p.etiqueta}
           </button>
@@ -948,6 +1102,7 @@ export default function PanelCalculadora() {
       >
         {contenido()}
       </div>
+      {lugarTeclado && pestana === 'objetivo' && <div aria-hidden="true" className="h-[50vh] shrink-0 sm:hidden" />}
     </section>
   )
 }

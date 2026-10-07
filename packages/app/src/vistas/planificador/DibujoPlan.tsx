@@ -1,15 +1,27 @@
 import { formatearProgresiva, type PlanConControles } from '@topo/core'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { formatearCota } from '../../formato'
 import { escalaLineal, marcas } from '../../grafico/escala'
 import type { Vertice } from './perfilDeLaCalle'
 import type { Recorrido } from './recorrido'
 
-const ANCHO = 720
-const ALTO = 300
+/** Ancho del dibujo en la laptop. Más angosto (celular), usa su ancho real: la letra no se encoge. */
+const ANCHO_LAPTOP = 720
+/** Por debajo de esto ya no caben la cota del eje y la pista. */
+const ANCHO_MINIMO = 300
+const ALTO_LAPTOP = 300
+/** En el celular, más bajo: la pista entera a la vista sin llenar la pantalla. */
+const ALTO_ANGOSTO = 250
 const M = { arriba: 18, derecha: 14, abajo: 32, izquierda: 60 }
-// Con más estaciones que esto los rótulos se pisan: se dejan las marcas y
-// las lecturas quedan en la tabla.
-const MAX_ROTULOS = 12
+// Con menos lugar que esto por estación los rótulos se pisan: se dejan las
+// marcas y las lecturas quedan en la tabla (a 720 px, unas 12 estaciones).
+const PX_POR_ESTACION = 54
+// El nombre de la estación (E1, E2…) cabe con menos: en el celular se ve
+// aunque las lecturas no quepan.
+const PX_POR_NOMBRE = 30
+// Una progresiva del eje («0+120») mide unos 40 px: con menos que esto entre
+// marcas se pisan.
+const PX_POR_MARCA_X = 80
 /**
  * Bajo la visual, el rótulo de una lectura ocupa unos 15 px. Si la mira
  * marca tan poco que el punto queda más cerca que eso de la visual (lo de
@@ -43,6 +55,8 @@ interface Props {
  * raya) y el factor se escribe al pie: así nadie lee la pendiente a ojo.
  */
 export default function DibujoPlan({ perfil, plan, recorrido }: Props) {
+  const { referencia, ancho: ANCHO } = useAnchoReal()
+  const ALTO = ANCHO < 560 ? ALTO_ANGOSTO : ALTO_LAPTOP
   const ida = recorrido.pasos.filter((p) => p.sentido === 'ida')
   const x0 = perfil[0]!.progresiva
   const x1 = perfil[perfil.length - 1]!.progresiva
@@ -57,7 +71,9 @@ export default function DibujoPlan({ perfil, plan, recorrido }: Props) {
   const x = escalaLineal([x0, x1], [M.izquierda, ANCHO - M.derecha])
   const y = escalaLineal(dominioY, [ALTO - M.abajo, M.arriba])
   const exageracion = altoUtil / (dominioY[1] - dominioY[0]) / (anchoUtil / (x1 - x0))
-  const conRotulos = ida.length <= MAX_ROTULOS
+  const conRotulos = ida.length * PX_POR_ESTACION <= anchoUtil
+  const conNombres = ida.length * PX_POR_NOMBRE <= anchoUtil
+  const marcasX = Math.max(2, Math.min(6, Math.floor(anchoUtil / PX_POR_MARCA_X)))
 
   const resumen =
     `Perfil de ${formatearProgresiva(x0)} a ${formatearProgresiva(x1)}: ` +
@@ -66,13 +82,17 @@ export default function DibujoPlan({ perfil, plan, recorrido }: Props) {
 
   return (
     <figure className="flex flex-col gap-2">
-      {/* En el celular el dibujo no se encoge hasta ser ilegible: se desliza de lado dentro de su marco. */}
-      <div className="overflow-x-auto">
+      {/*
+        La pista entera, siempre: en el celular el dibujo toma su ancho real
+        (la letra no se encoge y no hay que deslizar de lado para ver el final).
+      */}
+      <div>
         <svg
+          ref={referencia}
           viewBox={`0 0 ${ANCHO} ${ALTO}`}
           role="img"
           aria-label={resumen}
-          className="w-full min-w-[640px] rounded border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
+          className="w-full rounded-lg bg-tarjeta"
         >
           {marcas(dominioY, 4).map((cota) => (
             <g key={`y-${cota}`}>
@@ -88,7 +108,7 @@ export default function DibujoPlan({ perfil, plan, recorrido }: Props) {
               </text>
             </g>
           ))}
-          {marcas([x0, x1], 6).map((p) => (
+          {marcas([x0, x1], marcasX).map((p) => (
             <text
               key={`x-${p}`}
               x={x(p)}
@@ -153,16 +173,18 @@ export default function DibujoPlan({ perfil, plan, recorrido }: Props) {
                   rx={1.5}
                   className={aviso ? 'fill-aviso' : 'fill-marca'}
                 />
+                {conNombres && (
+                  <text
+                    x={x(e.progresiva)}
+                    y={hi - 6}
+                    textAnchor="middle"
+                    className={`text-[13px] font-semibold ${aviso ? 'fill-aviso' : 'fill-marca'}`}
+                  >
+                    {aviso ? `△ E${paso.numero}` : `E${paso.numero}`}
+                  </text>
+                )}
                 {conRotulos && (
                   <>
-                    <text
-                      x={x(e.progresiva)}
-                      y={hi - 6}
-                      textAnchor="middle"
-                      className={`text-[13px] font-semibold ${aviso ? 'fill-aviso' : 'fill-marca'}`}
-                    >
-                      {aviso ? `△ E${paso.numero}` : `E${paso.numero}`}
-                    </text>
                     <text
                       x={x(e.atras.progresiva) + 3}
                       y={alturaRotulo(hi, y(e.atras.cota))}
@@ -262,7 +284,27 @@ export default function DibujoPlan({ perfil, plan, recorrido }: Props) {
           estación con una lectura cerca del borde de la mira
         </span>
         <span className="font-medium">Escala vertical exagerada ×{exageracion.toFixed(1)}</span>
+        {!conRotulos && <span>Lo que marca la mira en cada visual está en «Estaciones».</span>}
       </figcaption>
     </figure>
   )
+}
+
+/** El ancho con que se ve el dibujo, entre ANCHO_MINIMO y ANCHO_LAPTOP. Sin ResizeObserver (jsdom), el de la laptop. */
+function useAnchoReal() {
+  const referencia = useRef<SVGSVGElement>(null)
+  const [ancho, setAncho] = useState(ANCHO_LAPTOP)
+  useLayoutEffect(() => {
+    const elemento = referencia.current
+    if (!elemento || typeof ResizeObserver === 'undefined') return
+    const medir = () => {
+      const real = elemento.getBoundingClientRect().width
+      if (real > 0) setAncho(Math.round(Math.min(ANCHO_LAPTOP, Math.max(real, ANCHO_MINIMO))))
+    }
+    medir()
+    const observador = new ResizeObserver(medir)
+    observador.observe(elemento)
+    return () => observador.disconnect()
+  }, [])
+  return { referencia, ancho }
 }

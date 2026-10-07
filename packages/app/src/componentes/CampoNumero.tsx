@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 
 interface Props {
   etiqueta?: string
@@ -22,6 +22,13 @@ interface Props {
    * con un cambio ya avisado.
    */
   confirmarAlSalir?: boolean
+  /** Una línea de ayuda debajo del campo. */
+  ayuda?: string
+  /**
+   * La lectura en grande (Cierre, Replanteo): 64 px de alto y cifras de
+   * 32 px, para leerla con el sol de frente y tocarla con guante.
+   */
+  grande?: boolean
 }
 
 /**
@@ -39,7 +46,10 @@ export default function CampoNumero({
   alPresionarEnter,
   soloLectura = false,
   confirmarAlSalir = false,
+  ayuda,
+  grande = false,
 }: Props) {
+  const idAyuda = useId()
   const [texto, setTexto] = useState(valor.toFixed(decimales))
   const [editando, setEditando] = useState(false)
   /** Si de verdad se escribió algo desde la última vez que se cerró el cambio. */
@@ -76,13 +86,14 @@ export default function CampoNumero({
   return (
     <label className={`flex flex-col gap-1 ${ancho ?? ''}`}>
       {etiqueta && (
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{etiqueta}</span>
+        <span className="text-[13px] font-medium text-tenue">{etiqueta}</span>
       )}
       <div className="flex items-center gap-1">
         <input
           type="text"
           inputMode="decimal"
           aria-label={ariaLabel ?? etiqueta}
+          aria-describedby={ayuda ? idAyuda : undefined}
           value={texto}
           readOnly={soloLectura}
           onFocus={() => setEditando(true)}
@@ -100,12 +111,17 @@ export default function CampoNumero({
               alPresionarEnter?.()
             }
           }}
-          className={`numerico min-h-11 w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-right text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900 ${
-            soloLectura ? 'text-slate-400 dark:text-slate-500' : ''
-          }`}
+          className={`numerico w-full rounded-[10px] bg-tarjeta px-3 text-right outline-none focus:border-tinta focus:ring-2 focus:ring-marca/30 ${
+            grande ? 'h-16 border-2 border-tinta text-[32px] font-semibold' : 'min-h-12 border border-borde-fuerte text-base'
+          } ${soloLectura ? 'text-tenue' : 'text-tinta'}`}
         />
-        {sufijo && <span className="text-xs text-slate-500">{sufijo}</span>}
+        {sufijo && <span className="text-sm text-tenue">{sufijo}</span>}
       </div>
+      {ayuda && (
+        <span id={idAyuda} className="text-[13px] text-tenue">
+          {ayuda}
+        </span>
+      )}
     </label>
   )
 }

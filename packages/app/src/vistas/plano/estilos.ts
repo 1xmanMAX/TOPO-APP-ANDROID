@@ -1,9 +1,13 @@
-/** Clases comunes de la pantalla Plano: botones de 44 px y cajas de ficha. */
-export const BOTON_PRINCIPAL =
-  'min-h-11 rounded bg-marca px-3 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
-export const BOTON_SECUNDARIO =
-  'min-h-11 rounded border border-slate-300 px-3 text-sm hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800'
-export const CAJA = 'flex flex-col gap-3 rounded border border-slate-200 p-3 dark:border-slate-800'
+import { TARJETA } from '../../componentes/ui'
+
+/** Los botones de la pantalla Plano son los de toda la app (componentes/ui.ts). */
+export { BOTON_ICONO, BOTON_PRINCIPAL, BOTON_SECUNDARIO, CEJA, ENLACE_PELIGRO, TARJETA } from '../../componentes/ui'
+
+/** Una ficha o panel de la pantalla: la tarjeta del lienzo con sus partes en columna. */
+export const CAJA = `${TARJETA} flex flex-col gap-3`
+
+/** Una fila de un menú «⋯»: 44 px, sin caja, se resalta al pasar. */
+export const ITEM_MENU = 'flex min-h-11 w-full cursor-pointer items-center rounded-lg px-3 text-left text-[15px] text-tinta hover:bg-fondo'
 
 /** Lo que la pantalla dice tras una acción; el color nunca va solo (✓ △ ✗ y texto). */
 export type AvisoPantalla = { tipo: 'ok' | 'error' | 'aviso'; texto: string }

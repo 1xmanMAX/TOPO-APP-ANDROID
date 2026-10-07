@@ -5,11 +5,11 @@ import { fileURLToPath } from 'node:url'
 /**
  * Recorrido «herramientas» de la ola 3, sobre la obra simulada:
  *
- * - El camino de obra: en Medir se toca un punto, se abre Calcular y «Traer
- *   datos de la libreta» trae la AI de la estación activa, la de la estación
+ * - El camino de obra: en Medir se toca un punto, se abre Calcular y llega
+ *   sola (o con «cambiar», si ya estaba abierta) la AI de la estación activa, la de la estación
  *   que leyó el punto, su lectura, la cota de proyecto y la tolerancia de la
  *   capa; todo se compara con ESPERADO. Los dos puntos fuera de tolerancia de
- *   la obra pasan por «Lo que marca la mira»: Av. Sol 0+080 Eje (corta, ✗) y
+ *   la obra pasan por la tarjeta de «Lectura objetivo» (corte o relleno): Av. Sol 0+080 Eje (corta, ✗) y
  *   Jr. Lima 0+140 Eje (rellena, ✗, no comprobado).
  * - Calcular: la calculadora se abre encima de cualquier pantalla (en el
  *   celular a pantalla completa, en la laptop como panel a la derecha) y da
@@ -24,7 +24,8 @@ import { fileURLToPath } from 'node:url'
  * - En el celular, al escribir la lectura de la mira, el corte o relleno queda
  *   a la vista por encima del teclado.
  * - Notas por progresiva: se agregan con texto y foto, se ven en Revisar y se
- *   borran; la nota que guarda la calculadora también aparece en Revisar.
+ *   borran; la nota que guarda la calculadora va a la progresiva del punto
+ *   elegido, sin preguntarla, y también aparece en Revisar.
  * - Tema sol (alto contraste): se activa y se mantiene al recargar.
  * - Botones ≥ 44 px y nada se desplaza a lo ancho a 390 px.
  *
@@ -171,14 +172,28 @@ async function elegirEstacion(pagina, n) {
   await boton.click()
   await hasta(() => boton.getAttribute('aria-pressed'), (v) => v === 'true')
 }
-/** Pulsa «Traer datos de la libreta» y espera a que la cabecera hable del punto pedido. */
-async function traerDeLaLibreta(pagina, cabeceraOk) {
-  await calculadora(pagina).getByRole('button', { name: 'Traer datos de la libreta' }).click()
-  return (await hasta(() => texto(calculadora(pagina)), cabeceraOk)) ?? ''
+/**
+ * Pulsa «cambiar» (junto a «Con datos de…», bajo el título) para traer los
+ * datos del punto elegido ahora, pasa a la pestaña Cota y espera a que la
+ * calculadora cumpla ok. Devuelve su texto.
+ */
+async function traerDeLaLibreta(pagina, ok) {
+  await calculadora(pagina).getByRole('button', { name: 'cambiar', exact: true }).click()
+  await pestana(pagina, 'Cota')
+  return (await hasta(() => texto(calculadora(pagina)), ok)) ?? ''
 }
-/** Número de la estación que leyó el punto, según la cabecera; null si fue la activa. */
-function estacionQueLeyo(cabecera) {
-  const m = cabecera.match(/se tomó desde la estación (\d+)/)
+/** «Con datos de Av. Sol · 0+080 · Eje»: la línea bajo el título. */
+function conDatosDe(calle, pr, punto) {
+  return `Con datos de ${calle} · ${prog(pr)} · ${punto}`
+}
+/** Lo que dice la fila de la AI en la pestaña Cota: «Estación 3, la que leyó el punto · ✓ comprobada». */
+async function filaAi(pagina) {
+  const casilla = calculadora(pagina).getByRole('textbox', { name: 'Altura instrumental', exact: true })
+  return texto(casilla.locator('xpath=ancestor::label[1]'))
+}
+/** Número de la estación que leyó el punto, según la fila de la AI en Cota; null si fue la activa. */
+function estacionQueLeyo(textoCalculadora) {
+  const m = textoCalculadora.match(/Estación (\d+), la que leyó el punto/)
   return m ? Number(m[1]) : null
 }
 
@@ -223,6 +238,11 @@ async function imagenPequena(pagina) {
 function formularioNota(pagina) {
   return pagina.getByRole('form', { name: 'Nueva nota' })
 }
+/** Abre el plegable «Notas de la calle (n)» de Revisar si está cerrado. */
+async function abrirNotas(pagina) {
+  const resumen = pagina.locator('summary', { hasText: /^Notas de la calle/ }).first()
+  if (!(await resumen.evaluate((s) => s.parentElement.open))) await resumen.click()
+}
 function grupoNotas(pagina, p) {
   return pagina.getByRole('list', { name: `Notas en ${prog(p)}`, exact: true })
 }
@@ -238,6 +258,8 @@ const p = await abrirObra(1280, 800)
 // ---------------------------------------------------------------------------
 
 await irAModo(p, 'Revisar')
+// Las notas van plegadas al final de Revisar: se abren.
+await abrirNotas(p)
 await p.getByRole('heading', { name: 'Notas de la calle' }).waitFor({ timeout: 10000 })
 for (const nota of SOL.notas) {
   const grupo = grupoNotas(p, nota.progresiva)
@@ -289,13 +311,17 @@ const caja = await calculadora(p).boundingBox()
 comprobar('en la laptop la calculadora es un panel a la derecha',
   caja && Math.round(caja.x + caja.width) === 1280 && caja.width <= 420 && caja.x >= 800,
   caja ? `x ${Math.round(caja.x)}, ancho ${Math.round(caja.width)}` : 'sin caja')
+await abrirNotas(p)
 const notasVisibles = await p.getByRole('heading', { name: 'Notas de la calle' }).boundingBox()
 comprobar('y la calle se corre a su izquierda en vez de quedar tapada',
   notasVisibles && caja && notasVisibles.x + notasVisibles.width <= caja.x + 1,
   notasVisibles ? `notas hasta x ${Math.round(notasVisibles.x + notasVisibles.width)}` : '')
 const cabeceraCalc = await texto(calculadora(p))
-comprobar('Av. Sol cerró: la AI de la estación activa se dice comprobada (✓)',
-  cabeceraCalc.includes('✓ AI de la estación activa comprobada'), cabeceraCalc.slice(0, 160))
+comprobar('la calculadora se titula «Calcular» y dice de qué calle son los datos',
+  (await calculadora(p).getByRole('heading', { name: 'Calcular', exact: true }).isVisible()) && cabeceraCalc.includes(`Con datos de ${SOL.nombre}`),
+  cabeceraCalc.slice(0, 120))
+const filaAiSol = await filaAi(p)
+comprobar('Av. Sol cerró: al lado de la AI se dice comprobada (✓)', filaAiSol.includes('✓ comprobada'), filaAiSol)
 
 // ---------------------------------------------------------------------------
 // 1.3 El camino de obra: Medir › tocar 0+080 Eje › Calcular › Traer datos
@@ -305,14 +331,21 @@ const fuera = SOL.subrasante.fuera
 const AIS = SOL.subrasante.alturasInstrumentales
 const nActiva = AIS.length // al abrir queda activa la última estación
 await irAModo(p, 'Medir')
+// Con la calculadora abierta, tocar otro punto no mezcla datos: lo avisa. Se
+// toca el mismo punto 20 m antes, que no es el de los datos de ahora.
+const otraProg = fuera.progresiva - 20
+await celdaMapa(p, otraProg, fuera.punto).click()
+const avisoOtro = (await hasta(() => texto(calculadora(p)), (t) => t.includes(`ahora tienes ${prog(otraProg)} · ${fuera.punto} elegido`))) ?? ''
+comprobar('tocar otro punto con la calculadora abierta avisa en ámbar «Con datos de … · ahora tienes … elegido · cambiar»',
+  avisoOtro.includes(`△ Con datos de `) && avisoOtro.includes(`ahora tienes ${prog(otraProg)} · ${fuera.punto} elegido · cambiar`), avisoOtro.slice(0, 160))
 await celdaMapa(p, fuera.progresiva, fuera.punto).click()
-let cab = await traerDeLaLibreta(p, (t) => t.includes(`${prog(fuera.progresiva)} · ${fuera.punto}`))
-comprobar(`Traer datos: la cabecera es la estación activa ${nActiva} con su AI ${f3(AIS[nActiva - 1])} y el punto tocado`,
-  cab.includes(`Estación ${nActiva} · AI ${f3(AIS[nActiva - 1])} m · ${prog(fuera.progresiva)} · ${fuera.punto}`), cab.slice(0, 120))
+let cab = await traerDeLaLibreta(p, (t) => t.includes(conDatosDe(SOL.nombre, fuera.progresiva, fuera.punto)) && !t.includes('ahora tienes'))
+comprobar(`«cambiar»: los datos son de ${SOL.nombre} ${prog(fuera.progresiva)} ${fuera.punto}, el punto tocado`,
+  cab.includes(`${conDatosDe(SOL.nombre, fuera.progresiva, fuera.punto)} · cambiar`), cab.slice(0, 120))
 const nLeyo = estacionQueLeyo(cab)
-comprobar('y dice qué estación leyó el punto, con su AI de la libreta y comprobada',
-  nLeyo !== null && nLeyo !== nActiva && cab.includes(`estación ${nLeyo} (AI ${f3(AIS[nLeyo - 1] ?? NaN)} m, comprobada)`),
-  cab.slice(0, 260))
+comprobar('y al lado de la AI dice qué estación leyó el punto y que está comprobada',
+  nLeyo !== null && nLeyo !== nActiva && (await filaAi(p)).includes(`Estación ${nLeyo}, la que leyó el punto · ✓ comprobada`),
+  await filaAi(p))
 const iLeyo = (nLeyo ?? nActiva) - 1
 
 // Pestaña Cota: la AI de la estación que leyó, la lectura de la libreta y la
@@ -339,29 +372,35 @@ await pestana(p, 'Lectura objetivo')
 const aiObj = await casillero(p, 'Altura instrumental')
 const proyObj = await casillero(p, 'Cota de proyecto')
 const tolObj = await casillero(p, 'Tolerancia')
-comprobar(`Lectura objetivo: AI de la activa ${f3(AIS[nActiva - 1])}, cota de proyecto ${f3(fuera.cotaProyecto)} y tolerancia ${TOL_SUBRASANTE} mm de la capa`,
-  aiObj === f3(AIS[nActiva - 1]) && proyObj === f3(fuera.cotaProyecto) && tolObj === String(TOL_SUBRASANTE),
-  `${aiObj} · ${proyObj} · ${tolObj}`)
+const filaAiObj = await filaAi(p)
+comprobar(`Lectura objetivo: AI de la activa ${f3(AIS[nActiva - 1])} (estación ${nActiva}, ✓), cota de proyecto ${f3(fuera.cotaProyecto)} y tolerancia ${TOL_SUBRASANTE} mm de la capa`,
+  aiObj === f3(AIS[nActiva - 1]) && proyObj === f3(fuera.cotaProyecto) && tolObj === String(TOL_SUBRASANTE) &&
+    filaAiObj.includes(`Estación ${nActiva} · ✓ comprobada`),
+  `${aiObj} · ${proyObj} · ${tolObj} · ${filaAiObj}`)
 const objActiva = f3(AIS[nActiva - 1] - fuera.cotaProyecto)
 comprobar(`lectura objetivo = ${aiObj} − ${proyObj} = ${objActiva} m`,
   (await resultadoQue(p, 'Lectura objetivo', (r) => r === `${objActiva} m`)) === `${objActiva} m`)
 comprobar('la lectura de la mira queda vacía: la anotada es de otra estación',
   (await casillero(p, 'Lectura en la mira')) === '' && (await texto(calculadora(p).getByRole('tabpanel'))).includes(`es de la estación ${iLeyo + 1}, no de la activa`))
 
-// Con la estación que leyó el punto como activa: «Lo que marca la mira» con
+// Con la estación que leyó el punto como activa: el corte o relleno con
 // los datos reales del punto fuera de tolerancia.
 await elegirEstacion(p, iLeyo + 1)
-cab = await traerDeLaLibreta(p, (t) => t.includes(`Estación ${iLeyo + 1} · AI`))
-comprobar(`activando la estación ${iLeyo + 1}, la cabecera trae su AI ${f3(AIS[iLeyo])}`,
-  cab.includes(`Estación ${iLeyo + 1} · AI ${f3(AIS[iLeyo])} m · ${prog(fuera.progresiva)} · ${fuera.punto}`) && cab.includes('✓ AI de la estación activa comprobada'),
-  cab.slice(0, 160))
+const avisoEstacion = (await hasta(() => texto(calculadora(p)), (t) => t.includes(`ahora tienes la estación ${iLeyo + 1} activa`))) ?? ''
+comprobar(`activando la estación ${iLeyo + 1} en el mismo punto, avisa «ahora tienes la estación ${iLeyo + 1} activa»`,
+  avisoEstacion.includes(`${conDatosDe(SOL.nombre, fuera.progresiva, fuera.punto)} · estación ${nActiva} · ahora tienes la estación ${iLeyo + 1} activa · cambiar`), avisoEstacion.slice(0, 160))
+cab = await traerDeLaLibreta(p, (t) => t.includes(`Estación ${iLeyo + 1} · ✓ comprobada`))
+comprobar(`y con «cambiar» la AI ${f3(AIS[iLeyo])} es la de la estación ${iLeyo + 1}, ahora activa, comprobada`,
+  cab.includes(`${conDatosDe(SOL.nombre, fuera.progresiva, fuera.punto)} · cambiar`) &&
+    (await filaAi(p)).includes(`Estación ${iLeyo + 1} · ✓ comprobada`) && (await casillero(p, 'Altura instrumental')) === f3(AIS[iLeyo]),
+  `${cab.slice(0, 100)} · ${await filaAi(p)}`)
 await pestana(p, 'Lectura objetivo')
 const miraTraida = await casillero(p, 'Lectura en la mira')
 const difSinRepartir = Math.round((AIS[iLeyo] - Number(lecturaEsperada) - fuera.cotaProyecto) * 1000)
 comprobar(`la mira trae la lectura anotada (${lecturaEsperada}) y la diferencia es la de ESPERADO menos el reparto: ${mm(fuera.diferenciaMm)} − ${correccionMm} mm = ${mm(difSinRepartir)}`,
   miraTraida === lecturaEsperada && difSinRepartir === fuera.diferenciaMm - correccionMm, miraTraida)
 const accionFuera = fuera.accion === 'corta' ? 'Cortar' : 'Rellenar'
-let control = await tarjetaQue(p, 'Lo que marca la mira', (t) => t.includes(`${accionFuera} ${Math.abs(difSinRepartir)} mm`))
+let control = await tarjetaQue(p, 'Lectura objetivo', (t) => t.includes(`${accionFuera} ${Math.abs(difSinRepartir)} mm`))
 comprobar(`Av. Sol ${prog(fuera.progresiva)} ${fuera.punto}: «${accionFuera} ${Math.abs(difSinRepartir)} mm» y ✗ fuera (${mm(difSinRepartir)}) con la tolerancia ${TOL_SUBRASANTE} de SUBRASANTE`,
   control.includes(`${accionFuera} ${Math.abs(difSinRepartir)} mm`) && control.includes('✗') &&
     control.includes(`Fuera de tolerancia (${mm(difSinRepartir)})`) && control.includes('sin repartir el error de cierre') && !NO_COMPROBADO.test(control),
@@ -395,9 +434,10 @@ await escribir(p, 'Lectura', LECTURA_A_MANO)
 const cotaAMano = f3(aiEst1 - Number(LECTURA_A_MANO))
 const tCotaAMano = await tarjetaQue(p, 'Cota', (t) => t.includes(`${cotaAMano} m`))
 comprobar(`cota = ${f3(aiEst1)} − ${LECTURA_A_MANO} = ${cotaAMano} m`, tCotaAMano.includes(`${cotaAMano} m`), tCotaAMano.slice(0, 80))
-comprobar('con la AI sacada de un BM la cota lleva △ «No comprobado: AI escrita a mano…», aunque la cabecera diga ✓',
+const filaAiAMano = await filaAi(p)
+comprobar('con la AI sacada de un BM la cota lleva △ «No comprobado: AI escrita a mano…», y la AI ya no lleva ✓',
   tCotaAMano.includes('△') && /No comprobado: AI escrita a mano o sacada de un punto conocido/.test(tCotaAMano) &&
-    (await texto(calculadora(p))).includes('✓ AI de la estación activa comprobada'), tCotaAMano.slice(0, 220))
+    filaAiAMano.includes('Escrita a mano') && !filaAiAMano.includes('✓'), `${tCotaAMano.slice(0, 160)} · ${filaAiAMano}`)
 
 // Lectura objetivo: AI 3246.467 − 3244.030 = 2.437 (base de Av. Sol).
 const lo = SOL.base.lecturaObjetivo
@@ -414,17 +454,17 @@ comprobar('con la AI escrita a mano el número grande lleva △ «No comprobado�
 // La mira marca menos que el objetivo: sobra material, corta. 2.400 → +37 mm, fuera con tol 10 (2×tol = 20).
 await escribir(p, 'Tolerancia', '10')
 await escribir(p, 'Lectura en la mira', (lo.lectura - 0.037).toFixed(3))
-control = await tarjetaQue(p, 'Lo que marca la mira', (t) => t.includes('Cortar 37 mm'))
+control = await tarjetaQue(p, 'Lectura objetivo', (t) => t.includes('Cortar 37 mm'))
 comprobar('mira 37 mm por debajo del objetivo: «Cortar 37 mm» y ✗ fuera (+37 mm)',
   control.includes('Cortar 37 mm') && control.includes('✗') && /Fuera de tolerancia \(\+37 mm\)/.test(control), control.slice(0, 160))
 // Marca más: falta material, rellena. +8 mm de lectura → −8 mm, conforme.
 await escribir(p, 'Lectura en la mira', (lo.lectura + 0.008).toFixed(3))
-control = await tarjetaQue(p, 'Lo que marca la mira', (t) => t.includes('Rellenar 8 mm'))
+control = await tarjetaQue(p, 'Lectura objetivo', (t) => t.includes('Rellenar 8 mm'))
 comprobar('mira 8 mm por encima: «Rellenar 8 mm» y ✓ conforme (−8 mm)',
   control.includes('Rellenar 8 mm') && control.includes('✓') && /Conforme \(−8 mm\)/.test(control), control.slice(0, 160))
 // Al límite: −15 mm con tol 10 está entre tol y 2×tol.
 await escribir(p, 'Lectura en la mira', (lo.lectura + 0.015).toFixed(3))
-control = await tarjetaQue(p, 'Lo que marca la mira', (t) => t.includes('Rellenar 15 mm'))
+control = await tarjetaQue(p, 'Lectura objetivo', (t) => t.includes('Rellenar 15 mm'))
 comprobar('mira 15 mm por encima con tol 10: △ al límite (−15 mm)',
   control.includes('Rellenar 15 mm') && control.includes('△') && /Al límite de tolerancia \(−15 mm\)/.test(control), control.slice(0, 160))
 // AI escrita a mano: el motor no la ve respaldada por un cierre y lo dice.
@@ -459,11 +499,11 @@ for (const caso of casosMira) {
 }
 // La lectura que se escribe en la mira también se juzga con las mismas reglas.
 await escribir(p, 'Lectura en la mira', '4.850')
-control = await tarjetaQue(p, 'Lo que marca la mira', (t) => t.includes('4.850'))
+control = await tarjetaQue(p, 'Lectura objetivo', (t) => t.includes('4.850'))
 comprobar('una lectura en la mira de 4.850 avisa △ que está fuera de 0.300 … 4.700 m',
   control.includes('△') && control.includes('La lectura 4.850 está fuera de 0.300 … 4.700 m'), control.slice(0, 220))
 await escribir(p, 'Lectura en la mira', '5.200')
-control = await tarjetaQue(p, 'Lo que marca la mira', (t) => t.includes('5.200'))
+control = await tarjetaQue(p, 'Lectura objetivo', (t) => t.includes('5.200'))
 comprobar('y una de 5.200 avisa que no cabe en la mira de 5 m, sin juzgar corte ni relleno',
   control.includes('no cabe en una mira de 5 m') && !/Cortar|Rellenar/.test(control), control.slice(0, 220))
 await escribir(p, 'Lectura en la mira', '')
@@ -518,18 +558,24 @@ c = await resultadoQue(p, 'Conversión', (r) => r.includes('+2.000 %'))
 comprobar('1:50 = 2 % = 1.146°', c.includes('+2.000 %') && c.includes('+1.146°') && c.includes('1:50'), c)
 await p.screenshot({ path: `${SALIDA}/herramientas-calc-conversion-1280.png` })
 
-// La cota calculada se guarda como nota y aparece en Revisar, detrás del panel.
+// La cota calculada se guarda como nota en la progresiva del punto de los
+// datos (0+080 Eje), sin preguntarla, y aparece en Revisar detrás del panel.
 await pestana(p, 'Cota')
 const tCota = tarjeta(p, 'Cota')
-await tCota.getByRole('textbox', { name: 'Progresiva de la nota' }).fill('0+100')
+comprobar('con un punto elegido no se pregunta la progresiva de la nota',
+  (await tCota.getByRole('textbox', { name: 'Progresiva de la nota' }).count()) === 0)
 await tCota.getByRole('button', { name: 'Guardar como nota' }).click()
+const avisoNota = (await hasta(() => texto(calculadora(p)), (t) => t.includes('Nota guardada'))) ?? ''
+comprobar(`«Guardar como nota» dice que la guardó en ${prog(fuera.progresiva)}`,
+  avisoNota.includes(`Nota guardada en ${prog(fuera.progresiva)}.`), avisoNota.slice(-160))
 await irAModo(p, 'Revisar')
-const g100 = grupoNotas(p, 100)
-const tG100 = (await llega(g100, 'visible')) ? await texto(g100) : 'sin grupo 0+100'
-comprobar('«Guardar como nota» de la calculadora aparece en Revisar bajo 0+100',
-  tG100.includes(`Cota: ${cotaAMano} m`), tG100.slice(0, 160))
+await abrirNotas(p)
+const gNota = grupoNotas(p, fuera.progresiva)
+const tGNota = (await llega(gNota, 'visible')) ? await texto(gNota) : `sin grupo ${prog(fuera.progresiva)}`
+comprobar(`«Guardar como nota» de la calculadora aparece en Revisar bajo ${prog(fuera.progresiva)}`,
+  tGNota.includes(`Cota: ${cotaAMano} m`), tGNota.slice(0, 160))
 comprobar('y la nota dice que la cota no está comprobada (AI escrita a mano)',
-  tG100.includes('no comprobado, AI escrita a mano'), tG100.slice(0, 200))
+  tGNota.includes('no comprobado, AI escrita a mano'), tGNota.slice(0, 200))
 await p.screenshot({ path: `${SALIDA}/herramientas-calc-nota-1280.png` })
 
 // Encima de cualquier pantalla: también en Obra.
@@ -552,15 +598,18 @@ const fueraLima = LIMA.subrasante.fuera
 const AIS_LIMA = LIMA.subrasante.alturasInstrumentales
 await celdaMapa(p, fueraLima.progresiva, fueraLima.punto).click()
 await abrirCalculadora(p)
-let cabLima = await traerDeLaLibreta(p, (t) => t.includes(`${prog(fueraLima.progresiva)} · ${fueraLima.punto}`))
-comprobar('Jr. Lima: la AI de la estación activa se dice sin comprobar (△)',
-  cabLima.includes('△ AI de la estación activa sin comprobar') && cabLima.includes(`Estación ${AIS_LIMA.length} · AI ${f3(AIS_LIMA.at(-1))} m`),
-  cabLima.slice(0, 200))
+// Al abrir, los casilleros llegan solos con el punto elegido: sin pulsar nada.
+await pestana(p, 'Cota')
+let cabLima = (await hasta(() => texto(calculadora(p)), (t) => t.includes(conDatosDe(LIMA.nombre, fueraLima.progresiva, fueraLima.punto)))) ?? ''
+const filaAiLima = await filaAi(p)
+comprobar(`Jr. Lima: al abrir ya trae ${prog(fueraLima.progresiva)} ${fueraLima.punto} y al lado de la AI dice △ sin comprobar`,
+  cabLima.includes(`${conDatosDe(LIMA.nombre, fueraLima.progresiva, fueraLima.punto)} · cambiar`) && filaAiLima.includes('△ sin comprobar'),
+  `${cabLima.slice(0, 100)} · ${filaAiLima}`)
 // Si leyó el punto otra estación, se activa esa: así la mira se juzga con su AI.
 const nLima = estacionQueLeyo(cabLima) ?? AIS_LIMA.length
 if (nLima !== AIS_LIMA.length) {
   await elegirEstacion(p, nLima)
-  cabLima = await traerDeLaLibreta(p, (t) => t.includes(`Estación ${nLima} · AI`))
+  cabLima = await traerDeLaLibreta(p, (t) => t.includes(`Estación ${nLima} · △ sin comprobar`))
 }
 await pestana(p, 'Lectura objetivo')
 const aiLima = await casillero(p, 'Altura instrumental')
@@ -576,7 +625,7 @@ const tObj = await tarjetaQue(p, 'Lectura objetivo', (t) => t.includes(`${objLim
 comprobar(`Jr. Lima: lectura objetivo = ${aiLima} − ${proyLima} = ${objLima} m`, tObj.includes(`${objLima} m`), tObj.slice(0, 80))
 comprobar('y el resultado se dice «no comprobado» con su símbolo △', NO_COMPROBADO.test(tObj) && tObj.includes('△'), tObj.slice(0, 200))
 const accionLima = fueraLima.accion === 'corta' ? 'Cortar' : 'Rellenar'
-const controlLima = await tarjetaQue(p, 'Lo que marca la mira', (t) => t.includes(`${accionLima} ${Math.abs(fueraLima.diferenciaMm)} mm`))
+const controlLima = await tarjetaQue(p, 'Lectura objetivo', (t) => t.includes(`${accionLima} ${Math.abs(fueraLima.diferenciaMm)} mm`))
 comprobar(`Jr. Lima: «${accionLima} ${Math.abs(fueraLima.diferenciaMm)} mm», ✗ fuera (${mm(fueraLima.diferenciaMm)}) y △ no comprobado`,
   controlLima.includes(`${accionLima} ${Math.abs(fueraLima.diferenciaMm)} mm`) && controlLima.includes('✗') &&
     controlLima.includes(`Fuera de tolerancia (${mm(fueraLima.diferenciaMm)})`) && NO_COMPROBADO.test(controlLima) && controlLima.includes('△'),
@@ -589,8 +638,10 @@ comprobar('«Cerrar calculadora» la cierra', await llega(calculadora(p), 'detac
 // 1.6 Tema sol: se activa y se mantiene al recargar
 // ---------------------------------------------------------------------------
 
-const botonTema = p.getByRole('button', { name: 'Cambiar tema' })
-for (let i = 0; i < 4 && !(await texto(botonTema)).includes('Sol'); i++) await botonTema.click()
+// El modo sol es un botón de un toque en la cabecera (lienzo ModoSol).
+const botonTema = p.getByRole('button', { name: 'Modo sol' })
+if ((await botonTema.getAttribute('aria-pressed')) !== 'true') await botonTema.click()
+comprobar('el botón «Modo sol» queda pulsado', (await botonTema.getAttribute('aria-pressed')) === 'true')
 const clases = await p.evaluate(() => document.documentElement.className)
 comprobar('el tema sol se activa (html lleva sol y dark)', /\bsol\b/.test(clases) && /\bdark\b/.test(clases), clases)
 comprobar('y se guarda', (await p.evaluate(() => localStorage.getItem('topo:tema'))) === 'sol')
@@ -601,7 +652,10 @@ await p.screenshot({ path: `${SALIDA}/herramientas-sol-1280.png` })
 await p.reload({ waitUntil: 'load', timeout: 120000 })
 await botonTema.waitFor({ timeout: 30000 })
 const clasesTras = (await hasta(() => p.evaluate(() => document.documentElement.className), (c) => /\bsol\b/.test(c))) ?? ''
-comprobar('al recargar sigue en sol', /\bsol\b/.test(clasesTras) && (await texto(botonTema)).includes('Sol'), `${clasesTras} · ${await texto(botonTema)}`)
+const pulsadoTras = (await hasta(() => botonTema.getAttribute('aria-pressed'), (v) => v === 'true')) ?? ''
+comprobar('al recargar sigue en sol, con el botón pulsado y guardado',
+  /\bsol\b/.test(clasesTras) && pulsadoTras === 'true' && (await p.evaluate(() => localStorage.getItem('topo:tema'))) === 'sol',
+  `${clasesTras} · aria-pressed=${pulsadoTras}`)
 await p.screenshot({ path: `${SALIDA}/herramientas-sol-recargado-1280.png` })
 await p.close()
 
@@ -621,9 +675,13 @@ const cajaM = await calculadora(m).boundingBox()
 // barra le tapaba «Cerrar calculadora»).
 const barraArriba = await m.getByRole('banner').boundingBox()
 const finBarra = barraArriba ? barraArriba.y + barraArriba.height : -1
-comprobar('en el celular la calculadora ocupa toda la pantalla bajo la barra de arriba',
-  cajaM && cajaM.x === 0 && Math.round(cajaM.width) === 390 && Math.abs(cajaM.y - finBarra) <= 1 && Math.round(cajaM.y + cajaM.height) >= 843,
-  cajaM ? `${Math.round(cajaM.x)},${Math.round(cajaM.y)} ${Math.round(cajaM.width)}×${Math.round(cajaM.height)}, barra hasta ${Math.round(finBarra)}` : 'sin caja')
+// Abajo queda la barra de los espacios (Obra · Calle · Calcular · Informes):
+// la calculadora llega hasta ella, para que «Calcular» siga a mano y la cierre.
+const barraAbajo = await m.getByRole('navigation', { name: 'Espacios' }).boundingBox()
+const inicioBarraAbajo = barraAbajo ? barraAbajo.y : 844
+comprobar('en el celular la calculadora ocupa toda la pantalla entre la barra de arriba y la de abajo',
+  cajaM && cajaM.x === 0 && Math.round(cajaM.width) === 390 && Math.abs(cajaM.y - finBarra) <= 1 && Math.abs(cajaM.y + cajaM.height - inicioBarraAbajo) <= 1,
+  cajaM ? `${Math.round(cajaM.x)},${Math.round(cajaM.y)} ${Math.round(cajaM.width)}×${Math.round(cajaM.height)}, barra hasta ${Math.round(finBarra)}, barra de abajo desde ${Math.round(inicioBarraAbajo)}` : 'sin caja')
 await pestana(m, 'Lectura objetivo')
 comprobar(`celular: llega la AI ${f3(AIS[iLeyo])} y la lectura ${lecturaEsperada} de ${prog(fuera.progresiva)} ${fuera.punto}`,
   (await casillero(m, 'Altura instrumental')) === f3(AIS[iLeyo]) && (await casillero(m, 'Lectura en la mira')) === lecturaEsperada)
@@ -633,7 +691,7 @@ comprobar(`celular: llega la AI ${f3(AIS[iLeyo])} y la lectura ${lecturaEsperada
 const ALTO_SIN_TECLADO = Math.round(844 * 0.55)
 await calculadora(m).evaluate((d) => { d.scrollTop = 0 })
 await escribir(m, 'Lectura en la mira', lecturaEsperada)
-const salidaControl = tarjeta(m, 'Lo que marca la mira').locator('output')
+const salidaControl = tarjeta(m, 'Lectura objetivo').locator('output')
 await hasta(() => salidaControl.innerText(), (t) => t.includes(accionFuera))
 const cajaSalida = await hasta(() => salidaControl.boundingBox(), (b) => b && b.y + b.height <= ALTO_SIN_TECLADO, 2000)
 const cajaMira = await calculadora(m).getByRole('textbox', { name: 'Lectura en la mira', exact: true }).boundingBox()
@@ -644,7 +702,9 @@ comprobar(`celular: al escribir la lectura, «${accionFuera} ${Math.abs(difSinRe
     (await salidaControl.innerText()).includes(`${accionFuera} ${Math.abs(difSinRepartir)} mm`),
   `casillero en y ${Math.round(cajaMira?.y ?? -1)}, resultado de y ${Math.round(cajaSalida?.y ?? -1)} a ${Math.round((cajaSalida?.y ?? 0) + (cajaSalida?.height ?? 0))}, barra hasta ${Math.round((barraM?.y ?? 0) + (barraM?.height ?? 0))}`)
 await m.screenshot({ path: `${SALIDA}/herramientas-calc-teclado-390.png` })
-// Con valores de la base, como antes.
+// Con valores de la base, como antes. Sin lectura de mira: así lo grande
+// de la tarjeta es la lectura objetivo y no el corte o relleno.
+await escribir(m, 'Lectura en la mira', '')
 await escribir(m, 'Altura instrumental', lo.alturaInstrumental.toFixed(3))
 await escribir(m, 'Cota de proyecto', lo.cotaProyecto.toFixed(3))
 comprobar('celular: lectura objetivo 2.437 m',
@@ -680,6 +740,7 @@ await elegirEstacion(m, nActiva)
 
 // Nota con foto desde el celular, en Revisar.
 await irAModo(m, 'Revisar')
+await abrirNotas(m)
 const formM = formularioNota(m)
 await formM.scrollIntoViewIfNeeded()
 await formM.getByRole('textbox', { name: 'Progresiva', exact: true }).fill('0+020')
@@ -698,8 +759,8 @@ await g20.scrollIntoViewIfNeeded()
 await m.screenshot({ path: `${SALIDA}/herramientas-notas-390.png`, fullPage: true })
 
 // Tema sol en el celular, con la calculadora abierta.
-const temaM = m.getByRole('button', { name: 'Cambiar tema' })
-for (let i = 0; i < 4 && !(await texto(temaM)).includes('Sol'); i++) await temaM.click()
+const temaM = m.getByRole('button', { name: 'Modo sol' })
+if ((await temaM.getAttribute('aria-pressed')) !== 'true') await temaM.click()
 await abrirCalculadora(m)
 comprobar('celular: modo sol activo',
   /\bsol\b/.test((await hasta(() => m.evaluate(() => document.documentElement.className), (c) => /\bsol\b/.test(c))) ?? ''))

@@ -1,33 +1,47 @@
 import { useId, useMemo, useState } from 'react'
+import { CLASES_ESTADO, type EstadoSemaforo } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
-import { capasDeCalle, fraseDeCalle, NOMBRE_DEL_ESTADO, tramoDeTomas, type CapaEnCalle } from './estadoObra'
+import {
+  capaMasUrgente,
+  capasDeCalle,
+  fraseDeCalle,
+  NOMBRE_DEL_ESTADO,
+  nombreCorto,
+  tramoDeTomas,
+  type CapaEnCalle,
+} from './estadoObra'
 
-const ESTILO_CASILLA: Record<CapaEnCalle['estado'], string> = {
-  sinMedir: 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  enCurso: 'border-aviso bg-aviso/15 font-semibold text-slate-900 dark:text-slate-100',
-  sinComprobar: 'border-aviso bg-aviso/15 font-semibold text-slate-900 dark:text-slate-100',
-  alLimite: 'border-aviso bg-aviso/15 font-semibold text-slate-900 dark:text-slate-100',
-  // Cerró, pero no hay con qué compararla: ni verde ni ámbar, con borde de trazos.
-  sinComparar:
-    'border-dashed border-slate-400 bg-white text-slate-900 dark:border-slate-500 dark:bg-slate-900 dark:text-slate-100',
-  conforme: 'border-pasa bg-pasa/15 text-slate-900 dark:text-slate-100',
-  conPuntosFuera: 'border-falla bg-falla/15 font-semibold text-slate-900 dark:text-slate-100',
+export { nombreCorto }
+
+/**
+ * El color de cada casilla, del semáforo común. Lo que está en curso, sin
+ * comprobar o al límite es ámbar △; lo que cerró sin nada con qué compararlo
+ * va con borde de trazos, ni verde ni ámbar: cerrar no es cumplir el proyecto.
+ */
+const ESTADO_DE_CASILLA: Record<CapaEnCalle['estado'], EstadoSemaforo> = {
+  sinMedir: 'sinMedir',
+  enCurso: 'alLimite',
+  sinComprobar: 'alLimite',
+  alLimite: 'alLimite',
+  sinComparar: 'sinRasante',
+  conforme: 'conforme',
+  conPuntosFuera: 'fuera',
+}
+
+/** El color de la frase de la calle según su símbolo. */
+const TONO_FRASE: Record<CapaEnCalle['simbolo'], string> = {
+  '✗': 'text-falla',
+  '△': 'text-aviso',
+  '✓': 'text-tenue',
+  '·': 'text-tenue',
 }
 
 /**
- * Nombre corto para la casilla, sin cortar palabras: «SUBRASANTE» →
- * «Subrasante», «SUB BASE» → «Sub base», «TERRENO EXISTENTE» → «Terreno».
- * El completo va en el nombre accesible y en el detalle.
+ * Tantas columnas como capas, hasta cinco: con tres capas cada casilla tiene
+ * sitio para el nombre entero en vez de dejar medio renglón vacío. Clases
+ * escritas enteras para que Tailwind las encuentre.
  */
-export function nombreCorto(nombre: string): string {
-  const palabras = nombre.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  if (palabras.length === 0) return nombre
-  const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1)
-  const entero = palabras.join(' ')
-  if (entero.length <= 11) return mayuscula(entero)
-  // Una primera palabra corta («sub», «base») sola no dice qué capa es.
-  return mayuscula(palabras[0]!.length >= 5 ? palabras[0]! : palabras.slice(0, 2).join(' '))
-}
+const COLUMNAS = ['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-4', 'grid-cols-5'] as const
 
 interface PropsFranja {
   capas: CapaEnCalle[]
@@ -38,23 +52,24 @@ interface PropsFranja {
 export function FranjaCapas({ capas, calle }: PropsFranja) {
   if (capas.length === 0) return null
   return (
-    <ul
-      aria-label={`Capas de ${calle}`}
-      // Al sol hace falta letra de 14 px: si no caben en una fila, pasan a dos.
-      className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1 text-center text-sm"
-    >
-      {capas.map((c) => (
-        <li
-          key={c.capa.id}
-          aria-label={`${c.capa.nombre}: ${NOMBRE_DEL_ESTADO[c.estado]}`}
-          title={c.detalle}
-          className={`rounded border px-1 py-1 leading-tight break-words ${ESTILO_CASILLA[c.estado]}`}
-        >
-          <span aria-hidden="true">
-            {c.simbolo} {nombreCorto(c.capa.nombre)}
-          </span>
-        </li>
-      ))}
+    <ul aria-label={`Capas de ${calle}`} className={`grid ${COLUMNAS[Math.min(capas.length, 5) - 1]} gap-[3px] text-center text-[11px]`}>
+      {capas.map((c) => {
+        const estado = ESTADO_DE_CASILLA[c.estado]
+        return (
+          <li
+            key={c.capa.id}
+            aria-label={`${c.capa.nombre}: ${NOMBRE_DEL_ESTADO[c.estado]}`}
+            title={c.detalle}
+            className={`truncate rounded px-0.5 py-1 leading-tight ${CLASES_ESTADO[estado]} ${
+              estado === 'fuera' || estado === 'alLimite' ? 'font-semibold' : ''
+            }`}
+          >
+            <span aria-hidden="true">
+              {c.simbolo} {nombreCorto(c.capa.nombre)}
+            </span>
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -66,10 +81,17 @@ interface Props {
   alElegir: (calleId: string) => void
 }
 
-/** «Calles y sus capas»: cada calle con su tramo medido, su franja de capas y lo más urgente que tiene. */
+/**
+ * «Calles y sus capas»: cada calle con su tramo medido, su franja de capas y,
+ * en una línea, lo más urgente que tiene. Tocar esa línea abre Calle › Revisar
+ * en el punto que más se pasa.
+ */
 export default function ListaCalles({ calleVistaId, alElegir }: Props) {
   const proyecto = useAlmacen((s) => s.proyecto)
   const agregarCalle = useAlmacen((s) => s.agregarCalle)
+  const activarCampania = useAlmacen((s) => s.activarCampania)
+  const fijarModoCalle = useAlmacen((s) => s.fijarModoCalle)
+  const seleccionar = useAlmacen((s) => s.seleccionar)
   const [nombreNueva, setNombreNueva] = useState('')
   const prefijo = useId()
 
@@ -78,7 +100,7 @@ export default function ListaCalles({ calleVistaId, alElegir }: Props) {
       proyecto.calles.map((calle) => {
         const capas = capasDeCalle(proyecto, calle)
         const tomas = calle.nivelaciones.flatMap((n) => n.tomas)
-        return { calle, capas, tramo: tramoDeTomas(tomas), frase: fraseDeCalle(capas) }
+        return { calle, capas, tramo: tramoDeTomas(tomas), frase: fraseDeCalle(capas), urgente: capaMasUrgente(capas) }
       }),
     [proyecto],
   )
@@ -90,29 +112,43 @@ export default function ListaCalles({ calleVistaId, alElegir }: Props) {
     alElegir(id)
   }
 
+  /**
+   * Revisar evalúa la jornada activa: se activa la que tiene el punto (la
+   * comprobada de donde sale) o, sin punto, la última de esa capa.
+   */
+  function revisar(capa: CapaEnCalle) {
+    const tomaId = capa.peor?.tomaId ?? capa.tomaId
+    if (!tomaId) return
+    activarCampania(tomaId)
+    fijarModoCalle('revisar')
+    if (capa.peor) seleccionar(capa.peor.clave)
+  }
+
   return (
     <section aria-labelledby="titulo-calles-obra" className="flex flex-col gap-2">
-      <h2 id="titulo-calles-obra" className="text-xs font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400">
+      <h2 id="titulo-calles-obra" className="text-[13px] uppercase tracking-[0.1em] text-tenue">
         Calles y sus capas
       </h2>
 
       {filas.length === 0 && (
-        <p className="text-sm text-slate-600 dark:text-slate-300">
+        <p className="text-sm text-tenue">
           Todavía no hay calles. Crea una aquí o sube una hoja de campo: la calle nace con ella.
         </p>
       )}
 
       <ul className="flex flex-col gap-2">
-        {filas.map(({ calle, capas, tramo, frase }) => {
+        {filas.map(({ calle, capas, tramo, frase, urgente }) => {
           const vista = calle.id === calleVistaId
-          const alerta = capas.some((c) => c.estado === 'conPuntosFuera')
           const idTramo = `${prefijo}-${calle.id}-tramo`
           const idFrase = `${prefijo}-${calle.id}-frase`
+          const corto = urgente?.corto ?? 'Todavía sin medir'
+          const tono = TONO_FRASE[urgente?.simbolo ?? '·']
+          const seRevisa = !!urgente && (urgente.peor !== null || urgente.tomaId !== null)
           return (
             <li
               key={calle.id}
-              className={`flex flex-col gap-2 rounded-xl border-2 bg-white p-3 dark:bg-slate-900 ${
-                vista ? 'border-slate-900 dark:border-slate-200' : 'border-slate-200 dark:border-slate-800'
+              className={`flex flex-col gap-1.5 rounded-xl border bg-tarjeta px-3.5 pt-1 pb-1 ${
+                vista ? 'border-tinta ring-1 ring-tinta' : 'border-borde'
               }`}
             >
               <button
@@ -122,18 +158,34 @@ export default function ListaCalles({ calleVistaId, alElegir }: Props) {
                 aria-describedby={`${idTramo} ${idFrase}`}
                 data-calle-id={calle.id}
                 onClick={() => alElegir(calle.id)}
-                className="flex min-h-11 items-baseline justify-between gap-2 text-left"
+                className="flex min-h-11 items-center justify-between gap-2 text-left"
               >
-                <span className="text-base font-bold">{calle.nombre}</span>
-                <span id={idTramo} className="numerico text-sm text-slate-600 dark:text-slate-400">
+                <span className="text-[17px] font-bold">{calle.nombre}</span>
+                <span id={idTramo} className="numerico text-[13px] text-tenue">
                   {tramo ?? 'sin medir'}
                 </span>
               </button>
               <FranjaCapas capas={capas} calle={calle.nombre} />
-              <p id={idFrase} className={`text-sm ${alerta ? 'text-falla' : 'text-slate-600 dark:text-slate-300'}`}>
-                {alerta && <span aria-hidden="true">✗ </span>}
+              {/* La frase entera es la descripción del botón de la calle y el
+                  nombre de esta línea; a la vista, solo lo que cabe. */}
+              <span id={idFrase} className="sr-only">
                 {frase}
-              </p>
+              </span>
+              {seRevisa ? (
+                <button
+                  type="button"
+                  aria-label={frase}
+                  data-frase-calle=""
+                  onClick={() => urgente && revisar(urgente)}
+                  className={`flex min-h-11 min-w-0 items-center text-left text-[13px] ${tono}`}
+                >
+                  <span className="truncate">{corto}</span>
+                </button>
+              ) : (
+                <p aria-hidden="true" data-frase-calle="" className={`flex min-h-11 items-center text-[13px] ${tono}`}>
+                  <span className="truncate">{corto}</span>
+                </p>
+              )}
             </li>
           )
         })}
@@ -150,13 +202,13 @@ export default function ListaCalles({ calleVistaId, alElegir }: Props) {
               if (e.key === 'Enter') crearCalle()
             }}
             placeholder="Nombre de la calle nueva"
-            className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-base dark:border-slate-700 dark:bg-slate-900"
+            className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-base"
           />
         </label>
         <button
           type="button"
           onClick={crearCalle}
-          className="min-h-11 rounded-lg border border-dashed border-slate-400 px-3 text-sm font-medium"
+          className="min-h-11 rounded-[10px] border border-dashed border-slate-400 px-3 text-sm font-medium"
         >
           + Nueva calle
         </button>

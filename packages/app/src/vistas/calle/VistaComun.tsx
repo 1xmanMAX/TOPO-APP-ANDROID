@@ -2,54 +2,45 @@ import { construirGrilla, formatearProgresiva, partirClaveCelda, progresivasDeLa
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import ControlesVista3D from '../../componentes/ControlesVista3D'
 import CorteTransversal from '../../componentes/CorteTransversal'
-import DeslizadorProgresiva from '../../componentes/DeslizadorProgresiva'
 import MapaEstado from '../../componentes/MapaEstado'
 import MapaGrilla, { type CeldaPintada } from '../../componentes/MapaGrilla'
 import PerfilLongitudinal from '../../componentes/PerfilLongitudinal'
+import Segmentado from '../../componentes/Segmentado'
+import { BOTON_ICONO, CLASES_ESTADO } from '../../componentes/ui'
+import { useEsCelular } from '../../componentes/useEsCelular'
 import Vista3D from '../../componentes/Vista3D'
 import { armarEsqueletoTabla } from '../../esqueletoTabla'
 import { useAlmacen, type ModoCalle } from '../../estado/almacen'
 import { useContexto, useProgresivas } from '../../estado/derivados'
-import { AVISO_DESTACADO } from './comun'
-import { useResultadoCalle } from './resultadoCalle'
+import { useEvaluacionCalle, useResultadoCalle } from './resultadoCalle'
 
 export type TipoVista = 'corte' | 'perfil' | '3d'
 
-const VISTAS: { tipo: TipoVista; texto: string }[] = [
-  { tipo: 'corte', texto: 'Corte' },
-  { tipo: 'perfil', texto: 'Perfil' },
-  { tipo: '3d', texto: '3D' },
+const VISTAS: { valor: TipoVista; texto: string }[] = [
+  { valor: 'corte', texto: 'Corte' },
+  { valor: 'perfil', texto: 'Perfil' },
+  { valor: '3d', texto: '3D' },
 ]
 
-const ACTIVO = 'border border-marca bg-marca font-medium text-white'
-const INACTIVO =
-  'border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
+/** La tarjeta del lienzo: blanca, borde fino, esquinas de 12 px. */
+export const TARJETA_CALLE = 'flex min-w-0 flex-col gap-3 rounded-xl border border-borde bg-tarjeta px-3 py-3 sm:px-4'
 
 /**
- * En Medir el mapa dice qué está medido y qué falta, no si está conforme:
- * un ✓ verde ahí se leería como «conforme» (diseño §3) sobre un punto que
- * el aviso acaba de dar fuera. Por eso «medida» lleva un símbolo neutro.
+ * Las celdas del mapa de una calle SIN rasante: no hay semáforo, solo qué
+ * está medido y qué falta. «Medida» lleva un símbolo neutro (●), no el ✓ de
+ * conforme: sin proyecto no hay nada contra qué estar conforme.
  */
-const MEDIDA = 'bg-slate-300 font-bold text-slate-800 dark:bg-slate-600 dark:text-slate-100'
-const FALTA = 'bg-slate-100 text-slate-400 dark:bg-slate-800'
-
-interface Props {
-  modo: ModoCalle
-  vista: TipoVista
-  alCambiarVista: (vista: TipoVista) => void
-}
+const MEDIDA = 'bg-borde text-tinta'
+const FALTA = CLASES_ESTADO.sinMedir
 
 /**
- * Lo que comparten los tres modos: el dibujo de la calle (corte, perfil o
- * 3D) con su progresiva, y debajo el mapa de la calle, siempre a la vista.
- *
- * Todo cuelga de la misma selección del almacén: tocar una celda del mapa,
- * un punto del corte o del perfil llama a `seleccionar`, que fija la celda y
- * su progresiva; el corte se va a esa progresiva, el mapa la marca y la
- * ficha del modo la toma como su punto. Por eso no hay estado propio de
- * «punto elegido» en ninguna de las piezas.
+ * Las piezas que comparten el dibujo y el mapa. Todo cuelga de la misma
+ * selección del almacén: tocar una celda del mapa, un punto del corte o del
+ * perfil llama a `seleccionar`, que fija la celda y su progresiva; el corte
+ * se va a esa progresiva, el mapa la marca y la ficha del modo la toma como
+ * su punto. Por eso no hay estado propio de «punto elegido» en ninguna pieza.
  */
-export default function VistaComun({ modo, vista, alCambiarVista }: Props) {
+function useCalleComun(modo: ModoCalle) {
   const contexto = useContexto()
   const resultado = useResultadoCalle()
   const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
@@ -58,7 +49,6 @@ export default function VistaComun({ modo, vista, alCambiarVista }: Props) {
   const seleccionar = useAlmacen((s) => s.seleccionar)
   const irAProgresiva = useAlmacen((s) => s.irAProgresiva)
   const progresivas = useProgresivas()
-  const idTituloMapa = useId()
   const progresivaActiva = seleccion.progresiva ?? progresivas[0] ?? 0
 
   // Medir y Replantear dibujan solo la capa que se trabaja; Revisar respeta
@@ -68,10 +58,6 @@ export default function VistaComun({ modo, vista, alCambiarVista }: Props) {
     return campaniaActivaId ? [campaniaActivaId] : []
   }, [modo, capasVisibles, campaniaActivaId])
 
-  const esqueleto = useMemo(
-    () => (contexto ? armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(contexto.campania)) : null),
-    [contexto],
-  )
   const celdas = useMemo(
     () => (contexto ? construirGrilla(contexto.calle, progresivasDeLaToma(contexto.campania)) : []),
     [contexto],
@@ -90,13 +76,179 @@ export default function VistaComun({ modo, vista, alCambiarVista }: Props) {
       const enEsa = celdas.filter((c) => redondear3(c.progresiva) === redondear3(progresiva))
       const elemento = seleccion.clave ? partirClaveCelda(seleccion.clave)?.elementoClave : undefined
       const pendiente = modo === 'medir' ? enEsa.find((c) => !llenas.has(c.clave)) : undefined
-      const destino = pendiente ?? enEsa.find((c) => c.elementoClave === elemento) ?? (modo === 'medir' ? enEsa[0] : undefined)
+      const destino =
+        pendiente ?? enEsa.find((c) => c.elementoClave === elemento) ?? (modo === 'medir' ? enEsa[0] : undefined)
       if (destino) seleccionar(destino.clave)
       else irAProgresiva(progresiva)
     },
     [celdas, llenas, modo, seleccion.clave, seleccionar, irAProgresiva],
   )
 
+  return {
+    contexto,
+    resultado,
+    campaniaActivaId,
+    seleccion,
+    seleccionar,
+    progresivas,
+    progresivaActiva,
+    idsVisibles,
+    llenas,
+    cambiarProgresiva,
+  }
+}
+
+function Flecha({ hacia }: { hacia: 'izquierda' | 'derecha' }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2}>
+      <path d={hacia === 'izquierda' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} />
+    </svg>
+  )
+}
+
+interface PropsDibujo {
+  modo: ModoCalle
+  vista: TipoVista
+  alCambiarVista: (vista: TipoVista) => void
+  className?: string
+}
+
+/**
+ * La tarjeta del dibujo de la calle: corte, perfil o 3D, con la progresiva
+ * y sus flechas en la misma cabecera. Las flechas del teclado también
+ * recorren las progresivas en la laptop.
+ */
+export function DibujoCalle({ modo, vista, alCambiarVista, className = '' }: PropsDibujo) {
+  const { contexto, campaniaActivaId, seleccion, progresivas, progresivaActiva, idsVisibles, cambiarProgresiva } =
+    useCalleComun(modo)
+
+  // El perfil sigue al punto elegido; sin elegir, el eje.
+  const puntos = contexto?.calle.seccion.puntos ?? []
+  const [elementoPedido, setElementoPedido] = useState<string | null>(null)
+  const elementoDeSeleccion = seleccion.clave ? partirClaveCelda(seleccion.clave)?.elementoClave : undefined
+  const candidato = elementoPedido ?? elementoDeSeleccion
+  const elementoPerfil = puntos.some((p) => p.id === candidato)
+    ? candidato!
+    : (puntos.find((p) => p.rol === 'eje')?.id ?? puntos[0]?.id ?? '')
+  // Elegir un punto en otra vista vuelve a mandar sobre el desplegable.
+  useEffect(() => setElementoPedido(null), [seleccion.clave])
+
+  const indice = progresivas.findIndex((p) => redondear3(p) === redondear3(progresivaActiva))
+  const anterior = indice > 0 ? progresivas[indice - 1] : undefined
+  const siguiente = indice >= 0 && indice < progresivas.length - 1 ? progresivas[indice + 1] : undefined
+
+  // Flechas del teclado para recorrer progresivas en la laptop, salvo
+  // mientras se escribe en un campo.
+  useEffect(() => {
+    function alPresionar(evento: KeyboardEvent) {
+      const objetivo = evento.target
+      if (
+        objetivo instanceof HTMLInputElement ||
+        objetivo instanceof HTMLSelectElement ||
+        objetivo instanceof HTMLTextAreaElement
+      ) {
+        return
+      }
+      if (evento.key === 'ArrowRight' && siguiente !== undefined) cambiarProgresiva(siguiente)
+      if (evento.key === 'ArrowLeft' && anterior !== undefined) cambiarProgresiva(anterior)
+    }
+    window.addEventListener('keydown', alPresionar)
+    return () => window.removeEventListener('keydown', alPresionar)
+  }, [anterior, siguiente, cambiarProgresiva])
+
+  if (!contexto) return null
+
+  return (
+    <section aria-label="Dibujo de la calle" className={`${TARJETA_CALLE} ${className}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmentado
+          etiqueta="Vista de la calle"
+          como="group"
+          opciones={VISTAS}
+          valor={vista}
+          alCambiar={alCambiarVista}
+          className="[&>button]:min-w-11"
+        />
+        {vista === 'perfil' && (
+          <label className="flex min-w-0 items-center">
+            <span className="sr-only">Elemento del perfil</span>
+            <select
+              value={elementoPerfil}
+              onChange={(evento) => setElementoPedido(evento.target.value)}
+              className="min-h-11 min-w-0 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-sm text-tinta"
+            >
+              {puntos.map((punto) => (
+                <option key={punto.id} value={punto.id}>
+                  {punto.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Progresiva anterior"
+            disabled={anterior === undefined}
+            onClick={() => anterior !== undefined && cambiarProgresiva(anterior)}
+            className={`${BOTON_ICONO} disabled:opacity-40`}
+          >
+            <Flecha hacia="izquierda" />
+          </button>
+          <span className="numerico min-w-[4.75rem] text-center text-lg font-semibold">
+            {formatearProgresiva(progresivaActiva)}
+          </span>
+          <button
+            type="button"
+            aria-label="Progresiva siguiente"
+            disabled={siguiente === undefined}
+            onClick={() => siguiente !== undefined && cambiarProgresiva(siguiente)}
+            className={`${BOTON_ICONO} disabled:opacity-40`}
+          >
+            <Flecha hacia="derecha" />
+          </button>
+        </div>
+      </div>
+
+      {vista === 'corte' && (
+        <CorteTransversal progresiva={progresivaActiva} idsVisibles={idsVisibles} idCampaniaReferencia={campaniaActivaId} />
+      )}
+      {vista === 'perfil' && <PerfilLongitudinal elementoClave={elementoPerfil} idCampaniaReferencia={campaniaActivaId} />}
+      {vista === '3d' && (
+        <>
+          <ControlesVista3D />
+          <Vista3D idCampaniaReferencia={campaniaActivaId} />
+        </>
+      )}
+    </section>
+  )
+}
+
+interface PropsMapa {
+  modo: ModoCalle
+  className?: string
+}
+
+/**
+ * La tarjeta del mapa de la calle: una celda por punto y progresiva, con su
+ * estado. En la cabecera, los conteos del semáforo (que hacen de leyenda) y,
+ * si la nivelación no cerró, que nada de lo pintado está comprobado.
+ *
+ * El mapa es el mismo en los tres modos. La orientación la decide el ancho:
+ * en el celular una progresiva por fila (los puntos caben a lo ancho); desde
+ * la tablet un punto por fila y la calle entera a lo ancho, como en el lienzo.
+ */
+export function MapaCalle({ modo, className = '' }: PropsMapa) {
+  const { contexto, resultado, campaniaActivaId, seleccion, seleccionar, llenas } = useCalleComun(modo)
+  const evaluacion = useEvaluacionCalle(resultado)
+  const esCelular = useEsCelular()
+  const idTitulo = useId()
+  const orientacion = esCelular ? 'porElemento' : 'porProgresiva'
+
+  const esqueleto = useMemo(
+    () => (contexto ? armarEsqueletoTabla(contexto.calle, progresivasDeLaToma(contexto.campania)) : null),
+    [contexto],
+  )
   const nombresPorClave = useMemo(
     () => new Map((esqueleto?.elementos ?? []).map((e) => [e.clave, e.nombre])),
     [esqueleto],
@@ -114,153 +266,91 @@ export default function VistaComun({ modo, vista, alCambiarVista }: Props) {
     [llenas, nombresPorClave],
   )
 
-  // El perfil sigue al punto elegido; sin elegir, el eje.
-  const puntos = contexto?.calle.seccion.puntos ?? []
-  const [elementoPedido, setElementoPedido] = useState<string | null>(null)
-  const elementoDeSeleccion = seleccion.clave ? partirClaveCelda(seleccion.clave)?.elementoClave : undefined
-  const candidato = elementoPedido ?? elementoDeSeleccion
-  const elementoPerfil = puntos.some((p) => p.id === candidato)
-    ? candidato!
-    : (puntos.find((p) => p.rol === 'eje')?.id ?? puntos[0]?.id ?? '')
-  // Elegir un punto en otra vista vuelve a mandar sobre el desplegable.
-  useEffect(() => setElementoPedido(null), [seleccion.clave])
-
-  // Flechas del teclado para recorrer progresivas en la laptop, salvo
-  // mientras se escribe en un campo.
-  useEffect(() => {
-    function alPresionar(evento: KeyboardEvent) {
-      const objetivo = evento.target
-      if (
-        objetivo instanceof HTMLInputElement ||
-        objetivo instanceof HTMLSelectElement ||
-        objetivo instanceof HTMLTextAreaElement
-      ) {
-        return
-      }
-      const indice = progresivas.indexOf(progresivaActiva)
-      if (evento.key === 'ArrowRight' && indice < progresivas.length - 1) cambiarProgresiva(progresivas[indice + 1]!)
-      if (evento.key === 'ArrowLeft' && indice > 0) cambiarProgresiva(progresivas[indice - 1]!)
-    }
-    window.addEventListener('keydown', alPresionar)
-    return () => window.removeEventListener('keydown', alPresionar)
-  }, [progresivas, progresivaActiva, cambiarProgresiva])
-
   if (!contexto) return null
 
+  const conRasante = contexto.calle.rasante !== null
   // Si la toma no cerró, nada de lo que pinta el mapa está comprobado (diseño
   // §3). Si cerró pero volvió a arrancar en un BM, lo de antes tampoco.
   const sinCerrar = resultado !== null && resultado.cierre.pasa !== true
   const primeraComprobada = resultado?.tramoComprobado?.primeraEstacion ?? 0
   const avisoMapa =
-    modo === 'medir' || !contexto.calle.rasante || resultado === null
+    !conRasante || resultado === null
       ? null
       : sinCerrar
-        ? 'Mapa no comprobado: la nivelación no cerró. Los ✓ △ ✗ son provisionales hasta cerrar el circuito.'
+        ? {
+            corto: 'Mapa no comprobado',
+            largo: 'la nivelación no cerró; los ✓ △ ✗ son provisionales hasta cerrar el circuito.',
+          }
         : primeraComprobada > 0
-          ? `Lo medido antes de la estación ${primeraComprobada + 1} no está comprobado: el cierre solo respalda desde ahí.`
+          ? {
+              corto: `Mapa no comprobado antes de la estación ${primeraComprobada + 1}`,
+              largo: `el cierre solo respalda lo medido desde la estación ${primeraComprobada + 1}.`,
+            }
           : null
+  const sufijo = sinCerrar ? ' (no comprobado)' : ''
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div role="group" aria-label="Vista de la calle" className="grid grid-cols-3 gap-2 sm:flex">
-        {VISTAS.map(({ tipo, texto }) => (
-          <button
-            key={tipo}
-            type="button"
-            aria-pressed={vista === tipo}
-            onClick={() => alCambiarVista(tipo)}
-            className={`min-h-11 rounded px-4 py-1 text-sm ${vista === tipo ? ACTIVO : INACTIVO}`}
-          >
-            {texto}
-          </button>
-        ))}
-      </div>
-
-      {/* En el celular lo que se toca mide 44 × 44 px como mínimo. El botón de
-          recorrer (DeslizadorProgresiva) y las celdas del mapa (MapaGrilla) son
-          componentes compartidos pensados para el ratón (30 y 24 px): aquí se
-          agrandan, solo en estas dos secciones. Cuando se arreglen allí, estas
-          reglas sobran y se quitan. */}
-      <section
-        aria-label="Dibujo de la calle"
-        className="flex min-w-0 flex-col gap-2 max-md:[&_button]:min-h-11 max-md:[&_button]:min-w-11"
-      >
-        {vista === 'corte' && (
-          <CorteTransversal
-            progresiva={progresivaActiva}
-            idsVisibles={idsVisibles}
-            idCampaniaReferencia={campaniaActivaId}
-          />
-        )}
-        {vista === 'perfil' && (
-          <>
-            <label className="flex items-center gap-2 text-sm">
-              <span className="font-medium">Elemento del perfil</span>
-              <select
-                value={elementoPerfil}
-                onChange={(evento) => setElementoPedido(evento.target.value)}
-                className="min-h-11 rounded border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-              >
-                {puntos.map((punto) => (
-                  <option key={punto.id} value={punto.id}>
-                    {punto.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <PerfilLongitudinal elementoClave={elementoPerfil} idCampaniaReferencia={campaniaActivaId} />
-          </>
-        )}
-        {vista === '3d' && (
-          <>
-            <ControlesVista3D />
-            <Vista3D idCampaniaReferencia={campaniaActivaId} />
-          </>
-        )}
-        <DeslizadorProgresiva progresivas={progresivas} valor={progresivaActiva} alCambiar={cambiarProgresiva} />
-      </section>
-
-      <section
-        aria-labelledby={idTituloMapa}
-        className="flex min-w-0 flex-col gap-2 max-md:[&_button]:min-h-11 max-md:[&_button]:min-w-11"
-      >
-        <h2 id={idTituloMapa} className="font-semibold">
+    <section aria-labelledby={idTitulo} className={`${TARJETA_CALLE} ${className}`}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <h2 id={idTitulo} className="text-[15px] font-semibold">
           Mapa de la calle
         </h2>
-        {/* Antes del mapa: en el celular es lo primero que se ve de él. */}
+        {/* Antes de la rejilla: en el celular es lo primero que se ve del mapa. */}
         {avisoMapa && (
-          <p className={AVISO_DESTACADO}>
-            <span aria-hidden="true">△ </span>
-            {avisoMapa}
+          <p className="rounded-md bg-aviso-suave px-2 py-0.5 text-[13px] font-semibold text-aviso">
+            <span aria-hidden="true">△</span> {avisoMapa.corto}
+            <span className="sr-only">: {avisoMapa.largo}</span>
           </p>
         )}
-        {/* En el celular la ficha va debajo: con muchas progresivas, un mapa sin
-            tope la mandaría a más de mil píxeles. El tope va sobre la rejilla
-            misma (la caja que se desplaza dentro de MapaGrilla), no sobre todo el
-            mapa: así la leyenda del semáforo queda fuera y se ve siempre entera. */}
-        <div className="max-md:[&_div.overflow-auto]:max-h-72">
-          {modo === 'medir' || !contexto.calle.rasante ? (
-            // Midiendo importa qué falta llenar; sin rasante no hay semáforo
-            // que pintar, pero el mapa sigue sirviendo para elegir el punto.
-            <MapaGrilla
-              progresivas={esqueleto?.progresivas ?? []}
-              elementos={esqueleto?.elementos ?? []}
-              llenas={llenas}
-              claveActiva={seleccion.clave}
-              alElegir={seleccionar}
-              pintarCelda={pintarMedida}
-            />
-          ) : (
-            <MapaEstado idCampaniaReferencia={campaniaActivaId} />
-          )}
-        </div>
-        {(modo === 'medir' || !contexto.calle.rasante) && (
-          <p className="text-xs text-slate-500">
-            ● medida · · falta medir
-            {modo !== 'medir' && ' — sin rasante de proyecto no hay semáforo.'}
-          </p>
+        <span className="text-sm text-tenue max-md:hidden">toca una celda y todo salta a ese punto</span>
+        {evaluacion ? (
+          <ul aria-label="Qué significa cada color del mapa" className="numerico ml-auto flex gap-3 text-sm font-semibold">
+            <li className="text-pasa">
+              <span aria-hidden="true">✓ </span>
+              {evaluacion.conformes}
+              <span className="sr-only"> dentro de tolerancia{sufijo}</span>
+            </li>
+            <li className="text-aviso">
+              <span aria-hidden="true">△ </span>
+              {evaluacion.alLimite}
+              <span className="sr-only"> al límite de tolerancia{sufijo}</span>
+            </li>
+            <li className="text-falla">
+              <span aria-hidden="true">✗ </span>
+              {evaluacion.fuera}
+              <span className="sr-only"> fuera de tolerancia{sufijo}</span>
+            </li>
+            <li className="text-sin">
+              <span aria-hidden="true">· </span>
+              {evaluacion.sinMedir}
+              <span className="sr-only"> sin medir</span>
+            </li>
+          </ul>
+        ) : (
+          <ul aria-label="Qué significa cada color del mapa" className="ml-auto flex gap-3 text-[13px] text-tenue">
+            <li>● medida</li>
+            <li>· falta medir</li>
+          </ul>
         )}
-      </section>
-    </div>
+      </div>
+
+      {conRasante ? (
+        <MapaEstado idCampaniaReferencia={campaniaActivaId} orientacion={orientacion} />
+      ) : (
+        <>
+          {/* Sin rasante no hay semáforo que pintar, pero el mapa sigue sirviendo para elegir el punto. */}
+          <MapaGrilla
+            progresivas={esqueleto?.progresivas ?? []}
+            elementos={esqueleto?.elementos ?? []}
+            llenas={llenas}
+            claveActiva={seleccion.clave}
+            alElegir={seleccionar}
+            pintarCelda={pintarMedida}
+            orientacion={orientacion}
+          />
+          {modo !== 'medir' && <p className="text-[13px] text-tenue">Sin rasante de proyecto no hay semáforo.</p>}
+        </>
+      )}
+    </section>
   )
 }

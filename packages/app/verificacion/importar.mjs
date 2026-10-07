@@ -92,7 +92,7 @@ async function abrirApartado(nombre) {
 
 // ---------------------------------------------------------------------------
 // 1. Subir el archivo real de Max: Obra › Calles, apartado «Subir una hoja
-//    de campo» del panel de la calle (viene abierto).
+//    de campo» del panel de la calle (viene plegado y se abre).
 // ---------------------------------------------------------------------------
 
 await irAObraCalles()

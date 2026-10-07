@@ -121,6 +121,12 @@ export function tramoDeTomas(tomas: Toma[]): string | null {
     : `${formatearProgresiva(desde)} – ${formatearProgresiva(hasta)}`
 }
 
+/** «2026-09-28» → «28/09», como se apunta en la libreta. */
+export function fechaCorta(fecha: string): string {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fecha)
+  return partes ? `${partes[3]}/${partes[2]}` : fecha
+}
+
 /** Milímetros con su signo, como se dicen en obra: «+5 mm», «−3 mm». */
 export function milimetros(valor: number): string {
   const redondeado = Math.round(valor)
@@ -217,6 +223,53 @@ export interface CapaEnCalle {
   detalle: string
   /** La jornada más reciente de esa capa con alguna lectura. Null si no hay. */
   tomaId: Id | null
+  /**
+   * Lo mismo que `detalle`, en una línea que cabe en el celular, con su
+   * símbolo delante: «✗ 1 fuera en 0+080 Eje (+54 corta) · △ 1 al límite».
+   */
+  corto: string
+  /**
+   * El punto que más se pasa (fuera de tolerancia o, si no hay, al límite) y
+   * la jornada comprobada de donde sale: es el que se abre en Revisar.
+   */
+  peor: { clave: string; tomaId: Id } | null
+}
+
+/**
+ * Nombre corto de una capa, sin cortar palabras: «SUBRASANTE» →
+ * «Subrasante», «SUB BASE» → «Sub base», «TERRENO EXISTENTE» → «Terreno».
+ * El completo va en el nombre accesible y en el detalle.
+ */
+export function nombreCorto(nombre: string): string {
+  const palabras = nombre.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (palabras.length === 0) return nombre
+  const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1)
+  const entero = palabras.join(' ')
+  if (entero.length <= 11) return mayuscula(entero)
+  // Una primera palabra corta («sub», «base») sola no dice qué capa es.
+  return mayuscula(palabras[0]!.length >= 5 ? palabras[0]! : palabras.slice(0, 2).join(' '))
+}
+
+/** «0+080 Eje (+54 corta)»: dónde y cuánto, en pocas letras. */
+function puntoCorto(celda: CeldaEvaluada, nombreDe: (celda: CeldaEvaluada) => string): string {
+  const donde = `${formatearProgresiva(celda.progresiva)} ${nombreDe(celda)}`
+  if (celda.diferenciaMm === null) return donde
+  const accion = accionDeDiferencia(celda.diferenciaMm)
+  const queHacer = accion?.tipo === 'corta' ? ' corta' : accion?.tipo === 'rellena' ? ' rellena' : ''
+  return `${donde} (${milimetros(celda.diferenciaMm).replace(' mm', '')}${queHacer})`
+}
+
+/** La celda que más se aparta del proyecto. */
+function laPeor(celdas: CeldaEvaluada[]): CeldaEvaluada | undefined {
+  return [...celdas].sort((a, b) => Math.abs(b.diferenciaMm ?? 0) - Math.abs(a.diferenciaMm ?? 0))[0]
+}
+
+/** «1 fuera en 0+080 Eje (+54 corta)», o con varios, «3 fuera · el peor en …». */
+function cuantosYElPeor(celdas: CeldaEvaluada[], que: string, nombreDe: (celda: CeldaEvaluada) => string): string {
+  const peor = laPeor(celdas)!
+  return celdas.length === 1
+    ? `1 ${que} en ${puntoCorto(peor, nombreDe)}`
+    : `${celdas.length} ${que} · el peor en ${puntoCorto(peor, nombreDe)}`
 }
 
 /** Cuántos puntos se nombran uno por uno; del resto se dice cuántos quedan. */
@@ -273,6 +326,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
     const deLaCapa = jornadas.filter((j) => j.toma.capaId === capa.id)
     const medidas = deLaCapa.filter((j) => lecturasDeToma(j.toma, largoMira) > 0)
     const ultima = medidas[0]
+    const corta = nombreCorto(capa.nombre)
     if (!ultima) {
       return {
         capa,
@@ -282,7 +336,9 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
           deLaCapa.length > 0
             ? `${capa.nombre}: jornada abierta, sin lecturas todavía`
             : `${capa.nombre}: sin medir`,
+        corto: `· ${corta} sin medir`,
         tomaId: null,
+        peor: null,
       }
     }
 
@@ -309,6 +365,8 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
     // comprobado», para que Max lo remida antes de irse de la calle. Si
     // después lo cubre una medición comprobada, manda esa.
     const porCelda = new Map<string, CeldaEvaluada>()
+    /** De qué jornada comprobada sale cada celda de `porCelda`. */
+    const origenPorCelda = new Map<string, Id>()
     const sinComprobarPorCelda = new Map<string, CeldaEvaluada>()
     if (calle.rasante) {
       for (const jornada of [...medidas].reverse()) {
@@ -325,6 +383,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
           if (celda.estado === 'conforme' || celda.estado === 'alLimite' || celda.estado === 'fuera') {
             if (comprobada) {
               porCelda.set(celda.clave, celda)
+              origenPorCelda.set(celda.clave, jornada.toma.id)
               sinComprobarPorCelda.delete(celda.clave)
             } else {
               sinComprobarPorCelda.set(celda.clave, celda)
@@ -345,7 +404,11 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         ? `; ${posiblesFuera.length === 1 ? 'posible punto fuera' : `${posiblesFuera.length} posibles puntos fuera`}: ${puntosConDiferencia(posiblesFuera, nombreDe)}, no comprobado`
         : ''
 
-    const base = { capa, tomaId: ultima.toma.id }
+    const peorCelda = laPeor(fuera.length > 0 ? fuera : alLimite)
+    const peor = peorCelda ? { clave: peorCelda.clave, tomaId: origenPorCelda.get(peorCelda.clave)! } : null
+    const base = { capa, tomaId: ultima.toma.id, peor }
+    const posiblesCorto =
+      posiblesFuera.length > 0 ? ` · ${cuenta(posiblesFuera.length, 'posible fuera', 'posibles fuera')}` : ''
 
     if (fuera.length > 0) {
       const partes = [`${cuenta(fuera.length, 'punto fuera', 'puntos fuera')} de tolerancia: ${puntosConDiferencia(fuera, nombreDe)}`]
@@ -358,6 +421,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         estado: 'conPuntosFuera',
         simbolo: '✗',
         detalle: `${capa.nombre}: ${partes.join('; ')}${ademas}${avisoPosibles}`,
+        corto: `✗ ${cuantosYElPeor(fuera, 'fuera', nombreDe)}${alLimite.length > 0 ? ` · △ ${alLimite.length} al límite` : ''}`,
       }
     }
 
@@ -367,6 +431,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         estado: 'enCurso',
         simbolo: '△',
         detalle: `${capa.nombre} en curso${hasta}: circuito sin cerrar, no comprobada${avisoPosibles}`,
+        corto: `△ ${corta} en curso, sin cerrar${posiblesCorto}`,
       }
     }
 
@@ -378,6 +443,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         estado: 'sinComprobar',
         simbolo: '△',
         detalle: `${capa.nombre}${suTramo ? ` (${suTramo})` : ''}: ${cierre.corto}, no comprobada${avisoPosibles}`,
+        corto: `△ ${corta}: ${cierre.corto}, no comprobada${posiblesCorto}`,
       }
     }
 
@@ -387,6 +453,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         estado: 'alLimite',
         simbolo: '△',
         detalle: `${capa.nombre}: ${cuenta(alLimite.length, 'punto al límite', 'puntos al límite')}: ${puntosConDiferencia(alLimite, nombreDe)}`,
+        corto: `△ ${cuantosYElPeor(alLimite, 'al límite', nombreDe)}`,
       }
     }
 
@@ -397,6 +464,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         estado: 'sinComparar',
         simbolo: '△',
         detalle: `${capa.nombre}${hasta}: ${cierre.corto}; sin rasante para comparar con el proyecto`,
+        corto: `△ ${corta}: ${cierre.corto}, sin rasante`,
       }
     }
     if (conformes === 0) {
@@ -405,6 +473,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
         estado: 'sinComparar',
         simbolo: '△',
         detalle: `${capa.nombre}${hasta}: ${cierre.corto}; ningún punto medido cae donde el proyecto tiene cota`,
+        corto: `△ ${corta}: ${cierre.corto}, sin comparar`,
       }
     }
 
@@ -413,6 +482,7 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
       estado: 'conforme',
       simbolo: '✓',
       detalle: `${capa.nombre}${hasta}: conforme, ${cierre.corto}`,
+      corto: `✓ ${corta} conforme${hasta}`,
     }
   })
 }
@@ -424,13 +494,21 @@ export function capasDeCalle(proyecto: Proyecto, calle: Calle): CapaEnCalle[] {
  * la última capa medida.
  */
 export function fraseDeCalle(capas: CapaEnCalle[]): string {
+  return capaMasUrgente(capas)?.detalle ?? 'Todavía sin medir'
+}
+
+/**
+ * La capa de la que habla la frase de la calle: la más urgente o, si todo
+ * está en orden, la última medida. Undefined si no hay ninguna medida.
+ */
+export function capaMasUrgente(capas: CapaEnCalle[]): CapaEnCalle | undefined {
   const prioridad: EstadoCapa[] = ['conPuntosFuera', 'enCurso', 'sinComprobar', 'alLimite', 'sinComparar']
   for (const estado of prioridad) {
     const capa = capas.find((c) => c.estado === estado)
-    if (capa) return capa.detalle
+    if (capa) return capa
   }
   const medidas = capas.filter((c) => c.estado === 'conforme')
-  return medidas.length > 0 ? medidas[medidas.length - 1]!.detalle : 'Todavía sin medir'
+  return medidas[medidas.length - 1]
 }
 
 // ---------- Comparar dos jornadas ----------

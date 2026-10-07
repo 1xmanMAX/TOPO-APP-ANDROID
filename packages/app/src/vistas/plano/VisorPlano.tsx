@@ -10,6 +10,7 @@ import {
   unidadesPorPixel,
   type Vista,
 } from './geometriaVisor'
+import { BOTON_ICONO } from './estilos'
 
 interface Props {
   /** Lo que «Encuadrar» deja a la vista. */
@@ -25,19 +26,24 @@ interface Props {
   enModoPuntos?: boolean
   /** Se dibuja con el tamaño de un píxel en unidades del plano, para que rótulos y marcas no crezcan con el zoom. */
   children: (unidadesPorPixel: number) => ReactNode
+  /**
+   * Lo que flota sobre el plano (el plano a la vista, la escala, las
+   * herramientas). Va junto a los botones de zoom, fuera del dibujo.
+   */
+  encima?: ReactNode
 }
 
 /** Pasado este arrastre (en píxeles), el gesto ya no es un toque sino mover el plano. */
 const UMBRAL_TOQUE_PX = 6
 const CAJA_DE_FABRICA = { width: 800, height: 500 }
-const BOTON =
-  'flex min-h-11 min-w-11 items-center justify-center rounded border border-slate-300 bg-white/90 px-2 text-sm shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/90 dark:hover:bg-slate-800'
+/** Los botones de zoom: 44 px, con sombra para que se lean sobre el dibujo. */
+const BOTON = `${BOTON_ICONO} bg-tarjeta/95 text-xl shadow-sm hover:bg-fondo disabled:opacity-40`
 
 /**
  * El plano a pantalla: rueda o pellizco para acercar, arrastrar para mover,
  * y un toque (sin arrastre) para elegir una pista o poner un punto.
  */
-export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPuntos = false, children }: Props) {
+export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPuntos = false, children, encima }: Props) {
   const contenedor = useRef<HTMLDivElement>(null)
   const lienzo = useRef<SVGSVGElement>(null)
   const [caja, setCaja] = useState(CAJA_DE_FABRICA)
@@ -167,7 +173,7 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
   return (
     <div
       ref={contenedor}
-      className="relative h-[55vh] min-h-72 w-full overflow-hidden rounded border border-slate-300 bg-white lg:h-[calc(100dvh-15rem)] dark:border-slate-700 dark:bg-slate-900"
+      className="relative h-[60vh] min-h-72 w-full overflow-hidden border-y border-borde bg-white sm:rounded-xl sm:border md:h-[55vh] lg:h-[calc(100dvh-12rem)] dark:bg-slate-900"
     >
       <svg
         ref={lienzo}
@@ -186,20 +192,24 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
       >
         {vista && children(upp)}
       </svg>
-      <div className="absolute right-2 top-2 flex flex-col gap-2">
+      {encima}
+      {/* Abajo a la derecha (en el celular, encima de las herramientas): la esquina de arriba es de la escala. */}
+      <div className="absolute bottom-[4.5rem] right-3 flex flex-col gap-2 sm:bottom-3">
         <button type="button" className={BOTON} aria-label="Acercar" onClick={() => zoomBoton(1.5)}>
-          +
+          <span aria-hidden="true">+</span>
         </button>
         <button type="button" className={BOTON} aria-label="Alejar" onClick={() => zoomBoton(1 / 1.5)}>
-          −
+          <span aria-hidden="true">−</span>
         </button>
         <button
           type="button"
           className={BOTON}
+          aria-label="Encuadrar"
+          title="Encuadrar: ver todo el plano"
           onClick={() => limites && setVista(encuadrar(limites, caja))}
           disabled={!limites}
         >
-          Encuadrar
+          <span aria-hidden="true">⤢</span>
         </button>
       </div>
     </div>

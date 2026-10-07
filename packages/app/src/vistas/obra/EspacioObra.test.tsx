@@ -71,6 +71,32 @@ describe('Obra › Calles: inicio', () => {
     expect(within(lima).getAllByRole('listitem').every((c) => c.textContent?.startsWith('·'))).toBe(true)
   })
 
+  it('la frase de la calle cabe en una línea y, al tocarla, abre Revisar en el peor punto', async () => {
+    const usuario = userEvent.setup()
+    render(<EspacioObra />)
+    // El nombre es la frase entera; a la vista, lo corto: «✗ 1 fuera en 0+040 Eje (+54 corta)».
+    const frase = screen.getByRole('button', { name: /^SUBRASANTE: 1 punto fuera de tolerancia/ })
+    expect(frase).toHaveTextContent(/^✗ 1 fuera en 0\+040 \D+ \([+−]\d+ (corta|rellena)\)/)
+    expect(frase.textContent).not.toMatch(/tolerancia/)
+
+    await usuario.click(frase)
+    const estado = useAlmacen.getState()
+    const subrasante = estado.proyecto.calles[0]!.nivelaciones
+      .flatMap((n) => n.tomas)
+      .find((t) => t.capaId === 'cap-subrasante')!
+    expect(estado.espacio).toBe('calle')
+    expect(estado.modoCalle).toBe('revisar')
+    expect(estado.campaniaActivaId).toBe(subrasante.id)
+    expect(estado.seleccion.clave).toMatch(/^40\|/)
+  })
+
+  it('«Nueva jornada» dice desde qué BM en un segundo renglón, sin cambiar su nombre', () => {
+    render(<EspacioObra />)
+    const boton = screen.getByRole('button', { name: 'Nueva jornada' })
+    expect(boton).toHaveTextContent('desde BM-1')
+    expect(boton).toHaveAccessibleDescription(/Nueva jornada en Av\. Sol · .* · desde BM-1/)
+  })
+
   it('muestra los bancos de nivel con su cota en el inicio', () => {
     render(<EspacioObra />)
     const bms = screen.getByRole('region', { name: 'Bancos de nivel de la obra' })
@@ -227,26 +253,31 @@ describe('Obra › Calles: panel de la calle', () => {
     )
   })
 
-  it('los apartados dicen qué tienen sin abrirlos; la sección viene abierta', async () => {
+  it('los apartados vienen plegados y dicen qué tienen sin abrirlos', async () => {
     const usuario = userEvent.setup()
     render(<EspacioObra />)
 
     const seccion = screen.getByRole('button', { name: 'Sección' })
-    expect(seccion).toHaveAttribute('aria-expanded', 'true')
+    expect(seccion).toHaveAttribute('aria-expanded', 'false')
     expect(seccion).toHaveAccessibleDescription(/7 puntos · de −5\.60 a \+5\.60 m/)
-    expect(screen.getByRole('heading', { name: /sección de la calle/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /sección de la calle/i })).not.toBeInTheDocument()
+    for (const titulo of ['Anchos', 'Jornadas y hojas', 'Subir una hoja de campo']) {
+      expect(screen.getByRole('button', { name: titulo })).toHaveAttribute('aria-expanded', 'false')
+    }
 
     const rasante = screen.getByRole('button', { name: 'Rasante' })
     expect(rasante).toHaveAttribute('aria-expanded', 'false')
     expect(rasante).toHaveAccessibleDescription(/en 0\+000 · .*%/)
 
     expect(screen.getByRole('button', { name: 'Jornadas y hojas' })).toHaveAccessibleDescription(
-      /2 jornadas · la última 2026-08-20, BASE: ✓ cerró/,
+      /2 jornadas · última 20\/08, BASE: ✓ cerró/,
     )
 
     await usuario.click(seccion)
+    expect(seccion).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('heading', { name: /sección de la calle/i })).toBeInTheDocument()
+    await usuario.click(seccion)
     expect(seccion).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByRole('heading', { name: /sección de la calle/i })).not.toBeInTheDocument()
   })
 
   it('una calle sin rasante lo dice en el resumen', async () => {
@@ -260,8 +291,9 @@ describe('Obra › Calles: panel de la calle', () => {
     const usuario = userEvent.setup()
     render(<EspacioObra />)
     const anchos = screen.getByRole('button', { name: 'Anchos' })
-    expect(anchos).toHaveAccessibleDescription(/todavía no están en el modelo/)
+    expect(anchos).toHaveAccessibleDescription(/Un solo ancho para toda la calle/)
     await usuario.click(anchos)
+    expect(screen.getByText(/todavía no guarda anchos medidos en cada progresiva/)).toBeInTheDocument()
     const tabla = screen.getByRole('table', { name: 'Distancias al eje de la sección' })
     expect(within(tabla).getByText('Vereda izquierda')).toBeInTheDocument()
     expect(within(tabla).getByText('−5.60')).toBeInTheDocument()
@@ -305,12 +337,22 @@ describe('Obra › Calles: panel de la calle', () => {
     render(<EspacioObra />)
     await usuario.click(screen.getByRole('button', { name: 'Jornadas y hojas' }))
 
+    // Abrir y corregir van en el «⋯» de cada jornada.
+    const menu = screen.getByRole('button', { name: 'Más de la jornada 2026-08-19 · SUBRASANTE' })
+    expect(menu).toHaveAttribute('aria-expanded', 'false')
+    await usuario.click(menu)
     await usuario.click(screen.getByRole('button', { name: 'Corregir la jornada 2026-08-19 · SUBRASANTE' }))
+    // El menú se cierra y la corrección se abre en su propio bloque, con su ✕.
+    expect(menu).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('group', { name: 'Corregir 2026-08-19 · SUBRASANTE' })).toBeInTheDocument()
     await usuario.selectOptions(screen.getByLabelText('Capa de la jornada 2026-08-19 · SUBRASANTE'), 'cap-terreno')
     const tomas = useAlmacen.getState().proyecto.calles[0]!.nivelaciones.flatMap((n) => n.tomas)
     const corregida = tomas.find((t) => t.fecha === '2026-08-19')!
     expect(corregida.capaId).toBe('cap-terreno')
+    await usuario.click(screen.getByRole('button', { name: 'Cerrar la corrección de la jornada 2026-08-19 · TERRENO EXISTENTE' }))
+    expect(screen.queryByLabelText('Capa de la jornada 2026-08-19 · TERRENO EXISTENTE')).not.toBeInTheDocument()
 
+    await usuario.click(screen.getByRole('button', { name: 'Más de la jornada 2026-08-19 · TERRENO EXISTENTE' }))
     await usuario.click(screen.getByRole('button', { name: 'Abrir la jornada 2026-08-19 · TERRENO EXISTENTE' }))
     expect(useAlmacen.getState().campaniaActivaId).toBe(corregida.id)
     expect(useAlmacen.getState().modoCalle).toBe('medir')
@@ -320,6 +362,8 @@ describe('Obra › Calles: panel de la calle', () => {
     const usuario = userEvent.setup()
     render(<EspacioObra />)
     const apartado = screen.getByRole('button', { name: 'Subir una hoja de campo' })
+    expect(apartado).toHaveAttribute('aria-expanded', 'false')
+    await usuario.click(apartado)
     expect(apartado).toHaveAttribute('aria-expanded', 'true')
     // No promete «a esta calle»: avisa de que la calle sale del nombre del archivo.
     expect(screen.getByText(/La calle sale del nombre del archivo/)).toHaveTextContent(/«Av\. Sol»/)
@@ -358,6 +402,7 @@ describe('Obra › Calles: panel de la calle', () => {
   it('aceptar una hoja deja el «Hoja aceptada» a la vista, aunque el panel pase a la calle que la recibe', async () => {
     const usuario = userEvent.setup()
     render(<EspacioObra />)
+    await usuario.click(screen.getByRole('button', { name: 'Subir hoja' }))
     await usuario.upload(
       screen.getByLabelText(/archivo de la hoja/i),
       new File([bytesDetrasDelColegio()], 'detras-del-colegio.xlsx'),
@@ -386,10 +431,10 @@ describe('Obra › Calles: panel de la calle', () => {
     render(<EspacioObra />)
     await usuario.click(screen.getByRole('button', { name: 'Abrir Jr. Lima' }))
     // Se arma sin que el botón reciba el foco (Safari al tocar), así que no hay onBlur que lo desarme.
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar la calle' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Borrar esta calle' }))
     expect(screen.getByRole('button', { name: /¿Seguro\?/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Av. Sol' }))
-    expect(screen.getByRole('button', { name: 'Eliminar la calle' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Borrar esta calle y sus 2 jornadas' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /¿Seguro\?/ })).not.toBeInTheDocument()
   })
 
@@ -397,7 +442,11 @@ describe('Obra › Calles: panel de la calle', () => {
     const usuario = userEvent.setup()
     render(<EspacioObra />)
     await usuario.click(screen.getByRole('button', { name: 'Abrir Jr. Lima' }))
-    await usuario.click(screen.getByRole('button', { name: 'Eliminar la calle' }))
+    // Va al pie del panel, después del último apartado, como enlace rojo.
+    const borrar = screen.getByRole('button', { name: 'Borrar esta calle' })
+    const panel = screen.getByRole('region', { name: 'Panel de Jr. Lima' })
+    expect(panel.lastElementChild).toContainElement(borrar)
+    await usuario.click(borrar)
     expect(useAlmacen.getState().proyecto.calles).toHaveLength(2)
     await usuario.click(screen.getByRole('button', { name: /¿Seguro\? Se borran 0 jornadas/ }))
     expect(useAlmacen.getState().proyecto.calles.map((c) => c.nombre)).toEqual(['Av. Sol'])

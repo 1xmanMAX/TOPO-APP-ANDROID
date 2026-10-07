@@ -65,13 +65,14 @@ describe('MapaEstado', () => {
     expect(useAlmacen.getState().seleccion.clave).toBe('20|p-eje')
   })
 
-  it('la leyenda explica qué es cada símbolo', () => {
+  // La leyenda (los conteos del semáforo) va en la cabecera de quien monta el
+  // mapa; dentro de cada celda van el símbolo y la diferencia sin unidad.
+  it('cada celda medida lleva su símbolo y su diferencia con signo, sin unidad', () => {
     fijarRasanteDeEjemplo()
     render(<MapaEstado idCampaniaReferencia="camp-1" />)
 
-    expect(screen.getByText(/dentro de tolerancia/i)).toBeInTheDocument()
-    expect(screen.getByText(/al límite/i)).toBeInTheDocument()
-    expect(screen.getByText(/fuera/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^0\+000 Eje/)).toHaveTextContent(/^✗ −333$/)
+    expect(screen.getByLabelText(/^0\+000 Vereda izquierda/)).toHaveTextContent(/^·$/)
   })
 
   it('sin rasante definida invita a definirla, en vez de un mapa vacío', () => {
@@ -96,14 +97,12 @@ describe('MapaEstado', () => {
 })
 
 describe('MapaEstado sobre una nivelación sin cerrar (obra simulada)', () => {
-  it('Jr. Lima no cerró: la leyenda y cada celda medida dicen «no comprobado»', async () => {
+  it('Jr. Lima no cerró: cada celda medida dice «no comprobado»', async () => {
     const { construirObraSimulada, IDS } = await import('../pruebas/obraSimulada')
     const obra = construirObraSimulada()
     useAlmacen.getState().cargarProyecto(obra.proyecto, obra.archivosDePlano)
     render(<MapaEstado idCampaniaReferencia={IDS.tomaLimaSub} />)
 
-    expect(screen.getByText(/No comprobado: la nivelación no cerró/)).toBeInTheDocument()
-    expect(screen.getByText(/Dentro de tolerancia \(no comprobado\)/)).toBeInTheDocument()
     const conforme = screen.getAllByRole('button', { name: /, conforme, / })
     expect(conforme.length).toBe(17)
     for (const celda of conforme) expect(celda).toHaveAccessibleName(/no comprobado$/)

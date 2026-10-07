@@ -1,13 +1,10 @@
+import type { ReactNode } from 'react'
 import { useAlmacen, type ModoCalle, type PantallaCalle, type SubObra } from '../estado/almacen'
+import Segmentado from './Segmentado'
 
-const BOTON = 'min-h-11 rounded px-3 py-1 text-sm'
-const INACTIVO =
-  'border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
-const ACTIVO = 'border border-marca bg-marca font-medium text-white'
-
-const SUB_OBRA: { sub: SubObra; texto: string }[] = [
-  { sub: 'calles', texto: 'Calles' },
-  { sub: 'plano', texto: 'Plano' },
+const SUB_OBRA: { valor: SubObra; texto: string }[] = [
+  { valor: 'calles', texto: 'Calles' },
+  { valor: 'plano', texto: 'Plano' },
 ]
 
 /** Dentro de Obra: la lista de calles o el plano de obra. */
@@ -16,30 +13,95 @@ export function NavegacionObra() {
   const irASubObra = useAlmacen((s) => s.irASubObra)
 
   return (
-    <nav
-      aria-label="Pantallas de la obra"
-      className="grid grid-cols-2 gap-2 border-b border-slate-200 px-2 py-2 sm:flex sm:px-4 dark:border-slate-800"
-    >
-      {SUB_OBRA.map(({ sub, texto }) => (
-        <button
-          key={sub}
-          type="button"
-          aria-pressed={subObra === sub}
-          onClick={() => irASubObra(sub)}
-          className={`${BOTON} ${subObra === sub ? ACTIVO : INACTIVO}`}
-        >
-          {texto}
-        </button>
-      ))}
-    </nav>
+    <div className="bg-fondo px-4 pt-3">
+      <Segmentado
+        etiqueta="Pantallas de la obra"
+        como="nav"
+        tono="claro"
+        opciones={SUB_OBRA}
+        valor={subObra}
+        alCambiar={irASubObra}
+        className="w-full sm:w-80"
+      />
+    </div>
   )
 }
 
-const MODOS: { modo: ModoCalle; texto: string }[] = [
-  { modo: 'medir', texto: 'Medir' },
-  { modo: 'revisar', texto: 'Revisar' },
-  { modo: 'replantear', texto: 'Replantear' },
+function IconoModo({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  )
+}
+
+/** Los íconos de Calle.dc.html: lápiz, lupa con visto y diana. */
+const MODOS: { valor: ModoCalle; texto: string; icono: ReactNode }[] = [
+  {
+    valor: 'medir',
+    texto: 'Medir',
+    icono: (
+      <IconoModo>
+        <path d="M4 20l4-1 11-11-3-3L5 16l-1 4zM14 6l3 3" />
+      </IconoModo>
+    ),
+  },
+  {
+    valor: 'revisar',
+    texto: 'Revisar',
+    icono: (
+      <IconoModo>
+        <circle cx="11" cy="11" r="6" />
+        <path d="M20 20l-4.5-4.5M8.5 11l2 2 3.5-4" />
+      </IconoModo>
+    ),
+  },
+  {
+    valor: 'replantear',
+    texto: 'Replantear',
+    icono: (
+      <IconoModo>
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      </IconoModo>
+    ),
+  },
 ]
+
+/**
+ * Dentro de Calle: los tres modos sobre la misma vista, en la banda oscura
+ * pegada a la cabecera. Va fuera de lo que se desplaza: la libreta enfoca su
+ * campo al abrirse y, si la banda se desplazara con ella, quedaría fuera de
+ * la vista justo cuando hace falta cambiar de modo. La calle y la capa están
+ * en la cabecera; Análisis, Cierre y Planificar, en `NavegacionPantallasCalle`.
+ */
+export function NavegacionCalle() {
+  const modoCalle = useAlmacen((s) => s.modoCalle)
+  const pantallaCalle = useAlmacen((s) => s.pantallaCalle)
+  const fijarModoCalle = useAlmacen((s) => s.fijarModoCalle)
+
+  return (
+    <div className="flex justify-center bg-cabecera px-3 pb-2 md:border-t md:border-cabecera-2 md:px-4 md:py-2">
+      <Segmentado
+        etiqueta="Modos de la calle"
+        como="nav"
+        tono="oscuro"
+        opciones={MODOS}
+        valor={pantallaCalle === null ? modoCalle : null}
+        alCambiar={fijarModoCalle}
+        className="w-full md:w-auto"
+      />
+    </div>
+  )
+}
 
 const PANTALLAS: { pantalla: Exclude<PantallaCalle, 'guia'>; texto: string }[] = [
   { pantalla: 'analisis', texto: 'Análisis' },
@@ -47,78 +109,57 @@ const PANTALLAS: { pantalla: Exclude<PantallaCalle, 'guia'>; texto: string }[] =
   { pantalla: 'planificar', texto: 'Planificar' },
 ]
 
+const TEXTO_MODO: Record<ModoCalle, string> = { medir: 'Medir', revisar: 'Revisar', replantear: 'Replantear' }
+
 /**
- * Dentro de Calle: qué calle, los tres modos sobre la misma vista y las tres
- * pantallas de la calle. En el celular van en dos filas —la calle y sus
- * pantallas arriba, los tres modos a lo ancho abajo— para dejarle la
- * pantalla a la libreta; en la laptop, todo en una.
+ * Las pantallas de la calle (Análisis, Cierre, Planificar), como pestañas de
+ * texto. Va dentro de <main>, al principio: se desplaza con el contenido y no
+ * le quita alto fijo a la libreta en el celular. Con una pantalla abierta, lo
+ * primero es volver al modo en el que se estaba.
  */
-export function NavegacionCalle() {
-  const calles = useAlmacen((s) => s.proyecto.calles)
-  const calleActivaId = useAlmacen((s) => s.calleActivaId)
-  const activarCalle = useAlmacen((s) => s.activarCalle)
+export function NavegacionPantallasCalle() {
   const modoCalle = useAlmacen((s) => s.modoCalle)
   const pantallaCalle = useAlmacen((s) => s.pantallaCalle)
-  const fijarModoCalle = useAlmacen((s) => s.fijarModoCalle)
   const abrirPantallaCalle = useAlmacen((s) => s.abrirPantallaCalle)
+  const hayVolver = pantallaCalle !== null
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-2 py-2 sm:px-4 dark:border-slate-800">
-      {calles.length === 0 ? (
-        <p className="order-1 min-w-0 flex-1 text-sm text-slate-600 sm:flex-none dark:text-slate-300">Todavía no hay calles: créalas en Obra.</p>
-      ) : (
-        <label className="order-1 flex min-w-0 flex-1 items-center gap-2 text-sm sm:flex-none">
-          {/* En el celular el nombre de la calle ya dice qué es; la etiqueta queda para el lector de pantalla. */}
-          <span className="sr-only font-medium sm:not-sr-only">Calle activa</span>
-          <select
-            value={calleActivaId ?? ''}
-            onChange={(evento) => activarCalle(evento.target.value || null)}
-            className="min-h-11 min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 text-sm sm:w-56 sm:flex-none dark:border-slate-700 dark:bg-slate-900"
-          >
-            {calleActivaId === null && <option value="">Elige una calle</option>}
-            {calles.map((calle) => (
-              <option key={calle.id} value={calle.id}>
-                {calle.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+    <nav
+      aria-label="Pantallas de la calle"
+      className={`flex items-center gap-1 border-b border-borde bg-fondo px-3 md:px-4 ${
+        hayVolver ? 'max-md:overflow-x-auto' : 'max-md:grid max-md:grid-cols-3'
+      }`}
+    >
+      {hayVolver && (
+        <button
+          type="button"
+          aria-label={`Volver a ${TEXTO_MODO[modoCalle]}`}
+          onClick={() => abrirPantallaCalle(null)}
+          className="mr-auto inline-flex min-h-11 min-w-11 shrink-0 items-center gap-1 pr-2 text-[15px] font-semibold whitespace-nowrap text-tinta md:mr-2"
+        >
+          <span aria-hidden="true" className="text-xl leading-none">
+            ‹
+          </span>
+          {TEXTO_MODO[modoCalle]}
+        </button>
       )}
-
-      <nav aria-label="Modos de la calle" className="order-3 grid w-full grid-cols-3 gap-2 sm:order-2 sm:flex sm:w-auto">
-        {MODOS.map(({ modo, texto }) => {
-          const activo = pantallaCalle === null && modoCalle === modo
-          return (
-            <button
-              key={modo}
-              type="button"
-              aria-pressed={activo}
-              onClick={() => fijarModoCalle(modo)}
-              className={`${BOTON} ${activo ? ACTIVO : INACTIVO}`}
-            >
-              {texto}
-            </button>
-          )
-        })}
-      </nav>
-
-      <nav aria-label="Pantallas de la calle" className="order-2 flex gap-1 sm:order-3 sm:ml-auto sm:gap-2">
-        {PANTALLAS.map(({ pantalla, texto }) => {
-          // La guía de campo es parte del planificador: con ella abierta, Planificar sigue marcado.
-          const activo = pantallaCalle === pantalla || (pantalla === 'planificar' && pantallaCalle === 'guia')
-          return (
-            <button
-              key={pantalla}
-              type="button"
-              aria-pressed={activo}
-              onClick={() => abrirPantallaCalle(pantalla)}
-              className={`min-h-11 rounded px-2 py-1 text-xs sm:px-3 sm:text-sm ${activo ? ACTIVO : INACTIVO}`}
-            >
-              {texto}
-            </button>
-          )
-        })}
-      </nav>
-    </div>
+      {PANTALLAS.map(({ pantalla, texto }) => {
+        // La guía de campo es parte del planificador: con ella abierta, Planificar sigue marcado.
+        const activo = pantallaCalle === pantalla || (pantalla === 'planificar' && pantallaCalle === 'guia')
+        return (
+          <button
+            key={pantalla}
+            type="button"
+            aria-pressed={activo}
+            onClick={() => abrirPantallaCalle(pantalla)}
+            className={`-mb-px min-h-11 shrink-0 border-b-2 px-3 text-[15px] font-semibold whitespace-nowrap ${
+              activo ? 'border-marca text-marca' : 'border-transparent text-tenue hover:text-tinta'
+            }`}
+          >
+            {texto}
+          </button>
+        )
+      })}
+    </nav>
   )
 }

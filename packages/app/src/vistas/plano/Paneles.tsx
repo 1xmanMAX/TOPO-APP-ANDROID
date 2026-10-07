@@ -14,7 +14,8 @@ import { useId, useMemo, useState } from 'react'
 import { useAlmacen } from '../../estado/almacen'
 import type { PlanoVectorial } from '../../planos/dxf'
 import { PENDIENTE_EMPINADA, rasanteDeCroquis } from './datosPista'
-import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAJA } from './estilos'
+import Plegable from '../../componentes/Plegable'
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAJA, TARJETA } from './estilos'
 
 /**
  * «3244,5», «3244.5», «−6» (el menos de los teclados que lo ponen bonito)
@@ -37,7 +38,7 @@ function esInvalido(texto: string): boolean {
 }
 
 const ESTILO_CAMPO =
-  'min-h-11 w-full rounded border border-slate-300 bg-white px-2 text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca dark:border-slate-700 dark:bg-slate-900'
+  'min-h-11 w-full rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-base text-tinta outline-none focus:border-marca focus:ring-2 focus:ring-marca/40'
 
 /**
  * Campo de texto de 44 px para tocarlo con guantes. El CampoTexto común
@@ -46,7 +47,7 @@ const ESTILO_CAMPO =
 export function CampoTextoAlto({ etiqueta, valor, alCambiar, marcador }: { etiqueta: string; valor: string; alCambiar: (v: string) => void; marcador?: string }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{etiqueta}</span>
+      <span className="text-xs font-medium text-tenue">{etiqueta}</span>
       <input type="text" value={valor} placeholder={marcador} onChange={(e) => alCambiar(e.target.value)} className={ESTILO_CAMPO} />
     </label>
   )
@@ -74,7 +75,7 @@ function CampoDecimal({ etiqueta, valor, alCambiar, sufijo, ayuda, conSigno }: P
   return (
     <div className="flex flex-col gap-1">
       <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{etiqueta}</span>
+        <span className="text-xs font-medium text-tenue">{etiqueta}</span>
         <span className="flex items-center gap-1">
           <input
             type="text"
@@ -86,7 +87,7 @@ function CampoDecimal({ etiqueta, valor, alCambiar, sufijo, ayuda, conSigno }: P
             onChange={(e) => alCambiar(e.target.value)}
             className={`numerico ${ESTILO_CAMPO} text-right`}
           />
-          {sufijo && <span className="text-xs text-slate-500">{sufijo}</span>}
+          {sufijo && <span className="text-xs text-tenue">{sufijo}</span>}
         </span>
       </label>
       {conSigno && (
@@ -95,7 +96,7 @@ function CampoDecimal({ etiqueta, valor, alCambiar, sufijo, ayuda, conSigno }: P
         </button>
       )}
       {ayuda && (
-        <span id={idAyuda} className="text-xs text-slate-500 dark:text-slate-400">
+        <span id={idAyuda} className="text-xs text-tenue">
           {ayuda}
         </span>
       )}
@@ -107,36 +108,41 @@ function CampoDecimal({ etiqueta, valor, alCambiar, sufijo, ayuda, conSigno }: P
 // ─── Capas del DXF ───────────────────────────────────────────────────────
 
 export function PanelCapas({ vectorial, ocultas, alCambiar }: { vectorial: PlanoVectorial; ocultas: ReadonlySet<string>; alCambiar: (capa: string, visible: boolean) => void }) {
+  const visibles = vectorial.capas.filter((c) => !ocultas.has(c.nombre)).length
   return (
-    <fieldset className={CAJA}>
-      <legend className="px-1 text-sm font-semibold">Capas del plano</legend>
-      <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-1">
-        {vectorial.capas.map((capa) => (
-          <li key={capa.nombre}>
-            <label className="flex min-h-11 items-center gap-2 rounded px-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">
-              <input
-                type="checkbox"
-                className="size-5"
-                checked={!ocultas.has(capa.nombre)}
-                onChange={(e) => alCambiar(capa.nombre, e.target.checked)}
-              />
-              <span
-                aria-hidden="true"
-                className="inline-block size-4 shrink-0 rounded-sm border border-slate-400"
-                style={{ backgroundColor: capa.color }}
-              />
-              <span className="min-w-0 break-all">{capa.nombre}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      {vectorial.ignoradasDetalle.length > 0 && (
-        <p className="text-xs text-slate-600 dark:text-slate-300">
-          <span aria-hidden="true">△ </span>
-          No se dibujan: {vectorial.ignoradasDetalle.map((f) => `${f.cantidad} ${f.tipo}`).join(', ')}.
-        </p>
-      )}
-    </fieldset>
+    <div className={`${TARJETA} py-1`}>
+      <Plegable titulo="Capas del plano" resumen={`${visibles} ${visibles === 1 ? 'visible' : 'visibles'} de ${vectorial.capas.length}`}>
+        <fieldset className="flex flex-col gap-2 pb-3">
+          <legend className="sr-only">Capas del plano</legend>
+          <ul className="grid grid-cols-2 gap-1">
+            {vectorial.capas.map((capa) => (
+              <li key={capa.nombre} className="min-w-0">
+                <label className="flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm hover:bg-fondo">
+                  <input
+                    type="checkbox"
+                    className="size-5 shrink-0 accent-marca"
+                    checked={!ocultas.has(capa.nombre)}
+                    onChange={(e) => alCambiar(capa.nombre, e.target.checked)}
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="inline-block size-4 shrink-0 rounded-sm border border-borde-fuerte"
+                    style={{ backgroundColor: capa.color }}
+                  />
+                  <span className="numerico min-w-0 break-all text-xs">{capa.nombre}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {vectorial.ignoradasDetalle.length > 0 && (
+            <p className="text-xs text-tenue">
+              <span aria-hidden="true">△ </span>
+              No se dibujan: {vectorial.ignoradasDetalle.map((f) => `${f.cantidad} ${f.tipo}`).join(', ')}.
+            </p>
+          )}
+        </fieldset>
+      </Plegable>
+    </div>
   )
 }
 
@@ -147,6 +153,17 @@ export function textoEscala(plano: PlanoImportado): string {
   if (!plano.calibracion) return 'Sin escala'
   const unidad = plano.formato === 'pdf' ? 'punto del PDF' : 'unidad del dibujo'
   return `1 ${unidad} = ${Number(plano.calibracion.metrosPorUnidad.toPrecision(6))} m`
+}
+
+/**
+ * La escala en pocas letras («1 u = 1 m», «1 pt = 0.353 m») para el chip de
+ * arriba del visor: en el celular tiene que caber en la misma fila que el
+ * plano y el «⋯». El texto completo va en el panel de calibrar y en el aviso.
+ */
+export function textoEscalaCorto(plano: PlanoImportado): string {
+  if (!plano.calibracion) return 'Sin escala'
+  const unidad = plano.formato === 'pdf' ? 'pt' : 'u'
+  return `1 ${unidad} = ${Number(plano.calibracion.metrosPorUnidad.toPrecision(3))} m`
 }
 
 type NuevaEscala = { calibracion: Calibracion } | { error: string } | null
@@ -205,7 +222,7 @@ export function PanelCalibrar({ plano, pistas, puntos, alReiniciar, alTerminar }
 
   return (
     <section aria-labelledby={idTitulo} className={CAJA}>
-      <h3 id={idTitulo} className="text-base font-semibold">
+      <h3 id={idTitulo} className="text-lg font-bold">
         Calibrar escala
       </h3>
       <p className="text-sm">Escala actual: {textoEscala(plano)}.</p>
@@ -232,7 +249,7 @@ export function PanelCalibrar({ plano, pistas, puntos, alReiniciar, alTerminar }
         </p>
       )}
       {confirmando && nueva && 'calibracion' in nueva && afectadas.length > 0 ? (
-        <div className="flex flex-col gap-2 rounded border border-aviso/60 bg-aviso/10 p-2 text-sm">
+        <div className="flex flex-col gap-2 rounded-[10px] bg-aviso-suave text-aviso p-2 text-sm">
           <p>
             <span aria-hidden="true">△ </span>
             La escala nueva cambia el largo, las estacas, las pendientes y los controles de{' '}
@@ -353,7 +370,7 @@ export function PanelCroquis({ plano, puntos, estacas, borrador, alCambiarBorrad
 
   return (
     <section aria-labelledby={idTitulo} className={CAJA}>
-      <h3 id={idTitulo} className="text-base font-semibold">
+      <h3 id={idTitulo} className="text-lg font-bold">
         Croquis de la pista
       </h3>
       <p className="text-sm">Toca el plano vértice a vértice, desde el 0+000 en el sentido de avance.</p>
@@ -389,9 +406,9 @@ export function PanelCroquis({ plano, puntos, estacas, borrador, alCambiarBorrad
       </div>
       {cotaFinal !== null && desnivel !== null && (
         <dl aria-label="Resultado del croquis" className="numerico grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-          <dt className="text-slate-500 dark:text-slate-400">Cota final</dt>
+          <dt className="text-tenue">Cota final</dt>
           <dd>{cotaFinal.toFixed(3)} m</dd>
-          <dt className="text-slate-500 dark:text-slate-400">Desnivel</dt>
+          <dt className="text-tenue">Desnivel</dt>
           <dd>
             {desnivel > 0 ? '+' : ''}
             {desnivel.toFixed(3)} m{empinada ? ' · △ empinada: la precisión manda' : ''}
@@ -407,7 +424,7 @@ export function PanelCroquis({ plano, puntos, estacas, borrador, alCambiarBorrad
       <button type="button" className={BOTON_PRINCIPAL} disabled={!puedeCrear} onClick={crear}>
         Crear calle con este croquis
       </button>
-      {!puedeCrear && <p className="text-xs text-slate-500 dark:text-slate-400">{razon}</p>}
+      {!puedeCrear && <p className="text-xs text-tenue">{razon}</p>}
     </section>
   )
 }

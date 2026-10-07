@@ -49,14 +49,13 @@ describe('PantallaGuia', () => {
     expect(primero.lecturas.length).toBeGreaterThan(0)
     render(<PantallaGuia />)
 
-    expect(screen.getByRole('heading', { name: 'Guía de campo' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Guía de campo/ })).toHaveTextContent('Pasaje Empinado')
     const tarjeta = screen.getByRole('article')
     expect(within(tarjeta).getByRole('heading')).toHaveTextContent('Estación 1 · tramo 1, ida')
-    expect(tarjeta).toHaveTextContent(/Planta el nivel en ≈ 0\+0/)
+    expect(tarjeta).toHaveTextContent(/Planta el nivel\s*≈ 0\+0/)
     // Al centímetro: salen del perfil, no son para comprobar.
-    expect(tarjeta).toHaveTextContent(
-      `Mira atrás en Control 1 (0+000): debería marcar ≈ ${primero.atras.lectura.toFixed(2)} m`,
-    )
+    expect(tarjeta).toHaveTextContent('Mira atrás en Control 1 (0+000)')
+    expect(tarjeta).toHaveTextContent(`Debería marcar ≈ ${primero.atras.lectura.toFixed(2)} m`)
     expect(tarjeta).toHaveTextContent(`Clava el PC 1`)
     expect(tarjeta).toHaveTextContent(`lee adelante ≈ ${primero.adelante.lectura.toFixed(2)} m`)
     const lecturas = within(tarjeta).getByRole('list', {
@@ -71,7 +70,8 @@ describe('PantallaGuia', () => {
       name: 'Avance de la guía',
     })
     expect(avance).toHaveAttribute('aria-valuenow', '0')
-    expect(screen.getByText(/^Paso 1 de \d+ · tramo 1 de \d+, ida$/)).toBeInTheDocument()
+    expect(screen.getByText(/^Paso 1 \/ \d+$/)).toBeInTheDocument()
+    expect(screen.getByText(/· tramo 1 de \d+, ida$/)).toBeInTheDocument()
     expect(screen.getByText(/Ida: estaciones 0 de \d+ · Cambios 0 de \d+ · Controles 0 de \d+/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled()
   })
@@ -93,7 +93,7 @@ describe('PantallaGuia', () => {
     expect(screen.getByText(/tramos no cumplen: su cierre puede salir fuera de la tolerancia/)).toBeInTheDocument()
     for (let i = 0; i < llegada.indice; i++)
       await usuario.click(screen.getByRole('button', { name: 'Hecho, siguiente' }))
-    expect(within(screen.getByRole('article')).getByRole('note')).toHaveTextContent(/✗ Este tramo no cumple en el plan/)
+    expect(within(screen.getByRole('article')).getByRole('note', { name: 'Cierre del tramo' })).toHaveTextContent(/✗ Este tramo no cumple en el plan/)
   })
 
   it('«Hecho, siguiente» avanza, «Anterior» vuelve, el paso se recuerda y la tarjeta nueva toma el foco', async () => {
@@ -103,7 +103,7 @@ describe('PantallaGuia', () => {
     await usuario.click(screen.getByRole('button', { name: 'Hecho, siguiente' }))
     expect(screen.getByRole('article')).toHaveTextContent('Estación 2')
     expect(within(screen.getByRole('article')).getByRole('heading')).toHaveFocus()
-    expect(screen.getByText(/^Paso 2 de/)).toBeInTheDocument()
+    expect(screen.getByText(/^Paso 2 \//)).toBeInTheDocument()
     expect(screen.getByText(/estaciones 1 de/)).toBeInTheDocument()
     expect(screen.getByRole('article')).toHaveTextContent(/Mira atrás en PC 1/)
 
@@ -121,9 +121,8 @@ describe('PantallaGuia', () => {
     render(<PantallaGuia />)
     for (let i = 0; i < vuelta.indice; i++)
       await usuario.click(screen.getByRole('button', { name: 'Hecho, siguiente' }))
-    expect(
-      screen.getByText(new RegExp(`^Paso ${vuelta.indice + 1} de \\d+ · tramo 1 de \\d+, vuelta$`)),
-    ).toBeInTheDocument()
+    expect(screen.getByText(`Paso ${vuelta.indice + 1} / ${recorridoEsperado().pasos.length}`)).toBeInTheDocument()
+    expect(screen.getByText(/· tramo 1 de \d+, vuelta$/)).toBeInTheDocument()
   })
 
   it('al llegar a un control recuerda comparar su cota y cerrar el tramo, sin dar nada por bueno', async () => {
@@ -135,7 +134,7 @@ describe('PantallaGuia', () => {
 
     for (let i = 0; i < llegada.indice; i++)
       await usuario.click(screen.getByRole('button', { name: 'Hecho, siguiente' }))
-    const nota = within(screen.getByRole('article')).getByRole('note')
+    const nota = within(screen.getByRole('article')).getByRole('note', { name: 'Cierre del tramo' })
     expect(nota).toHaveTextContent(`Llegaste al ${llegada.llegaA!.nombre}`)
     expect(nota).toHaveTextContent(/Compara su cota con la prevista ≈ .*sin comprobar/)
     expect(nota).toHaveTextContent(/cierra el tramo de ida y vuelta/)
@@ -146,12 +145,12 @@ describe('PantallaGuia', () => {
     for (let i = llegada.indice; i < vuelta.indice; i++)
       await usuario.click(screen.getByRole('button', { name: 'Hecho, siguiente' }))
     expect(screen.getByRole('article')).toHaveTextContent('tramo 1, vuelta')
-    const notaVuelta = within(screen.getByRole('article')).getByRole('note')
+    const notaVuelta = within(screen.getByRole('article')).getByRole('note', { name: 'Cierre del tramo' })
     expect(notaVuelta).toHaveTextContent(`Llegaste de vuelta al Control 1. Cierra el tramo`)
     expect(notaVuelta).not.toHaveTextContent('✓')
   })
 
-  it('la orden de cerrar va también junto a «Hecho, siguiente», con la tolerancia y sin el ambiguo «si pasa»', async () => {
+  it('la orden de cerrar va también arriba, en la tarjeta oscura, con la tolerancia y sin el ambiguo «si pasa»', async () => {
     const recorrido = recorridoEsperado()
     const llegada = recorrido.pasos.find((p) => p.sentido === 'ida' && p.llegaA)!
     const vuelta = recorrido.pasos.find((p) => p.sentido === 'vuelta' && p.llegaA)!
@@ -164,11 +163,11 @@ describe('PantallaGuia', () => {
     // Un paso que no llega a un control no lleva recordatorio.
     expect(recordatorio()).toBeNull()
 
-    // La lectura adelante va junto al botón en cada paso, igual que en la tarjeta.
+    // La lectura adelante va arriba, en la tarjeta oscura, en cada paso, igual que en el paso de adelante.
     for (const p of recorrido.pasos) {
       if (p.indice > 0) await usuario.click(siguiente())
       const barra = screen.getByLabelText('Lectura adelante')
-      expect(barra.parentElement).toBe(siguiente().parentElement)
+      expect(screen.getByRole('article')).toContainElement(barra)
       expect(barra).toHaveTextContent(`Adelante: ${p.adelante.nombre} (`)
       expect(barra).toHaveTextContent(`≈ ${p.adelante.lectura.toFixed(2)} m`)
       expect(screen.getByRole('article')).toHaveTextContent(`lee adelante ≈ ${p.adelante.lectura.toFixed(2)} m`)
@@ -180,11 +179,11 @@ describe('PantallaGuia', () => {
     for (let i = 0; i < llegada.indice; i++) await usuario.click(siguiente())
     expect(recordatorio()).toHaveTextContent(`Llegaste al ${llegada.llegaA!.nombre}`)
     expect(recordatorio()).toHaveTextContent(/cerrar el tramo \(± \d+\.\d mm\)/)
-    // En la misma barra fija que el botón: si el botón se ve, el recordatorio también.
-    expect(recordatorio()!.parentElement).toBe(siguiente().parentElement)
+    // En la tarjeta oscura, que es lo primero que se ve del paso.
+    expect(screen.getByRole('article')).toContainElement(recordatorio())
 
     for (let i = llegada.indice; i < vuelta.indice; i++) await usuario.click(siguiente())
-    const notaVuelta = within(screen.getByRole('article')).getByRole('note')
+    const notaVuelta = within(screen.getByRole('article')).getByRole('note', { name: 'Cierre del tramo' })
     const tol = tolerancia(notaVuelta)!
     expect(tol).toBeDefined()
     expect(recordatorio()).toHaveTextContent(`cierra el tramo en el ${vuelta.llegaA!.nombre}`)
@@ -226,7 +225,7 @@ describe('PantallaGuia', () => {
 
     // Los mismos pasos que el plan guardado, no los de las reglas nuevas.
     const esperado = recorridoDelPlan(plan)
-    expect(screen.getByText(new RegExp(`^Paso 1 de ${esperado.pasos.length} `))).toBeInTheDocument()
+    expect(screen.getByText(`Paso 1 / ${esperado.pasos.length}`)).toBeInTheDocument()
     const aviso = screen.getByText(/Esta guía sigue el plan guardado en la calle/)
     expect(aviso).toHaveTextContent(/cambiaron las reglas del nivel/)
     expect(aviso).not.toHaveTextContent(/guárdalo/)
@@ -244,7 +243,7 @@ describe('PantallaGuia', () => {
     render(<PantallaGuia />)
 
     const esperado = recorridoDelPlan(plan)
-    expect(screen.getByText(new RegExp(`^Paso 1 de ${esperado.pasos.length} `))).toBeInTheDocument()
+    expect(screen.getByText(`Paso 1 / ${esperado.pasos.length}`)).toBeInTheDocument()
     expect(screen.getByText(new RegExp(`Controles 0 de ${plan.controles.length}`))).toBeInTheDocument()
     expect(plan.controles.some((c) => c.progresiva === 60)).toBe(true)
     // La rasante (una sola pendiente) da otros controles: se dice, sin proponer guardar encima.
@@ -255,10 +254,10 @@ describe('PantallaGuia', () => {
     const usuario = userEvent.setup()
     render(<PantallaGuia />)
     for (let i = 0; i < 3; i++) await usuario.click(screen.getByRole('button', { name: 'Hecho, siguiente' }))
-    expect(screen.getByText(/^Paso 4 de/)).toBeInTheDocument()
+    expect(screen.getByText('Paso 4 / ' + recorridoEsperado().pasos.length)).toBeInTheDocument()
 
     act(() => estado().fijarInstrumento({ maxCambiosPorTramo: 1 }))
-    expect(screen.getByText(/^Paso 1 de/)).toBeInTheDocument()
+    expect(screen.getByText(/^Paso 1 \/ \d+$/)).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent(/El plan cambió desde que dejaste la guía en el paso 4/)
   })
 

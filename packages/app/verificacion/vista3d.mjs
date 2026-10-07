@@ -79,6 +79,8 @@ comprobar('el deslizador de exageración está montado', (await seccionModelo.ge
 // y después de un arrastre real con el ratón.
 const puntosAntes = await modelo.locator('polygon[data-cara]').evaluateAll((es) => es.map((e) => e.getAttribute('points')))
 
+// Con los controles del visor a 44 px el modelo queda más abajo: se trae a la vista antes de arrastrar.
+await modelo.scrollIntoViewIfNeeded()
 const caja = await modelo.boundingBox()
 const centroY = caja.y + caja.height / 2
 await pagina.mouse.move(caja.x + caja.width * 0.3, centroY)
@@ -96,7 +98,20 @@ await pagina.screenshot({ path: `${SALIDA}/modelo-girado.png`, fullPage: true })
 // 6. El deslizador de progresiva secciona el modelo (menos caras al recortar
 // el tramo). Es el mismo deslizador de la vista de la calle, compartido por
 // el corte, el perfil y el 3D. Se lleva al principio y un paso a la derecha.
-const deslizador = seccionModelo.getByRole('slider', { name: 'Progresiva' })
+// La progresiva se recorre con las flechas «Progresiva anterior / siguiente»
+// de la cabecera del dibujo (ya no hay deslizador). Esto las pulsa como
+// pulsaba antes las teclas del deslizador: End = la última, Home = la primera.
+const deslizador = {
+  async focus() {},
+  async press(tecla) {
+    const anterior = seccionModelo.getByRole('button', { name: 'Progresiva anterior', exact: true })
+    const siguiente = seccionModelo.getByRole('button', { name: 'Progresiva siguiente', exact: true })
+    if (tecla === 'ArrowRight') return siguiente.click()
+    if (tecla === 'ArrowLeft') return anterior.click()
+    const boton = tecla === 'End' ? siguiente : anterior
+    while (await boton.isEnabled()) await boton.click()
+  },
+}
 const carasTodo = await (async () => {
   await deslizador.focus()
   await deslizador.press('End')

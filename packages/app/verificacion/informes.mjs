@@ -62,16 +62,29 @@ async function abrirEnInformes(ancho, alto) {
   return pagina
 }
 
+/**
+ * La calle, la jornada y el tramo van plegados debajo de los chips de lo ya
+ * elegido («Cambiar calle, jornada o tramo»): se abre antes de tocarlos. Si ya
+ * está abierto no se toca, que un clic en el summary lo volvería a cerrar.
+ */
+async function abrirAlcance(pagina) {
+  const resumen = pagina.locator('summary', { hasText: 'Cambiar calle, jornada o tramo' })
+  const abierto = await resumen.evaluate((s) => s.parentElement.open)
+  if (!abierto) await resumen.click()
+}
+
 async function elegirInforme(pagina, titulo) {
   await pagina.getByRole('group', { name: 'Tipo de informe' }).getByRole('button', { name: titulo, exact: true }).click()
 }
 
 async function elegirCalle(pagina, nombre) {
+  await abrirAlcance(pagina)
   await pagina.getByRole('combobox', { name: 'Calle', exact: true }).selectOption({ label: nombre })
 }
 
 /** Elige la opción de un desplegable cuyo texto contiene `trozo` (las jornadas llevan capa · fecha · nivelación). */
 async function elegirOpcionQueDiga(pagina, etiqueta, trozo) {
+  await abrirAlcance(pagina)
   const lista = pagina.getByRole('combobox', { name: etiqueta, exact: true })
   const opciones = await lista.locator('option').evaluateAll((os) => os.map((o) => ({ valor: o.value, texto: o.textContent ?? '' })))
   const opcion = opciones.find((o) => o.texto.includes(trozo))
@@ -345,6 +358,7 @@ const SOL = ESPERADO.avSol
 const LIMA = ESPERADO.jrLima
 const LOMAS = ESPERADO.lasLomas
 
+await abrirAlcance(pagina)
 comprobar('al entrar a Informes la calle es la activa (Av. Sol)',
   (await pagina.getByRole('combobox', { name: 'Calle', exact: true }).locator('option:checked').innerText()) === SOL.nombre)
 

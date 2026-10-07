@@ -1,8 +1,9 @@
 import { formatearPendiente, formatearProgresiva, type PendienteTramo, type Pista } from '@topo/core'
-import { forwardRef, useId, useState } from 'react'
+import { forwardRef, useId, useRef, useState } from 'react'
 import { useAlmacen } from '../../estado/almacen'
 import { estadoDeNivelaciones, type DatosPista } from './datosPista'
-import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAJA, type AvisoPantalla } from './estilos'
+import MenuMas from '../../componentes/MenuMas'
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAJA, CEJA, ENLACE_PELIGRO, ITEM_MENU, type AvisoPantalla } from './estilos'
 import TomarRasante from './TomarRasante'
 
 export { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAJA } from './estilos'
@@ -15,30 +16,31 @@ function TextoSentido({ tramo }: { tramo: PendienteTramo }) {
 export function ListaPendientes({ datos }: { datos: DatosPista }) {
   if (datos.tramos.length === 0) {
     return (
-      <p className="text-sm text-slate-600 dark:text-slate-300">
+      <p className="text-sm text-tenue">
         Sin pendientes: el plano no trae cotas de esta pista y su calle no tiene rasante.
       </p>
     )
   }
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-tenue">
         {datos.fuente === 'plano' ? 'Según las cotas del plano' : 'Según la rasante de la calle'}
       </p>
-      <ul aria-label="Pendientes por tramo" className="flex flex-col gap-1 text-sm">
+      <ul aria-label="Pendientes por tramo" className="flex flex-col gap-1.5 text-sm">
         {datos.tramos.map(({ tramo, empinada }) => (
-          <li
-            key={tramo.desde}
-            className={`numerico rounded px-2 py-1 ${empinada ? 'bg-aviso/20 font-medium' : 'bg-slate-50 dark:bg-slate-900'}`}
-          >
-            {formatearProgresiva(tramo.desde)} → {formatearProgresiva(tramo.hasta)}: {formatearPendiente(tramo.porcentaje)}{' '}
-            <TextoSentido tramo={tramo} />
-            {empinada && <span> · △ empinada</span>}
+          <li key={tramo.desde} className="numerico flex flex-wrap items-center justify-between gap-x-3 rounded-lg bg-fondo px-2.5 py-2">
+            <span>
+              {formatearProgresiva(tramo.desde)} → {formatearProgresiva(tramo.hasta)}:
+            </span>{' '}
+            <span className={empinada ? 'font-bold text-marca' : 'font-semibold'}>
+              {formatearPendiente(tramo.porcentaje)} <TextoSentido tramo={tramo} />
+              {empinada && <span> · △ empinada</span>}
+            </span>
           </li>
         ))}
       </ul>
       {datos.conflictos > 0 && (
-        <p className="text-xs text-slate-600 dark:text-slate-300">
+        <p className="text-xs text-tenue">
           <span aria-hidden="true">△ </span>
           {datos.conflictos === 1 ? 'Una estaca del plano tiene' : `${datos.conflictos} estacas del plano tienen`} cotas
           distintas y no se usaron: revísalas en el plano.
@@ -72,6 +74,18 @@ export const FichaPista = forwardRef<HTMLHeadingElement, PropsFicha>(function Fi
   const crearCalleDesdePista = useAlmacen((s) => s.crearCalleDesdePista)
   const fijarRasante = useAlmacen((s) => s.fijarRasante)
   const [confirmarQuitar, setConfirmarQuitar] = useState(false)
+  const opcionesMas = useRef<HTMLDivElement>(null)
+
+  // El «⋯» abre su menú hacia abajo y la ficha suele quedar al pie de la
+  // pantalla: al abrirlo (o al pedir la confirmación de quitar) se trae a la
+  // vista, por encima de la barra Obra/Calle/Calcular/Informes.
+  function traerMenuALaVista() {
+    requestAnimationFrame(() => {
+      const menu = opcionesMas.current
+      if (!menu || menu.closest('[hidden]')) return
+      menu.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+    })
+  }
   const [tomandoRasante, setTomandoRasante] = useState(false)
 
   const calle = pista.calleId ? proyecto.calles.find((c) => c.id === pista.calleId) : undefined
@@ -80,25 +94,30 @@ export const FichaPista = forwardRef<HTMLHeadingElement, PropsFicha>(function Fi
 
   return (
     <section aria-labelledby={idTitulo} className={CAJA}>
-      <h3 id={idTitulo} ref={refTitulo} tabIndex={-1} className="text-base font-semibold outline-none">
-        {pista.nombre}
-      </h3>
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <div className="flex flex-col gap-0.5">
+        <p aria-hidden="true" className={CEJA}>
+          Pista elegida
+        </p>
+        <h3 id={idTitulo} ref={refTitulo} tabIndex={-1} className="scroll-mt-28 text-2xl font-bold leading-tight outline-none">
+          {pista.nombre}
+        </h3>
+      </div>
+      <p className="text-sm text-tenue">
         {pista.origen === 'croquis' ? 'Croquis dibujado sobre el plano' : 'Eje tomado del DXF'}
         {calle ? ` · calle «${calle.nombre}»` : ' · sin calle todavía'}
       </p>
 
       {datos ? (
-        <dl className="numerico grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-          <dt className="text-slate-500 dark:text-slate-400">Tramo</dt>
+        <dl className="numerico grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[15px]">
+          <dt className="text-tenue">Tramo</dt>
           <dd>
             {formatearProgresiva(datos.inicio)} → {formatearProgresiva(datos.fin)}
           </dd>
-          <dt className="text-slate-500 dark:text-slate-400">Largo</dt>
+          <dt className="text-tenue">Largo</dt>
           <dd>{datos.largoM.toFixed(3)} m</dd>
         </dl>
       ) : error ? (
-        <p className="rounded border border-aviso/60 bg-aviso/10 p-2 text-sm">
+        <p className="rounded-[10px] bg-aviso-suave px-3 py-2 text-sm text-aviso">
           <span aria-hidden="true">△ </span>
           No se pudo medir esta pista: {error} Revisa la escala del plano o vuelve a dibujar la pista.
         </p>
@@ -112,14 +131,14 @@ export const FichaPista = forwardRef<HTMLHeadingElement, PropsFicha>(function Fi
       {datos && <ListaPendientes datos={datos} />}
 
       <div className="flex flex-col gap-1">
-        <h4 className="text-sm font-medium">Capas medidas</h4>
+        <h4 className="text-[15px] font-semibold">Capas medidas</h4>
         {nivelaciones.length === 0 ? (
-          <p className="text-sm text-slate-600 dark:text-slate-300">Sin nivelaciones todavía.</p>
+          <p className="text-sm text-tenue">Sin nivelaciones todavía.</p>
         ) : (
           <ul aria-label="Capas medidas" className="flex flex-col gap-1 text-sm">
             {nivelaciones.map((n) => (
               <li key={n.id}>
-                <span aria-hidden="true" className={n.simbolo === '✓' ? 'text-pasa' : n.simbolo === '✗' ? 'text-falla' : 'text-slate-500 dark:text-slate-400'}>
+                <span aria-hidden="true" className={n.simbolo === '✓' ? 'text-pasa' : n.simbolo === '✗' ? 'text-falla' : 'text-tenue'}>
                   {n.simbolo}{' '}
                 </span>
                 {n.texto} — {n.estado}
@@ -130,9 +149,9 @@ export const FichaPista = forwardRef<HTMLHeadingElement, PropsFicha>(function Fi
       </div>
 
       <div className="flex flex-col gap-1">
-        <h4 className="text-sm font-medium">Puntos de control</h4>
+        <h4 className="text-[15px] font-semibold">Puntos de control</h4>
         {controles.length === 0 ? (
-          <p className="text-sm text-slate-600 dark:text-slate-300">Sin controles planificados.</p>
+          <p className="text-sm text-tenue">Sin controles planificados.</p>
         ) : (
           <>
             <ul aria-label="Controles planificados" className="numerico flex flex-col gap-1 text-sm">
@@ -146,7 +165,7 @@ export const FichaPista = forwardRef<HTMLHeadingElement, PropsFicha>(function Fi
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-tenue">
               Cotas previstas del perfil, no comprobadas: la estaca tiene cota cuando una nivelación cerrada se la da.
             </p>
           </>
@@ -169,19 +188,31 @@ export const FichaPista = forwardRef<HTMLHeadingElement, PropsFicha>(function Fi
         />
       )}
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="flex flex-col gap-2">
         {calle ? (
-          <>
-            <button
-              type="button"
-              className={BOTON_PRINCIPAL}
-              onClick={() => {
-                activarCalle(calle.id)
-                fijarModoCalle('revisar')
-              }}
-            >
-              Abrir sus cálculos
-            </button>
+          <button
+            type="button"
+            className={`${BOTON_PRINCIPAL} w-full`}
+            onClick={() => {
+              activarCalle(calle.id)
+              fijarModoCalle('revisar')
+            }}
+          >
+            Abrir sus cálculos
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={`${BOTON_PRINCIPAL} w-full`}
+            onClick={() => {
+              if (crearCalleDesdePista(pista.id)) alAvisar({ tipo: 'ok', texto: `✓ Calle «${pista.nombre}» creada con la pista. Sin rasante todavía.` })
+            }}
+          >
+            Crear su calle
+          </button>
+        )}
+        <div className="grid grid-cols-[1fr_44px] gap-2">
+          {calle ? (
             <button
               type="button"
               className={BOTON_SECUNDARIO}
@@ -192,38 +223,41 @@ export const FichaPista = forwardRef<HTMLHeadingElement, PropsFicha>(function Fi
             >
               Planificar cambios
             </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className={BOTON_PRINCIPAL}
-            onClick={() => {
-              if (crearCalleDesdePista(pista.id)) alAvisar({ tipo: 'ok', texto: `✓ Calle «${pista.nombre}» creada con la pista. Sin rasante todavía.` })
-            }}
-          >
-            Crear su calle
-          </button>
-        )}
-        {datos && datos.cotasDelPlano.length >= 2 && !tomandoRasante && (
-          <button type="button" className={BOTON_SECUNDARIO} onClick={() => setTomandoRasante(true)}>
-            Tomar la rasante de las cotas del plano
-          </button>
-        )}
-        {confirmarQuitar ? (
-          <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
-            <span className="text-sm">¿Quitar la pista? La calle y sus mediciones se quedan.</span>
-            <button type="button" className={BOTON_SECUNDARIO} onClick={alQuitar}>
-              Sí, quitar la pista
-            </button>
-            <button type="button" className={BOTON_SECUNDARIO} onClick={() => setConfirmarQuitar(false)}>
-              No
-            </button>
+          ) : (
+            <span />
+          )}
+          {/* Solo escucha los toques que suben del «⋯» y su menú, para traerlo a la vista. */}
+          <div onClick={traerMenuALaVista}>
+          <MenuMas etiqueta="Más de la pista" idMenu={`${idTitulo}-mas`} etiquetaGrupo={`Más de ${pista.nombre}`}>
+            <div ref={opcionesMas} className="flex w-72 max-w-full scroll-mb-24 flex-col gap-1 lg:scroll-mb-4">
+              {datos && datos.cotasDelPlano.length >= 2 && !tomandoRasante && (
+                <button type="button" className={ITEM_MENU} onClick={() => setTomandoRasante(true)}>
+                  Tomar la rasante de las cotas del plano
+                </button>
+              )}
+              <div className="border-t border-borde px-3 pt-1 first:border-t-0 first:pt-0">
+                {confirmarQuitar ? (
+                  <div className="flex flex-col gap-2 py-1">
+                    <p className="text-sm">¿Quitar la pista? La calle y sus mediciones se quedan.</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" className={`${BOTON_SECUNDARIO} border-falla text-falla`} onClick={alQuitar}>
+                        Sí, quitar la pista
+                      </button>
+                      <button type="button" className={BOTON_SECUNDARIO} onClick={() => setConfirmarQuitar(false)}>
+                        No
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className={ENLACE_PELIGRO} onClick={() => setConfirmarQuitar(true)}>
+                    Quitar la pista
+                  </button>
+                )}
+              </div>
+            </div>
+          </MenuMas>
           </div>
-        ) : (
-          <button type="button" className={BOTON_SECUNDARIO} onClick={() => setConfirmarQuitar(true)}>
-            Quitar la pista
-          </button>
-        )}
+        </div>
       </div>
     </section>
   )

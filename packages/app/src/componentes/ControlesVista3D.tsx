@@ -54,10 +54,10 @@ export default function ControlesVista3D() {
             type="button"
             aria-pressed={modoVista3D === modo}
             onClick={() => fijarModoVista3D(modo)}
-            className={`rounded border px-3 py-1.5 text-sm ${
+            className={`inline-flex min-h-11 items-center rounded-[10px] border px-3 text-sm font-medium ${
               modoVista3D === modo
-                ? 'border-marca bg-marca text-white'
-                : 'border-slate-300 dark:border-slate-700'
+                ? 'border-tinta bg-tinta text-tarjeta'
+                : 'border-borde-fuerte bg-tarjeta'
             }`}
           >
             {etiqueta}
@@ -71,32 +71,32 @@ export default function ControlesVista3D() {
             key={etiqueta}
             type="button"
             onClick={() => irAVista(vista)}
-            className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"
+            className="inline-flex min-h-11 items-center rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-sm"
           >
             {etiqueta}
           </button>
         ))}
       </div>
 
-      <div className="flex items-center gap-2" role="group" aria-label="Girar el modelo">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Girar el modelo">
         <button
           type="button"
           onClick={() => girarCamara(-PASO_GIRO)}
-          className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+          className="inline-flex min-h-11 items-center gap-1 rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-sm"
         >
           <span aria-hidden="true">↺</span> Girar a la izquierda
         </button>
         <button
           type="button"
           onClick={() => girarCamara(PASO_GIRO)}
-          className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
+          className="inline-flex min-h-11 items-center gap-1 rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-sm"
         >
           <span aria-hidden="true">↻</span> Girar a la derecha
         </button>
       </div>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+        <span className="flex items-center justify-between text-xs font-medium text-tenue">
           <span>Inclinación</span>
           <span>{camara.inclinacion.toFixed(0)}°</span>
         </span>
@@ -113,7 +113,7 @@ export default function ControlesVista3D() {
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+        <span className="flex items-center justify-between text-xs font-medium text-tenue">
           <span>Exageración</span>
           <span>{camara.exageracion.toFixed(0)}×</span>
         </span>

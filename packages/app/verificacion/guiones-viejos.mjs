@@ -371,6 +371,11 @@ async function recorrer(ancho, alto) {
       return false
     }
   }
+  /** Abre un apartado plegable (<details>) por su título si está cerrado. */
+  async function abrirPlegable(titulo) {
+    const resumen = pagina.locator('summary', { hasText: titulo }).first()
+    if (!(await resumen.evaluate((s) => s.parentElement.open))) await resumen.click()
+  }
   /** Las celdas del mapa a la vista, por su nombre accesible, con lo que muestran. */
   async function celdasDelMapa() {
     const lista = await pagina.locator('main button[aria-label]').evaluateAll((es) =>
@@ -388,7 +393,7 @@ async function recorrer(ancho, alto) {
       const esperada = celdaEsperada(jornada, clave, d)
       const nombre = esperada.etiqueta + sufijo
       const simbolo = esperada.simbolo
-      if (mapa.get(nombre) !== simbolo) {
+      if ((mapa.get(nombre) ?? '').split(' ')[0] !== simbolo) {
         const c = celda(clave)
         const hay = [...mapa].find(([n]) => n.startsWith(`${c.prog} ${c.punto}: `))
         malas.push(`esperaba «${simbolo} ${nombre}», hay «${hay ? `${hay[1]} ${hay[0]}` : 'nada'}»`)
@@ -412,13 +417,13 @@ async function recorrer(ancho, alto) {
     const ok = await tocar(`la celda ${nombre}`, pagina.getByRole('button', { name: new RegExp(`^${escapar(nombre)}: `) }))
     if (!ok) return ''
     const ficha = pagina.getByRole('region', { name: 'Punto elegido' })
-    await ficha.getByText(nombre, { exact: true }).waitFor({ timeout: ESPERA }).catch(() => {})
+    await ficha.getByText(`${prog(p.progresiva)} · ${p.punto}`, { exact: true }).waitFor({ timeout: ESPERA }).catch(() => {})
     return enUnaLinea(await ficha.innerText())
   }
   function comprobarFicha(calle, p, simbolo, estado, ficha) {
     const accion = p.diferenciaMm > 0 ? 'corta' : 'rellena'
     comprobar(`${etiqueta}: la ficha de ${prog(p.progresiva)} ${p.punto} de ${calle.nombre} dice ${simbolo} ${estado}, ${accion} ${Math.abs(p.diferenciaMm)} mm, diferencia ${mm(p.diferenciaMm)}`,
-      ficha.includes(`${simbolo} ${estado} · ${accion} ${Math.abs(p.diferenciaMm)} mm`) &&
+      ficha.includes(simbolo) && ficha.includes(`${estado} · ${accion} ${Math.abs(p.diferenciaMm)} mm`) &&
         ficha.includes(`Diferencia ${mm(p.diferenciaMm)}`) &&
         ficha.includes(`Cota medida ${p.cotaMedida.toFixed(3)}`) &&
         ficha.includes(`Cota de proyecto ${p.cotaProyecto.toFixed(3)}`),
@@ -456,10 +461,14 @@ async function recorrer(ancho, alto) {
   await irAModo('Medir')
   await elegirCalle(SOL)
   await elegirCapa('SUBRASANTE', SOL.subrasante.fecha)
+  await abrirPlegable('Cierre del circuito')
   const cierre = enUnaLinea(await textoDe(pagina.getByRole('region', { name: 'Cierre en vivo' })))
   comprobar(`${etiqueta}: la libreta de la subrasante de ${SOL.nombre} dice que cierra, con su ✓`,
     cierre.startsWith(`${S.conforme} Cierra`), cierre.slice(0, 100))
-  comprobar(`${etiqueta}: el campo de lectura de mira está a la mano`, await seVe(pagina.getByLabel('Lectura de mira')))
+  // Con la grilla llena no hay campo: en su lugar, «Grilla completa» y la progresiva nueva a la mano.
+  comprobar(`${etiqueta}: el campo de lectura de mira (o, con la grilla llena, «Grilla completa» y Añadir progresiva) está a la mano`,
+    (await seVe(pagina.getByLabel('Lectura de mira'))) ||
+      ((await seVe(pagina.getByText('Grilla completa', { exact: true }))) && (await seVe(pagina.getByLabel('Añadir progresiva')))))
   await revisarPantalla(pagina, etiqueta, 'Medir', celular)
 
   // --- Calle › Revisar: Av. Sol, que cierra --------------------------------
@@ -467,7 +476,7 @@ async function recorrer(ancho, alto) {
   const resumenSol = await comprobarMapa(SOL, SOL.subrasante)
   const fichaRevisarSol = await textoDe(fichaDelModo('Revisar'))
   comprobar(`${etiqueta}: en Revisar, ${SOL.nombre} (cierra) dice «Cotas compensadas» y «DIFERENCIAS VERIFICADAS», y no «no comprobado»`,
-    /Cotas compensadas/.test(fichaRevisarSol) && /DIFERENCIAS VERIFICADAS/.test(fichaRevisarSol) &&
+    /Cotas compensadas/i.test(fichaRevisarSol) && /DIFERENCIAS VERIFICADAS/.test(fichaRevisarSol) &&
       !NO_COMPROBADO.test(fichaRevisarSol) && !NO_COMPROBADO.test(resumenSol),
     NO_COMPROBADO.test(fichaRevisarSol) ? renglonNoComprobado(fichaRevisarSol) : enUnaLinea(fichaRevisarSol).slice(0, 120))
 
@@ -503,8 +512,8 @@ async function recorrer(ancho, alto) {
     ((await capaActiva().locator('option:checked').textContent()) ?? '').includes(LIMA.subrasante.fecha))
   const resumenLima = await comprobarMapa(LIMA, LIMA.subrasante)
   const fichaRevisarLima = await textoDe(fichaDelModo('Revisar'))
-  comprobar(`${etiqueta}: en Revisar, ${LIMA.nombre} (sin cerrar) dice «Cotas sin compensar» y «DIFERENCIAS NO COMPROBADAS», no «verificadas»`,
-    /Cotas sin compensar/.test(fichaRevisarLima) && /DIFERENCIAS NO COMPROBADAS/.test(fichaRevisarLima) &&
+  comprobar(`${etiqueta}: en Revisar, ${LIMA.nombre} (sin cerrar) dice «Cotas sin compensar» y «diferencias no comprobadas», no «verificadas»`,
+    /Cotas sin compensar/i.test(fichaRevisarLima) && /diferencias no comprobadas/i.test(fichaRevisarLima) &&
       !/VERIFICADAS/i.test(fichaRevisarLima),
     renglonNoComprobado(fichaRevisarLima))
   comprobar(`${etiqueta}: el aviso del mapa de ${LIMA.nombre} dice que no está comprobado`,
@@ -514,17 +523,18 @@ async function recorrer(ancho, alto) {
   const fueraLima = LIMA.subrasante.fuera
   const fichaLima = await fichaDe(fueraLima)
   comprobarFicha(LIMA, fueraLima, S.fuera, 'fuera de tolerancia', fichaLima)
-  comprobar(`${etiqueta}: la ficha de ${prog(fueraLima.progresiva)} ${fueraLima.punto} de ${LIMA.nombre} dice que no está comprobada`,
-    NO_COMPROBADO.test(fichaLima), renglonNoComprobado(fichaLima))
+  comprobar(`${etiqueta}: la ficha de ${prog(fueraLima.progresiva)} ${fueraLima.punto} de ${LIMA.nombre} va bajo «Cotas sin compensar» y la ficha lo dice no comprobado una vez, arriba`,
+    /Cotas sin compensar/i.test(fichaLima) && NO_COMPROBADO.test(fichaRevisarLima), renglonNoComprobado(fichaRevisarLima))
   await revisarPantalla(pagina, etiqueta, 'Revisar sin cerrar', celular)
 
   // --- Calle › Medir y Replantear con Jr. Lima -----------------------------
   await irAModo('Medir')
+  await abrirPlegable('Cierre del circuito')
   const cierreLima = enUnaLinea(await textoDe(pagina.getByRole('region', { name: 'Cierre en vivo' })))
   comprobar(`${etiqueta}: en Medir, el cierre de ${LIMA.nombre} dice «Sin cerrar» y que nada está comprobado`,
     /^△ Sin cerrar/.test(cierreLima) && /nada comprobado/i.test(cierreLima), cierreLima.slice(0, 100))
   if (await tocar(`la celda ${prog(fueraLima.progresiva)} ${fueraLima.punto} en Medir`,
-    pagina.getByRole('button', { name: `${prog(fueraLima.progresiva)} ${fueraLima.punto}: medida`, exact: true }))) {
+    pagina.getByRole('button', { name: new RegExp(`^${escapar(`${prog(fueraLima.progresiva)} ${fueraLima.punto}`)}: `) }))) {
     const aviso = await textoDe(pagina.getByRole('region', { name: 'Aviso al anotar' }))
     comprobar(`${etiqueta}: en Medir, el aviso al anotar de ${LIMA.nombre} dice que la cota no está comprobada`,
       NO_COMPROBADO.test(aviso), renglonNoComprobado(aviso))
@@ -543,21 +553,23 @@ async function recorrer(ancho, alto) {
   await elegirCapa('BASE', SOL.base.fecha)
   await tocar(`la estación ${objetivo.estacion} de la libreta`,
     pagina.getByRole('group', { name: 'Estaciones' }).getByRole('button', { name: `Estación ${objetivo.estacion}`, exact: true }))
-  await tocar(`la celda ${nombreObjetivo} en Medir`, pagina.getByRole('button', { name: `${nombreObjetivo}: medida`, exact: true }))
+  await tocar(`la celda ${nombreObjetivo} en Medir`, pagina.getByRole('button', { name: new RegExp(`^${escapar(nombreObjetivo)}: `) }))
 
   await irAModo('Replantear')
   await tocar(`la celda ${nombreObjetivo} en Replantear`, pagina.getByRole('button', { name: new RegExp(`^${escapar(nombreObjetivo)}: `) }))
   const estaca = pagina.getByRole('region', { name: 'Estaca actual' })
-  await estaca.getByRole('heading', { name: new RegExp(`${escapar(nombreObjetivo)}$`) }).waitFor({ timeout: ESPERA }).catch(() => {})
+  // La estaca se titula «0+020 · Eje».
+  const tituloObjetivo = `${prog(objetivo.progresiva)} · ${objetivo.punto}`
+  await estaca.getByRole('heading', { name: new RegExp(`${escapar(tituloObjetivo)}$`) }).waitFor({ timeout: ESPERA }).catch(() => {})
   const textoEstaca = enUnaLinea(await textoDe(estaca))
   const textoAltura = enUnaLinea(await textoDe(pagina.getByRole('group', { name: 'Altura del instrumento' })))
   const ai = /AI (\d+\.\d{3})(?: compensada \(([+−])(\d+(?:\.\d)?) mm sobre la CI de la libreta\))? · estación (\d+) de la libreta/.exec(textoAltura)
   const aiPantalla = ai ? Number(ai[1]) : Number.NaN
   const correccionMm = ai?.[3] ? (ai[2] === '−' ? -1 : 1) * Number(ai[3]) : 0
-  const objetivoPantalla = Number(/Lectura objetivo (\d+\.\d{3})/.exec(textoEstaca)?.[1] ?? Number.NaN)
-  const proyectoPantalla = Number(/Cota de proyecto (\d+\.\d{3})/.exec(textoEstaca)?.[1] ?? Number.NaN)
+  const objetivoPantalla = Number(/La mira debe marcar (\d+\.\d{3})/.exec(textoEstaca)?.[1] ?? Number.NaN)
+  const proyectoPantalla = Number(/para estar en (\d+\.\d{3})/.exec(textoEstaca)?.[1] ?? Number.NaN)
   comprobar(`${etiqueta}: Replantear parte de la estación ${objetivo.estacion} de la libreta de la base de ${SOL.nombre}, en ${nombreObjetivo}`,
-    ai !== null && Number(ai[4]) === objetivo.estacion && textoEstaca.includes(nombreObjetivo), `${textoAltura.slice(0, 100)} | ${textoEstaca.slice(0, 50)}`)
+    ai !== null && Number(ai[4]) === objetivo.estacion && textoEstaca.includes(tituloObjetivo), `${textoAltura.slice(0, 100)} | ${textoEstaca.slice(0, 50)}`)
   // El circuito de la base cierra con +4 mm: la app compensa la AI antes de
   // restar, para que el objetivo cuadre con lo que Revisar juzga después
   // (vistas/calle/comun.ts, alturaInstrumentalDeEstacion). La corrección va
@@ -605,7 +617,7 @@ async function recorrer(ancho, alto) {
   const avisoMedir = pagina.getByRole('region', { name: 'Aviso al anotar' })
   const textoAviso = enUnaLinea(await textoDe(avisoMedir))
   comprobar(`${etiqueta}: en Medir, la lectura esperada de ${nombreObjetivo} desde la estación ${objetivo.estacion} es la misma que el objetivo de Replantear`,
-    textoAviso.includes(`Lectura esperada ${objetivoPantalla.toFixed(3)}`), textoAviso.slice(0, 120))
+    textoAviso.includes(`Esperada cerca de ${objetivoPantalla.toFixed(3)}`), textoAviso.slice(0, 120))
   const campoMira = pagina.getByLabel('Lectura de mira')
   for (const [deltaMm, signo, accion, simbolo] of [[30, '−30 mm', 'rellena 30 mm', S.fuera], [-4, '+4 mm', 'corta 4 mm', S.conforme]]) {
     const lectura = (objetivoPantalla + deltaMm / 1000).toFixed(3)
@@ -642,7 +654,9 @@ async function recorrer(ancho, alto) {
 
   // --- Informes: las tablas para Excel -------------------------------------
   await irA('Informes')
-  await pagina.getByRole('heading', { name: 'Tablas para Excel' }).waitFor({ timeout: ESPERA })
+  await pagina.getByRole('region', { name: 'Tablas para Excel' }).waitFor({ timeout: ESPERA })
+  // Plegadas al final bajo «Datos sueltos»: se abren para usarlas.
+  await pagina.locator('summary', { hasText: 'Datos sueltos' }).click()
   const exportar = await Promise.all(
     ['cotas', 'diferencias', 'espesores'].map((n) => pagina.getByRole('button', { name: `Exportar ${n} a Excel`, exact: true }).count()),
   )
@@ -685,6 +699,9 @@ async function revisarArchivos(pagina, etiqueta) {
   }
   const titulo = 'Control contra proyecto'
   await pagina.getByRole('group', { name: 'Tipo de informe' }).getByRole('button', { name: titulo, exact: true }).click()
+  // La calle y la jornada van plegadas bajo los chips de lo ya elegido.
+  const resumenAlcance = pagina.locator('summary', { hasText: 'Cambiar calle, jornada o tramo' })
+  if (!(await resumenAlcance.evaluate((s) => s.parentElement.open))) await resumenAlcance.click()
 
   for (const [c, cierra] of [[SOL, true], [LIMA, false]]) {
     await calle.selectOption({ label: c.nombre })

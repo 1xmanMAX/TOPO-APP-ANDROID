@@ -143,6 +143,24 @@ function filaDeCalle(pagina, calle) {
   return pagina.locator('li', { has: pagina.getByRole('button', { name: `Abrir ${calle}`, exact: true }) })
 }
 
+/**
+ * La frase de la calle: a la vista va corta, en una línea («✗ 1 fuera en
+ * 0+080 Eje (+54 corta)»); la entera es su nombre accesible y la descripción
+ * del botón de la calle, y es la que se comprueba palabra por palabra.
+ */
+async function fraseDeCalle(pagina, calle) {
+  const fila = filaDeCalle(pagina, calle)
+  const larga = ((await fila.locator('[id$="-frase"]').textContent()) ?? '').trim()
+  const corta = (await fila.locator('[data-frase-calle]').innerText()).trim()
+  return { larga, corta }
+}
+
+/** Abre el «⋯» de una jornada del historial, si está cerrado. */
+async function menuDeJornada(zona, senia) {
+  const boton = zona.getByRole('button', { name: `Más de la jornada ${senia}`, exact: true })
+  if ((await boton.getAttribute('aria-expanded')) !== 'true') await boton.click()
+}
+
 const espacios = (pagina) => pagina.getByRole('navigation', { name: 'Espacios' })
 async function volverAObra(pagina) {
   await espacios(pagina).getByRole('button', { name: 'Obra', exact: true }).click()
@@ -210,14 +228,22 @@ async function recorrer(ancho, alto) {
     etiquetasSol.join('|') === 'TERRENO EXISTENTE: sin medir|SUBRASANTE: con puntos fuera|BASE: conforme' &&
       sol.map((c) => c.texto.charAt(0)).join('') === '·✗✓',
     sol.map((c) => `${c.texto} (${c.etiqueta})`).join(' | '))
-  const fraseSol = await filaDeCalle(pagina, SOL).locator('p').innerText()
+  const { larga: fraseSol, corta: fraseSolCorta } = await fraseDeCalle(pagina, SOL)
   const { fuera: fueraSol, alLimite: limiteSol } = ESPERADO.avSol.subrasante
   const fueraSolTexto = `${fueraSol.punto} ${progresiva(fueraSol.progresiva)} ${mm(fueraSol.diferenciaMm)}, ${fueraSol.accion}`
   const limiteSolTexto = `${limiteSol.punto} ${progresiva(limiteSol.progresiva)} ${mm(limiteSol.diferenciaMm)}, ${limiteSol.accion}`
   comprobar(`${t}Av. Sol dice qué punto está fuera, cuánto y qué hacer: «${fueraSolTexto}»`,
-    /✗/.test(fraseSol) && fraseSol.includes(`1 punto fuera de tolerancia: ${fueraSolTexto}`), fraseSol)
+    /^✗/.test(fraseSolCorta) && fraseSol.includes(`1 punto fuera de tolerancia: ${fueraSolTexto}`), fraseSol)
   comprobar(`${t}Av. Sol dice el punto al límite con su signo: «${limiteSolTexto}»`,
     fraseSol.includes(`1 punto al límite: ${limiteSolTexto}`), fraseSol)
+  const fueraSolCorto = `${progresiva(fueraSol.progresiva)} ${fueraSol.punto} (${mm(fueraSol.diferenciaMm).replace(' mm', '')} ${fueraSol.accion})`
+  comprobar(`${t}a la vista, la frase de Av. Sol va en una línea: «✗ 1 fuera en ${fueraSolCorto} · △ 1 al límite»`,
+    fraseSolCorta === `✗ 1 fuera en ${fueraSolCorto} · △ 1 al límite`, fraseSolCorta)
+  const altoFrase = await filaDeCalle(pagina, SOL).locator('[data-frase-calle] span').evaluate((e) => {
+    const linea = parseFloat(getComputedStyle(e).lineHeight) || 20
+    return e.getBoundingClientRect().height / linea
+  })
+  comprobar(`${t}la frase corta de Av. Sol ocupa un solo renglón`, altoFrase < 1.5, altoFrase.toFixed(2))
   comprobar(`${t}Av. Sol muestra su tramo medido 0+000 – 0+120`,
     (await filaDeCalle(pagina, SOL).getByText('0+000 – 0+120').count()) === 1)
 
@@ -225,7 +251,9 @@ async function recorrer(ancho, alto) {
   const subLima = lima.find((c) => c.etiqueta.startsWith('SUBRASANTE'))
   comprobar(`${t}Jr. Lima: la subrasante sin cerrar sale △ en curso, nunca ✓ ni ✗`,
     subLima?.texto.startsWith('△') && /en curso/.test(subLima.etiqueta), subLima ? `${subLima.texto} (${subLima.etiqueta})` : 'sin casilla')
-  const fraseLima = await filaDeCalle(pagina, LIMA).locator('p').innerText()
+  const { larga: fraseLima, corta: fraseLimaCorta } = await fraseDeCalle(pagina, LIMA)
+  comprobar(`${t}a la vista, Jr. Lima dice △ en curso y sin cerrar en una línea`,
+    fraseLimaCorta.startsWith('△') && /en curso/.test(fraseLimaCorta) && /sin cerrar/.test(fraseLimaCorta), fraseLimaCorta)
   comprobar(`${t}Jr. Lima dice que el circuito está sin cerrar y que no está comprobado`,
     /sin cerrar/.test(fraseLima) && NO_COMPROBADO.test(fraseLima), fraseLima)
   const fueraLima = ESPERADO.jrLima.subrasante.fuera
@@ -260,6 +288,16 @@ async function recorrer(ancho, alto) {
     comprobar(`${t}todos los botones y campos de Obra › Calles miden ≥ 44 px`, chicos.length === 0, chicos.join(', '))
   }
   await captura(pagina, `${SALIDA}/obra-calles-${ancho}.png`)
+
+  // Tocar la frase de Av. Sol abre Calle › Revisar en el punto fuera.
+  await filaDeCalle(pagina, SOL).locator('[data-frase-calle]').click()
+  comprobar(`${t}tocar la frase de Av. Sol abre Calle › Revisar en Av. Sol`,
+    (await modoPulsado(pagina)) === 'Revisar' && (await calleActiva(pagina)) === SOL, `${await modoPulsado(pagina)} · ${await calleActiva(pagina)}`)
+  const textoRevisar = await pagina.locator('main').innerText()
+  comprobar(`${t}Revisar llega con el punto ${fueraSol.punto} ${progresiva(fueraSol.progresiva)} elegido`,
+    textoRevisar.includes(progresiva(fueraSol.progresiva)) && textoRevisar.includes(fueraSol.punto), '')
+  await volverAObra(pagina)
+  if (celular && (await pagina.getByRole('button', { name: /Volver a la obra/ }).isVisible())) await volverALaLista(pagina, true)
 
   // -------------------------------------------------------------------------
   // 2. Bancos de nivel: se ven, uno en uso no se borra, se agrega y se edita
@@ -316,7 +354,7 @@ async function recorrer(ancho, alto) {
     resumenRasante.includes('3243.900 en 0+100') && resumenRasante.includes('+0.20 %'), resumenRasante)
   const resumenJornadasLima = await describir(panelLima, 'Jornadas y hojas')
   comprobar(`${t}el resumen de jornadas de Jr. Lima dice △ sin cerrar`,
-    /1 jornada · la última 2026-10-02, SUBRASANTE: △ sin cerrar/.test(resumenJornadasLima), resumenJornadasLima)
+    /1 jornada · última 02\/10, SUBRASANTE: △ sin cerrar/.test(resumenJornadasLima), resumenJornadasLima)
 
   await desplegar(panelLima, 'Jornadas y hojas')
   const jornadaLima = panelLima.getByRole('button', { name: 'Comparar la jornada 2026-10-02 · SUBRASANTE', exact: true })
@@ -355,8 +393,8 @@ async function recorrer(ancho, alto) {
   await elegirCalle(pagina, SOL)
   const panelSol = pagina.getByRole('region', { name: `Panel de ${SOL}`, exact: true })
   const resumenJornadasSol = await describir(panelSol, 'Jornadas y hojas')
-  comprobar(`${t}Av. Sol: 2 jornadas, la última 2026-09-28 BASE ✓ cerró +4 mm`,
-    /2 jornadas · la última 2026-09-28, BASE: ✓ cerró \+4 mm/.test(resumenJornadasSol), resumenJornadasSol)
+  comprobar(`${t}Av. Sol: 2 jornadas, la última 28/09 BASE ✓ cerró +4 mm`,
+    /2 jornadas · última 28\/09, BASE: ✓ cerró \+4 mm/.test(resumenJornadasSol), resumenJornadasSol)
   await desplegar(panelSol, 'Jornadas y hojas')
   const jornadasSol = await panelSol.getByRole('button', { name: /^Comparar la jornada / }).evaluateAll((bs) =>
     bs.map((b) => `${b.getAttribute('aria-label')} [${(b.getAttribute('aria-describedby') ?? '').split(' ').map((id) => document.getElementById(id)?.innerText ?? '').join(' · ')}]`))
@@ -387,6 +425,7 @@ async function recorrer(ancho, alto) {
     /Circuitos comprobados/.test(textoCmp) && !/espesores verificados/i.test(textoCmp), (textoCmp.match(/[^\n]*comprobad[^\n]*/i) ?? [''])[0])
   await captura(pagina, `${SALIDA}/obra-historial-sol-${ancho}.png`)
 
+  await menuDeJornada(panelSol, '2026-09-14 · SUBRASANTE')
   await panelSol.getByRole('button', { name: 'Corregir la jornada 2026-09-14 · SUBRASANTE', exact: true }).click()
   const fecha = panelSol.getByLabel('Fecha de la jornada 2026-09-14 · SUBRASANTE')
   comprobar(`${t}«Corregir» abre la fecha, la capa, el BM y la calle de la jornada`,
@@ -394,8 +433,8 @@ async function recorrer(ancho, alto) {
       (await panelSol.getByLabel('BM de la jornada 2026-09-14 · SUBRASANTE').evaluate((s) => s.options[s.selectedIndex].text)) === 'BM-1' &&
       (await panelSol.getByLabel('Calle de la jornada 2026-09-14 · SUBRASANTE').evaluate((s) => s.options[s.selectedIndex].text)) === SOL)
   if (celular) {
-    // El panel entero, con lo que más se toca abierto: la sección (viene
-    // abierta), la rasante, las jornadas con la comparación y el corregir.
+    // El panel entero, con lo que más se toca abierto: la sección, la
+    // rasante, las jornadas con la comparación y el corregir.
     await desplegar(panelSol, 'Sección')
     await desplegar(panelSol, 'Rasante')
     const chicosPanel = await controlesChicos(panelSol)
@@ -405,7 +444,7 @@ async function recorrer(ancho, alto) {
     comprobar(`${t}el panel abierto no se desplaza a lo ancho`, lateralPanel.pagina <= lateralPanel.ventana && lateralPanel.main <= 0, JSON.stringify(lateralPanel))
     await captura(pagina, `${SALIDA}/obra-panel-sol-abierto-${ancho}.png`)
   }
-  await panelSol.getByRole('button', { name: 'Corregir la jornada 2026-09-14 · SUBRASANTE', exact: true }).click()
+  await panelSol.getByRole('button', { name: 'Cerrar la corrección de la jornada 2026-09-14 · SUBRASANTE', exact: true }).click()
 
   await comparacion.getByRole('button', { name: 'Ver celda por celda', exact: true }).click()
   comprobar(`${t}«Ver celda por celda» lleva a Calle › Revisar en Av. Sol`,
@@ -413,6 +452,7 @@ async function recorrer(ancho, alto) {
   await volverAObra(pagina)
   if (celular && !(await pagina.getByRole('region', { name: `Panel de ${SOL}`, exact: true }).isVisible())) await elegirCalle(pagina, SOL)
   await desplegar(pagina.getByRole('region', { name: `Panel de ${SOL}`, exact: true }), 'Jornadas y hojas')
+  await menuDeJornada(pagina.getByRole('region', { name: `Panel de ${SOL}`, exact: true }), '2026-09-14 · SUBRASANTE')
   await pagina.getByRole('button', { name: 'Abrir la jornada 2026-09-14 · SUBRASANTE', exact: true }).click()
   comprobar(`${t}«Abrir en la libreta» lleva a Calle › Medir en Av. Sol`,
     (await modoPulsado(pagina)) === 'Medir' && (await calleActiva(pagina)) === SOL, `${await modoPulsado(pagina)} · ${await calleActiva(pagina)}`)
@@ -427,7 +467,7 @@ async function recorrer(ancho, alto) {
   const panelLomas = pagina.getByRole('region', { name: `Panel de ${LOMAS}`, exact: true })
   comprobar(`${t}Las Lomas no tiene jornadas y lo dice`, (await describir(panelLomas, 'Jornadas y hojas')) === 'Ninguna jornada todavía')
   await volverALaLista(pagina, celular)
-  const detalleNueva = await pagina.locator('#detalle-nueva-jornada').innerText()
+  const detalleNueva = ((await pagina.locator('#detalle-nueva-jornada').textContent()) ?? '').trim()
   comprobar(`${t}«Nueva jornada» dice que va a Las Lomas, desde BM-1`, detalleNueva.includes(`Nueva jornada en ${LOMAS}`) && detalleNueva.includes('desde BM-1'), detalleNueva)
   await pagina.getByRole('button', { name: 'Nueva jornada', exact: true }).click()
   comprobar(`${t}«Nueva jornada» lleva a Calle › Medir en Las Lomas`,
@@ -475,7 +515,7 @@ async function recorrer(ancho, alto) {
   const medida = nueva.find((c) => !c.texto.startsWith('·'))
   comprobar(`${t}la capa de la hoja importada sale △ «no comprobada», con símbolo`,
     !!medida && medida.texto.startsWith('△') && NO_COMPROBADO.test(medida.etiqueta), nueva.map((c) => `${c.texto} (${c.etiqueta})`).join(' | '))
-  const fraseNueva = await filaDeCalle(pagina, 'detras-del-colegio').locator('p').innerText()
+  const { larga: fraseNueva } = await fraseDeCalle(pagina, 'detras-del-colegio')
   comprobar(`${t}la frase de la calle importada dice «no comprobada»`, NO_COMPROBADO.test(fraseNueva), fraseNueva)
   const lateralFin = await sinDesplazamientoLateral(pagina)
   comprobar(`${t}con cuatro calles sigue sin desplazarse a lo ancho`, lateralFin.pagina <= lateralFin.ventana && lateralFin.main <= 0, JSON.stringify(lateralFin))

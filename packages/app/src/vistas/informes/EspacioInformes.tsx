@@ -1,12 +1,16 @@
 import { formatearProgresiva, parsearProgresiva, type Id } from '@topo/core'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { copiarAlPortapapeles, descargarCsv, descargarXlsx } from '../../archivo/exportar'
-import { descargarTopo } from '../../archivo/topo'
+import AvisoLinea from '../../componentes/AvisoLinea'
+import MenuMas from '../../componentes/MenuMas'
+import Plegable from '../../componentes/Plegable'
+import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, TARJETA } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
 import type { BibliotecaPdf, Dibujante } from '../../planos/pdf'
 import {
   FICHAS,
   fichaDe,
+  fechaImpresa,
   estaComprobado,
   generarPdf,
   nombreDeToma,
@@ -32,13 +36,21 @@ import {
   type TablasDeLaJornada,
 } from './tablasExcel'
 
-const BOTON =
-  'min-h-11 rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800'
-const BOTON_MARCA =
-  'min-h-11 rounded bg-marca px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40'
 const CAMPO =
-  'min-h-11 w-full rounded border border-slate-300 bg-white px-2 text-sm outline-none focus:border-marca focus:ring-1 focus:ring-marca aria-invalid:border-aviso dark:border-slate-700 dark:bg-slate-900'
-const ETIQUETA = 'text-xs font-medium text-slate-600 dark:text-slate-300'
+  'min-h-12 w-full rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-base text-tinta outline-none focus:border-tinta focus:ring-2 focus:ring-marca/30 aria-invalid:border-aviso disabled:opacity-60'
+const ETIQUETA = 'text-[13px] font-medium text-tenue'
+const TITULO_TARJETA = 'text-[15px] font-semibold'
+const AYUDA = 'text-[13px] text-tenue'
+
+/** Un chip que se enciende y se apaga (casilla por dentro: se marca con el teclado y con la voz). */
+function claseChip(encendido: boolean): string {
+  return `relative inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-semibold focus-within:ring-2 focus-within:ring-marca has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-40 ${
+    encendido ? 'bg-cabecera text-white ring-1 ring-cabecera-borde ring-inset' : 'border border-borde-fuerte bg-tarjeta text-tinta'
+  }`
+}
+
+/** Los chips de solo lectura de lo que ya está elegido («Av. Sol · BASE · 28/09/2026»). */
+const CHIP_ALCANCE = 'inline-flex h-9 items-center rounded-full border border-borde bg-tarjeta px-3 text-sm text-tinta'
 
 /** Ancho al que se pinta la página: nítida en la laptop sin pesar en el celular. */
 const ANCHO_VISTA_PREVIA = 900
@@ -118,7 +130,6 @@ export default function EspacioInformes({
   esperaMs = ESPERA_AL_ESCRIBIR_MS,
 }: Props = {}) {
   const proyecto = useAlmacen((s) => s.proyecto)
-  const archivosDePlano = useAlmacen((s) => s.archivosDePlano)
   const calleActivaId = useAlmacen((s) => s.calleActivaId)
   const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
   const preferencias = useInformes()
@@ -128,7 +139,6 @@ export default function EspacioInformes({
     alcance: `${idBase}-alcance`,
     opciones: `${idBase}-opciones`,
     previa: `${idBase}-previa`,
-    excel: `${idBase}-excel`,
     queLleva: `${idBase}-que-lleva`,
   }
 
@@ -139,6 +149,11 @@ export default function EspacioInformes({
   const [capaReplanteoId, setCapaReplanteoId] = useState<Id | null>(null)
   const [bmId, setBmId] = useState<Id | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  const [paginaGrande, setPaginaGrande] = useState(false)
+  // A pantalla completa, la página se puede ver al doble para leer las cotas.
+  const [paginaAcercada, setPaginaAcercada] = useState(false)
+  // En el celular el veredicto va en una línea; tocándolo se lee entero.
+  const [veredictoEntero, setVeredictoEntero] = useState(false)
 
   // Lo que se escribe tecla a tecla se toma cuando se deja de escribir.
   const desde = useDiferido(preferencias.desde, esperaMs)
@@ -295,50 +310,70 @@ export default function EspacioInformes({
 
   const pintada = vistaPrevia.tipo === 'lista' ? vistaPrevia : vistaPrevia.tipo === 'pintando' ? vistaPrevia.anterior : null
 
+  // Lo que ya está elegido, en chips: se ve de un vistazo sin abrir el formulario.
+  const chips = chipsDelAlcance({
+    tipo,
+    calleNombre: calle?.nombre ?? null,
+    tomaActual,
+    capaAbajo: abajo.find((t) => t.toma.id === tomaAbajoId) ?? abajo[0],
+    capaReplanteo: proyecto.capas.find((c) => c.id === alcance.capaReplanteoId)?.nombre ?? null,
+    bm: proyecto.bms.find((b) => b.id === alcance.bmId)?.nombre ?? null,
+    desde: usaTramo ? (alcance.desde ?? preferencias.desde.trim()) : null,
+    hasta: usaTramo ? (alcance.hasta ?? preferencias.hasta.trim()) : null,
+  })
+  // Si falta algo en el alcance, el formulario se abre solo: el aviso lleva a donde se arregla.
+  const faltaAlgo =
+    !preparacion.listo ||
+    ilegibles.desde ||
+    ilegibles.hasta ||
+    ilegibles.estacion ||
+    ilegibles.vistaAtras ||
+    (tipo === 'estacas' && preferencias.vistaAtras.trim() === '')
+  const [alcanceAbierto, setAlcanceAbierto] = useState(faltaAlgo)
+  useEffect(() => {
+    if (faltaAlgo) setAlcanceAbierto(true)
+  }, [faltaAlgo])
+
+  useEffect(() => {
+    if (!paginaGrande) return
+    const alPulsar = (e: KeyboardEvent) => e.key === 'Escape' && setPaginaGrande(false)
+    document.addEventListener('keydown', alPulsar)
+    return () => document.removeEventListener('keydown', alPulsar)
+  }, [paginaGrande])
+
   return (
-    // Abajo se deja lugar para la barra fija del celular.
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-4 pb-44 sm:p-6 sm:pb-44 lg:pb-6">
-      <h2 className="text-lg font-semibold">Informes</h2>
+    // En el celular el pie (veredicto y botones) es lo último y va pegado abajo
+    // de <main>, encima de la barra de espacios. En la laptop, dos columnas: a
+    // la izquierda qué informe e incluir; a la derecha la hoja, protagonista.
+    <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 p-4 pb-0 sm:p-6 sm:pb-0 lg:grid-cols-[400px_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_1fr] lg:gap-x-8 lg:pb-6">
+      <div className="flex min-w-0 flex-col gap-2 lg:col-span-2">
+        <h2 className="text-[26px] font-bold leading-tight">Informes</h2>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
-          {/* 1. Qué informe. En el celular, dos por fila y sin descripción. */}
-          <div role="group" aria-label="Tipo de informe" className="grid grid-cols-2 gap-2">
-            {FICHAS.map((f) => {
-              const activa = f.tipo === tipo
-              const idDescripcion = `${idBase}-${f.tipo}`
-              return (
-                <button
-                  key={f.tipo}
-                  type="button"
-                  aria-pressed={activa}
-                  aria-label={f.titulo}
-                  aria-describedby={idDescripcion}
-                  onClick={() => cambiar({ tipo: f.tipo })}
-                  className={`flex min-h-11 flex-col items-start gap-1 rounded-lg border p-3 text-left ${
-                    activa
-                      ? 'border-marca bg-marca/10 ring-1 ring-marca'
-                      : 'border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <span className="text-sm font-semibold">
-                    {activa && <span aria-hidden="true">● </span>}
-                    {f.titulo}
-                  </span>
-                  <span id={idDescripcion} className="hidden text-xs text-slate-600 sm:block dark:text-slate-300">
-                    {f.descripcion}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+        {/* La calle, la jornada y el tramo vienen elegidos de antes: se cambian aquí si hace falta. */}
+        <details
+          open={alcanceAbierto}
+          onToggle={(e) => setAlcanceAbierto(e.currentTarget.open)}
+          className="group"
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-2 rounded-xl [&::-webkit-details-marker]:hidden">
+            {chips.map((c, i) => (
+              <span key={i} className={CHIP_ALCANCE}>
+                {i === 0 ? <b className="font-semibold">{c}</b> : c}
+              </span>
+            ))}
+            <span className="inline-flex min-h-11 items-center gap-1 px-1 text-sm font-semibold text-proyecto">
+              Cambiar calle, jornada o tramo
+              <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-180">
+                ▾
+              </span>
+            </span>
+          </summary>
 
-          {/* 2. De qué parte de la obra */}
-          <section aria-labelledby={ids.alcance} className="flex flex-col gap-3">
-            <h3 id={ids.alcance} className="font-semibold">
+          <section aria-labelledby={ids.alcance} className={`${TARJETA} mt-2 flex flex-col gap-3`}>
+            <h3 id={ids.alcance} className={TITULO_TARJETA}>
               Alcance
             </h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Campo etiqueta="Calle">
                 {(campo) => (
                   <select
@@ -453,7 +488,7 @@ export default function EspacioInformes({
                     {(campo) => (
                       <input
                         {...campo}
-                        className={CAMPO}
+                        className={`${CAMPO} font-mono`}
                         inputMode="decimal"
                         value={preferencias.vistaAtras}
                         placeholder="1.425"
@@ -469,7 +504,7 @@ export default function EspacioInformes({
                     {(campo) => (
                       <input
                         {...campo}
-                        className={CAMPO}
+                        className={`${CAMPO} font-mono`}
                         // Texto y no decimal: el teclado numérico del celular no tiene «+».
                         inputMode="text"
                         autoComplete="off"
@@ -484,28 +519,34 @@ export default function EspacioInformes({
 
               {usaTramo && (
                 <>
-                  <Campo etiqueta="Desde" error={ilegibles.desde ? NO_SE_ENTIENDE_PROGRESIVA : undefined}>
+                  <Campo
+                    etiqueta="Desde"
+                    ayuda="vacío = toda la calle"
+                    error={ilegibles.desde ? NO_SE_ENTIENDE_PROGRESIVA : undefined}
+                  >
                     {(campo) => (
                       <input
                         {...campo}
-                        className={CAMPO}
+                        className={`${CAMPO} font-mono`}
                         inputMode="text"
                         autoComplete="off"
                         value={preferencias.desde}
-                        placeholder="0+000 o 0"
                         onChange={(e) => cambiar({ desde: e.target.value })}
                       />
                     )}
                   </Campo>
-                  <Campo etiqueta="Hasta" error={ilegibles.hasta ? NO_SE_ENTIENDE_PROGRESIVA : undefined}>
+                  <Campo
+                    etiqueta="Hasta"
+                    ayuda="vacío = toda la calle"
+                    error={ilegibles.hasta ? NO_SE_ENTIENDE_PROGRESIVA : undefined}
+                  >
                     {(campo) => (
                       <input
                         {...campo}
-                        className={CAMPO}
+                        className={`${CAMPO} font-mono`}
                         inputMode="text"
                         autoComplete="off"
                         value={preferencias.hasta}
-                        placeholder="fin"
                         onChange={(e) => cambiar({ hasta: e.target.value })}
                       />
                     )}
@@ -514,244 +555,341 @@ export default function EspacioInformes({
               )}
             </div>
             {tipo === 'estacas' && capaReplanteoId === null && bmId === null && (
-              <p className="text-xs text-slate-600 dark:text-slate-300">{replanteo.razon}</p>
+              <p className={AYUDA}>{replanteo.razon}</p>
             )}
-            {!usaTramo && (
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                La libreta va entera: recortarla haría que sus sumas no cuadren.
-              </p>
-            )}
+            {!usaTramo && <p className={AYUDA}>La libreta va entera: recortarla haría que sus sumas no cuadren.</p>}
             {usaTramo &&
               typeof alcance.desde === 'number' &&
               typeof alcance.hasta === 'number' &&
               alcance.desde > alcance.hasta && (
-                <p className="text-sm text-aviso">
-                  <span aria-hidden="true">△ </span>
+                <AvisoLinea tono="aviso">
                   «Desde» ({formatearProgresiva(alcance.desde)}) va después de «Hasta»: no queda ningún punto.
-                </p>
+                </AvisoLinea>
               )}
           </section>
+        </details>
+      </div>
 
-          {/* 3. Qué más lleva */}
-          <section aria-labelledby={ids.opciones} className="flex flex-col gap-3">
-            <h3 id={ids.opciones} className="font-semibold">
-              Opciones
-            </h3>
-            <label className="flex min-h-11 items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="size-5"
-                checked={opciones.notas}
-                disabled={notasEnTramo === 0}
-                onChange={(e) => cambiar({ conNotas: e.target.checked })}
-              />
-              <span>
-                Notas de campo de la calle
-                <span className="text-slate-500 dark:text-slate-400">
-                  {notasEnTramo === 0
-                    ? usaTramo
-                      ? ' (no hay notas en el tramo)'
-                      : ' (la calle no tiene notas)'
-                    : ` (${notasEnTramo})`}
-                </span>
-              </span>
-            </label>
-            <label className="flex min-h-11 items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                className="size-5"
-                checked={firmas}
-                onChange={(e) => cambiar({ firmas: e.target.checked })}
-              />
-              Cuadros de firma
-            </label>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Campo etiqueta="Supervisor">
-                {(campo) => (
-                  <input
-                    {...campo}
-                    className={CAMPO}
-                    value={preferencias.supervisor}
-                    placeholder="Ing. …"
-                    onChange={(e) => cambiar({ supervisor: e.target.value })}
-                  />
-                )}
-              </Campo>
-              <div className="flex flex-col gap-1">
-                <span className={ETIQUETA}>Topógrafo</span>
-                <span className="flex min-h-11 items-center text-sm">
-                  {proyecto.meta.responsable.trim() || '— (se pone en los datos del proyecto, en Obra)'}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {/* El nombre accesible es el texto que se ve: el control por voz lo encuentra. */}
-              <label
-                // «relative»: el campo oculto (sr-only, absoluto) se queda dentro del botón;
-                // sin eso se ubica contra la página entera y la estira por debajo de la barra fija.
-                className={`${BOTON} relative inline-flex cursor-pointer items-center focus-within:ring-2 focus-within:ring-marca`}
+      {/* 1. Qué informe. En el celular, dos por fila y sin descripción. */}
+      <section aria-labelledby={`${idBase}-que`} className={`${TARJETA} flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-start-2`}>
+        <h3 id={`${idBase}-que`} className={TITULO_TARJETA}>
+          Qué informe
+        </h3>
+        <div role="group" aria-label="Tipo de informe" className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+          {FICHAS.map((f) => {
+            const activa = f.tipo === tipo
+            const idDescripcion = `${idBase}-${f.tipo}`
+            return (
+              <button
+                key={f.tipo}
+                type="button"
+                aria-pressed={activa}
+                aria-label={f.titulo}
+                aria-describedby={idDescripcion}
+                onClick={() => cambiar({ tipo: f.tipo })}
+                className={`flex min-h-11 flex-col items-start gap-0.5 rounded-xl bg-tarjeta text-left text-tinta ${
+                  activa
+                    ? 'border-2 border-tinta px-3 py-2 sm:p-3 lg:py-2.5'
+                    : 'border border-borde px-[13px] py-[9px] hover:bg-fondo sm:p-[13px] lg:py-[11px]'
+                }`}
               >
-                {logo ? 'Cambiar logo' : 'Poner logo'}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg"
-                  className="sr-only"
-                  onChange={(e) => {
-                    void leerLogo(e.currentTarget.files?.[0])
-                    // Vaciado: elegir otra vez el mismo archivo (tras quitarlo) vuelve a funcionar.
-                    e.currentTarget.value = ''
-                  }}
-                />
-              </label>
-              {logo && (
-                <>
-                  <img src={logo.dataUrl} alt="Logo elegido" className="h-11 w-11 rounded border object-contain" />
-                  <button type="button" className={BOTON} onClick={() => cambiar({ logo: null })}>
-                    Quitar logo
-                  </button>
-                </>
-              )}
-            </div>
-          </section>
+                <span className="text-[15px] font-semibold leading-5">{f.titulo}</span>
+                <span id={idDescripcion} className="hidden text-[13px] leading-[18px] text-tenue sm:block">
+                  {f.descripcion}
+                </span>
+              </button>
+            )
+          })}
         </div>
+      </section>
 
-        {/* 4. La primera página, de verdad */}
-        <section aria-labelledby={ids.previa} className="flex min-w-0 flex-col gap-3 self-start lg:sticky lg:top-4">
-          <h3 id={ids.previa} className="font-semibold">
-            Vista previa
-          </h3>
+      {/*
+        2. La hoja. En el celular esta sección no hace caja (contents): la
+        hoja va justo después de los tipos y el pie, al final, pegado abajo.
+      */}
+      <section
+        aria-labelledby={ids.previa}
+        className="contents lg:sticky lg:top-4 lg:col-start-2 lg:row-span-3 lg:row-start-2 lg:flex lg:min-w-0 lg:flex-col lg:gap-3 lg:self-start"
+      >
+        <h3 id={ids.previa} className="sr-only">
+          Vista previa
+        </h3>
+        <div className="flex min-w-0 flex-col gap-3">
           {preparacion.listo && preparacion.avisos.length > 0 && (
-            <ul aria-label="Avisos del informe" className="flex flex-col gap-1 text-sm text-aviso">
+            <ul aria-label="Avisos del informe" className="mx-auto flex w-full max-w-[520px] flex-col gap-1.5">
               {preparacion.avisos.map((a, i) => (
                 <li key={`${i}-${a}`}>
-                  <span aria-hidden="true">△ </span>
-                  {a}
+                  <AvisoLinea tono="aviso">{a}</AvisoLinea>
                 </li>
               ))}
             </ul>
           )}
 
-          <div className="relative flex min-h-64 items-center justify-center overflow-hidden rounded border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+          {/* La hoja de papel: siempre blanca y en proporción A4, también en el tema oscuro. */}
+          <div className="relative mx-auto flex aspect-[210/297] w-full max-w-[520px] items-center lg:w-[clamp(300px,calc((100dvh-330px)*210/297),520px)] justify-center overflow-hidden bg-white text-[#2c3640] shadow-[0_2px_12px_rgba(16,22,29,.18)]">
             {!preparacion.listo && (
-              <p className="p-4 text-sm text-slate-700 dark:text-slate-200">
+              <p className="p-6 text-[15px]">
                 <span aria-hidden="true">△ </span>
                 {preparacion.motivo}
               </p>
             )}
             {pdf && 'error' in pdf && (
-              <p className="p-4 text-sm text-falla">
+              <p className="p-6 text-[15px] text-[#9f1b1b]">
                 <span aria-hidden="true">✗ </span>
                 No se pudo armar el PDF: {pdf.error}
               </p>
             )}
             {vistaPrevia.tipo === 'error' && (
-              <p className="p-4 text-sm text-falla">
+              <p className="p-6 text-[15px] text-[#9f1b1b]">
                 <span aria-hidden="true">✗ </span>
                 No se pudo dibujar la vista previa ({vistaPrevia.mensaje}). El PDF se puede descargar igual.
               </p>
             )}
             {bytes && pintada && (
-              <img
-                src={pintada.url}
-                width={pintada.ancho}
-                height={pintada.alto}
-                // La anterior, mientras se dibuja la nueva, no se anuncia: no es la que se va a descargar.
-                alt={vistaPrevia.tipo === 'lista' ? `Primera página: ${pintada.titulo}` : ''}
-                aria-hidden={vistaPrevia.tipo === 'lista' ? undefined : true}
-                // Los guiones esperan por esto, no por tiempo: la imagen es la del PDF de esta calle.
-                data-archivo={vistaPrevia.tipo === 'lista' ? pintada.archivo : undefined}
-                className={`h-auto w-full bg-white ${vistaPrevia.tipo === 'lista' ? '' : 'opacity-50'}`}
-              />
+              <button
+                type="button"
+                aria-label="Ver la página a pantalla completa"
+                onClick={() => {
+                  setPaginaAcercada(false)
+                  setPaginaGrande(true)
+                }}
+                className="absolute inset-0 flex cursor-zoom-in items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca"
+              >
+                <img
+                  src={pintada.url}
+                  width={pintada.ancho}
+                  height={pintada.alto}
+                  // La anterior, mientras se dibuja la nueva, no se anuncia: no es la que se va a descargar.
+                  alt={vistaPrevia.tipo === 'lista' ? `Primera página: ${pintada.titulo}` : ''}
+                  aria-hidden={vistaPrevia.tipo === 'lista' ? undefined : true}
+                  // Los guiones esperan por esto, no por tiempo: la imagen es la del PDF de esta calle.
+                  data-archivo={vistaPrevia.tipo === 'lista' ? pintada.archivo : undefined}
+                  className={`h-full w-full object-contain ${vistaPrevia.tipo === 'lista' ? '' : 'opacity-50'}`}
+                />
+              </button>
             )}
             {vistaPrevia.tipo === 'pintando' && (
               <p
-                className={`p-4 text-sm text-slate-600 dark:text-slate-300 ${
-                  pintada ? 'absolute top-2 rounded bg-white/90 px-3 py-1 dark:bg-slate-900/90' : ''
+                className={`text-sm text-[#4a5561] ${
+                  pintada
+                    ? 'pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-white/95 px-3 py-1 font-medium shadow'
+                    : 'p-6'
                 }`}
               >
                 Dibujando la página…
               </p>
             )}
           </div>
+        </div>
 
-          {queLleva && (
-            <p id={ids.queLleva} className="text-xs text-slate-600 dark:text-slate-300">
-              {queLleva}
+        {/* En la laptop va debajo de los botones: así el pie entra sin bajar. */}
+        {queLleva && (
+          <p id={ids.queLleva} className={`${AYUDA} mx-auto w-full max-w-[520px] lg:order-last`}>
+            {queLleva}
+          </p>
+        )}
+
+        {/*
+          El veredicto y los botones. En el celular van al final y pegados abajo
+          de lo que se desplaza: se elige el informe arriba y se manda sin bajar.
+          En la laptop, quietos debajo de la hoja.
+        */}
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t border-borde bg-tarjeta p-3 shadow-[0_-4px_14px_rgba(16,22,29,.10)] max-lg:order-last sm:-mx-6 lg:static lg:z-auto lg:mx-auto lg:w-full lg:max-w-[520px] lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+          <p
+            aria-live="polite"
+            title={veredictoEntero || !veredicto ? undefined : 'Toca para leerlo entero'}
+            onClick={() => setVeredictoEntero((v) => !v)}
+            className={`text-sm font-medium max-lg:cursor-pointer ${veredictoEntero ? '' : 'max-lg:truncate'} ${
+              veredicto ? SIMBOLO[veredicto.estado].color : 'text-tenue'
+            }`}
+          >
+            {veredicto ? (
+              <>
+                {SIMBOLO[veredicto.estado].simbolo} {veredicto.texto}
+                {/* Solo si es verdad: la hoja de estacas puede pedir cambiar de estación sin franja. */}
+                {preparacion.listo &&
+                  !estaComprobado(preparacion.informe) &&
+                  ' El PDF lleva en cada página la franja de aviso.'}
+              </>
+            ) : vistaPrevia.tipo === 'pintando' ? null : (
+              <>
+                <span aria-hidden="true">△ </span>
+                Este informe todavía no se puede armar: falta algo en el alcance.
+              </>
+            )}
+          </p>
+          <div className="grid grid-cols-[1.6fr_1fr_1fr] gap-2 lg:flex lg:justify-center">
+            <button
+              type="button"
+              className={`${BOTON_PRINCIPAL} px-2! whitespace-nowrap sm:px-3! lg:px-6!`}
+              disabled={!bytes}
+              onClick={() => bytes && descargarBytes(bytes, nombrePdf)}
+            >
+              Descargar PDF
+            </button>
+            <button
+              type="button"
+              aria-label="Descargar Excel"
+              className={`${BOTON_SECUNDARIO} min-h-12 px-2! text-[15px] lg:px-5!`}
+              disabled={!tablaDelInforme}
+              aria-describedby={queLleva ? ids.queLleva : undefined}
+              title={tablaDelInforme ? undefined : 'Este informe no tiene tabla para Excel'}
+              onClick={() => tablaDelInforme && descargarTabla(tablaDelInforme)}
+            >
+              Excel
+            </button>
+            <button
+              type="button"
+              className={`${BOTON_SECUNDARIO} min-h-12 px-2! text-[15px] lg:px-5!`}
+              disabled={!bytes}
+              onClick={() => void compartir()}
+            >
+              Compartir
+            </button>
+          </div>
+          {aviso && (
+            <p role="status" className="text-sm text-tenue">
+              {aviso}
             </p>
           )}
+        </div>
+      </section>
 
-          {/*
-            En el celular, el veredicto y los botones quedan fijos abajo: se
-            elige el informe arriba y se manda sin bajar dos pantallas. En la
-            laptop vuelven a su sitio, debajo de la vista previa.
-          */}
-          <div className="fixed inset-x-0 bottom-0 z-10 flex flex-col gap-2 border-t border-slate-200 bg-white p-3 shadow-lg dark:border-slate-800 dark:bg-slate-950 lg:static lg:z-auto lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:dark:bg-transparent">
-            <p
-              aria-live="polite"
-              className={`line-clamp-3 text-sm font-medium lg:line-clamp-none ${
-                veredicto ? SIMBOLO[veredicto.estado].color : 'text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              {veredicto ? (
-                <>
-                  {SIMBOLO[veredicto.estado].simbolo} {veredicto.texto}
-                  {/* Solo si es verdad: la hoja de estacas puede pedir cambiar de estación sin franja. */}
-                  {preparacion.listo &&
-                    !estaComprobado(preparacion.informe) &&
-                    ' El PDF lleva en cada página la franja de aviso.'}
-                </>
-              ) : vistaPrevia.tipo === 'pintando' ? null : (
-                <>
-                  <span aria-hidden="true">△ </span>
-                  Este informe todavía no se puede armar: falta algo en el alcance.
-                </>
-              )}
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                className={BOTON_MARCA}
-                disabled={!bytes}
-                onClick={() => bytes && descargarBytes(bytes, nombrePdf)}
-              >
-                Descargar PDF
-              </button>
-              <button
-                type="button"
-                className={BOTON}
-                disabled={!tablaDelInforme}
-                aria-describedby={queLleva ? ids.queLleva : undefined}
-                title={tablaDelInforme ? undefined : 'Este informe no tiene tabla para Excel'}
-                onClick={() => tablaDelInforme && descargarTabla(tablaDelInforme)}
-              >
-                Descargar Excel
-              </button>
-              <button type="button" className={BOTON} disabled={!bytes} onClick={() => void compartir()}>
-                Compartir
-              </button>
-            </div>
-            {aviso && (
-              <p role="status" className="text-sm text-slate-600 dark:text-slate-300">
-                {aviso}
-              </p>
-            )}
+      {/* 3. Qué más lleva */}
+      <section
+        aria-labelledby={ids.opciones}
+        className={`${TARJETA} flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-start-3`}
+      >
+        <h3 id={ids.opciones} className={TITULO_TARJETA}>
+          Incluir
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          <label className={claseChip(opciones.notas)}>
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={opciones.notas}
+              disabled={notasEnTramo === 0}
+              onChange={(e) => cambiar({ conNotas: e.target.checked })}
+            />
+            <span aria-hidden="true">{opciones.notas ? '✓' : '+'}</span>
+            Notas de campo ({notasEnTramo})
+          </label>
+          <label className={claseChip(firmas)}>
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={firmas}
+              onChange={(e) => cambiar({ firmas: e.target.checked })}
+            />
+            <span aria-hidden="true">{firmas ? '✓' : '+'}</span>
+            Cuadros de firma
+          </label>
+          {/* El nombre accesible es el texto que se ve: el control por voz lo encuentra. */}
+          <label className={claseChip(logo !== null)}>
+            {logo ? 'Cambiar logo' : 'Poner logo'}
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              className="sr-only"
+              onChange={(e) => {
+                void leerLogo(e.currentTarget.files?.[0])
+                // Vaciado: elegir otra vez el mismo archivo (tras quitarlo) vuelve a funcionar.
+                e.currentTarget.value = ''
+              }}
+            />
+          </label>
+        </div>
+        {notasEnTramo === 0 && (
+          <p className={AYUDA}>{usaTramo ? 'No hay notas de campo en el tramo.' : 'La calle no tiene notas de campo.'}</p>
+        )}
+        {logo && (
+          <div className="flex items-center gap-3">
+            <img src={logo.dataUrl} alt="Logo elegido" className="h-11 w-11 rounded border border-borde bg-white object-contain" />
+            <button type="button" className={BOTON_SECUNDARIO} onClick={() => cambiar({ logo: null })}>
+              Quitar logo
+            </button>
           </div>
-        </section>
-      </div>
+        )}
+        {firmas && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Campo etiqueta="Supervisor">
+              {(campo) => (
+                <input
+                  {...campo}
+                  className={CAMPO}
+                  value={preferencias.supervisor}
+                  placeholder="Ing. …"
+                  onChange={(e) => cambiar({ supervisor: e.target.value })}
+                />
+              )}
+            </Campo>
+            <div className="flex flex-col gap-1">
+              <span className={ETIQUETA}>Topógrafo</span>
+              <span className="flex min-h-12 items-center text-[15px]">
+                {proyecto.meta.responsable.trim() || '— (se pone en los datos del proyecto, en Obra)'}
+              </span>
+            </div>
+          </div>
+        )}
+      </section>
 
       <TablasParaExcel
-        idTitulo={ids.excel}
+        idBase={idBase}
         tablas={tablas}
         hayJornada={tomaActual !== undefined}
         descripcion={tomaActual && calle ? `${calle.nombre} · ${nombreDeToma(tomaActual)} · jornada entera` : null}
       />
 
-      <section className="flex flex-col gap-2">
-        <h3 className="font-semibold">Proyecto completo</h3>
-        <button type="button" className={`${BOTON} self-start`} onClick={() => descargarTopo(proyecto, archivosDePlano)}>
-          Guardar el proyecto (.topo)
-        </button>
-      </section>
+      {paginaGrande && pintada && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Página a pantalla completa"
+          className="fixed inset-0 z-50 overflow-auto overscroll-contain bg-black/80"
+          onClick={() => setPaginaGrande(false)}
+        >
+          {/* min-w y min-h: centrada si cabe; acercada, se desplaza sin cortarse por la izquierda. */}
+          <div className="flex min-h-full w-max min-w-full p-4 pt-16">
+            <img
+              src={pintada.url}
+              alt={`Primera página: ${pintada.titulo}, a pantalla completa`}
+              onClick={(e) => {
+                e.stopPropagation()
+                setPaginaAcercada((v) => !v)
+              }}
+              className={`m-auto bg-white shadow-2xl [touch-action:pan-x_pan-y_pinch-zoom] ${
+                paginaAcercada
+                  ? 'w-[220vw] max-w-none cursor-zoom-out lg:w-[min(1000px,calc(100vw-2rem))]'
+                  : 'max-h-[calc(100dvh-5rem)] max-w-[calc(100vw-2rem)] cursor-zoom-in object-contain'
+              }`}
+            />
+          </div>
+          <div className="fixed top-3 right-3 flex gap-2">
+            <button
+              type="button"
+              aria-pressed={paginaAcercada}
+              onClick={(e) => {
+                e.stopPropagation()
+                setPaginaAcercada((v) => !v)
+              }}
+              className="inline-flex h-11 items-center justify-center gap-1 rounded-full bg-white px-4 text-[15px] font-semibold text-[#10161d] shadow-lg"
+            >
+              <span aria-hidden="true">{paginaAcercada ? '−' : '+'}</span>
+              {paginaAcercada ? 'Alejar' : 'Acercar'}
+            </button>
+            <button
+              type="button"
+              aria-label="Cerrar la página"
+              autoFocus
+              onClick={() => setPaginaGrande(false)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-xl font-semibold text-[#10161d] shadow-lg"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -801,12 +939,12 @@ function Campo({
         ...(error ? { 'aria-invalid': true as const } : {}),
       })}
       {ayuda && (
-        <span id={idAyuda} className="text-xs text-slate-500 dark:text-slate-400">
+        <span id={idAyuda} className={AYUDA}>
           {ayuda}
         </span>
       )}
       {error && (
-        <span id={idError} className="text-xs text-aviso">
+        <span id={idError} className="text-[13px] font-medium text-aviso">
           <span aria-hidden="true">△ </span>
           {error}
         </span>
@@ -815,18 +953,66 @@ function Campo({
   )
 }
 
+/** Formatea un extremo del tramo: la progresiva si se entiende, o lo escrito tal cual. */
+function extremo(valor: number | string | null, siVacio: string): string {
+  if (typeof valor === 'number') return formatearProgresiva(valor)
+  return valor ? valor : siVacio
+}
+
+/**
+ * Lo que ya está elegido, en palabras cortas: la calle primero (en negrita),
+ * luego la capa y la fecha de la jornada y el tramo.
+ */
+function chipsDelAlcance({
+  tipo,
+  calleNombre,
+  tomaActual,
+  capaAbajo,
+  capaReplanteo,
+  bm,
+  desde,
+  hasta,
+}: {
+  tipo: string
+  calleNombre: string | null
+  tomaActual: ReturnType<typeof tomasDeCalle>[number] | undefined
+  capaAbajo: ReturnType<typeof tomasDeCalle>[number] | undefined
+  capaReplanteo: string | null
+  bm: string | null
+  desde: number | string | null
+  hasta: number | string | null
+}): string[] {
+  const chips = [calleNombre ?? 'Sin calles']
+  if (tipo === 'estacas') {
+    chips.push(capaReplanteo ?? 'sin capa')
+    chips.push(bm ?? 'sin BM')
+  } else if (!tomaActual) {
+    chips.push('sin jornada medida')
+  } else {
+    const capa = tomaActual.capa?.nombre ?? 'Capa sin nombre'
+    chips.push(tipo === 'espesores' && capaAbajo ? `${capa} sobre ${capaAbajo.capa?.nombre ?? '—'}` : capa)
+    chips.push(fechaImpresa(tomaActual.toma.fecha))
+  }
+  if (tipo === 'libreta') chips.push('libreta entera')
+  else if (desde === null && hasta === null) chips.push('toda la calle')
+  else if (desde === '' && hasta === '') chips.push('toda la calle')
+  else chips.push(`${extremo(desde, 'inicio')}–${extremo(hasta, 'fin')}`)
+  return chips
+}
+
 /**
  * Las exportaciones de siempre (antes solo en Revisar): cotas, diferencias
  * contra el proyecto y espesores, a Excel o CSV, o copiadas para pegar. La
- * cabecera de cada archivo dice si la nivelación cerró.
+ * cabecera de cada archivo dice si la nivelación cerró. Van plegadas al
+ * final: lo de cada día es el informe de arriba.
  */
 function TablasParaExcel({
-  idTitulo,
+  idBase,
   tablas,
   hayJornada,
   descripcion,
 }: {
-  idTitulo: string
+  idBase: string
   tablas: TablasDeLaJornada
   hayJornada: boolean
   descripcion: string | null
@@ -841,10 +1027,20 @@ function TablasParaExcel({
   )
   // Sin jornada no hay nada que exportar, tenga o no rasante la calle: se dice eso primero.
   const sinJornada = 'no hay jornada medida'
-  const grupos: { nombre: string; tabla: TablaExcel | null; falta: string }[] = [
-    { nombre: 'cotas', tabla: tablas.cotas, falta: sinJornada },
-    { nombre: 'diferencias', tabla: tablas.diferencias, falta: hayJornada ? 'la calle no tiene rasante' : sinJornada },
-    { nombre: 'espesores', tabla: tablas.espesores, falta: !hayJornada ? sinJornada : 'no hay una capa medida debajo' },
+  const grupos: { nombre: string; titulo: string; tabla: TablaExcel | null; falta: string }[] = [
+    { nombre: 'cotas', titulo: 'Cotas', tabla: tablas.cotas, falta: sinJornada },
+    {
+      nombre: 'diferencias',
+      titulo: 'Diferencias',
+      tabla: tablas.diferencias,
+      falta: hayJornada ? 'la calle no tiene rasante' : sinJornada,
+    },
+    {
+      nombre: 'espesores',
+      titulo: 'Espesores',
+      tabla: tablas.espesores,
+      falta: !hayJornada ? sinJornada : 'no hay una capa medida debajo',
+    },
   ]
   function copiar(nombre: string, tabla: TablaExcel) {
     void copiarAlPortapapeles(tabla.filas).then(() => {
@@ -854,37 +1050,55 @@ function TablasParaExcel({
     })
   }
   return (
-    <section aria-labelledby={idTitulo} className="flex flex-col gap-3">
-      <h3 id={idTitulo} className="font-semibold">
-        Tablas para Excel
-      </h3>
-      {descripcion && <p className="text-sm text-slate-600 dark:text-slate-300">{descripcion}</p>}
-      <div className="flex flex-col gap-3">
-        {grupos.map(({ nombre, tabla, falta }) => (
-          <div key={nombre} className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <button type="button" className={BOTON} disabled={!tabla} onClick={() => tabla && descargarTabla(tabla)}>
-              Exportar {nombre} a Excel
-            </button>
-            <button
-              type="button"
-              className={BOTON}
-              disabled={!tabla}
-              onClick={() => tabla && descargarCsv(tabla.filas, tabla.nombre)}
-            >
-              Exportar {nombre} a CSV
-            </button>
-            <button
-              type="button"
-              className={BOTON}
-              disabled={!tabla}
-              onClick={() => tabla && copiar(nombre, tabla)}
-            >
-              {copiada === nombre ? 'Copiado ✓' : `Copiar ${nombre}`}
-            </button>
-            {!tabla && <span className="text-xs text-slate-500 dark:text-slate-400">({falta})</span>}
-          </div>
-        ))}
-      </div>
+    <section aria-label="Tablas para Excel" className={`${TARJETA} min-w-0 py-2 lg:col-start-1 lg:row-start-4 lg:self-start`}>
+      <Plegable titulo="Datos sueltos" resumen="cotas, diferencias y espesores en Excel, CSV o para copiar">
+        <div className="flex flex-col gap-1 pb-2">
+          {descripcion && <p className={`${AYUDA} pb-1`}>{descripcion}</p>}
+          {grupos.map(({ nombre, titulo, tabla, falta }) => (
+            <div key={nombre} className="flex min-h-12 flex-wrap items-center gap-2 border-t border-borde pt-1 first-of-type:border-0">
+              <span className="min-w-0 flex-1 text-[15px] font-medium">
+                {titulo}
+                {!tabla && <span className={`${AYUDA} block font-normal`}>({falta})</span>}
+              </span>
+              <button
+                type="button"
+                aria-label={`Exportar ${nombre} a Excel`}
+                className={BOTON_SECUNDARIO}
+                disabled={!tabla}
+                onClick={() => tabla && descargarTabla(tabla)}
+              >
+                Excel
+              </button>
+              {tabla && (
+                <MenuMas
+                  etiqueta={`Más formatos de ${nombre}`}
+                  idMenu={`${idBase}-mas-${nombre}`}
+                  etiquetaGrupo={`Otros formatos de ${nombre}`}
+                >
+                  <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      aria-label={`Exportar ${nombre} a CSV`}
+                      className="inline-flex min-h-11 items-center rounded-lg px-3 text-left text-[15px] hover:bg-fondo"
+                      onClick={() => descargarCsv(tabla.filas, tabla.nombre)}
+                    >
+                      CSV
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Copiar ${nombre}`}
+                      className="inline-flex min-h-11 items-center rounded-lg px-3 text-left text-[15px] hover:bg-fondo"
+                      onClick={() => copiar(nombre, tabla)}
+                    >
+                      {copiada === nombre ? 'Copiado ✓' : 'Copiar'}
+                    </button>
+                  </div>
+                </MenuMas>
+              )}
+            </div>
+          ))}
+        </div>
+      </Plegable>
     </section>
   )
 }

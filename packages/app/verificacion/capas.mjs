@@ -60,8 +60,14 @@ async function irAAnalisisEspesores() {
   await pagina.getByRole('navigation', { name: 'Pantallas de la calle' }).getByRole('button', { name: 'Análisis', exact: true }).click()
   await pagina.getByRole('tab', { name: 'Espesores' }).click()
 }
+// Cada jornada del historial es una fila con su botón de comparar; abrir y
+// corregir van en su «⋯».
 const jornadasDeLaCalle = () =>
-  pagina.getByRole('button', { name: /^Abrir la jornada / }).evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
+  pagina.getByRole('button', { name: /^Comparar la jornada / }).evaluateAll((es) => es.map((e) => e.getAttribute('aria-label')))
+async function menuDeJornada(senia) {
+  const boton = pagina.getByRole('button', { name: `Más de la jornada ${senia}`, exact: true })
+  if ((await boton.getAttribute('aria-expanded')) !== 'true') await boton.click()
+}
 
 // 1. Registrar una segunda jornada sobre la misma calle, en la capa de abajo.
 // «Nueva jornada» salta sola a la libreta, así que se vuelve para contar.
@@ -79,10 +85,12 @@ comprobar('se puede registrar otra jornada sobre la misma calle',
 // La jornada nueva hereda la capa de la última de la calle (BASE); se le
 // corrige a TERRENO EXISTENTE, la capa de abajo, desde su ficha.
 const nueva = despues.find((n) => !antes.includes(n)) ?? ''
-const senia = nueva.replace(/^Abrir la jornada /, '')
+const senia = nueva.replace(/^Comparar la jornada /, '')
+await menuDeJornada(senia)
 await pagina.getByRole('button', { name: `Corregir la jornada ${senia}`, exact: true }).click()
 await pagina.getByLabel(`Capa de la jornada ${senia}`).selectOption({ label: 'TERRENO EXISTENTE' })
 const seniaTerreno = senia.replace(/ · .*$/, ' · TERRENO EXISTENTE')
+await menuDeJornada(seniaTerreno)
 await pagina.getByRole('button', { name: `Abrir la jornada ${seniaTerreno}`, exact: true }).click()
 
 // 2. La libreta nueva nace con su estación, pero sin la visada al banco de
@@ -108,7 +116,7 @@ for (const progresiva of ['0+000', '0+020']) {
 // 3. Ahora sí, una lectura en la misma celda que midió la jornada de
 // subrasante. En Medir el mapa dice qué está medido y qué falta; la celda se
 // nombra con el nombre completo del punto («Eje»).
-await pagina.getByRole('button', { name: '0+000 Eje', exact: true }).first().click()
+await pagina.getByRole('button', { name: /^0\+000 Eje([:,]|$)/ }).first().click()
 const campo = pagina.getByLabel('Lectura de mira')
 await campo.click()
 await campo.type('2.230', { delay: 20 })
@@ -120,7 +128,7 @@ comprobar('con la vista atrás escrita, la lectura produce cota',
 
 // Una segunda celda de la misma progresiva, también medida en la subrasante:
 // hacen falta dos puntos en común para que haya área que rellenar.
-await pagina.getByRole('button', { name: '0+000 Borde izquierdo', exact: true }).first().click()
+await pagina.getByRole('button', { name: /^0\+000 Borde izquierdo([:,]|$)/ }).first().click()
 await campo.click()
 await campo.type('2.290', { delay: 20 })
 await campo.press('Enter')
@@ -174,9 +182,8 @@ for (let i = 0; i < cuantasCasillas; i += 1) {
   if (nombre && /TERRENO|SUBRASANTE/.test(nombre)) await casilla.check()
 }
 await irAModo('Revisar')
-const deslizador = pagina.getByRole('slider', { name: 'Progresiva' })
-await deslizador.focus()
-await deslizador.press('Home')
+// El corte se lleva a 0+000 tocando su celda en el mapa.
+await pagina.getByRole('region', { name: 'Mapa de la calle' }).getByRole('button', { name: /^0\+000 Eje[:,]/ }).click()
 await pagina.waitForTimeout(200)
 
 const corteRevisar = pagina.getByRole('img', { name: /Corte transversal/ })
@@ -191,6 +198,9 @@ await pagina.screenshot({ path: `${SALIDA}/capas-apiladas.png`, fullPage: true }
 // 6. Descargar el Excel de espesores desde Informes y comprobar qué dice.
 await irA('Informes')
 await pagina.getByRole('button', { name: 'Control de espesores', exact: true }).click()
+// Las capas van en el alcance, plegado bajo los chips de lo ya elegido.
+const resumenAlcance = pagina.locator('summary', { hasText: 'Cambiar calle, jornada o tramo' })
+if (!(await resumenAlcance.evaluate((s) => s.parentElement.open))) await resumenAlcance.click()
 const arribaInforme = pagina.getByLabel('Capa de arriba', { exact: true })
 const opcionesInforme = await arribaInforme.locator('option').evaluateAll((os) => os.map((o) => ({ v: o.value, t: o.textContent })))
 const subrasanteInforme = opcionesInforme.find((o) => /SUBRASANTE/.test(o.t ?? ''))
@@ -205,6 +215,7 @@ comprobar('en Informes se puede elegir TERRENO como capa de abajo', Boolean(terr
   opcionesAbajoInforme.map((o) => o.t).join(' | '))
 if (terrenoInforme) await abajoInforme.selectOption(terrenoInforme.v)
 
+await pagina.locator('summary', { hasText: 'Datos sueltos' }).click()
 const botonEspesores = pagina.getByRole('button', { name: /espesores a Excel/i })
 const descarga = await Promise.all([
   pagina.waitForEvent('download'),
@@ -244,8 +255,7 @@ comprobar('la progresiva sin pareja en la otra capa sale vacía en el Excel, no 
 // dos casillas (TERRENO y SUBRASANTE) siguen marcadas desde el paso 5; si el
 // corte de Medir las heredara, saldrían dos trazos con su etiqueta.
 await irAModo('Medir')
-await deslizador.focus()
-await deslizador.press('Home')
+await pagina.getByRole('region', { name: 'Mapa de la calle' }).getByRole('button', { name: /^0\+000 Eje([:,]|$)/ }).click()
 await pagina.waitForTimeout(200)
 
 const corteLibreta = pagina.getByRole('img', { name: /Corte transversal/ })

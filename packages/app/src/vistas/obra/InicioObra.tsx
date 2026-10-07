@@ -1,16 +1,21 @@
 import { instrumentoCompleto, type Id } from '@topo/core'
 import { useMemo } from 'react'
+import { BOTON_SECUNDARIO, TARJETA, TARJETA_OSCURA } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
 import { buscarToma } from '../../estado/proyectoTomas'
 import { cuenta, formatearCota } from '../../formato'
 import ListaCalles from './ListaCalles'
-import { calcularToma, estadoDeCierre, fechaLocalISO, jornadaMasReciente, lecturasDeToma } from './estadoObra'
+import { calcularToma, estadoDeCierre, fechaCorta, fechaLocalISO, jornadaMasReciente, lecturasDeToma } from './estadoObra'
 
+/**
+ * El cierre sobre la tarjeta oscura, con los tonos claros del lienzo: verde
+ * agua si cerró, naranja claro si falta cerrar, rojo claro si no cierra.
+ */
 const ESTILO_CIERRE = {
-  '✓': 'text-pasa',
-  '△': 'text-aviso',
-  '✗': 'text-falla',
-  '·': 'text-slate-300',
+  '✓': 'text-[#7CE0C8]',
+  '△': 'text-[#FDBA74]',
+  '✗': 'text-[#FCA5A5]',
+  '·': 'text-cabecera-tenue',
 } as const
 
 /**
@@ -46,11 +51,8 @@ function TarjetaSeguir() {
 
   if (!datos) {
     return (
-      <section
-        aria-label="Seguir donde lo dejaste"
-        className="flex flex-col gap-1 rounded-2xl bg-slate-900 p-4 text-white dark:bg-slate-800"
-      >
-        <p className="text-sm text-slate-300">Seguir donde lo dejaste</p>
+      <section aria-label="Seguir donde lo dejaste" className={`flex flex-col gap-1 ${TARJETA_OSCURA}`}>
+        <p className="text-[13px] text-cabecera-tenue">Seguir donde lo dejaste</p>
         <p className="text-base">Todavía no hay ninguna jornada. Empieza una nueva o sube una hoja.</p>
       </section>
     )
@@ -70,35 +72,34 @@ function TarjetaSeguir() {
   }
 
   return (
-    <section
-      aria-label="Seguir donde lo dejaste"
-      className="flex flex-col gap-2.5 rounded-2xl bg-slate-900 p-4 text-white dark:bg-slate-800"
-    >
-      <p className="text-sm text-slate-300">
+    <section aria-label="Seguir donde lo dejaste" className={`flex flex-col gap-2.5 ${TARJETA_OSCURA}`}>
+      <p className="text-[13px] text-cabecera-tenue">
         Seguir donde lo dejaste{esLaActiva ? '' : ' · la última jornada de la obra'}
       </p>
-      <p className="text-xl font-bold">
+      <p className="text-xl leading-tight font-bold">
         {calle.nombre} · {capa?.nombre ?? 'capa sin elegir'}
       </p>
-      <p className="flex flex-wrap justify-between gap-x-3 text-sm text-slate-200">
+      {/* En un renglón a 390 px: la fecha corta y en letra normal; los puntos en Mono. */}
+      <p className="flex flex-wrap justify-between gap-x-2 text-[13px] text-cabecera-texto sm:text-sm">
         <span>
-          Estación {estacion} · <span className="numerico">{toma.fecha}</span>
+          Estación {estacion} · <span title={toma.fecha}>{fechaCorta(toma.fecha)}</span> ·{' '}
+          {cuenta(lecturas, 'lectura', 'lecturas')}
         </span>
         <span className="numerico">
-          {llenas} / {totales} puntos · {cuenta(lecturas, 'lectura', 'lecturas')}
+          {llenas} / {totales} puntos
         </span>
       </p>
-      <div aria-hidden="true" className="h-2 overflow-hidden rounded bg-slate-700">
-        <div className="h-2 bg-marca" style={{ width: `${porcentaje}%` }} />
+      <div aria-hidden="true" className="h-2 overflow-hidden rounded bg-[#2C3640]">
+        <div className="h-2 bg-marca-viva" style={{ width: `${porcentaje}%` }} />
       </div>
-      <p className={`text-sm ${ESTILO_CIERRE[cierre.simbolo]}`}>
+      <p className={`text-[13px] ${ESTILO_CIERRE[cierre.simbolo]}`}>
         <span aria-hidden="true">{cierre.simbolo} </span>
         {cierre.largo}
       </p>
       <button
         type="button"
         onClick={continuar}
-        className="min-h-12 rounded-lg bg-marca text-base font-semibold text-white"
+        className="flex h-12 items-center justify-center rounded-[10px] bg-marca text-base font-semibold text-white hover:bg-marca-oscura"
       >
         Continuar midiendo
       </button>
@@ -114,8 +115,9 @@ interface Props {
 }
 
 /**
- * El inicio de la obra, pensado para el celular: dónde lo dejaste, subir una
- * hoja o empezar una jornada, y la lista de calles con el estado de sus capas.
+ * El inicio de la obra, pensado para el celular (lienzo «Inicio»): dónde lo
+ * dejaste, subir una hoja o empezar una jornada, y la lista de calles con el
+ * estado de sus capas.
  */
 export default function InicioObra({ calleVistaId, alElegirCalle, alSubirHoja }: Props) {
   const proyecto = useAlmacen((s) => s.proyecto)
@@ -155,43 +157,48 @@ export default function InicioObra({ calleVistaId, alElegirCalle, alSubirHoja }:
     fijarModoCalle('medir')
   }
 
+  // Los dos botones del lienzo: alto de 48 px, letra de 15 px.
+  const botonInicio = `${BOTON_SECUNDARIO} min-h-12 text-[15px] font-normal`
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3.5">
       <header>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-[13px] text-tenue">
           Obra · {cuenta(proyecto.calles.length, 'calle', 'calles')} ·{' '}
           {cuenta(proyecto.bms.length, 'banco de nivel', 'bancos de nivel')}
         </p>
-        <h1 className="text-2xl font-bold leading-tight">{proyecto.meta.nombre || 'Obra sin nombre'}</h1>
+        <h1 className="text-[26px] leading-[1.15] font-bold">{proyecto.meta.nombre || 'Obra sin nombre'}</h1>
       </header>
 
       <TarjetaSeguir />
 
       <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={alSubirHoja}
-          className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white text-base dark:border-slate-700 dark:bg-slate-900"
-        >
+        <button type="button" onClick={alSubirHoja} className={botonInicio}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M12 16V4M7 9l5-5 5 5M4 20h16" />
           </svg>
           Subir hoja
         </button>
+        {/* El nombre es solo «Nueva jornada»; a dónde va, en la descripción y,
+            a la vista, en un segundo renglón chico. */}
         <button
           type="button"
           onClick={nuevaJornada}
           disabled={faltan.length > 0}
+          aria-label="Nueva jornada"
           aria-describedby="detalle-nueva-jornada"
-          className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white text-base disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+          className={`${botonInicio} py-1`}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
-          Nueva jornada
+          <span className="flex min-w-0 flex-col items-start leading-tight">
+            <span>Nueva jornada</span>
+            {faltan.length === 0 && <span className="truncate text-xs text-tenue">desde {bm!.nombre}</span>}
+          </span>
         </button>
       </div>
-      <p id="detalle-nueva-jornada" className="-mt-2 text-sm text-slate-600 dark:text-slate-400">
+      <p id="detalle-nueva-jornada" className={faltan.length > 0 ? '-mt-1.5 text-sm text-tenue' : 'sr-only'}>
         {faltan.length > 0
           ? `Para empezar una jornada falta ${faltan.join(', ')}.`
           : `Nueva jornada en ${calle!.nombre} · ${capa!.nombre} · desde ${bm!.nombre}, circuito cerrado. Se cambia en la libreta.`}
@@ -200,11 +207,11 @@ export default function InicioObra({ calleVistaId, alElegirCalle, alSubirHoja }:
       <ListaCalles calleVistaId={calle?.id ?? null} alElegir={alElegirCalle} />
 
       {proyecto.bms.length > 0 && (
-        <section aria-label="Bancos de nivel de la obra">
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
+        <section aria-label="Bancos de nivel de la obra" className={`${TARJETA} py-3`}>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-tenue">
             {proyecto.bms.map((b) => (
               <li key={b.id}>
-                {b.nombre} <b className="numerico text-slate-900 dark:text-slate-100">{formatearCota(b.cota)}</b>
+                {b.nombre} <b className="numerico text-tinta">{formatearCota(b.cota)}</b>
               </li>
             ))}
           </ul>

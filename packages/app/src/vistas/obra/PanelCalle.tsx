@@ -2,11 +2,12 @@ import { formatearProgresiva, hayDistanciasDeFabrica, type Calle, type Rasante }
 import { useMemo, useState } from 'react'
 import CampoTexto from '../../componentes/CampoTexto'
 import EditorRasante from '../../componentes/EditorRasante'
+import { BOTON_PRINCIPAL, ENLACE_PELIGRO } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
 import { cuenta, formatearCota } from '../../formato'
 import VistaSeccion from '../VistaSeccion'
 import Apartado from './Apartado'
-import { estadoDeCierre, jornadasDeCalle, tramoDeTomas } from './estadoObra'
+import { estadoDeCierre, fechaCorta, jornadasDeCalle, tramoDeTomas } from './estadoObra'
 import JornadasCalle from './JornadasCalle'
 import SubirHojaEmbebida from './SubirHojaEmbebida'
 
@@ -94,51 +95,99 @@ export default function PanelCalle({ calle, abiertos, alAlternar, alVolver, clav
           nombre del archivo. Por eso el apartado no promete «a esta calle». */}
       <Apartado
         titulo="Subir una hoja de campo"
-        resumen="Suelta aquí tu Excel o pega las celdas. Antes de aceptar, di a qué calle va: se suma a esa calle sin pisar nada"
+        resumen="Suelta aquí tu Excel o pega las celdas: se suma a la calle sin pisar nada"
         abierto={abiertos.has('subir')}
         alAlternar={() => alAlternar('subir')}
         conservarMontado
       >
         <SubirHojaEmbebida key={claveSubir} calleDelPanel={calle?.nombre} />
       </Apartado>
+
+      {/* Lo que no tiene vuelta va al final, lejos de lo que se toca a diario. */}
+      {calle && <BorrarCalle key={`borrar-${calle.id}`} calle={calle} />}
     </section>
+  )
+}
+
+/**
+ * «Borrar esta calle y sus 2 jornadas», en rojo y sin caja, al pie del panel.
+ * Pide un segundo toque que dice cuántas jornadas se van; se desarma al salir
+ * del botón y al cambiar de calle.
+ */
+function BorrarCalle({ calle }: { calle: Calle }) {
+  const eliminarCalle = useAlmacen((s) => s.eliminarCalle)
+  const [confirmar, setConfirmar] = useState(false)
+  const jornadas = calle.nivelaciones.reduce((suma, n) => suma + n.tomas.length, 0)
+  const texto =
+    jornadas === 0
+      ? 'Borrar esta calle'
+      : jornadas === 1
+        ? 'Borrar esta calle y su jornada'
+        : `Borrar esta calle y sus ${jornadas} jornadas`
+
+  return (
+    <div className="border-t border-borde pt-3">
+      <button
+        type="button"
+        onClick={() => {
+          if (confirmar) {
+            eliminarCalle(calle.id)
+            setConfirmar(false)
+          } else {
+            setConfirmar(true)
+          }
+        }}
+        onBlur={() => setConfirmar(false)}
+        className={`${ENLACE_PELIGRO} ${confirmar ? 'font-semibold underline' : ''}`}
+      >
+        {confirmar ? `¿Seguro? Se borran ${cuenta(jornadas, 'jornada', 'jornadas')}` : texto}
+      </button>
+    </div>
   )
 }
 
 function CabeceraSinCalles({ alVolver }: { alVolver: () => void }) {
   return (
     <>
-      <button
-        type="button"
-        onClick={alVolver}
-        className="flex min-h-11 items-center gap-1 self-start text-base font-medium text-marca lg:hidden"
-      >
-        <span aria-hidden="true">‹</span> Volver a la obra
-      </button>
-      <h2 tabIndex={-1} className="text-2xl font-bold">
+      <BotonVolver alVolver={alVolver} />
+      <h2 tabIndex={-1} className="text-[26px] leading-tight font-bold">
         Subir hoja
       </h2>
-      <p className="text-base text-slate-600 dark:text-slate-300">
+      <p className="text-base text-tenue">
         Todavía no hay ninguna calle. Sube una hoja de campo y la calle nace con ella, o créala en la lista.
       </p>
     </>
   )
 }
 
+/** Solo en el celular, donde el panel tapa la lista. */
+function BotonVolver({ alVolver }: { alVolver: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={alVolver}
+      className="-ml-1 flex min-h-11 items-center gap-1 self-start px-1 text-base font-medium text-marca lg:hidden"
+    >
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.2}>
+        <path d="M15 6l-6 6 6 6" />
+      </svg>
+      Volver a la obra
+    </button>
+  )
+}
+
 function CuerpoCalle({ calle, abiertos, alAlternar, alVolver }: Omit<Props, 'claveSubir' | 'calle'> & { calle: Calle }) {
   const proyecto = useAlmacen((s) => s.proyecto)
   const actualizarCalle = useAlmacen((s) => s.actualizarCalle)
-  const eliminarCalle = useAlmacen((s) => s.eliminarCalle)
   const irAEspacio = useAlmacen((s) => s.irAEspacio)
   const calleActivaId = useAlmacen((s) => s.calleActivaId)
   const activarCalle = useAlmacen((s) => s.activarCalle)
-  const [confirmarBorrado, setConfirmarBorrado] = useState(false)
 
   const jornadas = useMemo(() => jornadasDeCalle(proyecto, calle), [proyecto, calle])
   const tramo = tramoDeTomas(jornadas.map((j) => j.toma))
   const ultima = jornadas[0]
   const resumenJornadas = ultima
-    ? `${cuenta(jornadas.length, 'jornada', 'jornadas')} · la última ${ultima.toma.fecha}, ${ultima.capa?.nombre ?? 'sin capa'}: ${(() => {
+    ? `${cuenta(jornadas.length, 'jornada', 'jornadas')} · última ${fechaCorta(ultima.toma.fecha)}, ${ultima.capa?.nombre ?? 'sin capa'}: ${(() => {
         const c = estadoDeCierre(ultima.toma, ultima.resultado)
         return `${c.simbolo} ${c.corto}`
       })()}`
@@ -147,37 +196,18 @@ function CuerpoCalle({ calle, abiertos, alAlternar, alVolver }: Omit<Props, 'cla
 
   return (
     <>
-      <button
-        type="button"
-        onClick={alVolver}
-        className="flex min-h-11 items-center gap-1 self-start text-base font-medium text-marca lg:hidden"
-      >
-        <span aria-hidden="true">‹</span> Volver a la obra
-      </button>
+      <BotonVolver alVolver={alVolver} />
 
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
         {/* Recibe el foco al abrir el panel en el celular, donde la lista desaparece. */}
-        <h2 tabIndex={-1} className="text-2xl font-bold">
+        <h2 tabIndex={-1} className="text-[26px] leading-tight font-bold">
           {calle.nombre}
         </h2>
-        <span className="numerico text-slate-600 dark:text-slate-400">{tramo ?? 'sin medir'}</span>
-        <span className="flex-1" />
-        <button
-          type="button"
-          onClick={() => {
-            // Mirar la calle no la activó; abrirla sí. Si ya era la activa, se
-            // queda la jornada en que se estaba, no la última de la calle.
-            if (calleActivaId !== calle.id) activarCalle(calle.id)
-            irAEspacio('calle')
-          }}
-          className="min-h-11 rounded-lg bg-marca px-4 text-base font-semibold text-white"
-        >
-          Abrir la calle ›
-        </button>
+        <span className="numerico text-sm text-tenue">{tramo ?? 'sin medir'}</span>
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-0 flex-1 [&_input]:min-h-11 [&_input]:text-base">
+        <div className="min-w-[12rem] flex-1 [&_input]:min-h-12 [&_input]:text-base">
           <CampoTexto
             etiqueta="Nombre de la calle"
             valor={calle.nombre}
@@ -187,19 +217,14 @@ function CuerpoCalle({ calle, abiertos, alAlternar, alVolver }: Omit<Props, 'cla
         <button
           type="button"
           onClick={() => {
-            if (confirmarBorrado) {
-              eliminarCalle(calle.id)
-              setConfirmarBorrado(false)
-            } else {
-              setConfirmarBorrado(true)
-            }
+            // Mirar la calle no la activó; abrirla sí. Si ya era la activa, se
+            // queda la jornada en que se estaba, no la última de la calle.
+            if (calleActivaId !== calle.id) activarCalle(calle.id)
+            irAEspacio('calle')
           }}
-          onBlur={() => setConfirmarBorrado(false)}
-          className="min-h-11 rounded-lg border border-falla px-3 text-sm text-falla"
+          className={`${BOTON_PRINCIPAL} grow sm:grow-0`}
         >
-          {confirmarBorrado
-            ? `¿Seguro? Se borran ${cuenta(jornadas.length, 'jornada', 'jornadas')}`
-            : 'Eliminar la calle'}
+          Abrir la calle ›
         </button>
       </div>
 
@@ -227,12 +252,12 @@ function CuerpoCalle({ calle, abiertos, alAlternar, alVolver }: Omit<Props, 'cla
 
       <Apartado
         titulo="Anchos"
-        resumen="Un solo ancho para toda la calle: los anchos por progresiva todavía no están en el modelo"
+        resumen="Un solo ancho para toda la calle, el mismo en cada progresiva"
         abierto={abiertos.has('anchos')}
         alAlternar={() => alAlternar('anchos')}
       >
         <div className="flex flex-col gap-2 p-3 sm:p-4">
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-tenue">
             <span aria-hidden="true">△ </span>
             Esta versión todavía no guarda anchos medidos en cada progresiva: la sección vale igual de
             punta a punta. Estas son sus distancias al eje; se cambian en «Sección».
@@ -240,14 +265,14 @@ function CuerpoCalle({ calle, abiertos, alAlternar, alVolver }: Omit<Props, 'cla
           <table className="w-full max-w-md text-sm">
             <caption className="sr-only">Distancias al eje de la sección</caption>
             <thead>
-              <tr className="text-left text-slate-600 dark:text-slate-400">
+              <tr className="text-left text-tenue">
                 <th className="py-1 font-medium">Punto</th>
                 <th className="py-1 text-right font-medium">m al eje</th>
               </tr>
             </thead>
             <tbody>
               {puntosOrdenados.map((p) => (
-                <tr key={p.id} className="border-t border-slate-100 dark:border-slate-800">
+                <tr key={p.id} className="border-t border-borde">
                   <td className="py-1.5">{p.nombre}</td>
                   <td className="numerico py-1.5 text-right">
                     {conSigno(p.distancia, 2)}

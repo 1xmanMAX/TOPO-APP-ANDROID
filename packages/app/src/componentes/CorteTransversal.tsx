@@ -53,7 +53,8 @@ interface EstiloCapa {
  * siendo legibles incluso si dos tonos de gris quedan parecidos.
  */
 const ESTILOS_CAPA: EstiloCapa[] = [
-  { linea: 'stroke-marca', punto: 'fill-marca' },
+  // Lo medido de la capa que se trabaja: tinta, continuo (el proyecto va en azul, a trazos).
+  { linea: 'stroke-tinta', punto: 'fill-tinta' },
   { linea: 'stroke-slate-500 dark:stroke-slate-400', punto: 'fill-slate-500 dark:fill-slate-400', trazo: '7 3' },
   { linea: 'stroke-slate-800 dark:stroke-slate-200', punto: 'fill-slate-800 dark:fill-slate-200', trazo: '2 3' },
   { linea: 'stroke-slate-400 dark:stroke-slate-600', punto: 'fill-slate-400 dark:fill-slate-600', trazo: '1 4' },
@@ -248,41 +249,129 @@ function tituloDeZona(segmento: SegmentoZona): string {
   )
 }
 
-/** Leyenda de las tramas de corte y relleno, para no depender solo del color. */
-function LeyendaZonas({
+const COLOR_PROYECTO = 'var(--color-proyecto)'
+const COLOR_MARCA = 'var(--color-marca)'
+
+/** El color de cada estado del semáforo, para el texto de la diferencia sobre cada punto. */
+const RELLENO_ESTADO: Partial<Record<CeldaEvaluada['estado'], string>> = {
+  conforme: 'fill-pasa',
+  alLimite: 'fill-aviso',
+  fuera: 'fill-falla',
+}
+
+/** La diferencia sobre el punto: con signo y sin unidad («+46», «−4»), como en el mapa. */
+function diferenciaCorta(diferenciaMm: number): string {
+  return `${diferenciaMm > 0 ? '+' : diferenciaMm < 0 ? '−' : ''}${Math.abs(diferenciaMm)}`
+}
+
+/**
+ * El halo de los rótulos: un trazo del color de la tarjeta pintado debajo
+ * del texto (paint-order), para que ninguna línea ni trama lo tache al sol.
+ * La clase `stroke-tarjeta` pone el color; esto, el grosor y el orden.
+ */
+const HALO = {
+  strokeWidth: 4,
+  strokeLinejoin: 'round',
+  style: { paintOrder: 'stroke' },
+} as const
+
+/**
+ * Dónde van los rótulos de un punto (en px del dibujo): la diferencia pegada
+ * al punto y el nombre detrás, los dos del mismo lado, el contrario a la
+ * línea de proyecto (si el proyecto pasa por encima, debajo). Si el proyecto
+ * coincide con lo medido o no hay, se van al lado libre: encima en una
+ * cumbre (las líneas bajan a los lados), debajo en un valle.
+ */
+/** Por encima de esta línea (px del dibujo) un rótulo quedaría bajo la leyenda. */
+const TOPE_ROTULOS = 44
+
+function lugarDeRotulos(
+  yPunto: number,
+  vecinos: (number | null)[],
+  yProyecto: number | null,
+  conNumero: boolean,
+): { numeroY: number; nombreY: number } {
+  let arriba: boolean
+  if (yProyecto !== null && Math.abs(yProyecto - yPunto) > 2) {
+    arriba = yProyecto > yPunto
+  } else {
+    const ys = vecinos.filter((v): v is number => v !== null)
+    const media = ys.length > 0 ? ys.reduce((a, b) => a + b, 0) / ys.length : yPunto
+    arriba = media > yPunto + 1
+  }
+  if (arriba) {
+    const numeroY = yPunto - 14
+    const nombreY = conNumero ? numeroY - 15 : yPunto - 14
+    // Pegado al borde de arriba lo taparía la leyenda (en la laptop va encima
+    // del dibujo): el nombre baja debajo del punto y arriba queda el número.
+    return { numeroY, nombreY: nombreY < TOPE_ROTULOS ? yPunto + 24 : nombreY }
+  }
+  const numeroY = yPunto + 24
+  return { numeroY, nombreY: conNumero ? numeroY + 14 : yPunto + 24 }
+}
+
+/** Las dos tramas, para el dibujo y para su leyenda: rayas de corte, puntos de relleno. */
+function PatronesZonas({ idPatronCorte, idPatronRelleno }: { idPatronCorte: string; idPatronRelleno: string }) {
+  return (
+    <defs>
+      <pattern id={idPatronCorte} width={8} height={8} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <line x1={0} y1={0} x2={0} y2={8} stroke={COLOR_MARCA} strokeWidth={2} />
+      </pattern>
+      <pattern id={idPatronRelleno} width={7} height={7} patternUnits="userSpaceOnUse">
+        <circle cx={3.5} cy={3.5} r={1.4} fill={COLOR_PROYECTO} />
+      </pattern>
+    </defs>
+  )
+}
+
+/**
+ * La leyenda del corte, arriba a la derecha del dibujo: proyecto, medido y
+ * las dos tramas, para no depender solo del color. Cada texto empieza por
+ * lo que es («Corte: sobra»).
+ */
+function LeyendaCorte({
   idPatronCorte,
   idPatronRelleno,
+  conProyecto,
+  conZonas,
 }: {
   idPatronCorte: string
   idPatronRelleno: string
+  conProyecto: boolean
+  conZonas: boolean
 }) {
   return (
-    <ul className="flex flex-wrap gap-4 text-xs text-slate-600 dark:text-slate-300">
+    <ul className="flex flex-wrap gap-x-3.5 gap-y-1 rounded-md bg-tarjeta/90 px-1.5 py-1 text-xs text-tinta md:absolute md:top-1 md:right-1">
+      {conProyecto && (
+        <li className="flex items-center gap-1.5">
+          <svg width={22} height={6} aria-hidden="true" className="shrink-0">
+            <line x1={0} y1={3} x2={22} y2={3} stroke={COLOR_PROYECTO} strokeWidth={2.5} strokeDasharray="6 4" />
+          </svg>
+          <span>Proyecto</span>
+        </li>
+      )}
       <li className="flex items-center gap-1.5">
-        <svg width={20} height={14} aria-hidden="true" className="shrink-0">
-          <rect
-            width={20}
-            height={14}
-            fill={`url(#${idPatronCorte})`}
-            strokeWidth={1}
-            className="stroke-amber-600/70 dark:stroke-amber-400/70"
-          />
+        <svg width={22} height={6} aria-hidden="true" className="shrink-0">
+          <line x1={0} y1={3} x2={22} y2={3} strokeWidth={2.5} className="stroke-tinta" />
         </svg>
-        Corte: donde el terreno sobra frente a la rasante
+        <span>Medido</span>
       </li>
-      <li className="flex items-center gap-1.5">
-        <svg width={20} height={14} aria-hidden="true" className="shrink-0">
-          <rect
-            width={20}
-            height={14}
-            fill={`url(#${idPatronRelleno})`}
-            strokeWidth={1}
-            strokeDasharray="3 2"
-            className="stroke-sky-600/70 dark:stroke-sky-400/70"
-          />
-        </svg>
-        Relleno: donde el terreno falta frente a la rasante
-      </li>
+      {conZonas && (
+        <>
+          <li className="flex items-center gap-1.5">
+            <svg width={14} height={12} aria-hidden="true" className="shrink-0">
+              <rect width={14} height={12} fill={`url(#${idPatronCorte})`} stroke={COLOR_MARCA} />
+            </svg>
+            <span>Corte: sobra</span>
+          </li>
+          <li className="flex items-center gap-1.5">
+            <svg width={14} height={12} aria-hidden="true" className="shrink-0">
+              <rect width={14} height={12} fill={`url(#${idPatronRelleno})`} stroke={COLOR_PROYECTO} />
+            </svg>
+            <span>Relleno: falta</span>
+          </li>
+        </>
+      )}
     </ul>
   )
 }
@@ -441,14 +530,21 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
 
   if (totalPuntos === 0) {
     return (
-      <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
+      <p className="rounded-[10px] border border-dashed border-borde-fuerte p-6 text-center text-sm text-tenue">
         {formatearProgresiva(progresiva)} todavía no tiene lecturas.
       </p>
     )
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    // El marco del gráfico no lleva borde aquí: ya va dentro de la tarjeta del dibujo.
+    <div className="relative flex flex-col gap-2 [&>svg]:border-0">
+      <LeyendaCorte
+        idPatronCorte={idPatronCorte}
+        idPatronRelleno={idPatronRelleno}
+        conProyecto={evaluacionRasante !== null && tramosLineaRasante.length > 0}
+        conZonas={evaluacionRasante !== null && segmentosZona.length > 0}
+      />
       <MarcoGrafico
         valoresX={[
         ...series.flatMap((serie) => serie.puntos.map((p) => p.offset)),
@@ -487,42 +583,7 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
             <>
               {segmentosZona.length > 0 && (
                 <>
-                  <defs>
-                    <pattern
-                      id={idPatronCorte}
-                      width={6}
-                      height={6}
-                      patternUnits="userSpaceOnUse"
-                      patternTransform="rotate(45)"
-                    >
-                      <rect width={6} height={6} className="fill-amber-500/10 dark:fill-amber-400/10" />
-                      <line
-                        x1={0}
-                        y1={0}
-                        x2={0}
-                        y2={6}
-                        strokeWidth={1.5}
-                        className="stroke-amber-600/70 dark:stroke-amber-400/70"
-                      />
-                    </pattern>
-                    <pattern
-                      id={idPatronRelleno}
-                      width={6}
-                      height={6}
-                      patternUnits="userSpaceOnUse"
-                      patternTransform="rotate(-45)"
-                    >
-                      <rect width={6} height={6} className="fill-sky-500/10 dark:fill-sky-400/10" />
-                      <line
-                        x1={0}
-                        y1={0}
-                        x2={0}
-                        y2={6}
-                        strokeWidth={1.5}
-                        className="stroke-sky-600/70 dark:stroke-sky-400/70"
-                      />
-                    </pattern>
-                  </defs>
+                  <PatronesZonas idPatronCorte={idPatronCorte} idPatronRelleno={idPatronRelleno} />
 
                   {segmentosZona.map((segmento) => {
                     const puntos = [
@@ -541,13 +602,10 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                         data-offset-fin={segmento.hasta.offset}
                         points={puntos}
                         fill={`url(#${esCorte ? idPatronCorte : idPatronRelleno})`}
-                        strokeWidth={1}
-                        strokeDasharray={esCorte ? undefined : '3 2'}
-                        className={
-                          esCorte
-                            ? 'stroke-amber-600/70 dark:stroke-amber-400/70'
-                            : 'stroke-sky-600/70 dark:stroke-sky-400/70'
-                        }
+                        fillOpacity={0.85}
+                        // Sin borde: arriba y abajo ya están las dos líneas, y los lados
+                        // (donde la zona se parte en el eje) tachaban la diferencia del eje.
+                        stroke="none"
                         role="img"
                         aria-label={tituloDeZona(segmento)}
                       >
@@ -567,9 +625,9 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                         .map((c) => `${x(c.offset).toFixed(1)},${y(c.cotaTeorica!).toFixed(1)}`)
                         .join(' ')}
                       fill="none"
-                      className="stroke-slate-700 dark:stroke-slate-200"
-                      strokeWidth={2}
-                      strokeDasharray="6 4"
+                      stroke={COLOR_PROYECTO}
+                      strokeWidth={2.5}
+                      strokeDasharray="8 5"
                     />
                   ))}
                 </g>
@@ -592,7 +650,7 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                   fill="none"
                   data-capa-id={serie.campaniaId}
                   className={estilo.linea}
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   strokeDasharray={estilo.trazo}
                 />
 
@@ -602,7 +660,8 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                     y={y(primero.cota) + 4}
                     textAnchor="end"
                     aria-hidden="true"
-                    className="fill-slate-600 text-[9px] font-medium dark:fill-slate-300"
+                    {...HALO}
+                    className="fill-slate-600 stroke-tarjeta text-[9px] font-medium dark:fill-slate-300"
                   >
                     {serie.nombreCapa}
                   </text>
@@ -612,26 +671,26 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
                   const activo = seleccion.clave === punto.clave
                   const nombrePunto = palabraDeElemento(punto.elementoClave)
                   const nombreLargo = nombreDeElemento(punto.elementoClave)
+                  // La diferencia con el proyecto, solo en la capa contra la que se compara.
+                  const evaluada =
+                    serie.campaniaId === idCampaniaReferencia ? evaluacionRasante?.celdas.get(punto.clave) : undefined
+                  const colorEstado = evaluada ? RELLENO_ESTADO[evaluada.estado] : undefined
                   const nombreConCapa = variasCapas
                     ? `${formatearProgresiva(punto.progresiva)} ${nombreLargo} · ${serie.nombreCapa} · cota ${formatearCota(punto.cota)} m`
                     : `${formatearProgresiva(punto.progresiva)} ${nombreLargo} · cota ${formatearCota(punto.cota)} m`
 
                   return (
                     <g key={`${serie.campaniaId}-${punto.clave}`}>
+                      {activo && (
+                        <circle cx={x(punto.offset)} cy={y(punto.cota)} r={9.5} fill="none" strokeWidth={2} className="stroke-tinta" />
+                      )}
                       <circle
                         cx={x(punto.offset)}
                         cy={y(punto.cota)}
-                        r={activo ? 7 : 4.5}
-                        className={activo ? 'fill-falla' : estilo.punto}
+                        r={activo ? 7 : 5.5}
+                        strokeWidth={2.5}
+                        className={`stroke-tarjeta ${colorEstado ?? estilo.punto}`}
                       />
-                      <text
-                        x={x(punto.offset)}
-                        y={y(punto.cota) - 12}
-                        textAnchor="middle"
-                        className="fill-slate-500 text-[9px]"
-                      >
-                        {nombrePunto}
-                      </text>
                       <circle
                         cx={x(punto.offset)}
                         cy={y(punto.cota)}
@@ -659,16 +718,60 @@ export default function CorteTransversal({ progresiva, idsVisibles, idCampaniaRe
               </g>
             )
           })}
+
+          {/* Los rótulos, encima de todo y con halo: ninguna línea ni trama los tacha. */}
+          <g aria-hidden="true" pointerEvents="none">
+            {series.flatMap((serie) =>
+              serie.puntos.map((punto, i) => {
+                const activo = seleccion.clave === punto.clave
+                const evaluada =
+                  serie.campaniaId === idCampaniaReferencia ? evaluacionRasante?.celdas.get(punto.clave) : undefined
+                const vecino = (j: number) => {
+                  const otro = serie.puntos[j]
+                  return otro ? y(otro.cota) : null
+                }
+                const diferenciaMm = evaluada?.diferenciaMm ?? null
+                const lugar = lugarDeRotulos(
+                  y(punto.cota),
+                  [vecino(i - 1), vecino(i + 1)],
+                  evaluada?.cotaTeorica != null ? y(evaluada.cotaTeorica) : null,
+                  diferenciaMm !== null,
+                )
+                const cx = x(punto.offset)
+                const colorEstado = evaluada ? RELLENO_ESTADO[evaluada.estado] : undefined
+                return (
+                  <g key={`rotulo-${serie.campaniaId}-${punto.clave}`}>
+                    {diferenciaMm !== null && (
+                      <text
+                        x={cx}
+                        y={lugar.numeroY}
+                        textAnchor="middle"
+                        {...HALO}
+                        className={`stroke-tarjeta font-mono text-[13px] font-semibold ${colorEstado ?? 'fill-tinta'}`}
+                      >
+                        {diferenciaCorta(diferenciaMm)}
+                      </text>
+                    )}
+                    <text
+                      x={cx}
+                      y={lugar.nombreY}
+                      textAnchor="middle"
+                      {...HALO}
+                      className={`stroke-tarjeta text-[11px] ${activo ? 'fill-tinta font-bold' : 'fill-tenue'}`}
+                    >
+                      {palabraDeElemento(punto.elementoClave)}
+                    </text>
+                  </g>
+                )
+              }),
+            )}
+          </g>
         </>
       )}
       </MarcoGrafico>
 
-      {evaluacionRasante && segmentosZona.length > 0 && (
-        <LeyendaZonas idPatronCorte={idPatronCorte} idPatronRelleno={idPatronRelleno} />
-      )}
-
       {evaluacionRasante && !referenciaVisible && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-tenue">
           El sombreado corresponde a la capa que estás controlando: márcala en el selector de capas para
           verlo.
         </p>

@@ -1,20 +1,95 @@
 @import 'tailwindcss';
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Los colores del lienzo (docs/superpowers/diseno-lienzo). Cada pantalla los
+ * usa por su nombre —marca, tinta, tenue, fondo, tarjeta, borde, pasa,
+ * aviso, falla, sin— y el tema oscuro y el modo sol los redefinen abajo:
+ * así una pantalla no necesita sus propios `dark:`.
+ */
 @theme {
-  --color-marca: oklch(0.55 0.16 250);
-  --color-pasa: oklch(0.65 0.17 145);
-  --color-falla: oklch(0.6 0.21 25);
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Naranja de obra: botones principales, lo activo. Con texto blanco, 5.2:1. */
+  --color-marca: #c2410c;
+  --color-marca-viva: #f97316;
+  --color-marca-suave: #fff4ec;
+  --color-marca-oscura: #9a3412;
+
+  --color-tinta: #10161d;
+  --color-tenue: #4a5561;
+  --color-fondo: #eef1f4;
+  --color-tarjeta: #ffffff;
+  --color-borde: #d5dae0;
+  --color-borde-fuerte: #c3cad2;
+
+  /* La cabecera oscura y las tarjetas oscuras («Seguir donde lo dejaste»). */
+  --color-cabecera: #10161d;
+  --color-cabecera-2: #1b242d;
+  --color-cabecera-borde: #3a4651;
+  --color-cabecera-tenue: #aeb8c2;
+  --color-cabecera-texto: #d7dde3;
+
+  /* La línea de proyecto en los dibujos y los enlaces. */
+  --color-proyecto: #1d4ed8;
+
   /*
-   * Ámbar oscuro sobre blanco: 5.0:1. El ámbar claro de antes daba 2.3:1 y el
-   * «△ No comprobado…» en text-sm no se leía al sol.
+   * El semáforo. Siempre va con su símbolo (✓ △ ✗ ·): el color es el segundo
+   * canal, nunca el único. Los -suave son el fondo de la celda o del aviso.
    */
-  --color-aviso: oklch(0.55 0.12 70);
+  --color-pasa: #0b5e56;
+  --color-pasa-suave: #e3f2ef;
+  --color-aviso: #7a4a00;
+  --color-aviso-suave: #fbf0d9;
+  --color-falla: #9f1b1b;
+  --color-falla-suave: #fbe3e3;
+  --color-sin: #55606b;
+  --color-sin-suave: #eef1f4;
+
+  /*
+   * Los grises de Tailwind, retenidos con los del lienzo: las clases slate-*
+   * que ya hay en toda la app toman estos tonos sin tocar cada pantalla.
+   * slate-500 sobre blanco da 6.3:1 y se lee al sol.
+   */
+  --color-slate-50: #f7f8fa;
+  --color-slate-100: #eef1f4;
+  --color-slate-200: #d5dae0;
+  --color-slate-300: #c3cad2;
+  --color-slate-400: #8b96a2;
+  --color-slate-500: #55606b;
+  --color-slate-600: #4a5561;
+  --color-slate-700: #2c3640;
+  --color-slate-800: #1b242d;
+  --color-slate-900: #10161d;
+  --color-slate-950: #0a0f14;
 }
 
-/* En el tema oscuro, el ámbar claro es el que se lee sobre el fondo negro. */
+/*
+ * Tema oscuro. La marca no cambia (bg-marca con texto blanco sigue en 5.2:1);
+ * el texto en marca sí se aclara, que sobre el fondo oscuro no se leería.
+ */
 html.dark:not(.sol) {
-  --color-aviso: oklch(0.75 0.15 80);
+  --color-fondo: #0a0f14;
+  --color-tarjeta: #151c23;
+  --color-borde: #2c3640;
+  --color-borde-fuerte: #3a4651;
+  --color-tinta: #e6eaee;
+  --color-tenue: #aeb8c2;
+  --color-pasa: #5fd3c2;
+  --color-pasa-suave: #0e2a27;
+  --color-aviso: #f5c26b;
+  --color-aviso-suave: #2e2410;
+  --color-falla: #f28b8b;
+  --color-falla-suave: #2e1414;
+  --color-sin: #aeb8c2;
+  --color-sin-suave: #1b242d;
+  --color-proyecto: #7ea6ff;
+  --color-marca-suave: #2a1a10;
+}
+
+html.dark:not(.sol) .text-marca {
+  color: #fdba74;
 }
 
 html,
@@ -24,7 +99,7 @@ body,
 }
 
 body {
-  @apply bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  @apply bg-fondo text-tinta antialiased font-sans;
 }
 
 /* Números de cota y lectura: siempre tabulares, para que las columnas cuadren. */
@@ -34,29 +109,28 @@ body {
 }
 
 /*
- * Modo sol: negro y amarillo de alto contraste, para leer la pantalla a
- * pleno sol en obra. BotonTema pone en <html> las clases `dark` y `sol`: el
- * oscuro ya deja fondos oscuros y texto claro en todas las pantallas, y aquí
- * se cambia la paleta.
+ * Modo sol (lienzo ModoSol): negro, blanco y amarillo #FFD60A, para leer la
+ * pantalla a pleno sol en obra. El almacén del tema pone en <html> las clases
+ * `dark` y `sol`: el oscuro ya deja fondos oscuros y texto claro en las
+ * pantallas que aún usan `dark:`, y aquí se cambia la paleta.
  *
  * En el tema oscuro, slate-50…500 son TEXTO (dark:text-slate-100…400) y
  * slate-600…950 son FONDO (dark:bg-slate-600 en el punto medido del mapa,
  * dark:bg-slate-700 en las jornadas y los pasos de la guía, dark:bg-slate-800
- * en las tarjetas). Por eso los primeros pasan a amarillo y los segundos se
- * quedan en negros con un tinte de amarillo, distintos entre sí: amarillo
- * sobre amarillo no se lee. El blanco se queda blanco (texto de las tarjetas
- * oscuras); el único sitio donde iría blanco sobre amarillo, la marca, tiene
- * su regla abajo. Los colores de estado se avivan pero siguen yendo con su
- * símbolo (✓ △ ✗). modoSol.test.ts vigila estos contrastes.
+ * en las tarjetas). Por eso los primeros pasan a blanco y los segundos se
+ * quedan en negros con un tinte de amarillo, distintos entre sí. El blanco se
+ * queda blanco; el único sitio donde iría blanco sobre amarillo, la marca,
+ * tiene su regla abajo. Los colores de estado se avivan pero siguen yendo con
+ * su símbolo (✓ △ ✗). modoSol.test.ts vigila estos contrastes.
  */
 html.sol {
   color-scheme: dark;
-  --color-slate-50: #ffe600;
-  --color-slate-100: #ffe600;
-  --color-slate-200: #ffe600;
-  --color-slate-300: #ffe600;
-  --color-slate-400: #ffe600;
-  --color-slate-500: #e6cf00;
+  --color-slate-50: #ffffff;
+  --color-slate-100: #ffffff;
+  --color-slate-200: #ffffff;
+  --color-slate-300: #ffffff;
+  --color-slate-400: #e6e6e6;
+  --color-slate-500: #e6e6e6;
   --color-slate-600: #3d3700;
   --color-slate-700: #2e2900;
   --color-slate-800: #1f1c00;
@@ -66,10 +140,30 @@ html.sol {
   --color-amber-400: #ffd000;
   --color-amber-800: #ffd000;
   --color-red-950: #000;
-  --color-marca: #ffe600;
-  --color-pasa: #3dff7a;
+  --color-marca: #ffd60a;
+  --color-marca-viva: #ffd60a;
+  --color-marca-suave: #000000;
+  --color-marca-oscura: #ffd60a;
+  --color-fondo: #000000;
+  --color-tarjeta: #000000;
+  --color-borde: #ffffff;
+  --color-borde-fuerte: #ffffff;
+  --color-tinta: #ffffff;
+  --color-tenue: #e6e6e6;
+  --color-cabecera: #000000;
+  --color-cabecera-2: #1f1c00;
+  --color-cabecera-borde: #ffffff;
+  --color-cabecera-tenue: #e6e6e6;
+  --color-cabecera-texto: #ffffff;
+  --color-proyecto: #7fdbff;
+  --color-pasa: #7cffb2;
+  --color-pasa-suave: #000000;
   --color-falla: #ff6b6b;
+  --color-falla-suave: #000000;
   --color-aviso: #ffb000;
+  --color-aviso-suave: #000000;
+  --color-sin: #e6e6e6;
+  --color-sin-suave: #000000;
 }
 
 html.sol body {
@@ -88,12 +182,12 @@ html.sol .bg-marca {
 html.sol .dark\:border-slate-600,
 html.sol .dark\:border-slate-700,
 html.sol .dark\:border-slate-800 {
-  border-color: #c9b400;
+  border-color: #ffffff;
 }
 
 html.sol .dark\:text-slate-600,
 html.sol .dark\:text-slate-700 {
-  color: #a39200;
+  color: #e6e6e6;
 }
 
 html.sol :focus-visible {

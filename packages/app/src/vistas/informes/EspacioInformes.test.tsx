@@ -189,12 +189,12 @@ describe('EspacioInformes', () => {
   it('las notas de campo se pueden quitar, y sin notas la opción no se puede marcar', async () => {
     const usuario = userEvent.setup()
     montar()
-    const notas = screen.getByRole('checkbox', { name: /Notas de campo de la calle/ })
+    const notas = screen.getByRole('checkbox', { name: /Notas de campo/ })
     expect(notas).toBeChecked()
     await usuario.click(notas)
     expect(notas).not.toBeChecked()
     await usuario.selectOptions(screen.getByRole('combobox', { name: 'Calle' }), 'c-2')
-    expect(screen.getByRole('checkbox', { name: /Notas de campo de la calle/ })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: /Notas de campo/ })).toBeDisabled()
   })
 
   it('Descargar PDF baja el archivo con su nombre', async () => {
@@ -234,6 +234,7 @@ describe('EspacioInformes', () => {
     const usuario = userEvent.setup()
     montar()
     await usuario.click(screen.getByRole('button', { name: 'Exportar cotas a Excel' }))
+    await usuario.click(screen.getByRole('button', { name: 'Más formatos de cotas' }))
     await usuario.click(screen.getByRole('button', { name: 'Exportar cotas a CSV' }))
     await usuario.click(screen.getByRole('button', { name: 'Exportar diferencias a Excel' }))
     expect(descargas).toEqual(['Jr. Lima — SUBRASANTE.xlsx', 'Jr. Lima — SUBRASANTE.csv', 'Jr. Lima — Diferencias SUBRASANTE.xlsx'])
@@ -242,7 +243,8 @@ describe('EspacioInformes', () => {
     await usuario.selectOptions(screen.getByRole('combobox', { name: 'Jornada' }), 'toma-base')
     await usuario.click(screen.getByRole('button', { name: 'Exportar espesores a Excel' }))
     expect(descargas.at(-1)).toBe('Jr. Lima — Espesores SUBRASANTE a BASE.xlsx')
-    expect(screen.getByRole('button', { name: 'Guardar el proyecto (.topo)' })).toBeEnabled()
+    // Guardar el proyecto está en Archivo › Guardar: aquí ya no se repite.
+    expect(screen.queryByRole('button', { name: 'Guardar el proyecto (.topo)' })).toBeNull()
   })
 
   it('Tablas para Excel: con jornada y sin rasante dice que falta la rasante', () => {
@@ -273,7 +275,7 @@ describe('EspacioInformes', () => {
 
   it('todos los botones miden al menos 44 px de alto', () => {
     montar()
-    for (const boton of screen.getAllByRole('button')) expect(boton.className).toMatch(/min-h-11/)
+    for (const boton of screen.getAllByRole('button')) expect(boton.className).toMatch(/(^| )(min-h-1[1-9]|h-11|inset-0)( |$)/)
   })
 })
 
@@ -354,7 +356,7 @@ describe('EspacioInformes tras la revisión', () => {
     await usuario.click(screen.getByRole('button', { name: 'Libreta con cierre' }))
     const notas = screen.getByRole('checkbox', { name: /Notas de campo/ })
     expect(notas).toBeEnabled()
-    expect(notas).toHaveAccessibleName('Notas de campo de la calle (2)')
+    expect(notas).toHaveAccessibleName('Notas de campo (2)')
   })
 
   it('el informe, el tramo y el supervisor siguen ahí al volver a Informes', async () => {
@@ -410,6 +412,7 @@ describe('EspacioInformes tras la revisión', () => {
     montar()
     await usuario.selectOptions(screen.getByRole('combobox', { name: 'Jornada' }), 'toma-base')
     for (const nombre of ['cotas', 'diferencias', 'espesores']) {
+      await usuario.click(screen.getByRole('button', { name: `Más formatos de ${nombre}` }))
       expect(screen.getByRole('button', { name: `Copiar ${nombre}` })).toBeEnabled()
     }
   })
@@ -459,5 +462,104 @@ describe('EspacioInformes tras la revisión', () => {
     expect(textos.some((t) => t?.includes('SUBRASANTE: '))).toBe(true)
     expect(textos.some((t) => t?.includes('BASE: '))).toBe(true)
     expect(errores.mock.calls.flat().join(' ')).not.toMatch(/same key/)
+  })
+})
+
+describe('EspacioInformes rediseñado', () => {
+  beforeEach(() => {
+    try {
+      localStorage.clear()
+    } catch {
+      // sin almacenamiento: da igual
+    }
+    useInformes.getState().olvidar()
+    useAlmacen.getState().cargarProyecto(proyectoDeInformes())
+    useAlmacen.getState().activarCampania('toma-sub')
+    URL.createObjectURL = vi.fn(() => 'blob:prueba')
+    URL.revokeObjectURL = vi.fn()
+  })
+  afterEach(() => vi.restoreAllMocks())
+
+  const alcance = () => screen.getByText('Cambiar calle, jornada o tramo').closest('details')!
+
+  it('lo ya elegido se ve en chips y el formulario va plegado', () => {
+    montar()
+    const resumen = alcance().querySelector('summary')!
+    expect(resumen).toHaveTextContent('Jr. Lima')
+    expect(resumen).toHaveTextContent(/SUBRASANTE/)
+    expect(resumen).toHaveTextContent('19/08/2026')
+    expect(resumen).toHaveTextContent(/toda la calle/)
+    expect(alcance()).not.toHaveAttribute('open')
+    expect(screen.getByRole('heading', { name: 'Informes', level: 2 })).toHaveClass('text-[26px]')
+  })
+
+  it('el tramo escrito sale en los chips', async () => {
+    const usuario = userEvent.setup()
+    montar()
+    await usuario.type(screen.getByRole('textbox', { name: 'Hasta' }), '0+030')
+    await waitFor(() => expect(alcance().querySelector('summary')).toHaveTextContent('inicio–0+030'))
+    expect(screen.getByRole('textbox', { name: 'Desde' })).toHaveAccessibleDescription('vacío = toda la calle')
+    expect(screen.getByRole('textbox', { name: 'Desde' })).not.toHaveAttribute('placeholder')
+  })
+
+  it('si falta algo en el alcance el formulario se abre solo', async () => {
+    const usuario = userEvent.setup()
+    montar()
+    expect(alcance()).not.toHaveAttribute('open')
+    await usuario.selectOptions(screen.getByRole('combobox', { name: 'Calle' }), 'c-2')
+    await waitFor(() => expect(alcance()).toHaveAttribute('open'))
+    expect(screen.getByText(/falta algo en el alcance/)).toBeInTheDocument()
+  })
+
+  it('el tipo elegido va con borde oscuro y sin punto', () => {
+    montar()
+    const elegido = screen.getByRole('button', { name: 'Protocolo de nivelación' })
+    expect(elegido).toHaveClass('border-2', 'border-tinta')
+    expect(elegido).not.toHaveTextContent('●')
+    expect(screen.getByRole('button', { name: 'Metrado' })).toHaveClass('border-borde')
+  })
+
+  it('los nombres de las firmas solo aparecen con los cuadros de firma', async () => {
+    const usuario = userEvent.setup()
+    montar()
+    const firmas = screen.getByRole('checkbox', { name: 'Cuadros de firma' })
+    expect(screen.getByRole('textbox', { name: 'Supervisor' })).toBeInTheDocument()
+    await usuario.click(firmas)
+    expect(screen.queryByRole('textbox', { name: 'Supervisor' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Incluir' })).toBeInTheDocument()
+  })
+
+  it('la hoja se abre a pantalla completa y se cierra', async () => {
+    const usuario = userEvent.setup()
+    montar()
+    await within(vistaPrevia()).findByRole('img', { name: 'Primera página: Protocolo de nivelación' })
+    await usuario.click(screen.getByRole('button', { name: 'Ver la página a pantalla completa' }))
+    const dialogo = screen.getByRole('dialog', { name: 'Página a pantalla completa' })
+    expect(dialogo).toHaveClass('fixed', 'inset-0')
+    // En el celular la página sale chica: se acerca para leer las cotas.
+    const acercar = within(dialogo).getByRole('button', { name: 'Acercar' })
+    expect(acercar).toHaveAttribute('aria-pressed', 'false')
+    await usuario.click(acercar)
+    expect(within(dialogo).getByRole('button', { name: 'Alejar' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(dialogo).getByRole('img')).toHaveClass('max-w-none')
+    await usuario.click(within(dialogo).getByRole('button', { name: 'Cerrar la página' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('los avisos del informe van encima de la hoja como avisos de una línea', async () => {
+    useAlmacen.getState().cargarProyecto(proyectoDeInformes({ subrasante: tomaSubrasante('abierto') }))
+    useAlmacen.getState().activarCampania('toma-sub')
+    montar()
+    const avisos = await within(vistaPrevia()).findByRole('list', { name: 'Avisos del informe' })
+    expect(avisos.querySelector('.bg-aviso-suave')).not.toBeNull()
+  })
+
+  it('las tablas sueltas van plegadas bajo «Datos sueltos», sin «Proyecto completo»', () => {
+    montar()
+    const tablas = screen.getByRole('region', { name: 'Tablas para Excel' })
+    const plegable = within(tablas).getByText('Datos sueltos').closest('details')!
+    expect(plegable).not.toHaveAttribute('open')
+    expect(within(tablas).getByRole('button', { name: 'Exportar cotas a Excel' })).toHaveTextContent('Excel')
+    expect(screen.queryByText('Proyecto completo')).toBeNull()
   })
 })

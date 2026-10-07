@@ -159,6 +159,20 @@ async function mensaje(pagina) {
   return (await pagina.getByRole('status').filter({ hasText: /\S/ }).allInnerTexts()).join(' | ')
 }
 
+/** Abre un menú «⋯» si está cerrado (lo que se usa poco va plegado detrás de uno). */
+async function abrirMenu(pagina, nombre, dentro = pagina) {
+  const boton = dentro.getByRole('button', { name: nombre, exact: true })
+  if ((await boton.getAttribute('aria-expanded')) !== 'true') await boton.click()
+}
+
+/** Abre un plegable (<details>) por el texto de su resumen, si está cerrado: lo de dentro no se puede tocar cerrado. */
+async function abrirPlegable(pagina, titulo) {
+  const resumen = pagina.locator('summary', { hasText: titulo }).first()
+  if ((await resumen.count()) === 0) return
+  const abierto = await resumen.evaluate((s) => s.parentElement?.open === true)
+  if (!abierto) await resumen.click()
+}
+
 async function irAlPlano(pagina) {
   await pagina.getByRole('navigation', { name: 'Espacios' }).getByRole('button', { name: 'Obra', exact: true }).click()
   await pagina.getByRole('navigation', { name: 'Pantallas de la obra' }).getByRole('button', { name: 'Plano', exact: true }).click()
@@ -264,6 +278,7 @@ async function recorrido(ancho, alto) {
   const cambios = cotas.map((c) => ({ progresiva: c.progresiva, mm: aMm(cotaRasante(nueva, c.progresiva) - cotaRasante(actual, c.progresiva)) }))
   const mayorCambio = cambios.reduce((m, r) => (Math.abs(r.mm) > Math.abs(m.mm) ? r : m))
   const textoNueva = `${primera.cota.toFixed(3)} m en ${prog(primera.progresiva)}, ${textoPendiente(nueva.pendiente)}`
+  await abrirMenu(pagina, 'Más de la pista', fichaLomas)
   await fichaLomas.getByRole('button', { name: 'Tomar la rasante de las cotas del plano' }).click()
   const tomar = pagina.getByRole('region', { name: 'Rasante desde las cotas del plano' })
   await tomar.waitFor({ timeout: 5000 })
@@ -333,6 +348,7 @@ async function recorrido(ancho, alto) {
   await pagina.screenshot({ path: `${SALIDA}/plano-${ancho}-2-dxf-importado.png`, fullPage: true })
 
   // ── 3. Ocultar una capa ──
+  await abrirPlegable(pagina, 'Capas del plano')
   const capas = pagina.getByRole('group', { name: 'Capas del plano' }).getByRole('checkbox')
   const nCapas = await capas.count()
   comprobar(`${pre} el panel de capas lista las capas del DXF`, nCapas > 0, `${nCapas} capas`)
@@ -392,7 +408,8 @@ async function recorrido(ancho, alto) {
     Math.abs(encuadrada.ancho - inicial.ancho) < inicial.ancho * 0.001 && Math.abs(encuadrada.x - inicial.x) < inicial.ancho * 0.001)
 
   // ── 5. Un eje del DXF se convierte en calle ──
-  const ejes = pagina.getByRole('region', { name: 'Ejes del DXF' }).getByRole('button')
+  await abrirPlegable(pagina, 'Ejes sin calle')
+  const ejes = pagina.getByRole('region', { name: 'Ejes del DXF' }).getByRole('button', { name: /^Eje \d+/ })
   const nEjes = await ejes.count()
   comprobar(`${pre} el DXF nuevo ofrece sus ejes sin calle`, nEjes >= ESPERADO.ejesDxfSinPista.length, `${nEjes} ejes`)
   let calleDelEje = null
@@ -466,7 +483,7 @@ async function recorrido(ancho, alto) {
   await pagina.getByLabel('Distancia real').fill(String(BARRA.metros))
   await pagina.screenshot({ path: `${SALIDA}/plano-${ancho}-6-calibrando.png`, fullPage: true })
   await pagina.getByRole('button', { name: 'Fijar escala' }).click()
-  const textoEsc = await pagina.getByText(/^Escala: 1 punto del PDF = /).first().innerText().catch(() => '')
+  const textoEsc = await pagina.getByText(/^Escala: 1 pt = /).first().innerText().catch(() => '')
   const mpu = Number(textoEsc.match(/= ([\d.]+) m/)?.[1])
   comprobar(`${pre} calibrar con la barra de ${BARRA.metros} m da ${BARRA.metrosPorUnidad} m por punto (±1 %)`,
     Math.abs(mpu / BARRA.metrosPorUnidad - 1) < 0.01, textoEsc)

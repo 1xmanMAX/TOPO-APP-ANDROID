@@ -313,11 +313,13 @@ async function resultadosDeLaObra(pagina, donde) {
     const celda = celdas.find((x) => x.nombre.startsWith(`${cabeza}:`) || x.nombre.startsWith(`${cabeza},`))
     const accion = d > 0 ? 'cortar' : d < 0 ? 'rellenar' : 'clavado'
     const sim = Math.abs(d) <= 20 ? S.conforme : Math.abs(d) <= 40 ? S.alLimite : S.fuera
-    if (!celda || !celda.nombre.includes(mm(d)) || !celda.nombre.includes(accion) || celda.simbolo !== sim) {
+    if (!celda || !celda.nombre.includes(mm(d)) || !celda.nombre.includes(accion) || celda.simbolo.split(' ')[0] !== sim) {
       mal.push(`${clave}: ${celda ? `«${celda.nombre}» [${celda.simbolo}]` : 'no está'}; esperaba ${mm(d)} ${accion} ${sim}`)
     }
   }
-  huella.celdasSol = celdas.map((x) => `${x.nombre}[${x.simbolo}]`).join(' | ')
+  // Ordenadas: el mapa pone una progresiva por fila en el celular y un punto
+  // por fila en la laptop, y aquí importa qué dice cada celda, no su orden.
+  huella.celdasSol = celdas.map((x) => `${x.nombre}[${x.simbolo}]`).sort().join(' | ')
   comprobar(`${donde}: las 21 diferencias de Av. Sol (0+080 Eje ${mm(SOL.subrasante.fuera.diferenciaMm)} ${S.fuera} corta, 0+040 Borde derecho ${mm(SOL.subrasante.alLimite.diferenciaMm)} ${S.alLimite} rellena)`,
     mal.length === 0, mal.slice(0, 3).join(' | ') || '21/21')
 

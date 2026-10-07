@@ -78,6 +78,9 @@ async function medir(pagina, alcance) {
     }
     const visible = (el) => {
       if (!el.isConnected || el.closest('[hidden],[aria-hidden="true"],[inert]')) return false
+      // Lo de dentro de un plegable cerrado no se ve ni se toca (aunque Chrome le dé caja).
+      const plegable = el.closest('details:not([open])')
+      if (plegable && !(el.closest('summary')?.parentElement === plegable)) return false
       const r = el.getBoundingClientRect()
       if (r.width === 0 || r.height === 0) return false
       const e = getComputedStyle(el)
@@ -262,9 +265,10 @@ async function recorrer(ancho, alto, completo) {
   await a('obra-calles')
   if (await intentar('obra-calles-jr-lima', async () => {
     await pagina.getByRole('button', { name: `Abrir ${JR_LIMA}` }).click()
-    // Despliega todos los apartados plegados del panel de la calle.
+    // Despliega todos los apartados plegados del panel de la calle. Los «⋯»
+    // de las jornadas no: un menú abierto tapa por diseño lo que hay debajo.
     for (let i = 0; i < 10; i++) {
-      const plegado = pagina.locator('main button[aria-expanded="false"]:visible').first()
+      const plegado = pagina.locator('main button[aria-expanded="false"]:visible:not([aria-label^="Más de la jornada"])').first()
       if ((await plegado.count()) === 0) break
       await plegado.click({ timeout: 5000 })
       await pagina.waitForTimeout(100)

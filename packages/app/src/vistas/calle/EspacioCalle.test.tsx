@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { Calle, Lectura, Proyecto, Toma } from '@topo/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAlmacen } from '../../estado/almacen'
+import SelectorCapaActiva from '../../componentes/SelectorCapaActiva'
 import EspacioCalle from './EspacioCalle'
 
 // Las notas son de otro agente: aquí solo importa que Revisar las monte con
@@ -199,7 +200,13 @@ describe('EspacioCalle: lo común a los tres modos', () => {
 
   it('la capa activa se cambia desde la calle', async () => {
     const usuario = userEvent.setup()
-    render(<EspacioCalle />)
+    // El selector vive en la cabecera, junto a la calle activa.
+    render(
+      <>
+        <SelectorCapaActiva calle={useAlmacen.getState().proyecto.calles[0]!} />
+        <EspacioCalle />
+      </>,
+    )
 
     const capa = screen.getByLabelText('Capa activa')
     expect(capa).toHaveValue('toma-sub')
@@ -213,11 +220,11 @@ describe('EspacioCalle: lo común a los tres modos', () => {
     const usuario = userEvent.setup()
     render(<EspacioCalle />)
 
-    await usuario.click(within(mapa()).getByRole('button', { name: '0+010 Eje: medida' }))
+    await usuario.click(within(mapa()).getByRole('button', { name: /^0\+010 Eje[:,]/ }))
 
     expect(useAlmacen.getState().seleccion).toEqual({ clave: '10|p-eje', progresiva: 10 })
-    expect(screen.getByLabelText('Progresiva')).toHaveValue('1')
-    expect(screen.getByText(/celda activa/i)).toHaveTextContent('0+010 Eje')
+    expect(screen.getByRole('img', { name: 'Corte transversal en 0+010' })).toBeInTheDocument()
+    expect(screen.getByText(/^Lectura de mira en/)).toHaveTextContent('0+010 Eje')
   })
 
   it('sin calle activa lo dice', () => {
@@ -242,7 +249,7 @@ describe('Medir', () => {
 
     const aviso = screen.getByRole('region', { name: 'Aviso al anotar' })
     // 101.500 − 98.920 = 2.580, ±20 mm.
-    expect(aviso).toHaveTextContent('Lectura esperada 2.580')
+    expect(aviso).toHaveTextContent('Esperada cerca de 2.580')
     expect(aviso).toHaveTextContent('conforme entre 2.560 y 2.600')
   })
 
@@ -281,7 +288,7 @@ describe('Medir', () => {
     await usuario.type(campo, '1.4')
     expect(aviso).not.toHaveTextContent('fuera de tolerancia')
     expect(aviso).not.toHaveTextContent('¿Leíste bien?')
-    expect(aviso).toHaveTextContent('Lectura esperada 2.580')
+    expect(aviso).toHaveTextContent('Esperada cerca de 2.580')
 
     await usuario.type(campo, '25')
     expect(aviso).toHaveTextContent('fuera de tolerancia')
@@ -311,7 +318,7 @@ describe('Medir', () => {
     expect(enLaCelda.map((l) => l.valor)).toEqual([2.58])
   })
 
-  it('después de anotar el campo sigue con el foco, también al tocar «Anotar»', async () => {
+  it('después de anotar el campo sigue con el foco, también al tocar «Anotar y seguir»', async () => {
     const usuario = userEvent.setup()
     useAlmacen.getState().seleccionar('10|p-bi')
     render(<EspacioCalle />)
@@ -319,7 +326,7 @@ describe('Medir', () => {
     const campo = screen.getByLabelText('Lectura de mira')
     expect(campo).toHaveAttribute('enterkeyhint', 'done')
     await usuario.type(campo, '2.580')
-    await usuario.click(screen.getByRole('button', { name: 'Anotar' }))
+    await usuario.click(screen.getByRole('button', { name: 'Anotar y seguir' }))
     expect(campo).toHaveFocus()
     expect(campo).toHaveValue('')
   })
@@ -334,8 +341,11 @@ describe('Medir', () => {
     expect(useAlmacen.getState().seleccion.clave).toBe('10|p-bd')
     await usuario.type(campo, '2.580{Enter}')
     expect(useAlmacen.getState().seleccion.clave).toBeNull()
-    expect(screen.getByText(/celda activa/i)).toHaveTextContent('grilla completa')
-    expect(screen.getByRole('button', { name: 'Anotar' })).toBeDisabled()
+    // Con la grilla llena no hay dónde anotar: en lugar del campo, que está completa y qué sigue.
+    expect(screen.getByText('Grilla completa')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Lectura de mira')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Anotar y seguir' })).toBeNull()
+    expect(screen.getByLabelText('Añadir progresiva')).toBeInTheDocument()
   })
 
   it('cambiar de capa olvida la última lectura de la otra toma, que se queda donde se anotó', async () => {
@@ -346,7 +356,7 @@ describe('Medir', () => {
     await usuario.type(screen.getByLabelText('Lectura de mira'), '2.700{Enter}')
     expect(screen.getByRole('region', { name: /Última lectura anotada/ })).toBeInTheDocument()
 
-    await usuario.selectOptions(screen.getByLabelText('Capa activa'), 'TERRENO · 2026-09-01')
+    act(() => useAlmacen.getState().activarCampania('toma-ter'))
     expect(screen.queryByRole('region', { name: /Última lectura anotada/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Borrar y volver a leer' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Lectura de mira')).toHaveValue('')
@@ -354,21 +364,67 @@ describe('Medir', () => {
     expect(sub.estaciones[0]!.intermedias.some((l) => l.valor === 2.7)).toBe(true)
   })
 
-  it('mover el corte de progresiva mueve la celda activa a esa progresiva', () => {
+  it('mover el corte de progresiva mueve la celda activa a esa progresiva', async () => {
+    const usuario = userEvent.setup()
     useAlmacen.getState().seleccionar('10|p-bi')
     render(<EspacioCalle />)
 
     // A 0+000, donde no falta nada: mismo elemento en la progresiva nueva.
-    fireEvent.change(screen.getByLabelText('Progresiva'), { target: { value: '0' } })
+    await usuario.click(screen.getByRole('button', { name: 'Progresiva anterior' }))
     expect(useAlmacen.getState().seleccion).toEqual({ clave: '0|p-bi', progresiva: 0 })
-    expect(screen.getByText(/celda activa/i)).toHaveTextContent('0+000 Borde izquierdo')
+    expect(screen.getByText(/^Lectura de mira en/)).toHaveTextContent('0+000 Borde izquierdo')
+    expect(screen.getByRole('button', { name: 'Progresiva anterior' })).toBeDisabled()
 
     // De vuelta a 0+010: la primera que falta allí.
-    fireEvent.change(screen.getByLabelText('Progresiva'), { target: { value: '1' } })
+    await usuario.click(screen.getByRole('button', { name: 'Progresiva siguiente' }))
     expect(useAlmacen.getState().seleccion.clave).toBe('10|p-bi')
   })
 
-  it('en Medir el mapa marca lo medido con un símbolo neutro, no con el ✓ de conforme', () => {
+  it('las casillas de la progresiva dicen qué falta y tocar una la elige', async () => {
+    const usuario = userEvent.setup()
+    useAlmacen.getState().seleccionar('10|p-bi')
+    render(<EspacioCalle />)
+
+    expect(screen.getByText(/de 3 puntos$/)).toHaveTextContent('Progresiva 0+010 · 1 de 3 puntos')
+    const casillas = screen.getByRole('group', { name: 'Puntos de la progresiva' })
+    expect(within(casillas).getByRole('button', { name: 'Eje: 2.505' })).toBeInTheDocument()
+    await usuario.click(within(casillas).getByRole('button', { name: 'Borde derecho: —' }))
+    expect(useAlmacen.getState().seleccion.clave).toBe('10|p-bd')
+  })
+
+  it('con el circuito abierto lo dice arriba en una línea, con dónde cerrarlo', async () => {
+    cargar(proyecto({ cerrada: false }))
+    const usuario = userEvent.setup()
+    render(<EspacioCalle />)
+
+    const cerrar = screen.getByRole('button', { name: 'Cierra en BM-1 ›' })
+    expect(cerrar.parentElement).toHaveTextContent(/^△Sin cerrar · \d+ lecturas sin comprobar/)
+    await usuario.click(cerrar)
+    expect(useAlmacen.getState().pantallaCalle).toBe('cierre')
+  })
+
+  it('«Cerrar en BM-1» pide la vista adelante al BM y abre la estación para escribirla', async () => {
+    cargar(proyecto({ cerrada: false }))
+    const usuario = userEvent.setup()
+    render(<EspacioCalle />)
+
+    await usuario.click(screen.getByRole('button', { name: 'Cerrar en BM-1' }))
+    const toma = useAlmacen.getState().proyecto.calles[0]!.nivelaciones[0]!.tomas[0]!
+    expect(toma.estaciones[0]!.vistaAdelante?.destino).toEqual({ tipo: 'bm', bmId: 'bm-1' })
+    expect(screen.getByLabelText('Vista adelante a BM').closest('details')).toHaveAttribute('open')
+  })
+
+  it('en Medir el mapa enseña el mismo semáforo que Revisar, con la diferencia en cada celda', () => {
+    render(<EspacioCalle />)
+    const medida = within(mapa()).getByRole('button', { name: /^0\+000 Borde derecho: −70 mm/ })
+    expect(medida).toHaveTextContent('✗ −70')
+    const leyenda = within(mapa()).getByRole('list', { name: 'Qué significa cada color del mapa' })
+    expect(leyenda).toHaveTextContent('✓ 2')
+    expect(leyenda).toHaveTextContent('✗ 1')
+  })
+
+  it('sin rasante, el mapa marca lo medido con un símbolo neutro, no con el ✓ de conforme', () => {
+    cargar(proyectoSinRasante())
     render(<EspacioCalle />)
     const medida = within(mapa()).getByRole('button', { name: '0+000 Borde derecho: medida' })
     expect(medida).toHaveTextContent('●')
@@ -497,16 +553,13 @@ describe('Medir', () => {
 describe('Revisar', () => {
   beforeEach(() => cargar(proyecto(), 'revisar'))
 
-  it('el punto elegido trae cota medida, de proyecto, diferencia, semáforo, qué hacer, tolerancia y lectura', async () => {
-    const usuario = userEvent.setup()
+  it('al entrar sin punto elegido se va al peor, con cota medida, de proyecto, diferencia, semáforo, qué hacer, tolerancia y lectura', () => {
     render(<EspacioCalle />)
 
-    expect(screen.getByRole('region', { name: 'Punto elegido' })).toHaveTextContent(/toca una celda/i)
-
-    await usuario.click(within(mapa()).getByRole('button', { name: /^0\+000 Borde derecho/ }))
+    expect(useAlmacen.getState().seleccion.clave).toBe('0|p-bd')
     const punto = screen.getByRole('region', { name: 'Punto elegido' })
-    expect(within(punto).getByRole('heading', { name: '0+000 Borde derecho' })).toBeInTheDocument()
-    expect(punto).toHaveTextContent('✗ fuera de tolerancia · rellena 70 mm')
+    expect(within(punto).getByRole('heading', { name: '0+000 · Borde derecho' })).toBeInTheDocument()
+    expect(punto).toHaveTextContent('✗−70 mmfuera de tolerancia · rellena 70 mm')
     expect(punto).toHaveTextContent('Cota medida98.850')
     expect(punto).toHaveTextContent('Cota de proyecto98.920')
     expect(punto).toHaveTextContent('Diferencia−70 mm')
@@ -524,7 +577,9 @@ describe('Revisar', () => {
     expect(resumen).toHaveTextContent('1 fuera de tolerancia')
     expect(resumen).toHaveTextContent('2 sin medir')
 
-    await usuario.click(within(resumen).getByRole('button', { name: 'Ir al peor punto' }))
+    await usuario.click(within(mapa()).getByRole('button', { name: /^0\+000 Eje/ }))
+    expect(useAlmacen.getState().seleccion.clave).toBe('0|p-eje')
+    await usuario.click(within(resumen).getByRole('button', { name: /^Ir al peor punto: 0\+000 Borde derecho −70 mm$/ }))
     expect(useAlmacen.getState().seleccion).toEqual({ clave: '0|p-bd', progresiva: 0 })
     expect(screen.getByRole('region', { name: 'Punto elegido' })).toHaveTextContent('rellena 70 mm')
   })
@@ -541,25 +596,36 @@ describe('Revisar', () => {
     render(<EspacioCalle />)
 
     expect(screen.getByRole('heading', { name: 'Cotas sin compensar' })).toBeInTheDocument()
-    expect(screen.getByText(/NO COMPROBADAS/)).toBeInTheDocument()
+    // Una sola vez, arriba, en el resumen; no repetido debajo del punto.
+    const resumen = screen.getByRole('region', { name: 'Resumen de la calle' })
+    expect(resumen).toHaveTextContent(/Sin cerrar · diferencias no comprobadas/)
 
     await usuario.click(within(mapa()).getByRole('button', { name: /^0\+000 Eje/ }))
-    expect(screen.getByRole('region', { name: 'Punto elegido' })).toHaveTextContent(/no comprobada/)
+    expect(screen.getByRole('region', { name: 'Punto elegido' })).not.toHaveTextContent(/no comprobada/)
   })
 
-  it('monta las notas de la calle activa', () => {
+  it('monta las notas de la calle activa, plegadas al final', () => {
     render(<EspacioCalle />)
     expect(screen.getByTestId('notas-de-calle')).toHaveTextContent('c-prueba')
+    expect(screen.getByText('Notas de la calle (0)').closest('details')).not.toHaveAttribute('open')
+  })
+
+  it('con el circuito abierto ofrece ir a cerrarlo', async () => {
+    cargar(proyecto({ cerrada: false }), 'revisar')
+    const usuario = userEvent.setup()
+    render(<EspacioCalle />)
+    await usuario.click(screen.getByRole('button', { name: /^Cierra en .+ ›$/ }))
+    expect(useAlmacen.getState().pantallaCalle).toBe('cierre')
   })
 
   it('el punto sigue al corte: mover la progresiva lleva al mismo elemento en la nueva', () => {
     useAlmacen.getState().seleccionar('0|p-eje')
     render(<EspacioCalle />)
 
-    fireEvent.change(screen.getByLabelText('Progresiva'), { target: { value: '1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Progresiva siguiente' }))
     expect(useAlmacen.getState().seleccion).toEqual({ clave: '10|p-eje', progresiva: 10 })
     const punto = screen.getByRole('region', { name: 'Punto elegido' })
-    expect(within(punto).getByRole('heading', { name: '0+010 Eje' })).toBeInTheDocument()
+    expect(within(punto).getByRole('heading', { name: '0+010 · Eje' })).toBeInTheDocument()
   })
 
   it('un punto medido antes de volver a arrancar en un BM se marca no comprobado', async () => {
@@ -602,8 +668,9 @@ describe('Replantear', () => {
     expect(within(hoja).getByRole('button', { name: 'Estaca Borde derecho, objetivo 2.580' })).toBeInTheDocument()
 
     const estaca = screen.getByRole('region', { name: 'Estaca actual' })
-    expect(estaca).toHaveTextContent('Estaca 1 de 3 · 0+000 Borde izquierdo')
-    expect(estaca).toHaveTextContent('Lectura objetivo 2.580')
+    expect(within(estaca).getByRole('heading', { name: '0+000 · Borde izquierdo' })).toBeInTheDocument()
+    expect(estaca).toHaveTextContent('Estaca 1 de 3')
+    expect(estaca).toHaveTextContent(/La mira debe marcar\s*2\.580\s*para estar en 98\.920/)
   })
 
   it('da el veredicto grande al escribir la lectura, y la afina de a 1 mm', async () => {
@@ -652,7 +719,7 @@ describe('Replantear', () => {
     expect(useAlmacen.getState().seleccion.clave).toBe('0|p-bd')
     await usuario.click(siguiente())
     expect(useAlmacen.getState().seleccion).toEqual({ clave: '10|p-bi', progresiva: 10 })
-    expect(screen.getByRole('region', { name: 'Estaca actual' })).toHaveTextContent('0+010 Borde izquierdo')
+    expect(screen.getByRole('region', { name: 'Estaca actual' })).toHaveTextContent('0+010 · Borde izquierdo')
 
     await usuario.click(siguiente())
     await usuario.click(siguiente())
@@ -664,7 +731,7 @@ describe('Replantear', () => {
     render(<EspacioCalle />)
 
     await usuario.click(within(mapa()).getByRole('button', { name: /^0\+000 Borde derecho/ }))
-    expect(screen.getByRole('region', { name: 'Estaca actual' })).toHaveTextContent('Estaca 3 de 3 · 0+000 Borde derecho')
+    expect(screen.getByRole('region', { name: 'Estaca actual' })).toHaveTextContent('0+000 · Borde derechoEstaca 3 de 3')
   })
 
   it('puede partir de un BM: un BM oficial deja la hoja comprobada aunque la libreta no haya cerrado', async () => {
@@ -730,7 +797,7 @@ describe('Replantear', () => {
     render(<EspacioCalle />)
 
     await usuario.type(screen.getByLabelText('Lectura leída'), '2.590')
-    await usuario.selectOptions(screen.getByLabelText('Capa activa'), 'TERRENO · 2026-09-01')
+    act(() => useAlmacen.getState().activarCampania('toma-ter'))
     act(() => useAlmacen.getState().seleccionar('0|p-bi'))
     expect(screen.getByLabelText('Lectura leída')).toHaveValue('')
     expect(screen.getByRole('status', { name: 'Veredicto' })).toBeEmptyDOMElement()
@@ -795,12 +862,12 @@ describe('La AI compensada: la misma en Medir, Revisar y Replantear', () => {
 
     // 101.497 − 98.920 = 2.577 (con la AI de la libreta saldría 2.580).
     const aviso = screen.getByRole('region', { name: 'Aviso al anotar' })
-    expect(aviso).toHaveTextContent('Lectura esperada 2.577')
+    expect(aviso).toHaveTextContent('Esperada cerca de 2.577')
     expect(screen.getByText(/AI compensada/)).toHaveTextContent('AI compensada 101.497 (−3.0 mm sobre la CI de la libreta)')
 
     // 2.580 da 98.917: −3 mm, lo mismo que dirá Revisar de esa lectura.
     await usuario.type(screen.getByLabelText('Lectura de mira'), '2.580')
-    expect(aviso).toHaveTextContent('Cota98.917')
+    expect(aviso).toHaveTextContent('Cota 98.917')
     expect(aviso).toHaveTextContent('−3 mm')
     expect(aviso).not.toHaveTextContent(/no comprobada/)
   })
@@ -851,7 +918,7 @@ describe('Lo no comprobado se dice también en el mapa y en el resumen', () => {
     render(<EspacioCalle />)
     expect(mapa()).toHaveTextContent('Mapa no comprobado: la nivelación no cerró')
     const resumen = screen.getByRole('region', { name: 'Resumen de la calle' })
-    expect(resumen).toHaveTextContent('Resumen de la calle (no comprobado)')
+    expect(resumen).toHaveTextContent('Sin cerrar · diferencias no comprobadas')
     expect(resumen).toHaveTextContent('2 conformes sin comprobar')
   })
 
@@ -865,7 +932,7 @@ describe('Lo no comprobado se dice también en el mapa y en el resumen', () => {
   it('cerrado pero con re-arranque: el mapa dice desde qué estación vale', () => {
     cargar(proyectoConReArranque(), 'revisar')
     render(<EspacioCalle />)
-    expect(mapa()).toHaveTextContent('Lo medido antes de la estación 2 no está comprobado')
+    expect(mapa()).toHaveTextContent('Mapa no comprobado antes de la estación 2')
   })
 
   it('la leyenda del semáforo queda fuera de la caja que se desplaza', () => {

@@ -83,10 +83,10 @@ const FichaEje = forwardRef<HTMLHeadingElement, Props>(function FichaEje({ eje, 
 
   return (
     <section aria-labelledby={idTitulo} className={CAJA}>
-      <h3 id={idTitulo} ref={refTitulo} tabIndex={-1} className="text-base font-semibold outline-none">
+      <h3 id={idTitulo} ref={refTitulo} tabIndex={-1} className="scroll-mt-28 text-2xl font-bold leading-tight outline-none">
         Eje del plano {indice + 1}
       </h3>
-      <p className="numerico text-sm">
+      <p className="numerico text-sm text-tenue">
         Capa {eje.capa}
         {datos ? ` · ${datos.largoM.toFixed(3)} m` : ''}
         {eje.piezas > 1 ? ` · armado de ${eje.piezas} piezas` : ''}
@@ -101,7 +101,7 @@ const FichaEje = forwardRef<HTMLHeadingElement, Props>(function FichaEje({ eje, 
           {datos.cotasDelPlano.length >= 2 && <ListaPendientes datos={datos} />}
         </>
       ) : medida && 'error' in medida ? (
-        <p className="rounded border border-aviso/60 bg-aviso/10 p-2 text-sm">
+        <p className="rounded-[10px] bg-aviso-suave px-3 py-2 text-sm text-aviso">
           <span aria-hidden="true">△ </span>
           La escala parece errada: con ella este eje mediría {kmSegunEscala?.toFixed(1)} km. Revísala en «Calibrar escala». ({medida.error})
         </p>
@@ -121,7 +121,7 @@ const FichaEje = forwardRef<HTMLHeadingElement, Props>(function FichaEje({ eje, 
           alConfirmar={(rasante, texto, tipo) => usar(rasante, { tipo, texto })}
         />
       )}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="flex flex-col gap-2">
         <button type="button" className={BOTON_PRINCIPAL} onClick={() => usar(null, null)}>
           Usar como eje de una calle
         </button>

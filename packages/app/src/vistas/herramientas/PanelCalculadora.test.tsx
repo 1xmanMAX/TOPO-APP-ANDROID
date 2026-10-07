@@ -34,6 +34,16 @@ function resultado(titulo: string) {
   return screen.getByRole('region', { name: `Resultado · ${titulo}` })
 }
 
+/** La fila entera de un casillero: su nombre, lo que dice debajo y el casillero. */
+function fila(etiqueta: string) {
+  return screen.getByLabelText(etiqueta).closest('label')!
+}
+
+/** La línea de debajo del título: «Con datos de Av. Sol · 0+020 · Eje · cambiar». */
+function lineaDeDatos() {
+  return screen.getByText(/Con datos de/, { selector: 'p' })
+}
+
 function notasDeLaCalle() {
   return useAlmacen.getState().proyecto.calles[0]!.notas ?? []
 }
@@ -60,9 +70,12 @@ describe('PanelCalculadora', () => {
     expect(screen.getByLabelText('Altura instrumental')).toHaveValue('3246.605')
     expect(screen.getByLabelText('Lectura')).toHaveValue('2.056')
     expect(within(resultado('Cota')).getByText('3244.549 m')).toBeInTheDocument()
-    expect(screen.getByText(/Estación 1 · AI/)).toHaveTextContent('0+020 · Eje')
-    // El circuito cerró: se dice con símbolo y palabras.
-    expect(screen.getByText(/AI de la estación activa comprobada/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Calcular' })).toBeInTheDocument()
+    expect(lineaDeDatos()).toHaveTextContent(/^Con datos de .+ · 0\+020 · Eje · cambiar$/)
+    // Nada que pulsar para traer los datos: ni la caja gris ni su botón.
+    expect(screen.queryByRole('button', { name: 'Traer datos de la libreta' })).not.toBeInTheDocument()
+    // El circuito cerró: se dice con símbolo y palabras al lado de la AI.
+    expect(fila('Altura instrumental')).toHaveTextContent('Estación 1 · ✓ comprobada')
     expect(screen.queryByText(/No comprobado/)).not.toBeInTheDocument()
   })
 
@@ -96,18 +109,32 @@ describe('PanelCalculadora', () => {
     await usuario.click(screen.getByRole('tab', { name: 'Lectura objetivo' }))
 
     expect(screen.getByLabelText('Cota de proyecto')).toHaveValue('3244.540')
-    expect(within(resultado('Lectura objetivo')).getByText('2.065 m')).toBeInTheDocument()
-
-    // La mira marca 2.056: el punto está 9 mm alto, sobra material.
-    const control = resultado('Lo que marca la mira')
-    expect(within(control).getByText('Cortar 9 mm')).toBeInTheDocument()
-    expect(within(control).getByText(/Conforme/)).toBeInTheDocument()
+    // La mira marca 2.056: el punto está 9 mm alto, sobra material. Una
+    // sola tarjeta: lo grande es el corte y el objetivo va como dato.
+    const tarjeta = resultado('Lectura objetivo')
+    expect(tarjeta.querySelector('output')).toHaveTextContent('Cortar 9 mm')
+    expect(within(tarjeta).getByText('2.065 m')).toBeInTheDocument()
+    expect(within(tarjeta).getByText(/Conforme/)).toBeInTheDocument()
+    expect(within(tarjeta).getAllByRole('button', { name: 'Copiar resultado' })).toHaveLength(1)
+    expect(screen.getAllByRole('region', { name: /^Resultado · / })).toHaveLength(1)
 
     const mira = screen.getByLabelText('Lectura en la mira')
     await usuario.clear(mira)
     await usuario.type(mira, '2.115')
-    expect(within(resultado('Lo que marca la mira')).getByText('Rellenar 50 mm')).toBeInTheDocument()
-    expect(within(resultado('Lo que marca la mira')).getByText(/Fuera de tolerancia/)).toBeInTheDocument()
+    expect(within(resultado('Lectura objetivo')).getByText('Rellenar 50 mm')).toBeInTheDocument()
+    expect(within(resultado('Lectura objetivo')).getByText(/Fuera de tolerancia/)).toBeInTheDocument()
+
+    // Sin lectura de mira, lo grande vuelve a ser el objetivo.
+    await usuario.clear(mira)
+    expect(resultado('Lectura objetivo').querySelector('output')).toHaveTextContent('2.065 m')
+  })
+
+  it('la nota de la lectura objetivo con mira lleva el objetivo, la mira y el corte', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelCalculadora />)
+    await usuario.click(screen.getByRole('tab', { name: 'Lectura objetivo' }))
+    await usuario.click(within(resultado('Lectura objetivo')).getByRole('button', { name: 'Guardar como nota' }))
+    expect(notasDeLaCalle()[0]!.texto).toMatch(/^Lectura objetivo 2.065 m, mira 2.056 m: Cortar 9 mm/)
   })
 
   it('pendiente prellenada con el mismo punto en la progresiva anterior', async () => {
@@ -183,44 +210,75 @@ describe('PanelCalculadora', () => {
   it('Copiar pone el número solo en el portapapeles', async () => {
     const usuario = userEvent.setup()
     render(<PanelCalculadora />)
-    await usuario.click(within(resultado('Cota')).getByRole('button', { name: 'Copiar' }))
+    await usuario.click(within(resultado('Cota')).getByRole('button', { name: 'Copiar resultado' }))
     expect(await navigator.clipboard.readText()).toBe('3244.549')
     expect(within(resultado('Cota')).getByText('Copiado: 3244.549')).toBeInTheDocument()
   })
 
-  it('Guardar como nota la anota en la calle activa, en la progresiva elegida', async () => {
+  it('Guardar como nota la anota en la calle activa, en la progresiva del punto elegido, sin preguntarla', async () => {
     const usuario = userEvent.setup()
     render(<PanelCalculadora />)
     const tarjeta = resultado('Cota')
-    expect(within(tarjeta).getByLabelText('Progresiva de la nota')).toHaveValue('0+020')
-    await usuario.clear(within(tarjeta).getByLabelText('Progresiva de la nota'))
-    await usuario.type(within(tarjeta).getByLabelText('Progresiva de la nota'), '0+025')
+    expect(within(tarjeta).queryByLabelText('Progresiva de la nota')).not.toBeInTheDocument()
     await usuario.click(within(tarjeta).getByRole('button', { name: 'Guardar como nota' }))
 
     const notas = notasDeLaCalle()
     expect(notas).toHaveLength(1)
-    expect(notas[0]!.progresiva).toBe(25)
+    expect(notas[0]!.progresiva).toBe(20)
     expect(notas[0]!.texto).toMatch(/^Cota: 3244\.549 m/)
-    expect(within(tarjeta).getByText('Nota guardada en 0+025.')).toBeInTheDocument()
+    expect(within(tarjeta).getByText('Nota guardada en 0+020.')).toBeInTheDocument()
   })
 
-  it('sin calle activa no deja guardar notas, y sin estación pide los datos a mano', () => {
+  it('sin punto elegido, la progresiva de la nota se pide solo al pulsar «Guardar como nota»', async () => {
+    const usuario = userEvent.setup()
+    useAlmacen.setState({ seleccion: { clave: null, progresiva: null } })
+    render(<PanelCalculadora />)
+    await usuario.type(screen.getByLabelText('Lectura'), '1.605')
+    const tarjeta = resultado('Cota')
+    expect(within(tarjeta).queryByLabelText('Progresiva de la nota')).not.toBeInTheDocument()
+    await usuario.click(within(tarjeta).getByRole('button', { name: 'Guardar como nota' }))
+    expect(notasDeLaCalle()).toHaveLength(0)
+    const campo = within(tarjeta).getByLabelText('Progresiva de la nota')
+    expect(campo).toHaveFocus()
+    await usuario.type(campo, '0+025')
+    await usuario.click(within(tarjeta).getByRole('button', { name: 'Guardar como nota' }))
+    expect(notasDeLaCalle()[0]!.progresiva).toBe(25)
+    expect(within(tarjeta).getByText('Nota guardada en 0+025.')).toBeInTheDocument()
+    expect(within(tarjeta).queryByLabelText('Progresiva de la nota')).not.toBeInTheDocument()
+  })
+
+  it('sin resultado no ofrece copiar ni guardar', async () => {
+    const usuario = userEvent.setup()
+    render(<PanelCalculadora />)
+    await usuario.clear(screen.getByLabelText('Lectura'))
+    const tarjeta = within(resultado('Cota'))
+    expect(tarjeta.getByText('—')).toBeInTheDocument()
+    expect(tarjeta.queryByRole('button', { name: 'Copiar resultado' })).not.toBeInTheDocument()
+    expect(tarjeta.queryByRole('button', { name: 'Guardar como nota' })).not.toBeInTheDocument()
+  })
+
+  it('sin calle activa no deja guardar notas, y sin estación pide los datos a mano', async () => {
+    const usuario = userEvent.setup()
     useAlmacen.setState({ calleActivaId: null, campaniaActivaId: null, seleccion: { clave: null, progresiva: null } })
     render(<PanelCalculadora />)
     expect(screen.getByText('Sin estación activa: escriba los datos a mano.')).toBeInTheDocument()
     expect(screen.getByLabelText('Altura instrumental')).toHaveValue('')
+    await usuario.type(screen.getByLabelText('Altura instrumental'), '100')
+    await usuario.type(screen.getByLabelText('Lectura'), '1.5')
     expect(within(resultado('Cota')).getByRole('button', { name: 'Guardar como nota' })).toBeDisabled()
+    expect(within(resultado('Cota')).getByText('Elija una calle para poder guardar notas.')).toBeInTheDocument()
   })
 
-  it('Traer datos de la libreta vuelve a llenar con el punto seleccionado ahora', async () => {
+  it('«cambiar» vuelve a llenar con el punto elegido ahora', async () => {
     const usuario = userEvent.setup()
     render(<PanelCalculadora />)
     act(() => useAlmacen.setState({ seleccion: { clave: '40|p-eje', progresiva: 40 } }))
-    await usuario.click(screen.getByRole('button', { name: 'Traer datos de la libreta' }))
+    await usuario.click(screen.getByRole('button', { name: 'cambiar' }))
     expect(screen.getByLabelText('Lectura')).toHaveValue('2.097')
+    expect(lineaDeDatos()).toHaveTextContent(/^Con datos de .+ · 0\+040 · Eje · cambiar$/)
     // La nota va a la progresiva traída, no a la de antes.
-    expect(within(resultado('Cota')).getByLabelText('Progresiva de la nota')).toHaveValue('0+040')
-    expect(screen.getByText(/Estación 1 · AI/)).toHaveTextContent('0+040 · Eje')
+    await usuario.click(within(resultado('Cota')).getByRole('button', { name: 'Guardar como nota' }))
+    expect(notasDeLaCalle()[0]!.progresiva).toBe(40)
   })
 
   describe('con una nivelación sin cerrar', () => {
@@ -229,7 +287,7 @@ describe('PanelCalculadora', () => {
     it('marca como no comprobado lo que sale de la libreta, y lo dice en la nota', async () => {
       const usuario = userEvent.setup()
       render(<PanelCalculadora />)
-      expect(screen.getByText(/la nivelación todavía no cierra/)).toBeInTheDocument()
+      expect(fila('Altura instrumental')).toHaveTextContent('Estación 1 · △ sin comprobar')
       expect(within(resultado('Cota')).getByText(/No comprobado/)).toBeInTheDocument()
 
       await usuario.click(within(resultado('Cota')).getByRole('button', { name: 'Guardar como nota' }))
@@ -258,10 +316,9 @@ describe('PanelCalculadora', () => {
 
     it('la cota de un punto leído desde la estación 1 usa la AI de la estación 1', () => {
       render(<PanelCalculadora />)
-      expect(screen.getByText(/Estación 2 · AI/)).toBeInTheDocument()
       expect(screen.getByLabelText('Altura instrumental')).toHaveValue('3246.605')
       expect(within(resultado('Cota')).getByText('3244.549 m')).toBeInTheDocument()
-      expect(screen.getByText(/se tomó desde la estación 1/)).toBeInTheDocument()
+      expect(fila('Altura instrumental')).toHaveTextContent('Estación 1, la que leyó el punto · ✓ comprobada')
     })
 
     it('en Lectura objetivo no junta la AI de la activa con una lectura de otra estación', async () => {
@@ -271,7 +328,7 @@ describe('PanelCalculadora', () => {
       expect(screen.getByLabelText('Altura instrumental')).not.toHaveValue('3246.605')
       expect(screen.getByLabelText('Lectura en la mira')).toHaveValue('')
       expect(screen.getByText(/es de la estación 1, no de la activa/)).toBeInTheDocument()
-      expect(screen.queryByRole('region', { name: 'Resultado · Lo que marca la mira' })).not.toBeInTheDocument()
+      expect(within(resultado('Lectura objetivo')).queryByText(/Cortar|Rellenar/)).not.toBeInTheDocument()
     })
   })
 
@@ -297,8 +354,10 @@ describe('PanelCalculadora', () => {
     it('marca como no comprobada la cota leída antes del último circuito, aunque la AI activa sí lo esté', async () => {
       const usuario = userEvent.setup()
       render(<PanelCalculadora />)
-      expect(screen.getByText(/AI de la estación activa comprobada/)).toBeInTheDocument()
+      expect(fila('Altura instrumental')).toHaveTextContent('Estación 1, la que leyó el punto · △ sin comprobar')
       expect(within(resultado('Cota')).getByText(/No comprobado/)).toBeInTheDocument()
+      await usuario.click(screen.getByRole('tab', { name: 'Lectura objetivo' }))
+      expect(fila('Altura instrumental')).toHaveTextContent('Estación 2 · ✓ comprobada')
       await usuario.click(screen.getByRole('tab', { name: 'Pendiente' }))
       expect(within(resultado('Pendiente')).getByText(/No comprobado/)).toBeInTheDocument()
     })
@@ -316,15 +375,23 @@ describe('PanelCalculadora', () => {
   it('si cambia el punto seleccionado lo avisa, sin mezclar los casilleros', () => {
     render(<PanelCalculadora />)
     act(() => useAlmacen.setState({ seleccion: { clave: '40|p-eje', progresiva: 40 } }))
-    expect(screen.getByText(/Los datos son de 0\+020 Eje; ahora está seleccionado 0\+040 Eje/)).toBeInTheDocument()
-    expect(screen.getByText(/Estación 1 · AI/)).toHaveTextContent('0+020 · Eje')
-    expect(within(resultado('Cota')).getByLabelText('Progresiva de la nota')).toHaveValue('0+020')
+    expect(lineaDeDatos()).toHaveTextContent(/Con datos de .+ · 0\+020 · Eje · ahora tienes 0\+040 · Eje elegido · cambiar$/)
+    expect(screen.getByLabelText('Lectura')).toHaveValue('2.056')
+  })
+
+  it('si cambia la estación activa en el mismo punto, lo dice así', () => {
+    render(<PanelCalculadora />)
+    act(() => useAlmacen.setState({ estacionActiva: 1 }))
+    // El punto se sigue viendo: ahí caería una nota.
+    expect(lineaDeDatos()).toHaveTextContent(
+      /Con datos de .+ · 0\+020 · Eje · estación 1 · ahora tienes la estación 2 activa · cambiar$/,
+    )
   })
 
   it('el mensaje de Copiar se borra cuando cambia el resultado', async () => {
     const usuario = userEvent.setup()
     render(<PanelCalculadora />)
-    await usuario.click(within(resultado('Cota')).getByRole('button', { name: 'Copiar' }))
+    await usuario.click(within(resultado('Cota')).getByRole('button', { name: 'Copiar resultado' }))
     expect(within(resultado('Cota')).getByText('Copiado: 3244.549')).toBeInTheDocument()
     await usuario.clear(screen.getByLabelText('Lectura'))
     await usuario.type(screen.getByLabelText('Lectura'), '1.5')
@@ -356,18 +423,19 @@ describe('PanelCalculadora', () => {
     const ai = screen.getByLabelText('Altura instrumental')
     await usuario.clear(ai)
     await usuario.type(ai, '3246.606')
-    const control = within(resultado('Lo que marca la mira'))
-    expect(control.getByText(/No comprobado/)).toBeInTheDocument()
+    const control = within(resultado('Lectura objetivo'))
+    // Un solo «no comprobado», aunque la tarjeta diga corte y objetivo.
+    expect(control.getAllByText(/No comprobado/)).toHaveLength(1)
     // La libreta de este ejemplo SÍ cierra: lo que no está respaldado es la AI
     // escrita a mano, y eso es lo que se dice (no «nivelación sin cerrar»).
     expect(control.getByText(/escrita a mano/)).toBeInTheDocument()
     expect(control.queryByText(/nivelación sin cerrar/)).not.toBeInTheDocument()
-    // Y la lectura objetivo misma, el número grande, también lo lleva: no
-    // basta con el ✓ de la cabecera, que habla de la AI de la libreta.
-    const objetivo = within(resultado('Lectura objetivo'))
-    expect(objetivo.getByText('2.066 m')).toBeInTheDocument()
-    expect(objetivo.getByText(/No comprobado: AI escrita a mano/)).toBeInTheDocument()
-    expect(screen.getByText(/AI de la estación activa comprobada/)).toBeInTheDocument()
+    // Y la lectura objetivo misma, que va en la misma tarjeta, también: no
+    // basta con no llevar el ✓ al lado de la AI.
+    expect(control.getByText('2.066 m')).toBeInTheDocument()
+    expect(control.getByText(/No comprobado: AI escrita a mano/)).toBeInTheDocument()
+    expect(fila('Altura instrumental')).toHaveTextContent('Escrita a mano')
+    expect(fila('Altura instrumental')).not.toHaveTextContent('✓')
   })
 
   it('la AI sacada de un punto conocido marca la cota como no comprobada, también en la nota', async () => {
@@ -397,17 +465,15 @@ describe('PanelCalculadora', () => {
     expect(within(resultado('Cota')).queryByText(/No comprobado/)).not.toBeInTheDocument()
   })
 
-  it('el corte/relleno sale justo debajo de los casilleros, antes que la lectura objetivo', async () => {
+  it('el corte/relleno sale justo debajo de los casilleros, en la única tarjeta', async () => {
     const usuario = userEvent.setup()
     render(<PanelCalculadora />)
     await usuario.click(screen.getByRole('tab', { name: 'Lectura objetivo' }))
     const mira = screen.getByLabelText('Lectura en la mira')
-    const control = resultado('Lo que marca la mira')
-    const objetivo = resultado('Lectura objetivo')
-    // En el celular el teclado tapa lo que queda abajo: el resultado de la
-    // mira va pegado a su casillero y antes que el objetivo.
+    const control = resultado('Lectura objetivo')
+    // En el celular el teclado tapa lo que queda abajo: el resultado va
+    // pegado a los casilleros.
     expect(mira.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(control.compareDocumentPosition(objetivo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByLabelText('Tolerancia').compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // Con la AI de la libreta y una nivelación que cerró, se dice que la cota
     // no reparte el error de cierre (Revisar sí lo reparte).

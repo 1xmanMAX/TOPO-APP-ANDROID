@@ -1,7 +1,7 @@
 import { AVISO_SIN_COMPROBAR, evaluarLectura, rangoEsperado, type ReglasMira } from '@topo/core'
 import { formatearDiferencia } from '../../estadoRasante'
 import { formatearCota } from '../../formato'
-import { AVISO_DESTACADO, leerNumero, llegaAlMilimetro, textoAccion, VISUAL_ESTADO } from './comun'
+import { leerNumero, llegaAlMilimetro, textoAccion, VISUAL_ESTADO } from './comun'
 
 interface Props {
   /** El texto tal como está en el campo: se juzga mientras se escribe. */
@@ -26,10 +26,10 @@ interface Props {
 }
 
 /**
- * El aviso al anotar: qué cota sale, cuánto se aparta del proyecto, si
- * corta o rellena, y si la lectura merece volver a leerse mientras la mira
- * sigue en el punto. Todo lo calcula `evaluarLectura` del motor; aquí solo
- * se escribe.
+ * El aviso al anotar: qué lectura se espera, y en cuanto se escribe una,
+ * qué cota sale, cuánto se aparta del proyecto, si corta o rellena, y si
+ * merece volver a leerse mientras la mira sigue en el punto. Todo lo calcula
+ * `evaluarLectura` del motor; aquí solo se escribe.
  */
 export default function AvisoAlAnotar({
   texto,
@@ -57,75 +57,68 @@ export default function AvisoAlAnotar({
       : null
   const sinAltura = !Number.isFinite(alturaInstrumental)
   const visual = VISUAL_ESTADO[aviso.estado]
-
-  const esperada = (
-    <p className="text-sm">
-      {aviso.lecturaEsperada !== null ? (
-        <>
-          Lectura esperada <strong className="numerico">{formatearCota(aviso.lecturaEsperada)}</strong>
-          {rango && (
-            <span className="text-slate-600 dark:text-slate-300">
-              {' '}
-              (conforme entre <span className="numerico">{formatearCota(rango.desde)}</span> y{' '}
-              <span className="numerico">{formatearCota(rango.hasta)}</span>)
-            </span>
-          )}
-        </>
-      ) : cotaProyecto === null ? (
-        <span className="text-slate-600 dark:text-slate-300">Sin rasante en este punto: solo sale la cota.</span>
-      ) : null}
-    </p>
-  )
+  const accion = textoAccion(aviso.accion)
 
   return (
-    <section aria-label={titulo} className="flex flex-col gap-2 rounded border border-slate-200 p-3 dark:border-slate-800">
-      <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{titulo}</h3>
+    <section aria-label={titulo} className="flex flex-col gap-1.5">
+      {anotada && <h3 className="text-[13px] text-tenue">{titulo}</h3>}
 
       {sinAltura && (
-        <p className="text-sm text-aviso">
+        <p className="text-[13px] font-semibold text-aviso">
           <span aria-hidden="true">△ </span>Falta la vista atrás de esta estación: sin altura de instrumento no hay cota.
         </p>
       )}
 
+      {!anotada &&
+        (aviso.lecturaEsperada !== null ? (
+          <p className="text-[13px] text-tenue">
+            Esperada cerca de <b className="numerico text-tinta">{formatearCota(aviso.lecturaEsperada)}</b>
+            {rango && (
+              <>
+                {' '}
+                · conforme entre <span className="numerico">{formatearCota(rango.desde)}</span> y{' '}
+                <span className="numerico">{formatearCota(rango.hasta)}</span>
+              </>
+            )}
+            {Number.isFinite(toleranciaMm) && <> · ±{toleranciaMm} mm</>}
+          </p>
+        ) : cotaProyecto === null ? (
+          <p className="text-[13px] text-tenue">Sin rasante en este punto: solo sale la cota.</p>
+        ) : null)}
+
       {/* Solo esta línea se anuncia: estado y qué hacer, no la ficha entera en cada tecla. */}
       <div aria-live="polite">
         {juzgar && (
-          <div className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded border px-3 py-2 ${visual.clases}`}>
-            <span className="text-lg font-bold">
-              <span aria-hidden="true">{visual.simbolo} </span>
-              {visual.texto}
-            </span>
-            {aviso.diferenciaMm !== null && (
-              <span className="numerico font-semibold">{formatearDiferencia(aviso.diferenciaMm)}</span>
+          <div className={`flex flex-col gap-0.5 rounded-[10px] px-3 py-2 ${visual.clases}`}>
+            <p className="text-[15px]">
+              <b>
+                <span aria-hidden="true">{visual.simbolo} </span>
+                {visual.texto}
+              </b>
+              {aviso.diferenciaMm !== null && (
+                <>
+                  {' · '}
+                  <b className="numerico">{formatearDiferencia(aviso.diferenciaMm)}</b>
+                </>
+              )}
+              {accion && <> · {accion}</>}
+            </p>
+            <p className="numerico text-sm">
+              Cota {aviso.cota === null ? '—' : formatearCota(aviso.cota)}
+              {cotaProyecto !== null && <> · proyecto {formatearCota(cotaProyecto)}</>}
+            </p>
+            {aviso.sospechosa && (
+              <p role={anotada ? 'alert' : undefined} className="text-[15px] font-bold">
+                <span aria-hidden="true">✗ </span>¿Leíste bien? Vuelve a mirar la mira antes de seguir.
+              </p>
             )}
-            {textoAccion(aviso.accion) && <span className="font-semibold">{textoAccion(aviso.accion)}</span>}
           </div>
         )}
       </div>
 
-      {juzgar && (
-        <>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 text-sm">
-            <dt className="text-slate-500">Cota</dt>
-            <dd className="numerico">{aviso.cota === null ? '—' : formatearCota(aviso.cota)}</dd>
-            <dt className="text-slate-500">Proyecto</dt>
-            <dd className="numerico">{cotaProyecto === null ? '—' : formatearCota(cotaProyecto)}</dd>
-          </dl>
-          {aviso.sospechosa && (
-            <p
-              role={anotada ? 'alert' : undefined}
-              className="rounded bg-falla/10 px-3 py-2 text-base font-bold text-falla"
-            >
-              <span aria-hidden="true">✗ </span>¿Leíste bien? Vuelve a mirar la mira antes de seguir.
-            </p>
-          )}
-        </>
-      )}
-      {esperada}
-
       {/* Lo no comprobado se dice siempre, también antes de escribir. */}
       {(juzgar ? aviso.avisos : comprobado ? [] : [AVISO_SIN_COMPROBAR]).map((linea) => (
-        <p key={linea} className={AVISO_DESTACADO}>
+        <p key={linea} className="text-[13px] font-semibold text-aviso">
           <span aria-hidden="true">△ </span>
           {linea}
         </p>

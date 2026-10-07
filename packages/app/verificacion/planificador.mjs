@@ -136,7 +136,31 @@ async function abrirObra(ancho, alto, planificador = null) {
   return pagina
 }
 
-/** Calle › (Psje. Las Lomas) › Planificar. */
+/**
+ * Abre un plegable (<details>) por el texto de su summary, si está cerrado.
+ * Un campo o un radio de un plegable cerrado no se ve y no se puede tocar.
+ */
+async function abrirPlegable(pagina, texto) {
+  const resumen = pagina.locator('summary').filter({ hasText: texto }).first()
+  if ((await resumen.count()) === 0) return false
+  if (!(await resumen.locator('xpath=..').evaluate((d) => d.open))) await resumen.click()
+  return true
+}
+
+/**
+ * El perfil y las reglas del nivel van plegados en Planificar: se abren para
+ * tocarlos. En el celular también las listas (estaciones, controles, tramos):
+ * se abren para leerlas.
+ */
+async function abrirPlegablesDePlanificar(pagina) {
+  await abrirPlegable(pagina, 'Perfil de la pista')
+  await abrirPlegable(pagina, 'Reglas del nivel')
+  await abrirPlegable(pagina, 'Estaciones')
+  await abrirPlegable(pagina, 'Puntos de control')
+  await abrirPlegable(pagina, 'Tramos entre controles')
+}
+
+/** Calle › (Psje. Las Lomas) › Planificar, con el perfil y las reglas abiertos. */
 async function irAPlanificar(pagina) {
   await pagina.getByRole('navigation', { name: 'Espacios' }).getByRole('button', { name: 'Calle', exact: true }).click()
   await pagina.getByLabel('Calle activa').selectOption({ label: LOMAS.nombre })
@@ -145,6 +169,7 @@ async function irAPlanificar(pagina) {
     .getByRole('button', { name: 'Planificar', exact: true })
     .click()
   await pagina.getByRole('heading', { name: 'Planificar', level: 2 }).waitFor({ timeout: 10000 })
+  await abrirPlegablesDePlanificar(pagina)
 }
 
 /** Lo que Planificar muestra del plan: estaciones de ida, controles, tramos y el veredicto. */
@@ -389,10 +414,16 @@ async function recorrerGuia(pagina, etiqueta, plan, captura, perfil) {
     if (!cabecera) {
       errores.push(`paso ${i + 1}: sin cabecera`)
     } else {
-      const lineas = texto.split('\n')
-      const planta = lineas.find((l) => l.includes('Planta el nivel')) ?? ''
-      const atras = lineas.find((l) => l.includes('Mira atrás')) ?? ''
-      const adelante = lineas.find((l) => /lee adelante/.test(l)) ?? ''
+      // Cada paso de la tarjeta es un bloque: «1 · Planta el nivel / ≈ 0+012», «2 · Mira atrás en … / Debería marcar ≈ …».
+      const bloque = async (cual) => {
+        const b = tarjeta.locator(`[data-paso="${cual}"]`)
+        return (await b.count()) > 0 ? (await b.innerText()).replace(/\s+/g, ' ') : ''
+      }
+      const planta = await bloque('planta')
+      const atras = await bloque('atras')
+      const adelante = await bloque('adelante')
+      if (!/Planta el nivel/.test(planta) || !/Mira atrás/.test(atras) || !/lee adelante/.test(adelante))
+        errores.push(`paso ${i + 1}: faltan los pasos de la tarjeta`)
       const est = progresivas(planta)[0]
       const pa = progresivas(atras)[0]
       const pd = progresivas(adelante)[0]
@@ -431,7 +462,7 @@ async function recorrerGuia(pagina, etiqueta, plan, captura, perfil) {
       // En el celular, lo que hay que leer y la orden de cerrar se ven junto a «Hecho, siguiente», sin desplazar.
       if (pagina.viewportSize().width < 640) {
         const tapadas = await pagina.evaluate(() => {
-          const barra = [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Hecho, siguiente')
+          const barra = [...document.querySelectorAll('button')].find((b) => b.innerText.trim().startsWith('Hecho, siguiente'))
           const tope = barra ? barra.parentElement.getBoundingClientRect().top : window.innerHeight
           const tarjeta = document.querySelector('article')
           const tapada = (el, hasta = tope) => {
@@ -440,19 +471,19 @@ async function recorrerGuia(pagina, etiqueta, plan, captura, perfil) {
           }
           const fuera = []
           if (tapada(tarjeta.querySelector('h3'))) fuera.push('cabecera')
-          // La lectura adelante: en la tarjeta, o repetida junto al botón con el mismo número.
-          const adelante = [...tarjeta.querySelectorAll('li')].find((l) => /lee adelante/.test(l.innerText))
+          // La lectura adelante: en su paso, o repetida arriba en la tarjeta oscura con el mismo número.
+          const adelante = tarjeta.querySelector('[data-paso="adelante"]')
           const enBarra = document.querySelector('[aria-label="Lectura adelante"]')
           const numero = (el) => /≈\s*(\d+\.\d+)/.exec(el?.innerText ?? '')?.[1]
-          const seVeEnBarra = enBarra && !tapada(enBarra, window.innerHeight) && numero(enBarra) === numero(adelante)
+          const seVeEnBarra = enBarra && !tapada(enBarra) && numero(enBarra) === numero(adelante)
           if (!adelante || (tapada(adelante) && !seVeEnBarra)) fuera.push('lectura adelante')
           // Al llegar a un control, la orden de cerrar con su tolerancia: en la tarjeta o junto al botón.
-          const nota = tarjeta.querySelector('[role=note]')
+          const nota = tarjeta.querySelector('[role=note][aria-label="Cierre del tramo"]')
           if (nota) {
             const recordatorio = document.querySelector('[aria-label="Recordatorio de cierre"]')
             const conTolerancia = (el) => /cerrar el tramo|cierra el tramo/i.test(el.innerText) && /± \d+\.\d mm/.test(el.innerText)
             const seVeEnTarjeta = !tapada(nota) && conTolerancia(nota)
-            const seVeJuntoAlBoton = recordatorio && !tapada(recordatorio, window.innerHeight) && conTolerancia(recordatorio)
+            const seVeJuntoAlBoton = recordatorio && !tapada(recordatorio) && conTolerancia(recordatorio)
             if (!seVeEnTarjeta && !seVeJuntoAlBoton) fuera.push('aviso de cierre')
           }
           return fuera
@@ -472,7 +503,7 @@ async function recorrerGuia(pagina, etiqueta, plan, captura, perfil) {
   )
   if (pagina.viewportSize().width < 640)
     comprobar(
-      `${etiqueta}: en cada paso la lectura adelante y el aviso de cierre se ven sin desplazar, por encima de «Hecho, siguiente»`,
+      `${etiqueta}: en cada paso la lectura adelante y el aviso de cierre se ven sin desplazar, por encima del pie de «Hecho, siguiente»`,
       noSeVen.length === 0,
       noSeVen.slice(0, 4).join(' | '),
     )
@@ -493,6 +524,15 @@ async function recorrerGuia(pagina, etiqueta, plan, captura, perfil) {
 
 const laptop = await abrirObra(1280, 800)
 await irAPlanificar(laptop)
+{
+  const perfil = await laptop.locator('summary').filter({ hasText: 'Perfil de la pista' }).innerText()
+  const reglas = await laptop.locator('summary').filter({ hasText: 'Reglas del nivel' }).innerText()
+  comprobar(
+    'Planificar: el perfil y las reglas dicen lo que tienen en la línea de su plegable',
+    /Rasante · \+7\.38\s%/.test(perfil) && /Tu equipo: mira\s\d/.test(reglas),
+    `${perfil.replace(/\n/g, ' ')} | ${reglas.replace(/\n/g, ' ')}`,
+  )
+}
 const rasante = laptop.getByRole('radio', { name: 'Rasante' })
 comprobar('Las Lomas planifica por defecto con su rasante', await rasante.isChecked())
 comprobar(
@@ -548,6 +588,7 @@ await recorrerGuia(laptop, 'guía (rasante)', planRasante, 'planificador-guia-12
 
 await laptop.getByRole('button', { name: 'Volver a Planificar' }).click()
 await laptop.getByRole('heading', { name: 'Planificar', level: 2 }).waitFor({ timeout: 10000 })
+await abrirPlegablesDePlanificar(laptop)
 await laptop.getByRole('radio', { name: 'Cotas del plano' }).check()
 await laptop.getByText(/cotas? leídas? del plano/).waitFor({ timeout: 10000 }).catch(() => {})
 const textoCotas = await laptop.getByText(/cotas? leídas? del plano/).first().innerText().catch(() => '')
@@ -597,7 +638,14 @@ await capturar(quiebres, `${SALIDA}/planificador-quiebres-1280.png`)
 // Sin guardar, la guía sigue el plan que se ve y lo dice; los tramos malos se ven también allí.
 await quiebres.getByRole('button', { name: 'Guía de campo' }).click()
 await quiebres.getByRole('heading', { name: 'Guía de campo', level: 2 }).waitFor({ timeout: 10000 })
-comprobar('quiebres: la guía avisa que el plan no está guardado en la calle', (await quiebres.getByText(/Este plan no está guardado en la calle/).count()) > 0)
+const resumenAvisos = await quiebres.locator('summary').filter({ hasText: /no cumplen/ }).first().innerText().catch(() => '')
+comprobar(
+  `quiebres: los avisos de la guía caben en una línea plegada que dice «✗ ${malos} tramos no cumplen» y «△ plan sin guardar»`,
+  resumenAvisos.includes(`✗ ${malos} tramos no cumplen`) && resumenAvisos.includes('△ plan sin guardar'),
+  resumenAvisos.replace(/\n/g, ' '),
+)
+await abrirPlegable(quiebres, 'no cumplen')
+comprobar('quiebres: la guía avisa que el plan no está guardado en la calle', await quiebres.getByText(/Este plan no está guardado en la calle/).isVisible())
 const avisoGuia = await quiebres.getByText(/tramos? no cumplen?:/).first().locator('xpath=..').innerText().catch(() => '')
 comprobar(
   `quiebres: la guía dice ✗ ${malos} tramos no cumplen, con el paso que haría falta`,

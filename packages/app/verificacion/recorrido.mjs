@@ -70,8 +70,9 @@ comprobar('la app arranca y muestra la navegación',
 
 // 2. RIESGO ABIERTO: el foco al reordenar la sección por distancia.
 // La sección vive en Obra › Calles, en el panel de la calle (el apartado
-// «Sección» viene abierto), y es esa lista la que se reordena sola.
+// «Sección» viene plegado y se abre), y es esa lista la que se reordena sola.
 await irAObraCalles()
+await abrirApartado('Sección')
 const distanciaVereda = pagina.getByLabel('Distancia al eje de Vereda izquierda')
 await distanciaVereda.click()
 await distanciaVereda.fill('')
@@ -121,6 +122,9 @@ comprobar('escribir una lectura y pulsar Enter la registra',
   llenasAntes !== llenasDespues, `${llenasAntes} -> ${llenasDespues}`)
 
 // 5. El cierre en vivo da el veredicto, con su símbolo.
+// El cierre en detalle va plegado al final de la ficha de Medir.
+const plegableCierre = pagina.locator('summary', { hasText: 'Cierre del circuito' }).first()
+if (!(await plegableCierre.evaluate((s) => s.parentElement.open))) await plegableCierre.click()
 const barra = (await pagina.getByRole('region', { name: 'Cierre en vivo' }).innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
 comprobar('el cierre en vivo da un veredicto con su símbolo',
   /^(✓ Cierra|✗ No cierra|△ Sin cerrar|✗ No se puede calcular)/.test(barra), barra.slice(0, 120))
@@ -132,14 +136,12 @@ const corte = pagina.getByRole('img', { name: /Corte transversal/ })
 comprobar('el corte transversal se dibuja en la libreta', await corte.isVisible(),
   await corte.getAttribute('aria-label'))
 
-// 7. El deslizador mueve la progresiva (en Revisar).
+// 7. Las flechas de la progresiva mueven el corte (en Revisar).
 await irAModo('Revisar')
-const deslizador = pagina.getByRole('slider', { name: 'Progresiva' })
-await deslizador.focus()
-await deslizador.press('Home')
-await deslizador.press('ArrowRight')
+await pagina.getByRole('button', { name: /^0\+000 Eje:/ }).click()
+await pagina.getByRole('button', { name: 'Progresiva siguiente', exact: true }).click()
 const corteTras = await pagina.getByRole('img', { name: /Corte transversal/ }).getAttribute('aria-label')
-comprobar('el deslizador mueve el corte de progresiva', /0\+0[24]0/.test(corteTras ?? ''), corteTras)
+comprobar('la flecha «Progresiva siguiente» mueve el corte de progresiva', /0\+0[24]0/.test(corteTras ?? ''), corteTras)
 
 // 8. Una celda sin medir se enseña como tal, y el corte no se la inventa.
 // En Revisar el mapa nombra cada celda con su estado; la vereda derecha no
@@ -166,8 +168,9 @@ comprobar('volver a una progresiva medida devuelve el corte', /0\+020/.test(cort
 await pagina.screenshot({ path: `${SALIDA}/resultados.png`, fullPage: true })
 
 // 9. RIESGO ABIERTO: exportar a Excel y validar el archivo. Las tablas para
-// Excel están ahora en Informes, debajo de los PDF.
+// Excel están ahora en Informes, plegadas al final bajo «Datos sueltos».
 await irA('Informes')
+await pagina.locator('summary', { hasText: 'Datos sueltos' }).click()
 const descarga = await Promise.all([
   pagina.waitForEvent('download'),
   pagina.getByRole('button', { name: 'Exportar cotas a Excel' }).click(),
@@ -202,13 +205,15 @@ comprobar('el .topo guarda el proyecto con sus lecturas',
   `${tomas.length} tomas, ${tomas[0]?.estaciones.length} estaciones, ${proyecto.meta.nombre}`)
 await pagina.keyboard.press('Escape')
 
-// 11. Modo oscuro: el botón de tema pasa de «Sistema» a «Oscuro».
+// 11. Modo oscuro: el botón de tema pasa de «Sistema» a «Oscuro». Vive dentro del menú Archivo.
+await pagina.getByRole('banner').getByRole('button', { name: 'Archivo', exact: true }).click()
 const botonTema = pagina.getByRole('button', { name: 'Cambiar tema' })
 const temaInicial = await botonTema.textContent()
 await botonTema.click()
 const oscuroActivo = await pagina.evaluate(() => document.documentElement.classList.contains('dark'))
 comprobar('el botón de tema activa el modo oscuro', oscuroActivo,
   `${temaInicial} -> ${await botonTema.textContent()}`)
+await pagina.keyboard.press('Escape')
 await pagina.screenshot({ path: `${SALIDA}/oscuro.png`, fullPage: true })
 
 // 12. Sin errores de consola.

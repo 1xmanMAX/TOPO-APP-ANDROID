@@ -172,6 +172,16 @@ async function controlesChicos(pagina) {
   })
 }
 
+/**
+ * Abre un apartado plegable (<details>) por el texto de su título si está
+ * cerrado: lo de dentro no se ve (ni se puede rellenar) hasta abrirlo.
+ */
+async function abrirPlegable(pagina, titulo) {
+  const resumen = pagina.locator('summary', { hasText: titulo }).first()
+  const abierto = await resumen.evaluate((s) => s.parentElement.open)
+  if (!abierto) await resumen.click()
+}
+
 /** La región «Mapa de la calle» (lleva el aviso, la rejilla y la leyenda). */
 function regionMapa(pagina) {
   return pagina.getByRole('region', { name: 'Mapa de la calle' })
@@ -236,7 +246,7 @@ for (const [clave, d] of Object.entries(SOL.subrasante.diferenciasMm)) {
   const accion = d > 0 ? 'cortar' : d < 0 ? 'rellenar' : 'clavado'
   const estado = Math.abs(d) <= 20 ? 'conforme' : Math.abs(d) <= 40 ? 'al límite' : 'fuera de tolerancia'
   const sim = estado === 'conforme' ? S.conforme : estado === 'al límite' ? S.alLimite : S.fuera
-  if (nombre.includes(mm(d)) && nombre.includes(accion) && nombre.includes(estado) && simbolo === sim) celdasBien++
+  if (nombre.includes(mm(d)) && nombre.includes(accion) && nombre.includes(estado) && simbolo === `${sim} ${mm(d).replace(' mm', '')}`) celdasBien++
   else celdasMal.push(`${clave}: «${nombre}» [${simbolo}] esperaba ${mm(d)} ${accion} ${estado} ${sim}`)
 }
 comprobar('las 21 celdas del mapa dicen su diferencia en mm, corta/rellena y su estado con símbolo',
@@ -245,12 +255,12 @@ comprobar('las 21 celdas del mapa dicen su diferencia en mm, corta/rellena y su 
 // El punto fuera de tolerancia: 0+080 Eje.
 const fuera = SOL.subrasante.fuera
 const botonFuera = celdaMapa(p, fuera.progresiva, fuera.punto)
-comprobar(`el 0+080 Eje aparece en el mapa con ${S.fuera}`, (await botonFuera.innerText()).trim() === S.fuera)
+comprobar(`el 0+080 Eje aparece en el mapa con ${S.fuera}`, (await botonFuera.innerText()).trim().startsWith(`${S.fuera} `))
 await botonFuera.click()
 const puntoElegido = p.getByRole('region', { name: 'Punto elegido' })
 const tPunto = await texto(puntoElegido)
 comprobar('al tocarlo, la ficha dice ✗ fuera de tolerancia · corta 54 mm',
-  tPunto.includes(`${S.fuera} fuera de tolerancia · corta ${fuera.diferenciaMm} mm`), tPunto.slice(0, 120))
+  tPunto.includes(S.fuera) && tPunto.includes(`fuera de tolerancia · corta ${fuera.diferenciaMm} mm`), tPunto.slice(0, 120))
 comprobar('cota medida, de proyecto y diferencia del 0+080 Eje',
   tPunto.includes(`Cota medida ${f3(fuera.cotaMedida)}`) && tPunto.includes(`Cota de proyecto ${f3(fuera.cotaProyecto)}`) &&
   tPunto.includes(`Diferencia ${mm(fuera.diferenciaMm)}`), tPunto)
@@ -262,7 +272,7 @@ const limite = SOL.subrasante.alLimite
 await celdaMapa(p, limite.progresiva, limite.punto).click()
 const tLimite = await texto(puntoElegido)
 comprobar('el 0+040 Borde derecho: △ al límite · rellena 26 mm, −26 mm',
-  tLimite.includes(`${S.alLimite} al límite de tolerancia · rellena ${Math.abs(limite.diferenciaMm)} mm`) &&
+  tLimite.includes(S.alLimite) && tLimite.includes(`al límite de tolerancia · rellena ${Math.abs(limite.diferenciaMm)} mm`) &&
   tLimite.includes(`Diferencia ${mm(limite.diferenciaMm)}`), tLimite.slice(0, 160))
 
 const resumen = await texto(p.getByRole('region', { name: 'Resumen de la calle' }))
@@ -272,7 +282,7 @@ comprobar('resumen de Av. Sol: 19 ✓, 1 △, 1 ✗, 0 ·',
   resumen.includes(`${S.fuera} ${c.fuera} fuera de tolerancia`) && resumen.includes(`${S.sinMedir} ${c.sinMedir} sin medir`), resumen)
 
 await p.getByRole('button', { name: 'Ir al peor punto' }).click()
-comprobar('«Ir al peor punto» lleva al 0+080 Eje', (await texto(puntoElegido)).startsWith(`${prog(fuera.progresiva)} ${fuera.punto}`),
+comprobar('«Ir al peor punto» lleva al 0+080 Eje', (await texto(puntoElegido)).includes(`${prog(fuera.progresiva)} · ${fuera.punto} `),
   (await texto(puntoElegido)).slice(0, 40))
 await p.screenshot({ path: `${SALIDA}/calle-revisar-sol-1280.png`, fullPage: true })
 
@@ -294,12 +304,12 @@ comprobar('el resumen de Jr. Lima dice que sus conteos no están comprobados',
   /no comprobad/i.test(tResumenLima0) && tResumenLima0.includes(`${LIMA.subrasante.conteo.conformes} conformes sin comprobar`), tResumenLima0)
 const fueraLima = LIMA.subrasante.fuera
 const botonFueraLima = celdaMapa(p, fueraLima.progresiva, fueraLima.punto)
-comprobar(`el 0+140 Eje de Jr. Lima aparece con ${S.fuera}`, (await botonFueraLima.innerText()).trim() === S.fuera)
+comprobar(`el 0+140 Eje de Jr. Lima aparece con ${S.fuera}`, (await botonFueraLima.innerText()).trim().startsWith(`${S.fuera} `))
 await botonFueraLima.click()
 const tPuntoLima = await texto(puntoElegido)
-comprobar('0+140 Eje: ✗ fuera · rellena 60 mm, −60 mm, y «no comprobada»',
-  tPuntoLima.includes(`${S.fuera} fuera de tolerancia · rellena ${Math.abs(fueraLima.diferenciaMm)} mm`) &&
-  tPuntoLima.includes(`Diferencia ${mm(fueraLima.diferenciaMm)}`) && /no comprobada/i.test(tPuntoLima), tPuntoLima)
+comprobar('0+140 Eje: ✗ fuera · rellena 60 mm, −60 mm, bajo «Cotas sin compensar» (el «no comprobado» va una vez, arriba)',
+  tPuntoLima.includes(S.fuera) && tPuntoLima.includes(`fuera de tolerancia · rellena ${Math.abs(fueraLima.diferenciaMm)} mm`) &&
+  tPuntoLima.includes(`Diferencia ${mm(fueraLima.diferenciaMm)}`) && /Cotas sin compensar/i.test(tPuntoLima) && !/no comprobada/i.test(tPuntoLima), tPuntoLima)
 const resumenLima = await texto(p.getByRole('region', { name: 'Resumen de la calle' }))
 comprobar('resumen de Jr. Lima: 17 ✓, 0 △, 1 ✗',
   resumenLima.includes(`${LIMA.subrasante.conteo.conformes} conformes`) && resumenLima.includes(`${LIMA.subrasante.conteo.alLimite} al límite`) &&
@@ -329,10 +339,10 @@ comprobar(`Replantear: AI compensada de la estación 1 de la base = ${f3(aiBase)
   tAI.includes(`AI ${f3(aiBase)} compensada`) && tAI.includes('−1.0 mm') && tAI.includes('estación 1'), tAI.slice(-120))
 const estaca = p.getByRole('region', { name: 'Estaca actual' })
 const tEstaca = await texto(estaca)
-comprobar('la estaca es el 0+020 Eje', tEstaca.includes(`${prog(objetivo.progresiva)} ${objetivo.punto}`), tEstaca.slice(0, 50))
+comprobar('la estaca es el 0+020 Eje', tEstaca.includes(`${prog(objetivo.progresiva)} · ${objetivo.punto}`), tEstaca.slice(0, 50))
 comprobar(`lectura objetivo = AI compensada − cota de proyecto = ${f3(aiBase)} − ${f3(objetivo.cotaProyecto)} = ${f3(objetivoComp)}`,
-  tEstaca.includes(`Lectura objetivo ${f3(objetivoComp)}`) && f3(objetivo.alturaInstrumental - objetivo.cotaProyecto) === f3(objetivo.lectura) &&
-  tEstaca.includes(`Cota de proyecto ${f3(objetivo.cotaProyecto)}`), tEstaca.slice(0, 160))
+  tEstaca.includes(`La mira debe marcar ${f3(objetivoComp)}`) && f3(objetivo.alturaInstrumental - objetivo.cotaProyecto) === f3(objetivo.lectura) &&
+  tEstaca.includes(`para estar en ${f3(objetivo.cotaProyecto)}`), tEstaca.slice(0, 160))
 comprobar('la base cerró: el replanteo no se marca como no comprobado', !/no comprobad/i.test(await texto(fichaRep)))
 
 // Las tres estacas de la hoja: objetivo = AI − proyecto en cada una.
@@ -384,7 +394,7 @@ for (const nombreBm of ['BM-1', 'BM-2', 'BM-3']) {
   const tEst = await texto(estaca)
   const objBm = f3(aiBm - objetivo.cotaProyecto)
   comprobar(`Desde ${nombreBm} (${bm.tipo}) con vista atrás ${f3(VISTA_ATRAS)}: AI ${f3(aiBm)} = ${f3(bm.cota)} + ${f3(VISTA_ATRAS)} y objetivo ${objBm} = AI − ${f3(objetivo.cotaProyecto)}`,
-    tGrupo.includes(`AI ${f3(aiBm)}`) && tEst.includes(`Lectura objetivo ${objBm}`), `${tGrupo.slice(-80)} | ${tEst.slice(0, 80)}`)
+    tGrupo.includes(`AI ${f3(aiBm)}`) && tEst.includes(`La mira debe marcar ${objBm}`), `${tGrupo.slice(-80)} | ${tEst.slice(0, 80)}`)
   const tFicha = await texto(fichaRep)
   const dice = new RegExp(ESPERADO.textos.noComprobado, 'i').test(tFicha)
   if (bm.tipo === 'oficial') {
@@ -416,7 +426,7 @@ comprobar('Replantear de Jr. Lima: AI de su última estación', tRepLima.include
 comprobar('Replantear de Jr. Lima dice «no comprobadas»', new RegExp(ESPERADO.textos.noComprobado, 'i').test(tRepLima))
 const objLima = f3(aiLima - fueraLima.cotaProyecto)
 comprobar(`0+140 Eje de Jr. Lima: objetivo ${objLima} = AI − ${f3(fueraLima.cotaProyecto)}`,
-  (await texto(estaca)).includes(`Lectura objetivo ${objLima}`), (await texto(estaca)).slice(0, 120))
+  (await texto(estaca)).includes(`La mira debe marcar ${objLima}`), (await texto(estaca)).slice(0, 120))
 await leida.fill(f3(aiLima - fueraLima.cotaMedida))
 tVer = await texto(veredicto)
 comprobar('con la lectura que se midió allí: ✗ RELLENA 60 mm, y no comprobado',
@@ -430,6 +440,8 @@ await p.screenshot({ path: `${SALIDA}/calle-replantear-lima-1280.png`, fullPage:
 await elegirCalle(p, SOL.nombre)
 await elegirCapa(p, 'SUBRASANTE', SOL.subrasante.fecha)
 await irAModo(p, 'Medir')
+// El cierre en detalle va plegado al final de la ficha: se abre para leerlo.
+await abrirPlegable(p, 'Cierre del circuito')
 const cierreVivo = p.getByRole('region', { name: 'Cierre en vivo' })
 const tCierreSol = await texto(cierreVivo)
 const errSol = SOL.subrasante.cierre
@@ -437,16 +449,19 @@ comprobar('cierre en vivo de Av. Sol: ✓ Cierra, −4.0 mm de ±5.9 mm',
   tCierreSol.includes('Cierra') && tCierreSol.includes(`${errSol.errorMm < 0 ? '−' : '+'}${Math.abs(errSol.errorMm).toFixed(1)} mm de ±${errSol.toleranciaMm.toFixed(1)} mm`),
   tCierreSol)
 const campo = p.getByLabel('Lectura de mira', { exact: true })
-comprobar('con la grilla llena, Anotar no se puede pulsar', await p.getByRole('button', { name: 'Anotar', exact: true }).isDisabled())
+// Con la grilla llena no hay dónde anotar: ni campo ni Anotar, sino «✓ Grilla completa» y qué sigue.
+comprobar('con la grilla llena, en vez de Anotar dice «Grilla completa» con Añadir progresiva a la mano',
+  (await p.getByRole('button', { name: 'Anotar y seguir', exact: true }).count()) === 0 &&
+    (await p.getByText('Grilla completa', { exact: true }).isVisible()) && (await p.getByLabel('Añadir progresiva', { exact: true }).isVisible()))
 
 // Una progresiva nueva para tener dónde anotar.
 await p.getByLabel('Añadir progresiva', { exact: true }).fill('0+010')
 await p.getByRole('button', { name: 'Añadir', exact: true }).click()
-const celdaActiva = p.getByText(/^Celda activa:/)
-await p.getByText('Celda activa: 0+010', { exact: false }).waitFor({ timeout: 5000 }).catch(() => {})
+const celdaActiva = p.getByText(/^Lectura de mira en /)
+await p.getByText('Lectura de mira en 0+010', { exact: false }).waitFor({ timeout: 5000 }).catch(() => {})
 const tCelda = await texto(celdaActiva)
-comprobar('al añadir 0+010 la libreta se pone en su primera celda', tCelda.startsWith('Celda activa: 0+010'), tCelda)
-const nombreCelda = tCelda.replace('Celda activa: 0+010 ', '')
+comprobar('al añadir 0+010 la libreta se pone en su primera celda', tCelda.startsWith('Lectura de mira en 0+010'), tCelda)
+const nombreCelda = tCelda.replace('Lectura de mira en 0+010 ', '')
 const iUltima = SOL.subrasante.alturasInstrumentales.length - 1
 // Av. Sol subrasante cerró con −4 mm: a su última estación le tocan +4 mm (3245.924 → 3245.928).
 const aiSol = aiCompensada(SOL.subrasante, iUltima)
@@ -455,7 +470,7 @@ const esperada010 = f3(aiSol - proyecto010)
 const aviso = p.getByRole('region', { name: 'Aviso al anotar' })
 const tAviso0 = await texto(aviso)
 comprobar(`antes de escribir: lectura esperada ${esperada010} = AI compensada ${f3(aiSol)} − ${f3(proyecto010)}`,
-  tAviso0.includes(`Lectura esperada ${esperada010}`), tAviso0)
+  tAviso0.includes(`Esperada cerca de ${esperada010}`), tAviso0)
 const tNotaAI = await texto(p.getByText(/el aviso cuenta con la AI compensada/))
 comprobar(`Medir dice con qué AI cuenta: la compensada ${f3(aiSol)}, +4.0 mm sobre la CI de la libreta ${f3(SOL.subrasante.alturasInstrumentales[iUltima])}`,
   tNotaAI.includes(`AI compensada ${f3(aiSol)}`) && tNotaAI.includes('+4.0 mm'), tNotaAI)
@@ -476,7 +491,7 @@ comprobar('5.200 no se anota: alerta «no se anotó» y la cuenta no cambia',
 // 0.10 y 4.90, sin el tercer decimal: avisan al anotarlas, y se borran.
 for (const lectura of ['0.10', '4.90']) {
   await campo.fill(lectura)
-  await p.getByRole('button', { name: 'Anotar', exact: true }).click()
+  await p.getByRole('button', { name: 'Anotar y seguir', exact: true }).click()
   const ultima = p.getByRole('region', { name: /^Última lectura anotada/ })
   const tU = await texto(ultima)
   const alerta = ultima.getByRole('alert')
@@ -517,6 +532,7 @@ await irAModo(p, 'Medir')
 // ---------------------------------------------------------------------------
 
 await elegirCalle(p, LIMA.nombre)
+await abrirPlegable(p, 'Cierre del circuito')
 const tAbierto = await texto(cierreVivo)
 comprobar('cierre en vivo de Jr. Lima: △ sin cerrar, nada comprobado',
   tAbierto.includes('Sin cerrar') && /nada comprobado/.test(tAbierto) && tAbierto.includes(LIMA.subrasante.cierre.bmQueFalta), tAbierto)
@@ -533,7 +549,8 @@ await celdaMapa(p, fueraLima.progresiva, fueraLima.punto).click()
 const avisoLima = await texto(p.getByRole('region', { name: 'Aviso al anotar' }))
 comprobar('el aviso al anotar de Jr. Lima dice «no comprobada»', /no comprobad/i.test(avisoLima), avisoLima.slice(-80))
 
-await p.getByRole('button', { name: 'Cerrar el circuito' }).click()
+// «Cerrar en BM-2» pide la vista adelante y abre la estación para escribirla.
+await p.getByRole('button', { name: /^Cerrar en BM/ }).click()
 const adelante = p.getByLabel('Vista adelante a BM', { exact: true })
 // 25 mm de más en el BM: el circuito no cierra.
 // 25 mm más de lectura en el BM = se llega 25 mm más abajo: error −25 mm.
@@ -577,7 +594,7 @@ for (const modo of ['Medir', 'Revisar', 'Replantear']) {
 await irAModo(m, 'Revisar')
 await celdaMapa(m, fuera.progresiva, fuera.punto).click()
 comprobar('celular, Revisar: 0+080 Eje ✗ fuera · corta 54 mm',
-  (await texto(m.getByRole('region', { name: 'Punto elegido' }))).includes(`${S.fuera} fuera de tolerancia · corta 54 mm`))
+  (await texto(m.getByRole('region', { name: 'Punto elegido' }))).includes('fuera de tolerancia · corta 54 mm'))
 // Jr. Lima en el celular: no comprobado.
 await elegirCalle(m, LIMA.nombre)
 await m.getByRole('heading', { name: 'Cotas sin compensar' }).waitFor({ timeout: 10000 })
@@ -609,6 +626,7 @@ await irAModo(m, 'Medir')
 const chicosLima = await controlesChicos(m)
 comprobar('celular, Medir de Jr. Lima (abierto): botones de 44 px o más', chicosLima.length === 0, chicosLima.join(' · '))
 comprobar('celular, Medir de Jr. Lima: la página no se desplaza a lo ancho', (await anchoDePagina(m)) <= 390, `${await anchoDePagina(m)}`)
+await abrirPlegable(m, 'Cierre del circuito')
 await m.getByRole('region', { name: 'Cierre en vivo' }).scrollIntoViewIfNeeded()
 await m.screenshot({ path: `${SALIDA}/calle-medir-lima-390.png` })
 // Replantear en el celular: un objetivo y su veredicto.
@@ -618,7 +636,7 @@ await irAModo(m, 'Replantear')
 await celdaMapa(m, fuera.progresiva, fuera.punto).click()
 const aiM = aiCompensada(SOL.subrasante, iUltima)
 const objM = f3(aiM - fuera.cotaProyecto)
-comprobar(`celular, Replantear 0+080 Eje: objetivo ${objM} = AI compensada ${f3(aiM)} − ${f3(fuera.cotaProyecto)}`, (await texto(m.getByRole('region', { name: 'Estaca actual' }))).includes(`Lectura objetivo ${objM}`))
+comprobar(`celular, Replantear 0+080 Eje: objetivo ${objM} = AI compensada ${f3(aiM)} − ${f3(fuera.cotaProyecto)}`, (await texto(m.getByRole('region', { name: 'Estaca actual' }))).includes(`La mira debe marcar ${objM}`))
 await m.getByLabel('Lectura leída', { exact: true }).fill(f3(aiM - fuera.cotaMedida))
 const tVerM = await texto(m.getByRole('status', { name: 'Veredicto' }))
 comprobar('celular, con la lectura medida allí: ✗ CORTA 54 mm', tVerM.includes(`${S.fuera} CORTA 54 mm`), tVerM)

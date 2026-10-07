@@ -92,7 +92,7 @@ await celdaEje.click()
 const punto = pagina.getByRole('region', { name: 'Punto elegido' })
 const textoPunto = (await punto.innerText().catch(() => '')).replace(/\s+/g, ' ')
 comprobar('Revisar enseña la diferencia del punto elegido en mm, con su semáforo y qué hacer',
-  /0\+000 Eje/.test(textoPunto) && /Diferencia [+\-−]?\d+ mm/.test(textoPunto) &&
+  /0\+000 · Eje/.test(textoPunto) && /Diferencia [+\-−]?\d+ mm/.test(textoPunto) &&
     /(✓|△|✗)/.test(textoPunto) && /(corta|rellena|cortar|rellenar|clavad)/i.test(textoPunto),
   textoPunto.slice(0, 200))
 
@@ -148,6 +148,8 @@ await pagina.screenshot({ path: `${SALIDA}/corte-transversal.png`, fullPage: tru
 // 7. Descargar el Excel de diferencias (Informes › Tablas para Excel) y
 // comprobar qué dice de verdad.
 await irA('Informes')
+// Las tablas sueltas van plegadas al final, bajo «Datos sueltos».
+await pagina.locator('summary', { hasText: 'Datos sueltos' }).click()
 const botonDiferencias = pagina.getByRole('button', { name: /diferencias a Excel/i })
 const descarga = await Promise.all([
   pagina.waitForEvent('download'),
