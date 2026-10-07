@@ -1,1 +1,300 @@
-{"v":3,"attachments":{},"boards":{"Ajustes.dc.html":{"h":800,"is_interactive":true,"title":"10 · Obra: la calle en un solo panel","w":1280,"x":2720,"y":5224},"Analisis.dc.html":{"h":800,"is_interactive":true,"title":"9 · Análisis: espesores, volúmenes y drenaje","w":1280,"x":1360,"y":5224},"Calculadora.dc.html":{"h":844,"is_interactive":true,"title":"7 · Calculadora de campo","w":390,"x":1410,"y":4020},"Calle.dc.html":{"h":800,"is_interactive":true,"title":"2 · La calle: medir, revisar y replantear en una sola pantalla","w":1280,"x":0,"y":2860},"Cierre.dc.html":{"h":800,"is_interactive":true,"title":"8 · Cierre y compensación","w":1280,"x":0,"y":5224},"Historial.dc.html":{"h":844,"is_interactive":true,"title":"13 · Historial y comparar capas","w":390,"x":940,"y":6384},"Informes.dc.html":{"h":800,"is_interactive":true,"title":"3 · Informes en un toque","w":1280,"x":1360,"y":2860},"Inicio.dc.html":{"h":844,"title":"4 · Inicio de obra","w":390,"x":0,"y":4020},"Instrumento.dc.html":{"h":844,"is_interactive":true,"title":"14 · Instrumento por Bluetooth (más adelante)","w":390,"x":1410,"y":6384},"Libreta.dc.html":{"h":844,"is_interactive":true,"title":"5 · Anotar con aviso al instante","w":390,"x":470,"y":4020},"Main.dc.html":{"expand":"fill","h":2500,"title":"1 · La propuesta","w":1440,"x":0,"y":0},"ModoSol.dc.html":{"h":844,"is_interactive":true,"title":"12 · Modo sol","w":390,"x":470,"y":6384},"Notas.dc.html":{"h":844,"is_interactive":true,"title":"11 · Notas y fotos por progresiva","w":390,"x":0,"y":6384},"Plano.dc.html":{"h":844,"is_interactive":true,"title":"15 · Plano con pines en el celular","w":390,"x":1880,"y":6384},"Replanteo.dc.html":{"h":844,"is_interactive":true,"title":"6 · Replanteo: corta o rellena","w":390,"x":940,"y":4040},"PlanoObra.dc.html":{"x":0,"y":7588,"w":1280,"h":800,"title":"16 · Plano de obra: pistas, pendientes y controles","is_interactive":true},"Croquis.dc.html":{"x":1360,"y":7588,"w":1280,"h":800,"title":"17 · Croquis: dibuja la pista sobre el plano","is_interactive":true},"Pendiente.dc.html":{"x":2720,"y":7588,"w":1280,"h":800,"title":"18 · Pista empinada: dónde van los cambios","is_interactive":true},"Guia.dc.html":{"x":4080,"y":7588,"w":390,"h":844,"title":"19 · En campo: dónde pongo el nivel","is_interactive":true},"VisorPlanos.dc.html":{"x":0,"y":8908,"w":1280,"h":800,"title":"20 · Visor de planos DXF y PDF","is_interactive":true},"Integraciones.dc.html":{"x":1360,"y":8908,"w":1280,"h":800,"title":"21 · Integraciones","is_interactive":true}},"createdOnFiles":{"at":"2026-10-05T12:00:00Z","v":1},"designSystems":[],"launch":{"view":"canvas"},"notes":{"filaCelular":{"kind":"title1","maxW":1800,"text":"En el celular, con la mira al frente","w":240,"x":0,"y":3780},"filaCelular2":{"kind":"title1","maxW":2270,"text":"Más funciones en el celular","w":240,"x":0,"y":6144},"filaTablet":{"kind":"title1","maxW":2640,"text":"En la tablet o la laptop: obra y gabinete","w":240,"x":0,"y":2620},"filaTablet2":{"kind":"title1","maxW":4000,"text":"Más funciones: cierre, análisis y ajustes","w":240,"x":0,"y":4984},"filaPlanos":{"x":0,"y":7348,"text":"Planos, croquis y pistas empinadas","kind":"title1","maxW":4470},"filaIntegra":{"x":0,"y":8668,"text":"Leer planos e integrarse con otros programas","kind":"title1","maxW":2640}},"order":["Main.dc.html","Calle.dc.html","Informes.dc.html","Inicio.dc.html","Libreta.dc.html","Replanteo.dc.html","Calculadora.dc.html","Cierre.dc.html","Analisis.dc.html","Ajustes.dc.html","Notas.dc.html","ModoSol.dc.html","Historial.dc.html","Instrumento.dc.html","Plano.dc.html","PlanoObra.dc.html","Croquis.dc.html","Pendiente.dc.html","Guia.dc.html","VisorPlanos.dc.html","Integraciones.dc.html"],"pages":[],"title":"Rediseño app de topografía"}
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Ajustes.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "10 · Obra: la calle en un solo panel",
+      "w": 1280,
+      "x": 2720,
+      "y": 5224
+    },
+    "Analisis.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "9 · Análisis: espesores, volúmenes y drenaje",
+      "w": 1280,
+      "x": 1360,
+      "y": 5224
+    },
+    "Calculadora.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "7 · Calculadora de campo",
+      "w": 390,
+      "x": 1410,
+      "y": 4020
+    },
+    "Calle.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "2 · La calle: medir, revisar y replantear en una sola pantalla",
+      "w": 1280,
+      "x": 0,
+      "y": 2860
+    },
+    "Cierre.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "8 · Cierre y compensación",
+      "w": 1280,
+      "x": 0,
+      "y": 5224
+    },
+    "Croquis.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "17 · Croquis: dibuja la pista sobre el plano",
+      "w": 1280,
+      "x": 1360,
+      "y": 7588
+    },
+    "Guia.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "19 · En campo: dónde pongo el nivel",
+      "w": 390,
+      "x": 4080,
+      "y": 7588
+    },
+    "Historial.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "13 · Historial y comparar capas",
+      "w": 390,
+      "x": 940,
+      "y": 6384
+    },
+    "Informes.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "3 · Informes en un toque",
+      "w": 1280,
+      "x": 1360,
+      "y": 2860
+    },
+    "Inicio.dc.html": {
+      "h": 844,
+      "title": "4 · Inicio de obra",
+      "w": 390,
+      "x": 0,
+      "y": 4020
+    },
+    "Instrumento.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "14 · Instrumento por Bluetooth (más adelante)",
+      "w": 390,
+      "x": 1410,
+      "y": 6384
+    },
+    "Integraciones.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "21 · Integraciones",
+      "w": 1280,
+      "x": 1360,
+      "y": 8908
+    },
+    "Libreta.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "5 · Anotar con aviso al instante",
+      "w": 390,
+      "x": 470,
+      "y": 4020
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 2500,
+      "title": "1 · La propuesta",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "ModoSol.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "12 · Modo sol",
+      "w": 390,
+      "x": 470,
+      "y": 6384
+    },
+    "Notas.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "11 · Notas y fotos por progresiva",
+      "w": 390,
+      "x": 0,
+      "y": 6384
+    },
+    "Pendiente.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "18 · Pista empinada: dónde van los cambios",
+      "w": 1280,
+      "x": 2720,
+      "y": 7588
+    },
+    "Plano.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "15 · Plano con pines en el celular",
+      "w": 390,
+      "x": 1880,
+      "y": 6384
+    },
+    "PlanoObra.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "16 · Plano de obra: pistas, pendientes y controles",
+      "w": 1280,
+      "x": 0,
+      "y": 7588
+    },
+    "Replanteo.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "6 · Replanteo: corta o rellena",
+      "w": 390,
+      "x": 940,
+      "y": 4040
+    },
+    "VisorPlanos.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "title": "20 · Visor de planos DXF y PDF",
+      "w": 1280,
+      "x": -17,
+      "y": 8908
+    },
+    "Terreno.dc.html": {
+      "x": 0,
+      "y": 10228,
+      "w": 1280,
+      "h": 800,
+      "title": "22 · Terreno: curvas de nivel, zonas y perfil en el plano",
+      "is_interactive": true
+    },
+    "Puntos.dc.html": {
+      "x": 1360,
+      "y": 10228,
+      "w": 390,
+      "h": 844,
+      "title": "23 · Importar puntos de estación total y GNSS",
+      "is_interactive": true
+    },
+    "ReplanteoCoord.dc.html": {
+      "x": 1830,
+      "y": 10228,
+      "w": 390,
+      "h": 844,
+      "title": "24 · Replantear por coordenadas",
+      "is_interactive": true
+    },
+    "Niveles.dc.html": {
+      "x": 2300,
+      "y": 10228,
+      "w": 390,
+      "h": 844,
+      "title": "25 · Niveles de la capa siguiente (tu herramienta, mejorada)",
+      "is_interactive": true
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-05T12:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "filaCelular": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "En el celular, con la mira al frente",
+      "w": 240,
+      "x": 0,
+      "y": 3780
+    },
+    "filaCelular2": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "Más funciones en el celular",
+      "w": 240,
+      "x": 0,
+      "y": 6144
+    },
+    "filaIntegra": {
+      "kind": "title1",
+      "maxW": 2640,
+      "text": "Leer planos e integrarse con otros programas",
+      "w": 240,
+      "x": 0,
+      "y": 8668
+    },
+    "filaPlanos": {
+      "kind": "title1",
+      "maxW": 4470,
+      "text": "Planos, croquis y pistas empinadas",
+      "w": 240,
+      "x": 0,
+      "y": 7348
+    },
+    "filaTablet": {
+      "kind": "title1",
+      "maxW": 2640,
+      "text": "En la tablet o la laptop: obra y gabinete",
+      "w": 240,
+      "x": 0,
+      "y": 2620
+    },
+    "filaTablet2": {
+      "kind": "title1",
+      "maxW": 4000,
+      "text": "Más funciones: cierre, análisis y ajustes",
+      "w": 240,
+      "x": 0,
+      "y": 4984
+    },
+    "filaTerreno": {
+      "kind": "title1",
+      "maxW": 2700,
+      "text": "Terreno, estación total, GNSS y niveles de la capa siguiente",
+      "w": 240,
+      "x": 0,
+      "y": 9988
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Calle.dc.html",
+    "Informes.dc.html",
+    "Inicio.dc.html",
+    "Libreta.dc.html",
+    "Replanteo.dc.html",
+    "Calculadora.dc.html",
+    "Cierre.dc.html",
+    "Analisis.dc.html",
+    "Ajustes.dc.html",
+    "Notas.dc.html",
+    "ModoSol.dc.html",
+    "Historial.dc.html",
+    "Instrumento.dc.html",
+    "Plano.dc.html",
+    "PlanoObra.dc.html",
+    "Croquis.dc.html",
+    "Pendiente.dc.html",
+    "Guia.dc.html",
+    "VisorPlanos.dc.html",
+    "Integraciones.dc.html",
+    "Terreno.dc.html",
+    "Puntos.dc.html",
+    "ReplanteoCoord.dc.html",
+    "Niveles.dc.html"
+  ],
+  "pages": [],
+  "title": "Rediseño app de topografía"
+}

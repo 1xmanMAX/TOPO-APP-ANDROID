@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Replanteo por coordenadas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="background: #10161D; color: #FFFFFF; padding: 14px 16px">
+<div style="font-size: 13px; color: #AEB8C2">Replantear · Psje. Las Lomas</div>
+<div style="display: flex; align-items: baseline; gap: 10px"><span style="font-size: 24px; font-weight: 700">P-118</span><span class="mono" style="font-size: 15px; color: #AEB8C2">0+060 · Eje · 3247.250</span></div>
+</header>
+
+<div style="padding: 12px 16px 0">
+<div style="display: flex; background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 4px; gap: 4px">
+<sc-for list="{{modos}}" as="m" hint-placeholder-count="2">
+<button type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: {{m.bg}}; color: {{m.fg}}; font-size: 15px; font-weight: 600">{{m.t}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="flex: 1; min-height: 0; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px">
+
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; height: 300px; position: relative; overflow: hidden">
+<svg width="356" height="300" viewBox="0 0 356 300" aria-hidden="true" style="position: absolute; inset: 0">
+<g stroke="#E4E8EC"><line x1="0" y1="150" x2="356" y2="150"></line><line x1="178" y1="0" x2="178" y2="300"></line><circle cx="178" cy="150" r="60" fill="none"></circle><circle cx="178" cy="150" r="120" fill="none"></circle></g>
+<text x="184" y="18" font-size="12" fill="#4A5561">N</text>
+<g display="{{vis.gnss}}">
+<line x1="178" y1="150" x2="250" y2="62" stroke="#C2410C" stroke-width="5" stroke-linecap="round"></line>
+<path d="M250,62 L232,66 L244,78 Z" fill="#C2410C"></path>
+<circle cx="178" cy="150" r="9" fill="#7C3AED" stroke="#FFFFFF" stroke-width="3"></circle>
+<circle cx="262" cy="48" r="10" fill="none" stroke="#10161D" stroke-width="3"></circle><line x1="252" y1="48" x2="272" y2="48" stroke="#10161D" stroke-width="2"></line><line x1="262" y1="38" x2="262" y2="58" stroke="#10161D" stroke-width="2"></line>
+</g>
+<g display="{{vis.estacion}}">
+<circle cx="80" cy="230" r="10" fill="#10161D"></circle><text x="62" y="258" font-size="13" font-weight="600" fill="#10161D">E-2</text>
+<line x1="80" y1="230" x2="20" y2="290" stroke="#4A5561" stroke-width="2" stroke-dasharray="6 4"></line><text x="24" y="276" font-size="12" fill="#4A5561">atrás E-1</text>
+<line x1="80" y1="230" x2="262" y2="48" stroke="#C2410C" stroke-width="3"></line>
+<path d="M58,252 A30,30 0 0,1 101,209" fill="none" stroke="#C2410C" stroke-width="2"></path>
+<circle cx="262" cy="48" r="10" fill="none" stroke="#10161D" stroke-width="3"></circle><line x1="252" y1="48" x2="272" y2="48" stroke="#10161D" stroke-width="2"></line><line x1="262" y1="38" x2="262" y2="58" stroke="#10161D" stroke-width="2"></line>
+</g>
+</svg>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+<sc-for list="{{datos}}" as="d" hint-placeholder-count="4">
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 10px; padding: 10px 12px"><div style="font-size: 13px; color: #4A5561">{{d.k}}</div><div class="mono" style="font-size: 22px; font-weight: 600">{{d.v}}</div></div>
+</sc-for>
+</div>
+
+<div style="background: {{v.bg}}; border-radius: 12px; padding: 12px 14px; display: flex; gap: 12px; align-items: center">
+<span style="font-size: 28px; font-weight: 700; color: {{v.fg}}">{{v.s}}</span>
+<div><div style="font-size: 17px; font-weight: 700; color: {{v.fg}}">{{v.t}}</div><div style="font-size: 14px; color: #2C3640">{{v.d}}</div></div>
+</div>
+<div style="flex: 1"></div>
+<button type="button" style="min-height: 52px; border-radius: 10px; border: 0; background: #10161D; color: #FFFFFF; font-size: 16px; font-weight: 600">Estaca puesta · siguiente punto</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  state = { m: 'gnss' };
+  renderVals() {
+    var s = this.state, self = this, g = s.m === 'gnss';
+    return {
+      vis: { gnss: g ? 'inline' : 'none', estacion: g ? 'none' : 'inline' },
+      modos: [['gnss', 'Con GNSS'], ['estacion', 'Con estación total']].map(function (m) { var on = m[0] === s.m; return { t: m[1], on: on ? 'true' : 'false', bg: on ? '#10161D' : 'transparent', fg: on ? '#FFFFFF' : '#10161D', pick: function () { self.setState({ m: m[0] }); } }; }),
+      datos: g
+        ? [{ k: 'Camina al norte', v: '3.20 m' }, { k: 'y al este', v: '1.10 m' }, { k: 'Falta', v: '3.38 m' }, { k: 'Precisión', v: '± 0.02 m' }]
+        : [{ k: 'Ángulo desde E-1', v: '47°12′30″' }, { k: 'Distancia', v: '32.418 m' }, { k: 'Altura prisma', v: '1.50 m' }, { k: 'Estación en', v: 'E-2' }],
+      v: g
+        ? { s: '·', t: 'Aún no llegas', d: 'Cuando estés a menos de 5 cm se marca y te dice si corta o rellena.', bg: '#FFFFFF', fg: '#10161D' }
+        : { s: '△', t: 'Rellena 31 mm', d: 'El prisma marca 3247.219. Está al límite (tolerancia ±20 mm).', bg: '#FFF7E0', fg: '#8A5A00' }
+    };
+  }
+}
+</script>
+</body>
+</html>

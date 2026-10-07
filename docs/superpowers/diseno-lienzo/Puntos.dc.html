@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Importar puntos</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="background: #10161D; color: #FFFFFF; padding: 14px 16px; display: flex; align-items: center; gap: 10px">
+<div style="flex: 1">
+<div style="font-size: 17px; font-weight: 700">Puntos de la estación y del GNSS</div>
+<div style="font-size: 13px; color: #AEB8C2">Se suman al terreno de la obra</div>
+</div>
+</header>
+
+<div style="flex: 1; min-height: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+
+<div style="display: flex; background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 4px; gap: 4px">
+<sc-for list="{{origenes}}" as="o" hint-placeholder-count="2">
+<button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: {{o.bg}}; color: {{o.fg}}; font-size: 15px; font-weight: 600">{{o.t}}</button>
+</sc-for>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 16px; font-weight: 600">{{a.archivo}}</span><span style="font-size: 13px; color: #0B5E56; font-weight: 600">✓ {{a.formato}}</span></div>
+<div style="font-size: 14px; color: #2C3640">{{a.resumen}}</div>
+<div class="mono" style="font-size: 12px; background: #F4F6F8; border-radius: 8px; padding: 8px; color: #2C3640; line-height: 1.6; white-space: pre">{{a.muestra}}</div>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; color: #4A5561">Las coordenadas están en</div>
+<sc-for list="{{sistemas}}" as="x" hint-placeholder-count="2">
+<button type="button" onClick="{{x.pick}}" aria-pressed="{{x.on}}" style="text-align: left; min-height: 56px; border-radius: 10px; border: 2px solid {{x.borde}}; background: {{x.bg}}; padding: 8px 12px; color: #10161D; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600">{{x.marca}} {{x.t}}</span><span style="font-size: 13px; color: #4A5561">{{x.d}}</span>
+</button>
+</sc-for>
+</div>
+
+<div style="background: #FFF4EC; border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.45">{{amarre}}</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 13px; color: #4A5561">Códigos que reconocí</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{a.codigos}}" as="c" hint-placeholder-count="4">
+<span style="padding: 6px 10px; border-radius: 999px; background: #FFFFFF; border: 1px solid #D5DAE0; font-size: 13px"><b class="mono">{{c.k}}</b> {{c.v}}</span>
+</sc-for>
+</div>
+</div>
+
+<div style="flex: 1"></div>
+<button type="button" style="min-height: 52px; border-radius: 10px; border: 0; background: #C2410C; color: #FFFFFF; font-size: 16px; font-weight: 600">Sumar {{a.n}} puntos al terreno</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var ORIG = {
+  estacion: { t: 'Estación total', archivo: 'LOMAS-0610.gsi', formato: 'Leica GSI-16', n: 248, resumen: '248 puntos · 2 estaciones (E-1, E-2) · con cota', muestra: 'P-101  E 412.336  N 518.904  Z 3246.218  TN\nP-102  E 418.120  N 521.007  Z 3246.540  TN\nP-103  E 421.882  N 516.443  Z 3245.991  BORDE', codigos: [{ k: 'TN', v: 'terreno · 201' }, { k: 'BORDE', v: '31' }, { k: 'BZ', v: 'buzón · 4' }, { k: 'E', v: 'estación · 2' }] },
+  gnss: { t: 'GNSS', archivo: 'rover-0610.csv', formato: 'CSV · P,N,E,Z,código', n: 36, resumen: '36 puntos · fijo RTK en 34, flotante en 2', muestra: 'G-01  N 8665420.118  E 476812.305  Z 3247.902\nG-02  N 8665431.770  E 476830.912  Z 3248.415\nG-03  N 8665398.004  E 476790.551  Z 3246.330', codigos: [{ k: 'TN', v: 'terreno · 30' }, { k: 'BM', v: '2' }, { k: 'FLOT', v: '△ flotante · 2' }, { k: 'HITO', v: '2' }] }
+};
+var SIS = {
+  local: { t: 'Coordenadas locales', d: 'Como vienen de la estación (E-1 en 500, 500)' },
+  utm: { t: 'UTM WGS 84 · zona 18 S', d: 'Las del GNSS. La app las muestra en metros reales' }
+};
+class Component extends DCLogic {
+  state = { o: 'estacion', s: 'local' };
+  renderVals() {
+    var s = this.state, self = this, a = ORIG[s.o];
+    var amarre = s.s === 'utm'
+      ? 'Para ponerlos sobre el plano toca 2 puntos que estén en los dos (por ejemplo BM-1 y BM-2). La cota sigue siendo la de tu nivelación: el GNSS solo pone dónde.'
+      : 'Para ponerlos sobre el plano toca 2 puntos que estén en los dos: la estación E-1 y el BM-1. Con eso la app los gira y los mueve; no cambia ninguna distancia.';
+    return {
+      a: a, amarre: amarre,
+      origenes: ['estacion', 'gnss'].map(function (k) { var on = k === s.o; return { t: ORIG[k].t, on: on ? 'true' : 'false', bg: on ? '#10161D' : 'transparent', fg: on ? '#FFFFFF' : '#10161D', pick: function () { self.setState({ o: k, s: k === 'gnss' ? 'utm' : 'local' }); } }; }),
+      sistemas: ['local', 'utm'].map(function (k) { var on = k === s.s; return { t: SIS[k].t, d: SIS[k].d, marca: on ? '◉' : '○', on: on ? 'true' : 'false', borde: on ? '#10161D' : '#D5DAE0', bg: on ? '#F4F6F8' : '#FFFFFF', pick: function () { self.setState({ s: k }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>
