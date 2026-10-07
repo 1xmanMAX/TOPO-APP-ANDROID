@@ -374,7 +374,9 @@ describe('la obra simulada', () => {
     })
 
     it('el JSON de ESPERADO guardado para los guiones está al día', () => {
-      expect(new TextDecoder().decode(leerDelPaquete('verificacion/datos/obra-simulada.esperado.json'))).toBe(esperadoEnJson())
+      // Con core.autocrlf (Windows) git saca el JSON con CR LF: lo que importa es el contenido.
+      const guardado = new TextDecoder().decode(leerDelPaquete('verificacion/datos/obra-simulada.esperado.json'))
+      expect(guardado.replace(/\r\n/g, '\n')).toBe(esperadoEnJson())
     })
   })
 })

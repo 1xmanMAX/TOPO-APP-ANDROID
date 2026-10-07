@@ -31,3 +31,4 @@ export { libretaConCierre, juzgarCierre, type JuicioCierre } from './libretaConC
 export { espesores } from './espesores'
 export { metrado } from './metrado'
 export { hojaDeEstacas, datosDeEstacasDesdeHoja } from './hojaDeEstacas'
+export { datosDeEstacasDesdeNiveles } from './nivelesAEstacas'
