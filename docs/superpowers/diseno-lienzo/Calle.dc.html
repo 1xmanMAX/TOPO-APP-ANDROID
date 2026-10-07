@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>La calle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="height: 64px; flex: none; background: #10161D; color: #FFFFFF; display: flex; align-items: center; gap: 18px; padding: 0 16px; box-sizing: border-box">
+<a href="Inicio.dc.html" style="display: flex; align-items: center; gap: 8px; color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 18px">
+<svg width="28" height="28" viewBox="0 0 36 36" fill="none" stroke="#F97316" stroke-width="2.4" aria-hidden="true"><path d="M4 26c6-8 10-2 16-8s8-10 12-10"></path><path d="M4 31c7-6 12-1 18-6s8-8 10-8" stroke="#FFFFFF" opacity=".55"></path></svg>
+Topo</a>
+<div style="display: flex; flex-direction: column; line-height: 1.2">
+<span style="font-size: 12px; color: #AEB8C2">Obra › Calle</span>
+<span style="font-size: 17px; font-weight: 600">Av. Sol <span style="color: #AEB8C2; font-weight: 400">· 0+000 a 0+120</span></span>
+</div>
+<button type="button" style="height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #3A4651; background: #1B242D; color: #FFFFFF; display: flex; align-items: center; gap: 8px; font-size: 14px">
+<span style="color: #AEB8C2">Capa</span> <b>Subrasante</b>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+<div style="flex: 1; display: flex; justify-content: center">
+<div role="group" aria-label="Qué estás haciendo" style="display: flex; gap: 4px; background: #1B242D; border-radius: 12px; padding: 4px">
+<button type="button" onClick="{{irMedir}}" aria-pressed="{{bMedir.on}}" style="height: 44px; padding: 0 18px; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; background: {{bMedir.bg}}; color: {{bMedir.fg}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16l-1 4zM14 6l3 3"></path></svg>Medir</button>
+<button type="button" onClick="{{irRevisar}}" aria-pressed="{{bRevisar.on}}" style="height: 44px; padding: 0 18px; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; background: {{bRevisar.bg}}; color: {{bRevisar.fg}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5M8.5 11l2 2 3.5-4"></path></svg>Revisar</button>
+<button type="button" onClick="{{irReplantear}}" aria-pressed="{{bReplantear.on}}" style="height: 44px; padding: 0 18px; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; background: {{bReplantear.bg}}; color: {{bReplantear.fg}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path></svg>Replantear</button>
+</div>
+</div>
+<a href="Calculadora.dc.html" style="height: 44px; padding: 0 14px; border-radius: 9px; border: 1px solid #3A4651; color: #FFFFFF; text-decoration: none; display: flex; align-items: center; gap: 8px; font-size: 14px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><path d="M8 6.5h8M8 11h2M12 11h2M8 14.5h2M12 14.5h2M8 18h2M12 18h2M16 11v7"></path></svg>Calcular</a>
+<a href="Informes.dc.html" style="height: 44px; padding: 0 14px; border-radius: 9px; background: #C2410C; color: #FFFFFF; text-decoration: none; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5M10 13h6M10 17h6"></path></svg>Informe</a>
+</header>
+
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; padding: 16px; box-sizing: border-box">
+
+<div style="display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0">
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 12px">
+<div role="group" aria-label="Vista" style="display: flex; background: #EEF1F4; border-radius: 8px; padding: 3px">
+<button type="button" onClick="{{verCorte}}" aria-pressed="{{bCorte.on}}" style="height: 34px; padding: 0 14px; border: 0; border-radius: 6px; font-size: 14px; font-weight: 600; background: {{bCorte.bg}}; color: {{bCorte.fg}}">Corte</button>
+<button type="button" onClick="{{verPerfil}}" aria-pressed="{{bPerfil.on}}" style="height: 34px; padding: 0 14px; border: 0; border-radius: 6px; font-size: 14px; font-weight: 600; background: {{bPerfil.bg}}; color: {{bPerfil.fg}}">Perfil</button>
+</div>
+<div style="display: flex; align-items: center; gap: 4px">
+<button type="button" onClick="{{progAnterior}}" aria-label="Progresiva anterior" style="width: 36px; height: 36px; border: 1px solid #D5DAE0; border-radius: 8px; background: #FFFFFF; color: #10161D; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<span class="mono" style="min-width: 76px; text-align: center; font-size: 18px; font-weight: 600">{{sel.prog}}</span>
+<button type="button" onClick="{{progSiguiente}}" aria-label="Progresiva siguiente" style="width: 36px; height: 36px; border: 1px solid #D5DAE0; border-radius: 8px; background: #FFFFFF; color: #10161D; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div style="flex: 1; font-size: 13px; color: #4A5561; text-align: right">{{vistaTitulo}}</div>
+</div>
+
+<sc-if value="{{esCorte}}" hint-placeholder-val="{{ true }}">
+<div style="position: relative; height: 280px">
+<svg width="100%" height="280" viewBox="0 0 820 280" preserveAspectRatio="none" style="position: absolute; inset: 0" aria-hidden="true">
+<defs>
+<pattern id="trCorte" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#C2410C" stroke-width="2"></line></pattern>
+<pattern id="trRelleno" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="1.4" fill="#1D4ED8"></circle></pattern>
+</defs>
+<line x1="410" y1="20" x2="410" y2="250" stroke="#C3CAD2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>
+<polygon points="{{corte.poliCorte}}" fill="url(#trCorte)" opacity=".85"></polygon>
+<polygon points="{{corte.poliRelleno}}" fill="url(#trRelleno)" opacity=".9"></polygon>
+<polyline points="{{corte.disenio}}" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-dasharray="8 5" vector-effect="non-scaling-stroke"></polyline>
+<polyline points="{{corte.medido}}" fill="none" stroke="#10161D" stroke-width="2.5" vector-effect="non-scaling-stroke"></polyline>
+</svg>
+<sc-for list="{{corte.marcas}}" as="m" hint-placeholder-count="5">
+<button type="button" onClick="{{m.pick}}" aria-label="{{m.aria}}" style="position: absolute; left: {{m.x}}%; top: {{m.y}}%; transform: translate(-50%, -50%); width: 44px; height: 44px; border: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center">
+<span style="width: 14px; height: 14px; border-radius: 50%; background: {{m.color}}; border: 3px solid #FFFFFF; outline: 2px solid {{m.anillo}}; box-sizing: border-box"></span>
+</button>
+<span class="mono" style="position: absolute; left: {{m.x}}%; top: {{m.y}}%; transform: translate(-50%, -150%); font-size: 13px; font-weight: 600; color: {{m.color}}; pointer-events: none; white-space: nowrap">{{m.txt}}</span>
+<span style="position: absolute; left: {{m.x}}%; top: 254px; transform: translateX(-50%); font-size: 12px; color: {{m.nombreColor}}; font-weight: {{m.nombrePeso}}; white-space: nowrap">{{m.nombre}}</span>
+</sc-for>
+<sc-if value="{{corte.sinMedir}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 10px; padding: 10px 14px; font-size: 14px; color: #2C3640">Esta progresiva aún no tiene lecturas. Pasa a <b>Medir</b>.</div>
+</sc-if>
+<div style="position: absolute; right: 0; top: 0; display: flex; gap: 14px; font-size: 12px; color: #2C3640; background: rgba(255,255,255,.9); padding: 4px 6px; border-radius: 6px">
+<span style="display: flex; align-items: center; gap: 6px"><svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" stroke="#1D4ED8" stroke-width="2.5" stroke-dasharray="6 4"></line></svg>Proyecto</span>
+<span style="display: flex; align-items: center; gap: 6px"><svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" stroke="#10161D" stroke-width="2.5"></line></svg>Medido</span>
+<span style="display: flex; align-items: center; gap: 6px"><svg width="14" height="12" aria-hidden="true"><rect width="14" height="12" fill="url(#trCorte)" stroke="#C2410C"></rect></svg>Corta</span>
+<span style="display: flex; align-items: center; gap: 6px"><svg width="14" height="12" aria-hidden="true"><rect width="14" height="12" fill="url(#trRelleno)" stroke="#1D4ED8"></rect></svg>Rellena</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{esPerfil}}" hint-placeholder-val="{{ false }}">
+<div style="position: relative; height: 280px">
+<div style="position: absolute; left: 0; right: 0; top: 88px; height: 104px; background: #E3F2EF; border-top: 1px dashed #6FB3AA; border-bottom: 1px dashed #6FB3AA"></div>
+<div style="position: absolute; left: 0; right: 0; top: 140px; height: 0; border-top: 1.5px solid #1D4ED8"></div>
+<span style="position: absolute; left: 4px; top: 70px; font-size: 12px; color: #0B5E56">+20 mm · tolerancia</span>
+<span style="position: absolute; left: 4px; top: 194px; font-size: 12px; color: #0B5E56">−20 mm</span>
+<span style="position: absolute; right: 4px; top: 122px; font-size: 12px; color: #1D4ED8">en cota de proyecto</span>
+<div style="position: absolute; inset: 0 0 0 110px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr))">
+<sc-for list="{{barras}}" as="b" hint-placeholder-count="7">
+<button type="button" onClick="{{b.pick}}" aria-label="{{b.aria}}" style="position: relative; border: 0; background: transparent; padding: 0; height: 280px; outline: 2px solid {{b.sel}}; outline-offset: -2px; border-radius: 6px">
+<span style="position: absolute; left: 30%; width: 40%; top: {{b.top}}px; height: {{b.h}}px; background: {{b.color}}; border-radius: 3px"></span>
+<span class="mono" style="position: absolute; left: 0; right: 0; top: {{b.etq}}px; font-size: 13px; font-weight: 600; color: {{b.color}}">{{b.txt}}</span>
+<span class="mono" style="position: absolute; left: 0; right: 0; bottom: 4px; font-size: 12px; color: #4A5561">{{b.prog}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</section>
+
+<section style="flex: 1; min-height: 0; background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 12px; font-size: 14px">
+<b>Mapa de la calle</b>
+<span style="color: #4A5561">toca una celda y todo salta a ese punto</span>
+<span style="flex: 1"></span>
+<span style="color: #0B5E56">✓ {{conteo.ok}}</span>
+<span style="color: #7A4A00">△ {{conteo.aviso}}</span>
+<span style="color: #9F1B1B">✗ {{conteo.fuera}}</span>
+<span style="color: #55606B">· {{conteo.sin}}</span>
+</div>
+<div style="display: grid; grid-template-columns: 96px repeat(7, minmax(0, 1fr)); gap: 4px">
+<span></span>
+<sc-for list="{{cabeza}}" as="c" hint-placeholder-count="7">
+<button type="button" onClick="{{c.pick}}" class="mono" style="height: 26px; border: 0; background: transparent; font-size: 13px; font-weight: {{c.peso}}; color: {{c.color}}">{{c.txt}}</button>
+</sc-for>
+</div>
+<sc-for list="{{filas}}" as="f" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 96px repeat(7, minmax(0, 1fr)); gap: 4px">
+<span style="font-size: 13px; color: #2C3640; display: flex; align-items: center">{{f.nombre}}</span>
+<sc-for list="{{f.celdas}}" as="c" hint-placeholder-count="7">
+<button type="button" onClick="{{c.pick}}" aria-label="{{c.aria}}" class="mono" style="height: 38px; border-radius: 6px; border: 2px solid {{c.borde}}; background: {{c.bg}}; color: {{c.fg}}; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px">{{c.sim}} {{c.txt}}</button>
+</sc-for>
+</div>
+</sc-for>
+</section>
+</div>
+
+<aside style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: hidden">
+
+<sc-if value="{{esRevisar}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div>
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Revisar · punto elegido</div>
+<div style="font-size: 26px; font-weight: 700"><span class="mono">{{sel.prog}}</span> · {{sel.punto}}</div>
+</div>
+<div style="background: {{sel.bg}}; color: {{sel.fg}}; border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 14px">
+<span style="font-size: 38px; line-height: 1">{{sel.sim}}</span>
+<div>
+<div class="mono" style="font-size: 30px; font-weight: 600; line-height: 1.1">{{sel.dif}}</div>
+<div style="font-size: 15px">{{sel.estado}} · <b>{{sel.accion}}</b></div>
+</div>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: 1fr auto; row-gap: 8px; font-size: 15px">
+<dt style="color: #4A5561">Cota medida</dt><dd class="mono" style="margin: 0; font-weight: 600">{{sel.medida}}</dd>
+<dt style="color: #4A5561">Cota de proyecto</dt><dd class="mono" style="margin: 0; font-weight: 600; color: #1D4ED8">{{sel.proyecto}}</dd>
+<dt style="color: #4A5561">Tolerancia de la capa</dt><dd class="mono" style="margin: 0">±20 mm</dd>
+<dt style="color: #4A5561">Lectura de mira · Est. 1</dt><dd class="mono" style="margin: 0">{{sel.lectura}}</dd>
+</dl>
+<div style="border-top: 1px solid #E3E7EB; padding-top: 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 14px; color: #4A5561">En toda la calle, capa Subrasante</div>
+<button type="button" onClick="{{irPeor}}" style="min-height: 48px; border: 1px solid #E8B4B4; background: #FBE3E3; color: #9F1B1B; border-radius: 10px; font-size: 15px; font-weight: 600; text-align: left; padding: 8px 12px">✗ Ir al peor punto: <span class="mono">{{peor}}</span></button>
+</div>
+<div style="font-size: 13px; color: #4A5561; display: flex; gap: 8px; align-items: flex-start; background: #FFF4EC; border-radius: 8px; padding: 10px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" style="flex: none" aria-hidden="true"><path d="M12 3l9 16H3z"></path><path d="M12 10v4M12 17v.5"></path></svg>
+<span>El circuito de hoy aún no cierra: estas cotas no están comprobadas.</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{esMedir}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div>
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Medir · Estación 1</div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px">
+<div style="background: #EEF1F4; border-radius: 8px; padding: 8px 10px"><div style="font-size: 12px; color: #4A5561">Altura instrumental</div><div class="mono" style="font-size: 17px; font-weight: 600">3246.632</div></div>
+<div style="background: #EEF1F4; border-radius: 8px; padding: 8px 10px"><div style="font-size: 12px; color: #4A5561">Vista atrás en BM-1</div><div class="mono" style="font-size: 17px; font-weight: 600">1.452</div></div>
+</div>
+</div>
+<div>
+<div style="font-size: 14px; color: #4A5561">Siguiente lectura</div>
+<div style="font-size: 24px; font-weight: 700"><span class="mono">0+120</span> · {{medir.punto}}</div>
+</div>
+<label for="lecturaMira" style="font-size: 14px; color: #2C3640">Lectura de mira (m)</label>
+<input id="lecturaMira" class="mono" inputmode="decimal" value="{{medir.valor}}" onChange="{{onLectura}}" placeholder="0.000" style="height: 56px; border: 2px solid #10161D; border-radius: 10px; font-size: 28px; padding: 0 14px; box-sizing: border-box; width: 100%">
+<div style="font-size: 13px; color: #4A5561">Esperada cerca de <b class="mono">{{medir.esperada}}</b> según el proyecto</div>
+<sc-if value="{{medir.hay}}" hint-placeholder-val="{{ true }}">
+<div style="background: {{medir.bg}}; color: {{medir.fg}}; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 15px"><b>{{medir.sim}} {{medir.dif}}</b> · {{medir.txt}}</div>
+<div class="mono" style="font-size: 14px">Cota {{medir.cota}}</div>
+<sc-if value="{{medir.raro}}" hint-placeholder-val="{{ false }}"><div style="font-size: 14px; font-weight: 600">¿Leíste bien? Se sale más del doble de la tolerancia.</div></sc-if>
+</div>
+</sc-if>
+<button type="button" onClick="{{anotar}}" style="height: 52px; border: 0; border-radius: 10px; background: #10161D; color: #FFFFFF; font-size: 16px; font-weight: 600">Anotar y pasar al siguiente</button>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+<button type="button" style="min-height: 44px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; font-size: 14px">Cambio de estación</button>
+<button type="button" style="min-height: 44px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; font-size: 14px">Cerrar en BM-1</button>
+</div>
+<div style="background: #FBF0D9; color: #7A4A00; border-radius: 10px; padding: 10px 12px; font-size: 14px"><b>△ Circuito abierto</b> · 30 lecturas sin comprobar. Cierra en BM-1 para saber si pasa (tolerancia ±12 mm·√K).</div>
+</div>
+</sc-if>
+
+<sc-if value="{{esReplantear}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div>
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Replantear · misma estación</div>
+<div style="font-size: 26px; font-weight: 700"><span class="mono">{{sel.prog}}</span> · {{sel.punto}}</div>
+</div>
+<div style="background: #10161D; color: #FFFFFF; border-radius: 12px; padding: 14px 16px">
+<div style="font-size: 14px; color: #AEB8C2">La mira debe marcar</div>
+<div class="mono" style="font-size: 42px; font-weight: 600; line-height: 1.1; color: #FDBA74">{{sel.objetivo}}</div>
+<div style="font-size: 14px; color: #D7DDE3">para estar en <span class="mono">{{sel.proyecto}}</span></div>
+</div>
+<div style="font-size: 14px; color: #2C3640">Marca más → falta material, <b>rellena</b>. Marca menos → sobra, <b>corta</b>.</div>
+<div style="display: grid; grid-template-columns: 1.3fr 1fr 1fr; font-size: 13px; color: #4A5561; padding: 0 8px">
+<span>Estaca</span><span style="text-align: right">Objetivo</span><span style="text-align: right">Hoy</span>
+</div>
+<sc-for list="{{estacas}}" as="e" hint-placeholder-count="5">
+<button type="button" onClick="{{e.pick}}" style="display: grid; grid-template-columns: 1.3fr 1fr 1fr; align-items: center; min-height: 40px; border: 2px solid {{e.borde}}; background: {{e.bg}}; border-radius: 8px; padding: 0 8px; font-size: 14px; color: #10161D; text-align: left">
+<span>{{e.punto}}</span><span class="mono" style="text-align: right; font-weight: 600">{{e.objetivo}}</span><span class="mono" style="text-align: right; color: {{e.color}}">{{e.hoy}}</span>
+</button>
+</sc-for>
+<a href="Informes.dc.html" style="min-height: 44px; border: 1px solid #C3CAD2; border-radius: 10px; color: #10161D; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600">Llevar la hoja de estacas al campo</a>
+</div>
+</sc-if>
+
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+var AI = 3246.632;
+var PTS = [
+  { nombre: 'Sard. izq', off: -4.2, caida: 0.084 },
+  { nombre: 'Borde izq', off: -3.6, caida: 0.072 },
+  { nombre: 'Eje', off: 0, caida: 0 },
+  { nombre: 'Borde der', off: 3.6, caida: 0.072 },
+  { nombre: 'Sard. der', off: 4.2, caida: 0.084 }
+];
+var PROGS = [0, 20, 40, 60, 80, 100, 120];
+var DIF = [
+  [6, -4, 14, 18, 27, 9, null],
+  [3, -8, 11, 15, 22, 5, null],
+  [-2, -11, 7, 12, 46, 3, null],
+  [1, -14, 9, 10, 19, -6, null],
+  [-5, -23, 4, 8, 16, -9, null]
+];
+var EST = {
+  ok: { sim: '✓', txt: 'Conforme', bg: '#E3F2EF', fg: '#0B5E56' },
+  aviso: { sim: '△', txt: 'Al límite', bg: '#FBF0D9', fg: '#7A4A00' },
+  fuera: { sim: '✗', txt: 'Fuera de tolerancia', bg: '#FBE3E3', fg: '#9F1B1B' },
+  sin: { sim: '·', txt: 'Sin medir', bg: '#EEF1F4', fg: '#55606B' }
+};
+function prog(p) { return '0+' + ('00' + p).slice(-3); }
+function disenio(i, k) { return 3244.730 - 0.0125 * PROGS[k] - PTS[i].caida; }
+function estado(d) { if (d === null) return 'sin'; var a = Math.abs(d); return a <= 20 ? 'ok' : (a <= 40 ? 'aviso' : 'fuera'); }
+function sgn(d) { return (d > 0 ? '+' : (d < 0 ? '−' : '±')) + Math.abs(d); }
+function accion(d) { return d > 0 ? 'corta ' + d + ' mm' : (d < 0 ? 'rellena ' + (-d) + ' mm' : 'en cota'); }
+
+class Component extends DCLogic {
+  state = { modo: 'revisar', vista: 'corte', k: 3, i: 2, lectura: '3.49', mi: 0 };
+
+  renderVals() {
+    var s = this.state, self = this;
+    var set = function (o) { return function () { self.setState(o); }; };
+    var boton = function (on) { return { on: on ? 'true' : 'false', bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#10161D' : '#E6EAEE' }; };
+    var botonClaro = function (on) { return { on: on ? 'true' : 'false', bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#10161D' : '#4A5561' }; };
+
+    var conteo = { ok: 0, aviso: 0, fuera: 0, sin: 0 };
+    var peor = { a: -1, i: 0, k: 0 };
+    var filas = PTS.map(function (p, i) {
+      return {
+        nombre: p.nombre,
+        celdas: PROGS.map(function (pr, k) {
+          var d = DIF[i][k], es = estado(d), e = EST[es], on = i === s.i && k === s.k;
+          conteo[es]++;
+          if (d !== null && Math.abs(d) > peor.a) peor = { a: Math.abs(d), i: i, k: k };
+          return {
+            sim: e.sim, txt: d === null ? '' : sgn(d), bg: e.bg, fg: e.fg,
+            borde: on ? '#10161D' : 'transparent', pick: set({ i: i, k: k }),
+            aria: p.nombre + ' ' + prog(pr) + ': ' + e.txt + (d === null ? '' : ', ' + sgn(d) + ' mm')
+          };
+        })
+      };
+    });
+    var cabeza = PROGS.map(function (pr, k) {
+      return { txt: prog(pr), pick: set({ k: k }), peso: k === s.k ? '700' : '500', color: k === s.k ? '#10161D' : '#4A5561' };
+    });
+
+    var d = DIF[s.i][s.k], dis = disenio(s.i, s.k), e = EST[estado(d)];
+    var sel = {
+      prog: prog(PROGS[s.k]), punto: PTS[s.i].nombre, sim: e.sim, bg: e.bg, fg: e.fg, estado: e.txt,
+      dif: d === null ? '—' : sgn(d) + ' mm', accion: d === null ? 'pasa a Medir' : accion(d),
+      medida: d === null ? '—' : (dis + d / 1000).toFixed(3), proyecto: dis.toFixed(3),
+      lectura: d === null ? '—' : (AI - dis - d / 1000).toFixed(3), objetivo: (AI - dis).toFixed(3)
+    };
+
+    // Corte transversal: escala vertical exagerada para que se lean los milímetros.
+    var X = function (off) { return 410 + off * 90; };
+    var yD = PTS.map(function (p) { return 95 + p.caida * 1000 * 1.3; });
+    var dk = PTS.map(function (p, i) { return DIF[i][s.k]; });
+    var medido = dk.every(function (x) { return x !== null; });
+    var yM = yD.map(function (y, i) { return dk[i] === null ? y : y - dk[i] * 1.3; });
+    var linea = function (ys) { return PTS.map(function (p, i) { return X(p.off).toFixed(1) + ',' + ys[i].toFixed(1); }); };
+    var arriba = yD.map(function (y, i) { return Math.min(y, yM[i]); });
+    var abajo = yD.map(function (y, i) { return Math.max(y, yM[i]); });
+    var corte = {
+      disenio: ['10,' + yD[0]].concat(linea(yD), ['810,' + yD[4]]).join(' '),
+      medido: medido ? linea(yM).join(' ') : '',
+      poliCorte: medido ? linea(arriba).concat(linea(yD).reverse()).join(' ') : '',
+      poliRelleno: medido ? linea(yD).concat(linea(abajo).reverse()).join(' ') : '',
+      sinMedir: !medido,
+      marcas: PTS.map(function (p, i) {
+        var di = dk[i], ei = EST[estado(di)], on = i === s.i;
+        return {
+          x: (X(p.off) / 820 * 100).toFixed(2), y: (yM[i] / 280 * 100).toFixed(2),
+          color: di === null ? '#8B96A2' : ei.fg, anillo: on ? '#10161D' : 'transparent',
+          txt: di === null ? '' : sgn(di), nombre: p.nombre,
+          nombreColor: on ? '#10161D' : '#4A5561', nombrePeso: on ? '700' : '400',
+          pick: set({ i: i }), aria: p.nombre + ': ' + ei.txt
+        };
+      })
+    };
+
+    var barras = PROGS.map(function (pr, k) {
+      var dd = DIF[s.i][k], ee = EST[estado(dd)];
+      var h = dd === null ? 0 : Math.min(Math.abs(dd) * 2.6, 130);
+      var top = dd === null ? 140 : (dd > 0 ? 140 - h : 140);
+      return {
+        prog: prog(pr), txt: dd === null ? 'sin medir' : sgn(dd), top: top, h: h,
+        color: dd === null ? '#55606B' : ee.fg, sel: k === s.k ? '#10161D' : 'transparent',
+        etq: dd === null ? 150 : (dd > 0 ? top - 20 : top + h + 4), pick: set({ k: k }),
+        aria: prog(pr) + ': ' + ee.txt
+      };
+    });
+
+    var estacas = PTS.map(function (p, i) {
+      var di = DIF[i][s.k], on = i === s.i;
+      return {
+        punto: p.nombre, objetivo: (AI - disenio(i, s.k)).toFixed(3),
+        hoy: di === null ? '—' : accion(di), color: di === null ? '#55606B' : EST[estado(di)].fg,
+        borde: on ? '#10161D' : 'transparent', bg: on ? '#F4F6F8' : '#FFFFFF', pick: set({ i: i })
+      };
+    });
+
+    var mdis = disenio(s.mi, 6);
+    var v = parseFloat(String(s.lectura).replace(',', '.'));
+    var medir = { punto: PTS[s.mi].nombre, esperada: (AI - mdis).toFixed(3), valor: s.lectura, hay: !isNaN(v) };
+    if (!isNaN(v)) {
+      var c = AI - v, dd = Math.round((c - mdis) * 1000), ee = EST[estado(dd)];
+      medir.cota = c.toFixed(3); medir.dif = sgn(dd) + ' mm'; medir.sim = ee.sim;
+      medir.bg = ee.bg; medir.fg = ee.fg; medir.txt = ee.txt + ' · ' + accion(dd); medir.raro = Math.abs(dd) > 40;
+    }
+
+    return {
+      bMedir: boton(s.modo === 'medir'), bRevisar: boton(s.modo === 'revisar'), bReplantear: boton(s.modo === 'replantear'),
+      irMedir: set({ modo: 'medir' }), irRevisar: set({ modo: 'revisar' }), irReplantear: set({ modo: 'replantear' }),
+      esMedir: s.modo === 'medir', esRevisar: s.modo === 'revisar', esReplantear: s.modo === 'replantear',
+      bCorte: botonClaro(s.vista === 'corte'), bPerfil: botonClaro(s.vista === 'perfil'),
+      verCorte: set({ vista: 'corte' }), verPerfil: set({ vista: 'perfil' }),
+      esCorte: s.vista === 'corte', esPerfil: s.vista === 'perfil',
+      vistaTitulo: s.vista === 'corte' ? 'Corte transversal · escala vertical exagerada' : 'Perfil de diferencias · ' + PTS[s.i].nombre,
+      progAnterior: set({ k: Math.max(0, s.k - 1) }), progSiguiente: set({ k: Math.min(PROGS.length - 1, s.k + 1) }),
+      filas: filas, cabeza: cabeza, conteo: conteo, sel: sel, corte: corte, barras: barras, estacas: estacas,
+      peor: prog(PROGS[peor.k]) + ' ' + PTS[peor.i].nombre + ' ' + sgn(DIF[peor.i][peor.k]) + ' mm',
+      irPeor: set({ i: peor.i, k: peor.k, modo: 'revisar' }),
+      medir: medir,
+      onLectura: function (ev) { self.setState({ lectura: ev.target.value }); },
+      anotar: function () { self.setState({ mi: (s.mi + 1) % PTS.length, lectura: '' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

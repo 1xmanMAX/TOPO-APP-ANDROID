@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Anotar lecturas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="background: #10161D; color: #FFFFFF; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 10px">
+<a href="Inicio.dc.html" aria-label="Volver a la obra" style="width: 44px; height: 44px; margin-left: -10px; display: flex; align-items: center; justify-content: center; color: #FFFFFF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="flex: 1">
+<div style="font-size: 17px; font-weight: 700">Av. Sol · Subrasante</div>
+<div style="font-size: 13px; color: #AEB8C2">Estación 1 · AI <span class="mono">3246.632</span></div>
+</div>
+<span style="background: #FBF0D9; color: #7A4A00; font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 6px">△ Sin cerrar</span>
+</div>
+</header>
+
+<div style="padding: 12px 16px 0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #4A5561"><span>Progresiva <b class="mono" style="color: #10161D">0+120</b></span><span>{{hechas}} de 5 puntos</span></div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px">
+<sc-for list="{{fila}}" as="p" hint-placeholder-count="5">
+<div style="border: 2px solid {{p.borde}}; background: {{p.bg}}; color: {{p.fg}}; border-radius: 8px; padding: 4px 2px; text-align: center; display: flex; flex-direction: column; gap: 1px">
+<span style="font-size: 10px">{{p.nombre}}</span>
+<span class="mono" style="font-size: 12px; font-weight: 600">{{p.valor}}</span>
+</div>
+</sc-for>
+</div>
+
+<sc-if value="{{enCurso}}" hint-placeholder-val="{{ true }}">
+<div style="background: #FFFFFF; border-radius: 14px; border: 1px solid #D5DAE0; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 14px; color: #4A5561">Lectura de mira en <b style="color: #10161D">{{punto}}</b></div>
+<div class="mono" aria-live="polite" style="font-size: 44px; font-weight: 600; line-height: 1.1; letter-spacing: .02em">{{pantalla}}<span style="color: #C2410C">|</span></div>
+<div style="font-size: 13px; color: #4A5561">Esperada cerca de <b class="mono">{{esperada}}</b></div>
+<sc-if value="{{fb.hay}}" hint-placeholder-val="{{ true }}">
+<div style="background: {{fb.bg}}; color: {{fb.fg}}; border-radius: 8px; padding: 8px 10px; font-size: 14px">
+<b>{{fb.sim}} {{fb.dif}}</b> · {{fb.txt}} · cota <span class="mono">{{fb.cota}}</span>
+<sc-if value="{{fb.raro}}" hint-placeholder-val="{{ false }}"><div style="font-weight: 600; margin-top: 2px">¿Leíste bien? Se sale más del doble de la tolerancia.</div></sc-if>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{terminada}}" hint-placeholder-val="{{ false }}">
+<div style="background: #E3F2EF; color: #0B5E56; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 16px; font-weight: 600">✓ 0+120 completa</div>
+<div style="font-size: 14px; color: #10161D">Ya tienes toda la calle. Lee el BM-1 de vuelta para cerrar el circuito y saber si pasa.</div>
+<button type="button" onClick="{{reiniciar}}" style="height: 44px; border: 1px solid #0B5E56; border-radius: 10px; background: #FFFFFF; color: #0B5E56; font-size: 15px; font-weight: 600">Volver a empezar la demostración</button>
+</div>
+</sc-if>
+</div>
+
+<div style="flex: 1"></div>
+
+<div style="padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{teclas}}" as="t" hint-placeholder-count="12">
+<button type="button" onClick="{{t.pulsar}}" aria-label="{{t.aria}}" disabled="{{terminada}}" class="mono" style="height: 56px; border: 1px solid #C3CAD2; border-radius: 12px; background: #FFFFFF; color: #10161D; font-size: 24px; font-weight: 500">{{t.txt}}</button>
+</sc-for>
+</div>
+<button type="button" onClick="{{anotar}}" disabled="{{terminada}}" style="height: 60px; border: 0; border-radius: 12px; background: #C2410C; color: #FFFFFF; font-size: 18px; font-weight: 700">Anotar y seguir</button>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+<button type="button" style="height: 44px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; font-size: 14px">Cambio de estación</button>
+<button type="button" style="height: 44px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; font-size: 14px">Cerrar en BM-1</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var AI = 3246.632;
+var PTS = [
+  { nombre: 'Sard. izq', caida: 0.084 },
+  { nombre: 'Borde izq', caida: 0.072 },
+  { nombre: 'Eje', caida: 0 },
+  { nombre: 'Borde der', caida: 0.072 },
+  { nombre: 'Sard. der', caida: 0.084 }
+];
+var EST = {
+  ok: { sim: '✓', txt: 'Conforme', bg: '#E3F2EF', fg: '#0B5E56' },
+  aviso: { sim: '△', txt: 'Al límite', bg: '#FBF0D9', fg: '#7A4A00' },
+  fuera: { sim: '✗', txt: 'Fuera', bg: '#FBE3E3', fg: '#9F1B1B' }
+};
+function disenio(i) { return 3244.730 - 0.0125 * 120 - PTS[i].caida; }
+function estado(d) { var a = Math.abs(d); return a <= 20 ? 'ok' : (a <= 40 ? 'aviso' : 'fuera'); }
+function sgn(d) { return (d > 0 ? '+' : (d < 0 ? '−' : '±')) + Math.abs(d); }
+function accion(d) { return d > 0 ? 'corta ' + d + ' mm' : (d < 0 ? 'rellena ' + (-d) + ' mm' : 'en cota'); }
+
+class Component extends DCLogic {
+  state = { idx: 0, tecleo: '3.49', vals: [null, null, null, null, null] };
+
+  renderVals() {
+    var s = this.state, self = this;
+    var terminada = s.idx >= PTS.length;
+    var pulsar = function (k) {
+      return function () {
+        var t = s.tecleo;
+        if (k === 'borrar') t = t.slice(0, -1);
+        else if (k === '.') { if (t.indexOf('.') < 0) t = (t || '0') + '.'; }
+        else if (t.length < 6) t = t + k;
+        self.setState({ tecleo: t });
+      };
+    };
+    var teclas = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'borrar'].map(function (k) {
+      return { txt: k === 'borrar' ? '⌫' : (k === '.' ? ',' : k), aria: k === 'borrar' ? 'Borrar' : (k === '.' ? 'Coma decimal' : k), pulsar: pulsar(k) };
+    });
+
+    var fila = PTS.map(function (p, i) {
+      var v = s.vals[i], on = i === s.idx, e = null;
+      if (v !== null) e = EST[estado(Math.round((AI - v - disenio(i)) * 1000))];
+      return {
+        nombre: p.nombre, valor: v === null ? (on ? '…' : '—') : v.toFixed(3),
+        borde: on ? '#10161D' : 'transparent', bg: e ? e.bg : '#FFFFFF', fg: e ? e.fg : '#4A5561'
+      };
+    });
+
+    var fb = { hay: false };
+    var v = parseFloat(s.tecleo);
+    if (!terminada && !isNaN(v) && /\.\d\d/.test(s.tecleo)) {
+      var cota = AI - v, d = Math.round((cota - disenio(s.idx)) * 1000), e = EST[estado(d)];
+      fb = { hay: true, sim: e.sim, dif: sgn(d) + ' mm', txt: e.txt + ', ' + accion(d), cota: cota.toFixed(3), bg: e.bg, fg: e.fg, raro: Math.abs(d) > 40 };
+    }
+
+    return {
+      teclas: teclas, fila: fila, fb: fb, terminada: terminada, enCurso: !terminada,
+      hechas: s.vals.filter(function (x) { return x !== null; }).length,
+      punto: terminada ? '' : PTS[s.idx].nombre,
+      esperada: terminada ? '' : (AI - disenio(s.idx)).toFixed(3),
+      pantalla: s.tecleo.replace('.', ',') || ' ',
+      anotar: function () {
+        var x = parseFloat(s.tecleo);
+        if (isNaN(x) || terminada) return;
+        var vals = s.vals.slice(); vals[s.idx] = x;
+        self.setState({ vals: vals, idx: s.idx + 1, tecleo: '' });
+      },
+      reiniciar: function () { self.setState({ idx: 0, tecleo: '3.49', vals: [null, null, null, null, null] }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

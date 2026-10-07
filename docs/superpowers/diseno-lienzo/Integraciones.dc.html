@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Integraciones</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="height: 64px; flex: none; background: #10161D; color: #FFFFFF; display: flex; align-items: center; gap: 16px; padding: 0 16px; box-sizing: border-box">
+<div style="font-size: 20px; font-weight: 700">Integraciones</div>
+<span style="font-size: 14px; color: #AEB8C2">Qué entra, qué sale y con qué programas se habla</span>
+<div style="flex: 1"></div>
+<span style="display: flex; gap: 6px; font-size: 13px">
+<span style="padding: 5px 10px; border-radius: 999px; background: #0B5E56">Ya funciona</span>
+<span style="padding: 5px 10px; border-radius: 999px; background: #C2410C">Primero</span>
+<span style="padding: 5px 10px; border-radius: 999px; background: #DCE3EA; color: #10161D">Después</span>
+<span style="padding: 5px 10px; border-radius: 999px; border: 1px dashed #8B96A2">Más adelante</span>
+</span>
+</header>
+
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; padding: 12px; box-sizing: border-box">
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; min-height: 0">
+<sc-for list="{{grupos}}" as="g" hint-placeholder-count="4">
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561; padding: 2px 4px">{{g.nombre}}</div>
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="4">
+<button type="button" onClick="{{i.pick}}" aria-pressed="{{i.on}}" style="text-align: left; background: #FFFFFF; border: 2px solid {{i.borde}}; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; color: #10161D; min-height: 92px">
+<span style="font-size: 15px; font-weight: 600">{{i.t}}</span>
+<span class="mono" style="font-size: 12px; color: #4A5561">{{i.fmt}}</span>
+<span style="align-self: flex-start; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: {{i.eBg}}; color: {{i.eFg}}; border: 1px {{i.eBorde}} #8B96A2">{{i.estado}}</span>
+</button>
+</sc-for>
+</section>
+</sc-for>
+</div>
+
+<aside style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">{{d.grupo}}</div>
+<div style="font-size: 24px; font-weight: 700">{{d.t}}</div>
+<div class="mono" style="font-size: 14px; color: #4A5561">{{d.fmt}}</div>
+<div style="font-size: 15px; line-height: 1.5">{{d.que}}</div>
+<div style="background: #FFF4EC; border-radius: 10px; padding: 12px; font-size: 15px"><b>En obra:</b> {{d.uso}}</div>
+<div style="flex: 1"></div>
+<div style="font-size: 13px; color: #4A5561">Todo funciona sin internet, salvo lo que de por sí es compartir.</div>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+var EST = { ya: ['Ya funciona', '#E3F2EF', '#0B5E56', 'solid'], primero: ['Primero', '#FFF4EC', '#9A3412', 'solid'], despues: ['Después', '#EEF1F4', '#10161D', 'solid'], luego: ['Más adelante', '#FFFFFF', '#4A5561', 'dashed'] };
+var G = [
+  { nombre: 'Entra a la app', items: [
+    ['excel', 'Excel y Google Sheets', '.xlsx · .csv · pegar', 'ya', 'Tu hoja de campo tal como la anotas, con tus palabras.', 'Subes la libreta del día sin pasarla a limpio.'],
+    ['dxf', 'Planos de AutoCAD', '.dxf · .pdf · .jpg', 'primero', 'Abre el plano del expediente con sus capas. Tocas el eje y se vuelve la pista; las cotas escritas en el plano se leen como rasante.', 'No dibujas a mano lo que el proyectista ya dibujó.'],
+    ['landxml', 'Rasante de Civil 3D', 'LandXML', 'despues', 'Trae alineamiento, perfil y sección de un proyecto de Civil 3D u otro programa de diseño vial.', 'Cuando el expediente viene en digital, la rasante entra sin teclear.'],
+    ['gsi', 'Libreta del nivel digital', 'Leica GSI · Trimble DAT · Sokkia SDR', 'despues', 'Lee el archivo que guarda el nivel digital o la estación: lecturas, estaciones y cambios ya ordenados.', 'Descargas el instrumento y la jornada entra completa.']
+  ] },
+  { nombre: 'Sale de la app', items: [
+    ['pdf', 'Informes en PDF', '.pdf', 'primero', 'Protocolo, libreta con cierre, control, espesores, metrado y hoja de estacas, con tu logo y firmas.', 'Lo que pide la supervisión, el mismo día.'],
+    ['xlsx', 'Excel de resultados', '.xlsx · .csv', 'ya', 'Cotas, diferencias y espesores con tus palabras, listos para volver a importar.', 'Sigues trabajando en tu hoja de valorización.'],
+    ['dxfout', 'De vuelta a AutoCAD', '.dxf', 'despues', 'Perfiles, secciones, croquis y puntos con su cota, en capas ordenadas.', 'El plano de replanteo o de obra terminada sale armado.'],
+    ['landout', 'Superficie medida', 'LandXML', 'luego', 'La superficie nivelada de cada capa, para Civil 3D.', 'El proyectista compara lo construido con su diseño.']
+  ] },
+  { nombre: 'Instrumentos', items: [
+    ['bt', 'Estación total y GNSS', 'Bluetooth', 'luego', 'Las lecturas llegan solas al punto que toca, con el mismo aviso de si pasa.', 'No se copia ni un número a mano: cero errores de anotación.'],
+    ['nivel', 'Nivel digital', 'Bluetooth · cable', 'luego', 'Lectura y distancia directo del nivel, por punto.', 'La libreta se llena sola y el cierre se ve al momento.'],
+    ['camara', 'Cámara del celular', 'foto', 'despues', 'Foto pegada a la progresiva, con fecha y hora.', 'Evidencia para el cuaderno de obra.']
+  ] },
+  { nombre: 'Compartir y guardar', items: [
+    ['whatsapp', 'WhatsApp y correo', 'compartir del celular', 'primero', 'El informe en PDF sale por el menú de compartir del teléfono.', 'Lo mandas al residente desde la misma calle.'],
+    ['topo', 'Archivo de proyecto', '.topo', 'ya', 'Todo el proyecto en un solo archivo, para pasarlo entre el celular y la laptop.', 'Mides en campo y revisas en gabinete sin perder nada.'],
+    ['drive', 'Respaldo en Drive', 'Google Drive · OneDrive', 'despues', 'Copia del .topo en tu carpeta de la nube cuando hay señal.', 'Si se pierde el celular, no se pierde la obra.'],
+    ['auto', 'Autoguardado', 'en el equipo', 'ya', 'Guarda cada cambio solo y ofrece recuperar al abrir.', 'Si se apaga el celular a media jornada, no se pierde nada.']
+  ] }
+];
+class Component extends DCLogic {
+  state = { sel: 'dxf' };
+  renderVals() {
+    var s = this.state, self = this, d = null;
+    var grupos = G.map(function (g) {
+      return { nombre: g.nombre, items: g.items.map(function (i) {
+        var e = EST[i[3]], on = i[0] === s.sel;
+        if (on) d = { grupo: g.nombre, t: i[1], fmt: i[2], que: i[4], uso: i[5] };
+        return { t: i[1], fmt: i[2], estado: e[0], eBg: e[1], eFg: e[2], eBorde: e[3], on: on ? 'true' : 'false', borde: on ? '#10161D' : '#D5DAE0', pick: function () { self.setState({ sel: i[0] }); } };
+      }) };
+    });
+    return { grupos: grupos, d: d };
+  }
+}
+</script>
+</body>
+</html>

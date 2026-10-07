@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Análisis de la calle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="height: 64px; flex: none; background: #10161D; color: #FFFFFF; display: flex; align-items: center; gap: 18px; padding: 0 16px; box-sizing: border-box">
+<a href="Calle.dc.html" style="display: flex; align-items: center; gap: 8px; color: #FFFFFF; text-decoration: none; font-size: 15px; height: 44px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Jr. Lima</a>
+<div style="font-size: 20px; font-weight: 700">Análisis</div>
+<div style="flex: 1; display: flex; justify-content: center">
+<div role="group" aria-label="Qué analizar" style="display: flex; gap: 4px; background: #1B242D; border-radius: 12px; padding: 4px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="height: 44px; padding: 0 20px; border: 0; border-radius: 9px; font-size: 15px; font-weight: 600; background: {{t.bg}}; color: {{t.fg}}">{{t.nombre}}</button>
+</sc-for>
+</div>
+</div>
+<span style="font-size: 14px; color: #AEB8C2">0+000 a 0+200 · cada 20 m</span>
+</header>
+
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; padding: 16px; box-sizing: border-box">
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-height: 0">
+
+<sc-if value="{{esEspesores}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; gap: 12px"><b style="font-size: 17px">Espesor de Sub-base colocado</b><span style="font-size: 14px; color: #4A5561">Sub-base menos Subrasante · proyecto 200 mm · ±10 mm</span></div>
+<div style="display: grid; grid-template-columns: 90px repeat(11, minmax(0, 1fr)); gap: 3px">
+<span></span>
+<sc-for list="{{cabeza}}" as="c" hint-placeholder-count="11"><span class="mono" style="font-size: 12px; color: #4A5561; text-align: center">{{c}}</span></sc-for>
+</div>
+<sc-for list="{{espesores}}" as="f" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 90px repeat(11, minmax(0, 1fr)); gap: 3px">
+<span style="font-size: 13px; color: #2C3640; display: flex; align-items: center">{{f.nombre}}</span>
+<sc-for list="{{f.c}}" as="c" hint-placeholder-count="11"><span class="mono" style="height: 52px; border-radius: 6px; background: {{c.bg}}; color: {{c.fg}}; font-size: 14px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1"><span>{{c.sim}}</span><span>{{c.t}}</span></span></sc-for>
+</div>
+</sc-for>
+<div style="font-size: 13px; color: #4A5561">Cada celda es el espesor en milímetros. ✓ dentro de ±10 mm · △ hasta ±20 mm · ✗ más de eso.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{esVolumenes}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; gap: 12px"><b style="font-size: 17px">Movimiento de tierras</b><span style="font-size: 14px; color: #4A5561">Terreno contra Subrasante · áreas medias con anchos medidos</span></div>
+<div style="position: relative; height: 380px; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; border-bottom: 1px solid #E3E7EB">
+<div style="position: absolute; left: 0; right: 0; top: 250px; border-top: 1.5px solid #10161D"></div>
+<span style="position: absolute; left: 0; top: 4px; font-size: 12px; color: #C2410C">↑ corte</span>
+<span style="position: absolute; left: 0; top: 356px; font-size: 12px; color: #1D4ED8">↓ relleno</span>
+<sc-for list="{{tramosVol}}" as="t" hint-placeholder-count="10">
+<div style="position: relative; height: 380px">
+<span class="mono" style="position: absolute; left: 0; right: 0; top: {{t.etqC}}px; font-size: 12px; text-align: center; color: #C2410C; font-weight: 600">{{t.vc}}</span>
+<span style="position: absolute; left: 15%; width: 70%; top: {{t.topC}}px; height: {{t.hC}}px; background: repeating-linear-gradient(45deg, #C2410C 0 3px, #FDE2CF 3px 7px); border-radius: 3px 3px 0 0"></span>
+<span style="position: absolute; left: 15%; width: 70%; top: 251px; height: {{t.hR}}px; background: #1D4ED8; border-radius: 0 0 3px 3px"></span>
+<span class="mono" style="position: absolute; left: 0; right: 0; top: {{t.etqR}}px; font-size: 12px; text-align: center; color: #1D4ED8; font-weight: 600">{{t.vr}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{tramosVol}}" as="t" hint-placeholder-count="10"><span class="mono" style="font-size: 11px; color: #4A5561; text-align: center">{{t.nombre}}</span></sc-for>
+</div>
+<div style="font-size: 13px; color: #4A5561">Volumen por tramo de 20 m, en m³.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{esDrenaje}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; gap: 12px"><b style="font-size: 17px">Por dónde corre el agua</b><span style="font-size: 14px; color: #4A5561">Perfil del eje en la Base · flechas según lo medido</span></div>
+<div style="position: relative; height: 330px">
+<svg width="100%" height="330" viewBox="0 0 800 330" preserveAspectRatio="none" style="position: absolute; inset: 0" aria-hidden="true">
+<polyline points="{{perfil.disenio}}" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-dasharray="8 5" vector-effect="non-scaling-stroke"></polyline>
+<polyline points="{{perfil.medido}}" fill="none" stroke="#10161D" stroke-width="2.5" vector-effect="non-scaling-stroke"></polyline>
+</svg>
+<sc-for list="{{perfil.flechas}}" as="a" hint-placeholder-count="10">
+<span style="position: absolute; left: {{a.x}}%; top: {{a.y}}%; transform: translate(-50%, -130%); font-size: 22px; font-weight: 700; color: {{a.color}}">{{a.f}}</span>
+</sc-for>
+<div style="position: absolute; left: {{perfil.sumX}}%; top: {{perfil.sumY}}%; transform: translate(-50%, 6px); display: flex; flex-direction: column; align-items: center; font-size: 12px; color: #1D4ED8"><span style="width: 18px; height: 10px; border: 2px solid #1D4ED8; border-top: 0"></span>sumidero 0+100</div>
+<div style="position: absolute; left: {{perfil.bajoX}}%; top: {{perfil.bajoY}}%; transform: translate(-50%, 22px); background: #FBE3E3; color: #9F1B1B; font-size: 12px; font-weight: 600; padding: 3px 6px; border-radius: 6px; white-space: nowrap">✗ se empoza aquí</div>
+<sc-for list="{{perfil.progs}}" as="p" hint-placeholder-count="11">
+<span class="mono" style="position: absolute; left: {{p.x}}%; bottom: 0; transform: translateX(-50%); font-size: 11px; color: #4A5561">{{p.t}}</span>
+</sc-for>
+</div>
+<div style="display: flex; gap: 18px; font-size: 13px; color: #2C3640">
+<span>— — proyecto</span><span>—— medido</span><span style="color: #0B5E56">→ corre como manda el proyecto</span><span style="color: #C2410C">→ corre al revés</span>
+</div>
+</div>
+</sc-if>
+</section>
+
+<aside style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{esEspesores}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Resumen</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center">
+<div style="background: #EEF1F4; border-radius: 8px; padding: 10px 4px"><div style="font-size: 12px; color: #4A5561">mínimo</div><div class="mono" style="font-size: 22px; font-weight: 600">{{esp.min}}</div></div>
+<div style="background: #EEF1F4; border-radius: 8px; padding: 10px 4px"><div style="font-size: 12px; color: #4A5561">medio</div><div class="mono" style="font-size: 22px; font-weight: 600">{{esp.med}}</div></div>
+<div style="background: #EEF1F4; border-radius: 8px; padding: 10px 4px"><div style="font-size: 12px; color: #4A5561">máximo</div><div class="mono" style="font-size: 22px; font-weight: 600">{{esp.max}}</div></div>
+</div>
+<div style="font-size: 15px"><b class="mono">{{esp.vol}} m³</b> de sub-base colocados en 200 m × 8.4 m</div>
+<div style="background: #FBE3E3; color: #9F1B1B; border-radius: 10px; padding: 12px; font-size: 15px"><b>✗ {{esp.delgados}}</b> con menos de 190 mm. Antes de echar la base, completa material ahí.</div>
+<div style="font-size: 14px; color: #4A5561">Cambia las capas a comparar desde el selector de capa de la calle: cualquier par, no solo vecinas.</div>
+</div>
+</sc-if>
+<sc-if value="{{esVolumenes}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Metrado</div>
+<div style="background: #FFF4EC; border-radius: 10px; padding: 14px"><div style="font-size: 13px; color: #9A3412">Corte total</div><div class="mono" style="font-size: 32px; font-weight: 600; color: #C2410C">{{vol.corte}} m³</div></div>
+<div style="background: #EAF0FD; border-radius: 10px; padding: 14px"><div style="font-size: 13px; color: #1E3A8A">Relleno total</div><div class="mono" style="font-size: 32px; font-weight: 600; color: #1D4ED8">{{vol.relleno}} m³</div></div>
+<div style="font-size: 15px">Sobran <b class="mono">{{vol.neto}} m³</b> para eliminar o reusar.</div>
+<div style="font-size: 14px; color: #4A5561">Con esponjamiento del 25 %, son unos <b class="mono">{{vol.camiones}}</b> viajes de volquete de 15 m³.</div>
+<a href="Informes.dc.html" style="min-height: 44px; border-radius: 10px; background: #C2410C; color: #FFFFFF; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600">Sacar el metrado en PDF</a>
+</div>
+</sc-if>
+<sc-if value="{{esDrenaje}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Lo que encontró</div>
+<div style="background: #FBE3E3; color: #9F1B1B; border-radius: 10px; padding: 12px; font-size: 15px"><b>✗ Punto bajo en 0+120</b>, 5 mm por debajo de 0+100, donde va el sumidero. El agua se quedará ahí.</div>
+<div style="background: #FBF0D9; color: #7A4A00; border-radius: 10px; padding: 12px; font-size: 15px"><b>△ Tramo 0+100 – 0+120 al revés:</b> el proyecto sube +0.20 %, lo medido baja −0.03 %.</div>
+<div style="font-size: 15px; font-weight: 600">Bombeo medido</div>
+<div style="display: grid; grid-template-columns: 1fr auto auto; row-gap: 6px; font-size: 14px">
+<span>0+080</span><span class="mono">2.1 %</span><span style="color: #0B5E56; padding-left: 10px">✓</span>
+<span>0+100</span><span class="mono">1.4 %</span><span style="color: #7A4A00; padding-left: 10px">△</span>
+<span>0+120</span><span class="mono">2.3 %</span><span style="color: #0B5E56; padding-left: 10px">✓</span>
+</div>
+<div style="font-size: 14px; color: #4A5561">Corrige antes de la carpeta: después ya no hay vuelta.</div>
+</div>
+</sc-if>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+var PROGS = [0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200];
+var PTS = ['Sard. izq', 'Borde izq', 'Eje', 'Borde der', 'Sard. der'];
+var CORTE = [2.10, 2.35, 2.60, 2.42, 2.05, 1.80, 1.55, 1.20, 0.95, 0.70, 0.60];
+var RELLENO = [0, 0, 0, 0.05, 0.12, 0.20, 0.35, 0.48, 0.40, 0.30, 0.22];
+var OFF = [4, -3, 6, 2, -5, 25, -20, 3, -4, 7, 1];
+function prog(p) { return (p < 1000 ? '0+' : '1+') + ('00' + (p % 1000)).slice(-3); }
+function espesor(i, k) {
+  if (i === 2 && k === 6) return 184;
+  if (i === 3 && k === 7) return 187;
+  return 200 + ((i * 7 + k * 5) % 19) - 9;
+}
+function zDis(p) { return p <= 100 ? 3243.500 - 0.005 * p : 3243.000 + 0.002 * (p - 100); }
+
+class Component extends DCLogic {
+  state = { tab: 'espesores' };
+
+  renderVals() {
+    var s = this.state, self = this;
+    var tabs = [['espesores', 'Espesores'], ['volumenes', 'Volúmenes'], ['drenaje', 'Drenaje']].map(function (t) {
+      var on = s.tab === t[0];
+      return { nombre: t[1], on: on ? 'true' : 'false', bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#10161D' : '#E6EAEE', pick: function () { self.setState({ tab: t[0] }); } };
+    });
+
+    var todos = [], delgados = 0;
+    var espesores = PTS.map(function (nombre, i) {
+      return { nombre: nombre, c: PROGS.map(function (p, k) {
+        var e = espesor(i, k), a = Math.abs(e - 200); todos.push(e); if (e < 190) delgados++;
+        var st = a <= 10 ? ['✓', '#E3F2EF', '#0B5E56'] : (a <= 20 ? ['△', '#FBF0D9', '#7A4A00'] : ['✗', '#FBE3E3', '#9F1B1B']);
+        return { t: e, sim: st[0], bg: st[1], fg: st[2] };
+      }) };
+    });
+    var med = todos.reduce(function (a, b) { return a + b; }, 0) / todos.length;
+    var esp = { min: Math.min.apply(null, todos), max: Math.max.apply(null, todos), med: Math.round(med), vol: (med / 1000 * 200 * 8.4).toFixed(1), delgados: delgados + (delgados === 1 ? ' celda' : ' celdas') };
+
+    var tc = 0, tr = 0, maxV = 0, vols = [];
+    for (var k = 1; k < PROGS.length; k++) {
+      var vc = (CORTE[k - 1] + CORTE[k]) / 2 * 20, vr = (RELLENO[k - 1] + RELLENO[k]) / 2 * 20;
+      tc += vc; tr += vr; vols.push([vc, vr, k]); maxV = Math.max(maxV, vc);
+    }
+    var esc = 220 / maxV;
+    var tramosVol = vols.map(function (v) {
+      var hC = v[0] * esc, hR = v[1] * esc;
+      return { nombre: prog(PROGS[v[2] - 1]).slice(2) + '–' + prog(PROGS[v[2]]).slice(2), vc: v[0].toFixed(1), vr: v[1] > 0 ? v[1].toFixed(1) : '', topC: 250 - hC, hC: hC, hR: hR, etqC: 250 - hC - 18, etqR: 254 + hR };
+    });
+    var vol = { corte: tc.toFixed(1), relleno: tr.toFixed(1), neto: (tc - tr).toFixed(1), camiones: Math.ceil((tc - tr) * 1.25 / 15) };
+
+    var X = function (p) { return 40 + p * 3.6; };
+    var Y = function (z) { return 30 + (3243.55 - z) * 1000 * 0.5; };
+    var med2 = PROGS.map(function (p, k) { return zDis(p) + OFF[k] / 1000; });
+    var bajo = 0;
+    med2.forEach(function (z, k) { if (z < med2[bajo]) bajo = k; });
+    var flechas = [];
+    for (var j = 1; j < PROGS.length; j++) {
+      var baja = med2[j] < med2[j - 1];
+      var bajaDis = zDis(PROGS[j]) < zDis(PROGS[j - 1]);
+      var xm = (X(PROGS[j - 1]) + X(PROGS[j])) / 2, ym = (Y(med2[j - 1]) + Y(med2[j])) / 2;
+      flechas.push({ x: (xm / 800 * 100).toFixed(2), y: (ym / 330 * 100).toFixed(2), f: baja ? '→' : '←', color: baja === bajaDis ? '#0B5E56' : '#C2410C' });
+    }
+    var perfil = {
+      disenio: PROGS.map(function (p) { return X(p).toFixed(1) + ',' + Y(zDis(p)).toFixed(1); }).join(' '),
+      medido: PROGS.map(function (p, k) { return X(p).toFixed(1) + ',' + Y(med2[k]).toFixed(1); }).join(' '),
+      flechas: flechas,
+      sumX: (X(100) / 800 * 100).toFixed(2), sumY: (Y(zDis(100)) / 330 * 100).toFixed(2),
+      bajoX: (X(PROGS[bajo]) / 800 * 100).toFixed(2), bajoY: (Y(med2[bajo]) / 330 * 100).toFixed(2),
+      progs: PROGS.map(function (p) { return { t: prog(p), x: (X(p) / 800 * 100).toFixed(2) }; })
+    };
+
+    return {
+      tabs: tabs, esEspesores: s.tab === 'espesores', esVolumenes: s.tab === 'volumenes', esDrenaje: s.tab === 'drenaje',
+      cabeza: PROGS.map(prog), espesores: espesores, esp: esp, tramosVol: tramosVol, vol: vol, perfil: perfil
+    };
+  }
+}
+</script>
+</body>
+</html>

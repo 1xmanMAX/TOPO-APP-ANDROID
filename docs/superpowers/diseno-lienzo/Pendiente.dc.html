@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pista empinada: controles y cambios</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="height: 64px; flex: none; background: #10161D; color: #FFFFFF; display: flex; align-items: center; gap: 16px; padding: 0 16px; box-sizing: border-box">
+<a href="PlanoObra.dc.html" style="display: flex; align-items: center; gap: 8px; color: #FFFFFF; text-decoration: none; font-size: 15px; height: 44px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Plano</a>
+<div style="font-size: 20px; font-weight: 700">Pasaje Las Lomas · controles y cambios</div>
+<div style="flex: 1"></div>
+<span class="mono" style="font-size: 14px; color: #FDBA74">+8.2 % y +7.4 % · sube 9.36 m en 120 m</span>
+</header>
+
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; padding: 12px; box-sizing: border-box">
+
+<div style="display: flex; flex-direction: column; gap: 12px; min-height: 0">
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 12px 14px">
+<div style="display: flex; gap: 16px; font-size: 13px; color: #2C3640; margin-bottom: 6px; flex-wrap: wrap">
+<b style="font-size: 15px; color: #10161D">Perfil y dónde poner el nivel</b>
+<span style="color: #9A7B4F">━ terreno</span><span style="color: #1D4ED8">■ punto de control</span><span>● estación del nivel</span><span style="color: #C2410C">▲ punto de cambio</span><span style="color: #C2410C">┈ visual</span><span style="color: #4A5561">escala vertical ×4</span>
+</div>
+<div style="position: relative; width: 100%; aspect-ratio: 820 / 300">
+<svg width="100%" height="100%" viewBox="0 0 820 300" style="position: absolute; inset: 0" aria-hidden="true">
+<polygon points="{{perfil.suelo}}" fill="#F3EBDD"></polygon>
+<polyline points="{{perfil.terreno}}" fill="none" stroke="#9A7B4F" stroke-width="3"></polyline>
+<path d="{{perfil.miras}}" stroke="#E0B400" stroke-width="5" fill="none"></path>
+<path d="{{perfil.visuales}}" stroke="#C2410C" stroke-width="1.8" stroke-dasharray="5 4" fill="none"></path>
+</svg>
+<sc-for list="{{perfil.etiquetas}}" as="e" hint-placeholder-count="6">
+<span class="mono" style="position: absolute; left: {{e.x}}%; top: {{e.y}}%; transform: translate(-50%, -120%); font-size: 11px; font-weight: 600; color: #9A3412; background: rgba(255,255,255,.85); padding: 0 3px; border-radius: 3px; white-space: nowrap">{{e.t}}</span>
+</sc-for>
+<sc-for list="{{perfil.marcas}}" as="m" hint-placeholder-count="8">
+<span style="position: absolute; left: {{m.x}}%; top: {{m.y}}%; transform: translate(-50%, -50%); width: {{m.tam}}px; height: {{m.tam}}px; background: {{m.color}}; border-radius: {{m.radio}}; clip-path: {{m.clip}}; border: 2px solid #FFFFFF; box-sizing: border-box"></span>
+<span style="position: absolute; left: {{m.x}}%; top: {{m.y}}%; transform: translate(-50%, 10px); font-size: 11px; font-weight: 700; color: {{m.color}}; white-space: nowrap; text-align: center; line-height: 1.15">{{m.t}}<br><span class="mono" style="font-weight: 400">{{m.sub}}</span></span>
+</sc-for>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 10px 14px; flex: 1; min-height: 0; overflow: hidden">
+<div style="display: grid; grid-template-columns: 70px 90px 1.2fr 1.3fr 1.2fr; gap: 8px; font-size: 13px; color: #4A5561; border-bottom: 1px solid #10161D; padding-bottom: 4px">
+<span>Estación</span><span>Plantar en</span><span>Lee atrás</span><span>Progresivas desde aquí</span><span>Lee adelante</span>
+</div>
+<sc-for list="{{filas}}" as="f" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: 70px 90px 1.2fr 1.3fr 1.2fr; gap: 8px; font-size: 14px; padding: 7px 0; border-bottom: 1px solid #E3E7EB; align-items: center">
+<b>{{f.e}}</b><span class="mono">≈ {{f.s}}</span><span>{{f.atras}}</span><span class="mono">{{f.progs}}</span><span>{{f.adelante}}</span>
+</div>
+</sc-for>
+</section>
+</div>
+
+<aside style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Tu equipo</div>
+<div style="font-size: 14px; font-weight: 600">Largo de la mira</div>
+<div style="display: flex; gap: 6px"><sc-for list="{{miras}}" as="o" hint-placeholder-count="3"><button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" class="mono" style="flex: 1; height: 42px; border-radius: 8px; border: 1px solid {{o.borde}}; background: {{o.bg}}; color: {{o.fg}}; font-size: 15px">{{o.t}}</button></sc-for></div>
+<div style="font-size: 14px; font-weight: 600">Altura del instrumento</div>
+<div style="display: flex; gap: 6px"><sc-for list="{{alturas}}" as="o" hint-placeholder-count="3"><button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" class="mono" style="flex: 1; height: 42px; border-radius: 8px; border: 1px solid {{o.borde}}; background: {{o.bg}}; color: {{o.fg}}; font-size: 15px">{{o.t}}</button></sc-for></div>
+<div style="font-size: 14px; font-weight: 600">Visual más larga</div>
+<div style="display: flex; gap: 6px"><sc-for list="{{distancias}}" as="o" hint-placeholder-count="3"><button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" class="mono" style="flex: 1; height: 42px; border-radius: 8px; border: 1px solid {{o.borde}}; background: {{o.bg}}; color: {{o.fg}}; font-size: 15px">{{o.t}}</button></sc-for></div>
+<div style="font-size: 13px; color: #4A5561">Nunca leer menos de <span class="mono">0.30</span> en la mira: el pie de la mira engaña.</div>
+
+<div style="background: #10161D; color: #FFFFFF; border-radius: 12px; padding: 12px 14px">
+<div class="mono" style="font-size: 26px; font-weight: 600; color: #FDBA74">{{res.estaciones}} estaciones · {{res.cambios}} cambios</div>
+<div style="font-size: 14px; color: #D7DDE3">{{res.texto}}</div>
+</div>
+<div style="background: #EAF0FD; color: #1E3A8A; border-radius: 10px; padding: 10px 12px; font-size: 14px"><b>■ Puntos de control</b> en 0+000, 0+060 y 0+120. La rasante se amarra a ellos y el CP-2 te comprueba a mitad de subida: si no cuadra ahí, no sigues arrastrando el error.</div>
+<div style="flex: 1"></div>
+<a href="Guia.dc.html" style="min-height: 48px; border-radius: 10px; background: #C2410C; color: #FFFFFF; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700">Llevar la guía al celular</a>
+<a href="PlanoObra.dc.html" style="min-height: 44px; border: 1px solid #C3CAD2; border-radius: 10px; color: #10161D; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 14px">Ver los cambios en el plano</a>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+// Terreno de la pista: +8.2 % hasta 0+060 y +7.4 % hasta 0+120 (alturas relativas a CP-1).
+var L = 120, MIN = 0.30;
+function z(p) { return p <= 60 ? 0.082 * p : 4.92 + 0.074 * (p - 60); }
+function zinv(v) { return v <= 4.92 ? v / 0.082 : 60 + (v - 4.92) / 0.074; }
+function prog(m) { return '0+' + ('00' + Math.round(m)).slice(-3); }
+function planificar(M, h, D) {
+  var p = 0, res = [], guard = 0;
+  while (p < L && guard++ < 30) {
+    var sMax = Math.min(zinv(z(p) + M - h), p + D, L);
+    var sMin = Math.max(zinv(z(L) - h + MIN), L - D);
+    var s, q;
+    if (sMin <= sMax) { s = Math.round((Math.max(sMin, p) + sMax) / 2); q = L; }
+    else { s = Math.floor(sMax); q = Math.min(Math.floor(zinv(z(s) + h - MIN)), s + D, L); }
+    if (s <= p || q <= s) return null;
+    res.push({ s: s, p: p, q: q, atras: z(s) + h - z(p), adelante: z(s) + h - z(q) });
+    p = q;
+  }
+  return res;
+}
+
+class Component extends DCLogic {
+  state = { M: 4, h: 1.5, D: 40 };
+
+  renderVals() {
+    var s = this.state, self = this;
+    var opc = function (vals, clave, fmt) {
+      return vals.map(function (v) { var on = s[clave] === v; return { t: fmt(v), on: on ? 'true' : 'false', bg: on ? '#10161D' : '#FFFFFF', fg: on ? '#FFFFFF' : '#10161D', borde: on ? '#10161D' : '#C3CAD2', pick: function () { var o = {}; o[clave] = v; self.setState(o); } }; });
+    };
+    var plan = planificar(s.M, s.h, s.D) || [];
+    var X = function (p) { return 30 + p * 6.3; }, Y = function (v) { return 275 - v * 23; };
+    var pct = function (x, y) { return { x: (x / 820 * 100).toFixed(2), y: (y / 300 * 100).toFixed(2) }; };
+    var marcas = [], etiquetas = [], miras = '', visuales = '';
+    [[0, 'CP-1', '3243.500'], [60, 'CP-2', '3248.420'], [120, 'CP-3', '3252.860']].forEach(function (c) {
+      marcas.push(Object.assign(pct(X(c[0]), Y(z(c[0]))), { t: c[1], sub: c[2], color: '#1D4ED8', tam: 14, radio: '2px', clip: 'none' }));
+    });
+    plan.forEach(function (e, i) {
+      var hi = z(e.s) + s.h;
+      marcas.push(Object.assign(pct(X(e.s), Y(z(e.s))), { t: 'E' + (i + 1), sub: prog(e.s), color: '#10161D', tam: 14, radio: '50%', clip: 'none' }));
+      if (e.q < L) marcas.push(Object.assign(pct(X(e.q), Y(z(e.q))), { t: 'PC-' + (i + 1), sub: prog(e.q), color: '#C2410C', tam: 16, radio: '0', clip: 'polygon(50% 0, 100% 100%, 0 100%)' }));
+      visuales += 'M' + X(e.p).toFixed(1) + ' ' + Y(hi).toFixed(1) + ' L' + X(e.q).toFixed(1) + ' ' + Y(hi).toFixed(1) + ' ';
+      miras += 'M' + X(e.p).toFixed(1) + ' ' + Y(z(e.p)).toFixed(1) + ' L' + X(e.p).toFixed(1) + ' ' + Y(z(e.p) + s.M).toFixed(1) + ' ';
+      miras += 'M' + X(e.q).toFixed(1) + ' ' + Y(z(e.q)).toFixed(1) + ' L' + X(e.q).toFixed(1) + ' ' + Y(z(e.q) + Math.min(s.M, e.adelante + 0.6)).toFixed(1) + ' ';
+      etiquetas.push(Object.assign(pct(X(e.p) + 6, Y(hi)), { t: 'atrás ' + e.atras.toFixed(2) }));
+      etiquetas.push(Object.assign(pct(X(e.q) - 6, Y(hi) + 26), { t: 'adel. ' + e.adelante.toFixed(2) }));
+    });
+    var suelo = '30,300 ' + [0, 60, 120].map(function (p) { return X(p) + ',' + Y(z(p)).toFixed(1); }).join(' ') + ' ' + X(120) + ',300';
+    var filas = plan.map(function (e, i) {
+      var ps = []; for (var k = Math.ceil(e.p / 10) * 10; k <= e.q; k += 10) ps.push(k);
+      var desde = i === 0 ? 'CP-1' : 'PC-' + i, hasta = e.q >= L ? 'CP-3' : 'PC-' + (i + 1) + ' (' + prog(e.q) + ')';
+      return { e: 'E' + (i + 1), s: prog(e.s), atras: desde + ' ≈ ' + e.atras.toFixed(2), adelante: hasta + ' ≈ ' + e.adelante.toFixed(2), progs: prog(ps[0]) + ' a ' + prog(ps[ps.length - 1]) };
+    });
+    var res = plan.length
+      ? { estaciones: plan.length, cambios: plan.length - 1, texto: 'De subida. Para cerrar, baja por los mismos puntos de cambio hasta CP-1.' }
+      : { estaciones: '—', cambios: '—', texto: 'Con esta mira y esta altura no se puede: prueba una mira más larga.' };
+    return {
+      miras: opc([3, 4, 5], 'M', function (v) { return v + ' m'; }),
+      alturas: opc([1.4, 1.5, 1.6], 'h', function (v) { return v.toFixed(2); }),
+      distancias: opc([30, 40, 50], 'D', function (v) { return v + ' m'; }),
+      perfil: { suelo: suelo, terreno: [0, 60, 120].map(function (p) { return X(p) + ',' + Y(z(p)).toFixed(1); }).join(' '), miras: miras, visuales: visuales, marcas: marcas, etiquetas: etiquetas },
+      filas: filas, res: res
+    };
+  }
+}
+</script>
+</body>
+</html>

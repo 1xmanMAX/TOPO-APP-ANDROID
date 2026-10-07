@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Modo sol</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: {{c.fondo}}; color: {{c.texto}}; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; padding: 16px; gap: 14px">
+
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div>
+<div style="font-size: 20px; font-weight: 700">Av. Sol · Subrasante</div>
+<div style="font-size: 15px; color: {{c.suave}}">Estación 1 · AI <span class="mono">3246.632</span></div>
+</div>
+<button type="button" onClick="{{alternar}}" aria-pressed="{{c.on}}" style="height: 48px; padding: 0 12px; border-radius: 999px; border: 2px solid {{c.texto}}; background: {{c.chipFondo}}; color: {{c.chipTexto}}; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"></path></svg>{{c.etiqueta}}</button>
+</div>
+
+<div style="border: 3px solid {{c.texto}}; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 18px; font-weight: 600">0+120 · Eje</div>
+<div class="mono" style="font-size: 72px; font-weight: 700; line-height: 1; color: {{c.acento}}">3,397</div>
+<div style="font-size: 17px">Esperada <span class="mono" style="font-weight: 700">3,402</span></div>
+</div>
+
+<div style="background: {{c.okFondo}}; color: {{c.okTexto}}; border: 3px solid {{c.okBorde}}; border-radius: 14px; padding: 14px; font-size: 22px; font-weight: 700">✓ +5 mm · corta 5 mm</div>
+
+<div style="flex: 1"></div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{teclas}}" as="t" hint-placeholder-count="12">
+<button type="button" class="mono" style="height: 64px; border-radius: 12px; border: 2px solid {{c.texto}}; background: {{c.tecla}}; color: {{c.texto}}; font-size: 30px; font-weight: 700">{{t}}</button>
+</sc-for>
+</div>
+<button type="button" style="height: 68px; border-radius: 14px; border: 0; background: {{c.acento}}; color: {{c.sobreAcento}}; font-size: 22px; font-weight: 700">Anotar y seguir</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var SOL = { on: 'true', etiqueta: 'Modo sol', fondo: '#000000', texto: '#FFFFFF', suave: '#E6E6E6', acento: '#FFD60A', sobreAcento: '#000000', tecla: '#000000', chipFondo: '#FFD60A', chipTexto: '#000000', okFondo: '#000000', okTexto: '#7CFFB2', okBorde: '#7CFFB2' };
+var NORMAL = { on: 'false', etiqueta: 'Normal', fondo: '#EEF1F4', texto: '#10161D', suave: '#4A5561', acento: '#C2410C', sobreAcento: '#FFFFFF', tecla: '#FFFFFF', chipFondo: '#FFFFFF', chipTexto: '#10161D', okFondo: '#E3F2EF', okTexto: '#0B5E56', okBorde: '#E3F2EF' };
+class Component extends DCLogic {
+  state = { sol: true };
+  renderVals() {
+    var self = this;
+    return {
+      c: this.state.sol ? SOL : NORMAL,
+      teclas: ['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'],
+      alternar: function () { self.setState({ sol: !self.state.sol }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

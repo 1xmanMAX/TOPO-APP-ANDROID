@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Historial y comparar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="background: #10161D; color: #FFFFFF; padding: 14px 16px; display: flex; align-items: center; gap: 10px">
+<a href="Inicio.dc.html" aria-label="Volver a la obra" style="width: 44px; height: 44px; margin-left: -10px; display: flex; align-items: center; justify-content: center; color: #FFFFFF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="flex: 1">
+<div style="font-size: 17px; font-weight: 700">Historial de Jr. Lima</div>
+<div style="font-size: 13px; color: #AEB8C2">Toca dos jornadas para compararlas</div>
+</div>
+</header>
+
+<div style="flex: 1; min-height: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+<sc-for list="{{jornadas}}" as="j" hint-placeholder-count="5">
+<button type="button" onClick="{{j.pick}}" aria-pressed="{{j.on}}" style="display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; min-height: 60px; text-align: left; border: 2px solid {{j.borde}}; background: #FFFFFF; border-radius: 12px; padding: 8px 12px; color: #10161D">
+<span style="width: 26px; height: 26px; border-radius: 50%; background: {{j.marcaFondo}}; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{j.marca}}</span>
+<span style="display: flex; flex-direction: column"><b style="font-size: 15px">{{j.capa}}</b><span style="font-size: 13px; color: #4A5561">{{j.detalle}}</span></span>
+<span style="display: flex; flex-direction: column; align-items: flex-end"><span class="mono" style="font-size: 13px">{{j.fecha}}</span><span style="font-size: 12px; color: {{j.cierreColor}}">{{j.cierre}}</span></span>
+</button>
+</sc-for>
+
+<div style="background: #10161D; color: #FFFFFF; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; margin-top: 6px">
+<div style="font-size: 13px; color: #AEB8C2">{{cmp.titulo}}</div>
+<div style="font-size: 20px; font-weight: 700">{{cmp.que}}</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center">
+<div><div style="font-size: 12px; color: #AEB8C2">mínimo</div><div class="mono" style="font-size: 20px; font-weight: 600; color: #FDBA74">{{cmp.min}}</div></div>
+<div><div style="font-size: 12px; color: #AEB8C2">medio</div><div class="mono" style="font-size: 20px; font-weight: 600; color: #FDBA74">{{cmp.med}}</div></div>
+<div><div style="font-size: 12px; color: #AEB8C2">máximo</div><div class="mono" style="font-size: 20px; font-weight: 600; color: #FDBA74">{{cmp.max}}</div></div>
+</div>
+<div style="font-size: 14px; color: #D7DDE3">{{cmp.lectura}}</div>
+</div>
+<a href="Analisis.dc.html" style="min-height: 44px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600">Ver celda por celda</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var J = [
+  { capa: 'Base', detalle: 'hasta 0+140 · 40 lecturas', fecha: '04/10', cierre: '✓ −2 mm', ok: true, nivel: 3 },
+  { capa: 'Sub-base', detalle: 'toda la calle · 55 lecturas', fecha: '30/09', cierre: '✓ +4 mm', ok: true, nivel: 2 },
+  { capa: 'Subrasante', detalle: 'toda la calle · 55 lecturas', fecha: '24/09', cierre: '✓ −5 mm', ok: true, nivel: 1 },
+  { capa: 'Terreno', detalle: 'repetida para comprobar', fecha: '16/09', cierre: '✓ +3 mm', ok: true, nivel: 0 },
+  { capa: 'Terreno', detalle: 'primera toma', fecha: '15/09', cierre: '✓ −6 mm', ok: true, nivel: 0 }
+];
+// Lo que sale al comparar cada par de capas (de abajo a arriba), en milímetros.
+var PARES = {
+  '0-1': ['Profundidad de corte', 'Terreno → Subrasante', '180', '312', '421', 'Cuánto se excavó. Pasa al metrado.'],
+  '1-2': ['Espesor colocado', 'Subrasante → Sub-base', '184', '199', '209', 'Proyecto 200 mm ±10: 2 celdas delgadas.'],
+  '2-3': ['Espesor colocado', 'Sub-base → Base', '193', '201', '207', 'Proyecto 200 mm ±10: todo conforme hasta 0+140.'],
+  '0-2': ['Diferencia acumulada', 'Terreno → Sub-base', '−20', '−113', '−215', 'Útil para ver el paquete completo.'],
+  '0-0': ['Misma superficie, dos tomas', 'Terreno 15/09 → 16/09', '−4', '+1', '+6', 'Lo que varía tu nivelación al repetirla: tu repetibilidad.']
+};
+class Component extends DCLogic {
+  state = { a: 2, b: 1 };
+  renderVals() {
+    var s = this.state, self = this;
+    var sel = [s.a, s.b];
+    var abajo = J[s.a].nivel <= J[s.b].nivel ? s.a : s.b, arriba = abajo === s.a ? s.b : s.a;
+    var clave = Math.min(J[s.a].nivel, J[s.b].nivel) + '-' + Math.max(J[s.a].nivel, J[s.b].nivel);
+    var p = PARES[clave] || ['Diferencia entre capas', J[abajo].capa + ' → ' + J[arriba].capa, '—', '—', '—', 'Aquí saldría la diferencia de cualquier par de capas.'];
+    return {
+      jornadas: J.map(function (j, i) {
+        var on = sel.indexOf(i) >= 0, marca = i === abajo ? 'A' : (i === arriba ? 'B' : '');
+        return { capa: j.capa, detalle: j.detalle, fecha: j.fecha, cierre: j.cierre, cierreColor: j.ok ? '#0B5E56' : '#7A4A00',
+          on: on ? 'true' : 'false', borde: on ? '#10161D' : '#D5DAE0', marca: on ? marca : '', marcaFondo: on ? '#C2410C' : '#DCE3EA',
+          pick: function () { if (sel.indexOf(i) >= 0) return; self.setState({ a: s.b, b: i }); } };
+      }),
+      cmp: { titulo: p[0] + ' · mm', que: p[1], min: p[2], med: p[3], max: p[4], lectura: p[5] }
+    };
+  }
+}
+</script>
+</body>
+</html>

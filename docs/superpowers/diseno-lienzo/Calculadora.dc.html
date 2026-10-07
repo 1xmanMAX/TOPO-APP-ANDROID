@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Calculadora de campo</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<div style="flex: 1; min-height: 0; padding: 20px 16px 12px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+<div>
+<div style="font-size: 26px; font-weight: 700">Calcular</div>
+<div style="font-size: 13px; color: #4A5561">Con datos de <b style="color: #10161D">Av. Sol · 0+060 · Eje</b> · <a href="Calle.dc.html">cambiar</a></div>
+</div>
+
+<div role="group" aria-label="Qué calcular" style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{tipos}}" as="t" hint-placeholder-count="5">
+<button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid {{t.borde}}; background: {{t.bg}}; color: {{t.fg}}; font-size: 14px; font-weight: 600">{{t.nombre}}</button>
+</sc-for>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{campos}}" as="f" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; gap: 10px">
+<label for="{{f.id}}" style="font-size: 14px; color: #2C3640">{{f.label}} <span style="color: #6B7682">{{f.unidad}}</span></label>
+<input id="{{f.id}}" class="mono" inputmode="decimal" value="{{f.valor}}" onChange="{{f.cambiar}}" style="height: 48px; border: 1px solid #8B96A2; border-radius: 8px; font-size: 18px; padding: 0 10px; box-sizing: border-box; width: 100%; text-align: right">
+</div>
+</sc-for>
+</div>
+
+<div style="background: #10161D; color: #FFFFFF; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 13px; color: #AEB8C2">{{res.titulo}}</div>
+<div class="mono" style="font-size: 40px; font-weight: 600; line-height: 1.1; color: #FDBA74">{{res.valor}} <span style="font-size: 18px; color: #D7DDE3">{{res.unidad}}</span></div>
+<div style="font-size: 14px; color: #D7DDE3">{{res.detalle}}</div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+<button type="button" style="height: 48px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; font-size: 14px">Copiar resultado</button>
+<button type="button" style="height: 48px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; font-size: 14px">Guardar como nota</button>
+</div>
+<div style="font-size: 13px; color: #4A5561">Las cifras vienen del punto que tenías elegido en la calle. Cámbialas aquí sin tocar tus lecturas.</div>
+</div>
+
+<nav aria-label="Principal" style="height: 72px; flex: none; background: #FFFFFF; border-top: 1px solid #D5DAE0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center">
+<a href="Inicio.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 2px; color: #4A5561; text-decoration: none; font-size: 12px; min-height: 48px; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z"></path></svg>Obra</a>
+<a href="Calle.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 2px; color: #4A5561; text-decoration: none; font-size: 12px; min-height: 48px; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 3L4 21M17 3l3 18M12 5v3M12 11v3M12 17v3"></path></svg>Calle</a>
+<a href="Calculadora.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 2px; color: #C2410C; text-decoration: none; font-size: 12px; font-weight: 600; min-height: 48px; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"></rect><path d="M8 6.5h8M8 11h2M12 11h2M8 14.5h2M12 14.5h2M8 18h2M12 18h2M16 11v7"></path></svg>Calcular</a>
+<a href="Informes.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 2px; color: #4A5561; text-decoration: none; font-size: 12px; min-height: 48px; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"></path><path d="M14 3v5h5M10 13h6M10 17h6"></path></svg>Informes</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var CALCS = [
+  { id: 'cota', nombre: 'Cota', campos: [['ai', 'Altura instrumental', 'm'], ['lec', 'Lectura de mira', 'm']] },
+  { id: 'objetivo', nombre: 'Lectura objetivo', campos: [['ai', 'Altura instrumental', 'm'], ['proy', 'Cota de proyecto', 'm']] },
+  { id: 'pendiente', nombre: 'Pendiente', campos: [['ca', 'Cota inicial', 'm'], ['cb', 'Cota final', 'm'], ['dist', 'Distancia', 'm']] },
+  { id: 'interpolar', nombre: 'Interpolar', campos: [['pa', 'Progresiva A', 'm'], ['ca', 'Cota en A', 'm'], ['pb', 'Progresiva B', 'm'], ['cb', 'Cota en B', 'm'], ['px', 'Progresiva buscada', 'm']] },
+  { id: 'volumen', nombre: 'Volumen', campos: [['aa', 'Área inicial', 'm²'], ['ab', 'Área final', 'm²'], ['dist', 'Distancia', 'm']] }
+];
+function n(x) { return parseFloat(String(x).replace(',', '.')); }
+
+class Component extends DCLogic {
+  state = {
+    calc: 'objetivo',
+    v: { ai: '3246.632', lec: '2.640', proy: '3243.980', ca: '3244.730', cb: '3243.980', dist: '60', pa: '0', pb: '60', px: '25', aa: '1.85', ab: '2.10' }
+  };
+
+  resultado(id, v) {
+    var r;
+    if (id === 'cota') { r = n(v.ai) - n(v.lec); return { titulo: 'Cota del punto', valor: r.toFixed(3), unidad: 'm', detalle: 'Altura instrumental menos lectura' }; }
+    if (id === 'objetivo') { r = n(v.ai) - n(v.proy); return { titulo: 'La mira debe marcar', valor: r.toFixed(3), unidad: 'm', detalle: 'Para quedar en la cota de proyecto' }; }
+    if (id === 'pendiente') {
+      var dh = n(v.cb) - n(v.ca); r = dh / n(v.dist) * 100;
+      return { titulo: 'Pendiente', valor: (r > 0 ? '+' : '') + r.toFixed(3), unidad: '%', detalle: (dh < 0 ? 'Baja ' : 'Sube ') + Math.abs(dh).toFixed(3) + ' m · ' + (r * 10).toFixed(2) + ' ‰' };
+    }
+    if (id === 'interpolar') {
+      var t = (n(v.px) - n(v.pa)) / (n(v.pb) - n(v.pa)); r = n(v.ca) + t * (n(v.cb) - n(v.ca));
+      return { titulo: 'Cota en la progresiva buscada', valor: r.toFixed(3), unidad: 'm', detalle: 'Interpolación lineal entre A y B' };
+    }
+    r = (n(v.aa) + n(v.ab)) / 2 * n(v.dist);
+    return { titulo: 'Volumen entre las dos secciones', valor: r.toFixed(2), unidad: 'm³', detalle: 'Por áreas medias' };
+  }
+
+  renderVals() {
+    var s = this.state, self = this;
+    var c = CALCS.filter(function (x) { return x.id === s.calc; })[0];
+    var res = this.resultado(s.calc, s.v);
+    if (res.valor.indexOf('NaN') >= 0 || res.valor.indexOf('Infinity') >= 0) res = { titulo: res.titulo, valor: '—', unidad: '', detalle: 'Falta algún dato' };
+    return {
+      tipos: CALCS.map(function (x) {
+        var on = x.id === s.calc;
+        return { nombre: x.nombre, on: on ? 'true' : 'false', bg: on ? '#10161D' : '#FFFFFF', fg: on ? '#FFFFFF' : '#10161D', borde: on ? '#10161D' : '#C3CAD2', pick: function () { self.setState({ calc: x.id }); } };
+      }),
+      campos: c.campos.map(function (f) {
+        return {
+          id: 'campo-' + f[0], label: f[1], unidad: f[2], valor: s.v[f[0]],
+          cambiar: function (ev) { var v = Object.assign({}, s.v); v[f[0]] = ev.target.value; self.setState({ v: v }); }
+        };
+      }),
+      res: res
+    };
+  }
+}
+</script>
+</body>
+</html>

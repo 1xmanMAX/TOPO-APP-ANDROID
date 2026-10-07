@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Obra y ajustes de calle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="height: 64px; flex: none; background: #10161D; color: #FFFFFF; display: flex; align-items: center; gap: 18px; padding: 0 16px; box-sizing: border-box">
+<a href="Inicio.dc.html" style="display: flex; align-items: center; gap: 8px; color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 18px">
+<svg width="28" height="28" viewBox="0 0 36 36" fill="none" stroke="#F97316" stroke-width="2.4" aria-hidden="true"><path d="M4 26c6-8 10-2 16-8s8-10 12-10"></path><path d="M4 31c7-6 12-1 18-6s8-8 10-8" stroke="#FFFFFF" opacity=".55"></path></svg>
+Topo</a>
+<div style="font-size: 20px; font-weight: 700">Obra</div>
+<div style="flex: 1"></div>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 9px; border: 1px dashed #8B96A2; background: transparent; color: #FFFFFF; font-size: 14px; display: flex; align-items: center; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"></path></svg>Suelta aquí tu Excel o pégalo</button>
+</header>
+
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; padding: 16px; box-sizing: border-box">
+
+<div style="display: flex; flex-direction: column; gap: 12px; min-height: 0">
+<div style="font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Calles</div>
+<sc-for list="{{calles}}" as="c" hint-placeholder-count="3">
+<button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="text-align: left; border: 2px solid {{c.borde}}; background: #FFFFFF; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; color: #10161D">
+<span style="font-size: 16px; font-weight: 600">{{c.nombre}}</span>
+<span style="font-size: 13px; color: #4A5561">{{c.resumen}}</span>
+</button>
+</sc-for>
+<button type="button" style="height: 44px; border: 1px dashed #8B96A2; border-radius: 10px; background: transparent; color: #10161D; font-size: 14px">+ Nueva calle</button>
+<div style="font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561; margin-top: 6px">Bancos de nivel</div>
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; row-gap: 6px; font-size: 15px">
+<span>BM-1 · esquina Sol / Lima</span><span class="mono" style="font-weight: 600">3245.180</span>
+<span>BM-2 · frente al colegio</span><span class="mono" style="font-weight: 600">3243.905</span>
+</div>
+<div style="font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561; margin-top: 6px">Capas, de abajo arriba</div>
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto auto; gap: 6px 14px; font-size: 14px">
+<span>Terreno</span><span class="mono">—</span><span class="mono" style="color: #4A5561">±20</span>
+<span>Subrasante</span><span class="mono">—</span><span class="mono" style="color: #4A5561">±20</span>
+<span>Sub-base</span><span class="mono">0.20</span><span class="mono" style="color: #4A5561">±10</span>
+<span>Base</span><span class="mono">0.20</span><span class="mono" style="color: #4A5561">±10</span>
+<span>Carpeta</span><span class="mono">0.05</span><span class="mono" style="color: #4A5561">±5</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden">
+<div style="display: flex; align-items: baseline; gap: 12px"><span style="font-size: 26px; font-weight: 700">Av. Sol</span><span class="mono" style="color: #4A5561">0+000 → 0+120 · cada 20 m</span><span style="flex: 1"></span><a href="Calle.dc.html" style="font-size: 15px; font-weight: 600">Abrir la calle ›</a></div>
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px">
+<button type="button" onClick="{{abrirSeccion}}" aria-expanded="{{a.seccion}}" style="width: 100%; min-height: 56px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; padding: 0 16px; text-align: left; color: #10161D">
+<b style="font-size: 16px; width: 170px">Sección</b><span style="flex: 1; font-size: 14px; color: #4A5561">7 puntos · de −5.60 a +5.60 m · con tus palabras de la hoja</span><span style="font-size: 18px">{{fl.seccion}}</span></button>
+<sc-if value="{{a.seccionOn}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="position: relative; height: 150px; background: #F7F8FA; border-radius: 8px">
+<svg width="100%" height="150" viewBox="0 0 880 150" preserveAspectRatio="none" style="position: absolute; inset: 0" aria-hidden="true">
+<polyline points="30,62 120,74 120,104 152,106 440,90 728,106 760,104 760,74 850,62" fill="none" stroke="#10161D" stroke-width="2.5" vector-effect="non-scaling-stroke"></polyline>
+<line x1="440" y1="20" x2="440" y2="130" stroke="#C3CAD2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></line>
+</svg>
+<sc-for list="{{puntos}}" as="p" hint-placeholder-count="7">
+<div style="position: absolute; left: {{p.x}}%; top: {{p.y}}%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; background: #C2410C; border: 2px solid #FFFFFF"></div>
+<div style="position: absolute; left: {{p.x}}%; top: {{p.t}}px; transform: translateX(-50%); font-size: 12px; text-align: center; white-space: nowrap"><b>{{p.nombre}}</b></div>
+<div class="mono" style="position: absolute; left: {{p.x}}%; bottom: {{p.b}}px; transform: translateX(-50%); font-size: 11px; text-align: center; white-space: nowrap; color: #4A5561">{{p.palabra}} · {{p.dist}}</div>
+</sc-for>
+</div>
+<div style="font-size: 13px; color: #4A5561">Abajo de cada punto: la palabra con la que lo escribes en tu Excel y su distancia al eje. Toca un punto para cambiarlo.</div>
+</div>
+</sc-if>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px">
+<button type="button" onClick="{{abrirRasante}}" aria-expanded="{{a.rasante}}" style="width: 100%; min-height: 56px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; padding: 0 16px; text-align: left; color: #10161D">
+<b style="font-size: 16px; width: 170px">Rasante</b><span style="flex: 1; font-size: 14px; color: #4A5561" class="mono">3245.180 en 0+000 · −1.25 % · bombeo +2.0 % · vereda −1.5 %</span><span style="font-size: 18px">{{fl.rasante}}</span></button>
+<sc-if value="{{a.rasanteOn}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 16px 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #4A5561">Cota de arranque<input class="mono" value="3245.180" style="height: 44px; border: 1px solid #8B96A2; border-radius: 8px; font-size: 17px; padding: 0 10px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #4A5561">Pendiente longitudinal %<input class="mono" value="-1.25" style="height: 44px; border: 1px solid #8B96A2; border-radius: 8px; font-size: 17px; padding: 0 10px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #4A5561">Bombeo de calzada %<input class="mono" value="2.0" style="height: 44px; border: 1px solid #8B96A2; border-radius: 8px; font-size: 17px; padding: 0 10px"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #4A5561">Pendiente de vereda %<input class="mono" value="-1.5" style="height: 44px; border: 1px solid #8B96A2; border-radius: 8px; font-size: 17px; padding: 0 10px"></label>
+</div>
+</sc-if>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px">
+<button type="button" onClick="{{abrirAnchos}}" aria-expanded="{{a.anchos}}" style="width: 100%; min-height: 56px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; padding: 0 16px; text-align: left; color: #10161D">
+<b style="font-size: 16px; width: 170px">Anchos medidos</b><span style="flex: 1; font-size: 14px; color: #4A5561">medidos en 4 progresivas · el resto se estima entre ellas</span><span style="font-size: 18px">{{fl.anchos}}</span></button>
+<sc-if value="{{a.anchosOn}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 16px 16px">
+<div class="mono" style="display: grid; grid-template-columns: 110px repeat(7, minmax(0, 1fr)); gap: 3px; font-size: 13px">
+<span style="font-family: 'IBM Plex Sans', sans-serif; color: #4A5561">m al eje</span>
+<span style="text-align: center; color: #4A5561">0+000</span><span style="text-align: center; color: #4A5561">0+020</span><span style="text-align: center; color: #4A5561">0+040</span><span style="text-align: center; color: #4A5561">0+060</span><span style="text-align: center; color: #4A5561">0+080</span><span style="text-align: center; color: #4A5561">0+100</span><span style="text-align: center; color: #4A5561">0+120</span>
+<span style="font-family: 'IBM Plex Sans', sans-serif">Borde izq</span>
+<span style="text-align: center; background: #EEF1F4; font-weight: 600; padding: 4px 0">3.60</span><span style="text-align: center; color: #6B7682; font-style: italic; padding: 4px 0">3.65</span><span style="text-align: center; background: #EEF1F4; font-weight: 600; padding: 4px 0">3.70</span><span style="text-align: center; color: #6B7682; font-style: italic; padding: 4px 0">3.70</span><span style="text-align: center; background: #EEF1F4; font-weight: 600; padding: 4px 0">3.70</span><span style="text-align: center; color: #6B7682; font-style: italic; padding: 4px 0">3.55</span><span style="text-align: center; background: #EEF1F4; font-weight: 600; padding: 4px 0">3.40</span>
+<span style="font-family: 'IBM Plex Sans', sans-serif">Borde der</span>
+<span style="text-align: center; background: #EEF1F4; font-weight: 600; padding: 4px 0">3.60</span><span style="text-align: center; color: #6B7682; font-style: italic; padding: 4px 0">3.60</span><span style="text-align: center; background: #EEF1F4; font-weight: 600; padding: 4px 0">3.60</span><span style="text-align: center; color: #6B7682; font-style: italic; padding: 4px 0">3.62</span><span style="text-align: center; background: #EEF1F4; font-weight: 600; padding: 4px 0">3.65</span><span style="text-align: center; color: #6B7682; font-style: italic; padding: 4px 0">3.65</span><span style="text-align: center; background: #EEF1F4; font-weight: 600; padding: 4px 0">3.65</span>
+</div>
+<div style="font-size: 13px; color: #4A5561; margin-top: 6px">En negrita, lo que mediste con wincha. En cursiva gris, lo que la app estima entre medidas.</div>
+</div>
+</sc-if>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px">
+<button type="button" onClick="{{abrirHojas}}" aria-expanded="{{a.hojas}}" style="width: 100%; min-height: 56px; border: 0; background: transparent; display: flex; align-items: center; gap: 12px; padding: 0 16px; text-align: left; color: #10161D">
+<b style="font-size: 16px; width: 170px">Jornadas y hojas</b><span style="flex: 1; font-size: 14px; color: #4A5561">3 jornadas · 2 hojas subidas · la última hoy</span><span style="font-size: 18px">{{fl.hojas}}</span></button>
+<sc-if value="{{a.hojasOn}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 16px 16px; display: grid; grid-template-columns: 1fr auto auto; gap: 8px 16px; font-size: 14px">
+<span><b>Subrasante</b> · escrita aquí</span><span class="mono">05/10/2026</span><span style="color: #7A4A00">△ sin cerrar</span>
+<span><b>Terreno</b> · Av Sol terreno.xlsx</span><span class="mono">28/09/2026</span><span style="color: #0B5E56">✓ cerró −3 mm</span>
+<span><b>Terreno</b> · pegada desde Google Sheets</span><span class="mono">27/09/2026</span><span style="color: #0B5E56">✓ cerró +5 mm</span>
+</div>
+</sc-if>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+var PUNTOS = [
+  { nombre: 'Vereda', palabra: 'vereda', dist: '−5.60', x: 30, y: 62 },
+  { nombre: 'Sardinel', palabra: 'sardi', dist: '−4.20', x: 120, y: 74 },
+  { nombre: 'Borde', palabra: 'bobo', dist: '−3.60', x: 152, y: 106 },
+  { nombre: 'Eje', palabra: 'ejito', dist: '0.00', x: 440, y: 90 },
+  { nombre: 'Borde', palabra: 'bobo', dist: '+3.60', x: 728, y: 106 },
+  { nombre: 'Sardinel', palabra: 'sardi', dist: '+4.20', x: 760, y: 74 },
+  { nombre: 'Vereda', palabra: 'vereda', dist: '+5.60', x: 850, y: 62 }
+];
+
+class Component extends DCLogic {
+  state = { abierto: 'seccion', calle: 0 };
+
+  renderVals() {
+    var s = this.state, self = this;
+    var abrir = function (k) { return function () { self.setState({ abierto: s.abierto === k ? '' : k }); }; };
+    var a = {}, fl = {};
+    ['seccion', 'rasante', 'anchos', 'hojas'].forEach(function (k) { a[k] = s.abierto === k ? 'true' : 'false'; a[k + 'On'] = s.abierto === k; fl[k] = s.abierto === k ? '−' : '+'; });
+    var calles = [['Av. Sol', '0+000 – 0+120 · capa en curso: Subrasante'], ['Jr. Lima', '0+000 – 0+200 · capa en curso: Base'], ['Detrás del colegio', '0+006 – 0+060 · solo Terreno']].map(function (c, i) {
+      return { nombre: c[0], resumen: c[1], on: i === s.calle ? 'true' : 'false', borde: i === s.calle ? '#10161D' : '#D5DAE0', pick: function () { self.setState({ calle: i }); } };
+    });
+    return {
+      a: a, fl: fl, calles: calles,
+      abrirSeccion: abrir('seccion'), abrirRasante: abrir('rasante'), abrirAnchos: abrir('anchos'), abrirHojas: abrir('hojas'),
+      puntos: PUNTOS.map(function (p) { var abajo = p.nombre === 'Borde'; return { t: abajo ? 22 : 4, b: abajo ? 4 : 22, nombre: p.nombre, palabra: p.palabra, dist: p.dist, x: (p.x / 880 * 100).toFixed(2), y: (p.y / 150 * 100).toFixed(2) }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

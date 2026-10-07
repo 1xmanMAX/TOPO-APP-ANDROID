@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Informes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="height: 64px; flex: none; background: #10161D; color: #FFFFFF; display: flex; align-items: center; gap: 18px; padding: 0 16px; box-sizing: border-box">
+<a href="Calle.dc.html" style="display: flex; align-items: center; gap: 8px; color: #FFFFFF; text-decoration: none; font-size: 15px; height: 44px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Volver a la calle</a>
+<div style="font-size: 20px; font-weight: 700">Informes</div>
+<div style="flex: 1"></div>
+<div style="display: flex; gap: 8px; font-size: 14px">
+<span style="padding: 8px 12px; border-radius: 8px; background: #1B242D; border: 1px solid #3A4651">Calle <b>Av. Sol</b></span>
+<span style="padding: 8px 12px; border-radius: 8px; background: #1B242D; border: 1px solid #3A4651">Capa <b>Subrasante</b></span>
+<span style="padding: 8px 12px; border-radius: 8px; background: #1B242D; border: 1px solid #3A4651">Fecha <b class="mono">05/10/2026</b></span>
+</div>
+</header>
+
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 16px; padding: 16px; box-sizing: border-box">
+
+<div style="display: flex; flex-direction: column; gap: 10px; min-height: 0">
+<div style="font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Qué informe</div>
+<sc-for list="{{tipos}}" as="t" hint-placeholder-count="6">
+<button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="text-align: left; border: 2px solid {{t.borde}}; background: {{t.bg}}; border-radius: 10px; padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; color: #10161D">
+<span style="font-size: 15px; font-weight: 600">{{t.nombre}}</span>
+<span style="font-size: 13px; color: #4A5561">{{t.desc}}</span>
+</button>
+</sc-for>
+<div style="font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561; margin-top: 4px">Incluir</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{opciones}}" as="o" hint-placeholder-count="3">
+<button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid {{o.borde}}; background: {{o.bg}}; color: {{o.fg}}; font-size: 14px; display: flex; align-items: center; gap: 6px">{{o.marca}} {{o.nombre}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px; min-height: 0; align-items: center">
+<div style="width: 520px; height: 640px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(16,22,29,.12), 0 8px 24px rgba(16,22,29,.10); padding: 28px 30px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; font-size: 10.5px; overflow: hidden">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #10161D; padding-bottom: 8px">
+<div>
+<div style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #4A5561">Pavimentación de calles · [Nombre de la obra]</div>
+<div style="font-size: 16px; font-weight: 700; margin-top: 2px">{{doc.titulo}}</div>
+</div>
+<div style="width: 64px; height: 30px; border: 1px dashed #8B96A2; color: #6B7682; font-size: 8px; display: flex; align-items: center; justify-content: center">[Tu logo]</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; color: #2C3640">
+<span>Calle: <b>Av. Sol</b></span><span>Capa: <b>Subrasante</b></span><span>Fecha: <b class="mono">05/10/2026</b></span>
+<span>Tramo: <b class="mono">0+000 – 0+120</b></span><span>BM-1: <b class="mono">3245.180</b></span><span>Tolerancia: <b class="mono">±20 mm</b></span>
+</div>
+<sc-if value="{{doc.avisoCierre}}" hint-placeholder-val="{{ true }}">
+<div style="background: #FBF0D9; color: #7A4A00; padding: 6px 8px; border-radius: 4px"><b>△ Nivelación sin cerrar.</b> Las cotas de este informe no están comprobadas contra el banco de nivel.</div>
+</sc-if>
+<sc-if value="{{doc.hayTabla}}" hint-placeholder-val="{{ true }}">
+<div>
+<div style="display: grid; grid-template-columns: {{doc.columnas}}; gap: 0 6px; font-weight: 600; border-bottom: 1px solid #10161D; padding: 3px 0">
+<sc-for list="{{doc.cabeza}}" as="h" hint-placeholder-count="5"><span style="text-align: {{h.al}}">{{h.t}}</span></sc-for>
+</div>
+<sc-for list="{{doc.filas}}" as="f" hint-placeholder-count="12">
+<div class="mono" style="display: grid; grid-template-columns: {{doc.columnas}}; gap: 0 6px; padding: 2.5px 0; border-bottom: 1px solid #E3E7EB; background: {{f.bg}}; font-weight: {{f.peso}}">
+<sc-for list="{{f.c}}" as="c" hint-placeholder-count="5"><span style="text-align: {{c.al}}; color: {{c.color}}">{{c.t}}</span></sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{doc.vacio}}" hint-placeholder-val="{{ false }}">
+<div style="border: 1px dashed #8B96A2; border-radius: 6px; padding: 16px; color: #2C3640; font-size: 12px">Para los espesores hacen falta dos capas niveladas en la misma calle. En Av. Sol solo hay Terreno y Subrasante: <b>el espesor de Sub-base saldrá en cuanto niveles esa capa</b>. Mientras tanto, este informe compara Terreno con Subrasante si lo pides.</div>
+</sc-if>
+<sc-if value="{{conMapa}}" hint-placeholder-val="{{ true }}">
+<div>
+<div style="font-weight: 600; margin-bottom: 3px">Mapa de la calle</div>
+<sc-for list="{{mapa}}" as="r" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 52px repeat(7, minmax(0, 1fr)); gap: 2px; margin-bottom: 2px">
+<span style="font-size: 9px; color: #4A5561">{{r.nombre}}</span>
+<sc-for list="{{r.c}}" as="c" hint-placeholder-count="7"><span class="mono" style="font-size: 9px; text-align: center; background: {{c.bg}}; color: {{c.fg}}; padding: 1px 0">{{c.t}}</span></sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{conNotas}}" hint-placeholder-val="{{ false }}">
+<div style="color: #2C3640"><b>Notas de campo.</b> 0+040: buzón de desagüe a 0.30 m bajo subrasante. 0+080: material acopiado sobre el eje.</div>
+</sc-if>
+<div style="flex: 1"></div>
+<sc-if value="{{conFirmas}}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-top: 6px">
+<div style="border-top: 1px solid #10161D; padding-top: 3px; text-align: center">Topógrafo · [Nombre]</div>
+<div style="border-top: 1px solid #10161D; padding-top: 3px; text-align: center">Supervisión · [Nombre]</div>
+</div>
+</sc-if>
+</div>
+<div style="display: flex; gap: 10px">
+<button type="button" style="height: 48px; padding: 0 22px; border: 0; border-radius: 10px; background: #C2410C; color: #FFFFFF; font-size: 15px; font-weight: 600">Descargar PDF</button>
+<button type="button" style="height: 48px; padding: 0 18px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; font-size: 15px">Excel</button>
+<button type="button" style="height: 48px; padding: 0 18px; border: 1px solid #C3CAD2; border-radius: 10px; background: #FFFFFF; color: #10161D; font-size: 15px">Compartir</button>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+var AI = 3246.632;
+var PTS = [
+  { nombre: 'Sard. izq', off: -4.2, caida: 0.084 },
+  { nombre: 'Borde izq', off: -3.6, caida: 0.072 },
+  { nombre: 'Eje', off: 0, caida: 0 },
+  { nombre: 'Borde der', off: 3.6, caida: 0.072 },
+  { nombre: 'Sard. der', off: 4.2, caida: 0.084 }
+];
+var PROGS = [0, 20, 40, 60, 80, 100, 120];
+var DIF = [
+  [6, -4, 14, 18, 27, 9, null],
+  [3, -8, 11, 15, 22, 5, null],
+  [-2, -11, 7, 12, 46, 3, null],
+  [1, -14, 9, 10, 19, -6, null],
+  [-5, -23, 4, 8, 16, -9, null]
+];
+var EST = {
+  ok: { sim: '✓', txt: 'Conforme', bg: '#E3F2EF', fg: '#0B5E56' },
+  aviso: { sim: '△', txt: 'Al límite', bg: '#FBF0D9', fg: '#7A4A00' },
+  fuera: { sim: '✗', txt: 'Fuera', bg: '#FBE3E3', fg: '#9F1B1B' },
+  sin: { sim: '·', txt: 'Sin medir', bg: '#EEF1F4', fg: '#55606B' }
+};
+var TIPOS = [
+  { id: 'protocolo', nombre: 'Protocolo de nivelación', desc: 'Por capa: cota de proyecto, medida y diferencia. Para la supervisión.' },
+  { id: 'libreta', nombre: 'Libreta con cierre', desc: 'Lecturas, estaciones, cierre y compensación del día.' },
+  { id: 'control', nombre: 'Control contra proyecto', desc: 'Solo lo que está al límite o fuera, con qué hacer en cada punto.' },
+  { id: 'espesores', nombre: 'Espesores colocados', desc: 'Lo que hay puesto entre dos capas, celda por celda.' },
+  { id: 'metrado', nombre: 'Metrado de corte y relleno', desc: 'Áreas por progresiva y volumen por áreas medias.' },
+  { id: 'estacas', nombre: 'Hoja de replanteo', desc: 'Lectura objetivo por estaca, con casilla para anotar a mano.' }
+];
+function prog(p) { return '0+' + ('00' + p).slice(-3); }
+function disenio(i, k) { return 3244.730 - 0.0125 * PROGS[k] - PTS[i].caida; }
+function estado(d) { if (d === null) return 'sin'; var a = Math.abs(d); return a <= 20 ? 'ok' : (a <= 40 ? 'aviso' : 'fuera'); }
+function sgn(d) { return (d > 0 ? '+' : (d < 0 ? '−' : '±')) + Math.abs(d); }
+function accion(d) { return d > 0 ? 'corta ' + d + ' mm' : (d < 0 ? 'rellena ' + (-d) + ' mm' : 'en cota'); }
+function celda(t, al, color) { return { t: t, al: al || 'left', color: color || '#10161D' }; }
+
+class Component extends DCLogic {
+  state = { tipo: 'protocolo', mapa: true, notas: false, firmas: true };
+
+  armar(tipo) {
+    var filas = [], cabeza = [], columnas = '', i, k;
+    if (tipo === 'protocolo' || tipo === 'control') {
+      columnas = '0.9fr 1.1fr 1fr 1fr 0.8fr 1.2fr';
+      cabeza = [celda('Prog.'), celda('Punto'), celda('Proyecto', 'right'), celda('Medida', 'right'), celda('Dif. mm', 'right'), celda('Estado')];
+      for (k = 0; k < 6; k++) for (i = 0; i < 5; i++) {
+        var d = DIF[i][k], e = EST[estado(d)];
+        if (tipo === 'protocolo' && (k < 2 || k > 4)) continue;
+        if (tipo === 'control' && estado(d) === 'ok') continue;
+        filas.push({ bg: 'transparent', peso: '400', c: [celda(prog(PROGS[k])), celda(PTS[i].nombre), celda(disenio(i, k).toFixed(3), 'right'), celda((disenio(i, k) + d / 1000).toFixed(3), 'right'), celda(sgn(d), 'right', e.fg), celda(e.sim + ' ' + (tipo === 'control' ? accion(d) : e.txt), 'left', e.fg)] });
+      }
+    } else if (tipo === 'libreta') {
+      columnas = '0.9fr 1.1fr 1fr 1fr 1fr';
+      cabeza = [celda('Prog.'), celda('Punto'), celda('V. atrás', 'right'), celda('V. adelante', 'right'), celda('Cota', 'right')];
+      filas.push({ bg: '#F4F6F8', peso: '600', c: [celda('BM-1'), celda('Banco'), celda('1.452', 'right'), celda('', 'right'), celda('3245.180', 'right')] });
+      for (k = 2; k < 5; k++) for (i = 0; i < 5; i++) {
+        var cota = disenio(i, k) + DIF[i][k] / 1000;
+        filas.push({ bg: 'transparent', peso: '400', c: [celda(prog(PROGS[k])), celda(PTS[i].nombre), celda('', 'right'), celda((AI - cota).toFixed(3), 'right'), celda(cota.toFixed(3), 'right')] });
+      }
+    } else if (tipo === 'metrado') {
+      columnas = '0.9fr 1fr 1fr 1fr 1fr';
+      cabeza = [celda('Prog.'), celda('Á. corte m²', 'right'), celda('Á. relleno m²', 'right'), celda('V. corte m³', 'right'), celda('V. relleno m³', 'right')];
+      var prev = null, tc = 0, tr = 0;
+      for (k = 0; k < 6; k++) {
+        var sc = 0, sr = 0;
+        for (i = 0; i < 5; i++) { var dd = DIF[i][k]; if (dd > 0) sc += dd; else sr -= dd; }
+        var ac = sc / 5 / 1000 * 8.4, ar = sr / 5 / 1000 * 8.4, vc = '', vr = '';
+        if (prev) { var a = (prev.ac + ac) / 2 * 20, b = (prev.ar + ar) / 2 * 20; tc += a; tr += b; vc = a.toFixed(2); vr = b.toFixed(2); }
+        prev = { ac: ac, ar: ar };
+        filas.push({ bg: 'transparent', peso: '400', c: [celda(prog(PROGS[k])), celda(ac.toFixed(3), 'right'), celda(ar.toFixed(3), 'right'), celda(vc, 'right'), celda(vr, 'right')] });
+      }
+      filas.push({ bg: '#F4F6F8', peso: '600', c: [celda('Total'), celda(''), celda(''), celda(tc.toFixed(2), 'right'), celda(tr.toFixed(2), 'right')] });
+    } else if (tipo === 'estacas') {
+      columnas = '0.9fr 1.1fr 1fr 1fr 1fr';
+      cabeza = [celda('Prog.'), celda('Punto'), celda('Proyecto', 'right'), celda('Mira debe', 'right'), celda('Leída / corte', 'right')];
+      for (k = 5; k < 7; k++) for (i = 0; i < 5; i++) {
+        filas.push({ bg: 'transparent', peso: '400', c: [celda(prog(PROGS[k])), celda(PTS[i].nombre), celda(disenio(i, k).toFixed(3), 'right'), celda((AI - disenio(i, k)).toFixed(3), 'right'), celda('________', 'right', '#8B96A2')] });
+      }
+    }
+    var t = TIPOS.filter(function (x) { return x.id === tipo; })[0];
+    return {
+      titulo: t.nombre + (tipo === 'protocolo' ? ' · 0+040 a 0+080' : ''),
+      columnas: columnas, cabeza: cabeza, filas: filas,
+      hayTabla: tipo !== 'espesores', vacio: tipo === 'espesores',
+      avisoCierre: tipo !== 'espesores' && tipo !== 'estacas'
+    };
+  }
+
+  renderVals() {
+    var s = this.state, self = this;
+    var tipos = TIPOS.map(function (t) {
+      var on = t.id === s.tipo;
+      return { nombre: t.nombre, desc: t.desc, on: on ? 'true' : 'false', borde: on ? '#10161D' : '#D5DAE0', bg: on ? '#FFFFFF' : '#F7F8FA', pick: function () { self.setState({ tipo: t.id }); } };
+    });
+    var opcion = function (clave, nombre) {
+      var on = s[clave];
+      return { nombre: nombre, on: on ? 'true' : 'false', marca: on ? '✓' : '+', bg: on ? '#10161D' : '#FFFFFF', fg: on ? '#FFFFFF' : '#10161D', borde: on ? '#10161D' : '#C3CAD2', pick: function () { var o = {}; o[clave] = !s[clave]; self.setState(o); } };
+    };
+    var mapa = PTS.map(function (p, i) {
+      return { nombre: p.nombre, c: PROGS.map(function (pr, k) { var d = DIF[i][k], e = EST[estado(d)]; return { t: d === null ? '·' : e.sim + sgn(d), bg: e.bg, fg: e.fg }; }) };
+    });
+    return {
+      tipos: tipos,
+      opciones: [opcion('mapa', 'Mapa de la calle'), opcion('notas', 'Notas de campo'), opcion('firmas', 'Firmas')],
+      doc: this.armar(s.tipo), mapa: mapa,
+      conMapa: s.mapa, conNotas: s.notas, conFirmas: s.firmas
+    };
+  }
+}
+</script>
+</body>
+</html>

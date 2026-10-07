@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dónde pongo el nivel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="background: #10161D; color: #FFFFFF; padding: 14px 16px; display: flex; align-items: center; gap: 10px">
+<a href="Inicio.dc.html" aria-label="Volver a la obra" style="width: 44px; height: 44px; margin-left: -10px; display: flex; align-items: center; justify-content: center; color: #FFFFFF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="flex: 1">
+<div style="font-size: 17px; font-weight: 700">Pasaje Las Lomas</div>
+<div style="font-size: 13px; color: #AEB8C2">Mira de 4 m · instrumento a 1.50</div>
+</div>
+<span class="mono" style="background: #C2410C; color: #FFFFFF; font-size: 14px; font-weight: 700; padding: 6px 10px; border-radius: 8px">{{paso}} / {{total}}</span>
+</header>
+
+<div style="padding: 14px 16px 6px">
+<div style="position: relative; height: 54px">
+<div style="position: absolute; left: 0; right: 0; top: 24px; height: 6px; border-radius: 3px; background: #D5DAE0"></div>
+<div style="position: absolute; left: 0; width: {{avance}}%; top: 24px; height: 6px; border-radius: 3px; background: #C2410C"></div>
+<sc-for list="{{puntos}}" as="m" hint-placeholder-count="8">
+<span style="position: absolute; left: {{m.x}}%; top: 27px; transform: translate(-50%, -50%); width: {{m.tam}}px; height: {{m.tam}}px; border-radius: {{m.radio}}; background: {{m.color}}; border: 2px solid {{m.anillo}}; box-sizing: border-box"></span>
+<span style="position: absolute; left: {{m.x}}%; top: {{m.top}}px; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: {{m.color}}; white-space: nowrap">{{m.t}}</span>
+</sc-for>
+</div>
+</div>
+
+<div style="flex: 1; min-height: 0; padding: 6px 16px 16px; display: flex; flex-direction: column; gap: 10px">
+<sc-if value="{{enCurso}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="background: #10161D; color: #FFFFFF; border-radius: 14px; padding: 14px 16px">
+<div style="font-size: 13px; color: #AEB8C2">1 · Planta el nivel</div>
+<div style="font-size: 30px; font-weight: 700"><span class="mono">≈ {{e.s}}</span></div>
+<div style="font-size: 14px; color: #D7DDE3">{{e.camina}}</div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 12px 14px">
+<div style="font-size: 13px; color: #4A5561">2 · Mira atrás en <b style="color: #10161D">{{e.desde}}</b></div>
+<div style="font-size: 16px">Debería marcar <b class="mono" style="font-size: 20px">≈ {{e.atras}}</b></div>
+<div style="font-size: 13px; color: #7A4A00">Si la visual pasa por encima de la mira, baja el nivel 2 o 3 m.</div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 12px 14px">
+<div style="font-size: 13px; color: #4A5561">3 · Lee las progresivas</div>
+<div class="mono" style="font-size: 16px; font-weight: 600">{{e.progs}}</div>
+</div>
+<div style="background: #FFF4EC; border: 1px solid #F3C9A8; border-radius: 12px; padding: 12px 14px">
+<div style="font-size: 13px; color: #9A3412">4 · {{e.cierreTitulo}}</div>
+<div style="font-size: 16px">{{e.adelanteTxt}} <b class="mono" style="font-size: 20px">≈ {{e.adelante}}</b></div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{terminado}}" hint-placeholder-val="{{ false }}">
+<div style="background: #E3F2EF; color: #0B5E56; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 20px; font-weight: 700">✓ Llegaste a CP-3</div>
+<div style="font-size: 15px; color: #10161D">Compara con su cota, <b class="mono">3252.860</b>. Para cerrar, baja por PC-2 y PC-1 hasta CP-1: la app te guía igual, en orden inverso.</div>
+</div>
+</sc-if>
+<div style="flex: 1"></div>
+<div style="display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px">
+<button type="button" onClick="{{anterior}}" disabled="{{primero}}" style="height: 56px; border: 1px solid #C3CAD2; border-radius: 12px; background: #FFFFFF; color: #10161D; font-size: 16px">‹ Anterior</button>
+<button type="button" onClick="{{siguiente}}" disabled="{{terminado}}" style="height: 56px; border: 0; border-radius: 12px; background: #C2410C; color: #FFFFFF; font-size: 17px; font-weight: 700">Hecho, siguiente ›</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var L = 120, MIN = 0.30;
+function z(p) { return p <= 60 ? 0.082 * p : 4.92 + 0.074 * (p - 60); }
+function zinv(v) { return v <= 4.92 ? v / 0.082 : 60 + (v - 4.92) / 0.074; }
+function prog(m) { return '0+' + ('00' + Math.round(m)).slice(-3); }
+function planificar(M, h, D) {
+  var p = 0, res = [], guard = 0;
+  while (p < L && guard++ < 30) {
+    var sMax = Math.min(zinv(z(p) + M - h), p + D, L);
+    var sMin = Math.max(zinv(z(L) - h + MIN), L - D);
+    var s, q;
+    if (sMin <= sMax) { s = Math.round((Math.max(sMin, p) + sMax) / 2); q = L; }
+    else { s = Math.floor(sMax); q = Math.min(Math.floor(zinv(z(s) + h - MIN)), s + D, L); }
+    if (s <= p || q <= s) return [];
+    res.push({ s: s, p: p, q: q, atras: z(s) + h - z(p), adelante: z(s) + h - z(q) });
+    p = q;
+  }
+  return res;
+}
+var PLAN = planificar(4, 1.5, 40);
+
+class Component extends DCLogic {
+  state = { k: 0 };
+  renderVals() {
+    var s = this.state, self = this, n = PLAN.length, k = s.k;
+    var puntos = [];
+    [[0, 'CP-1'], [60, 'CP-2'], [120, 'CP-3']].forEach(function (c) { puntos.push({ x: (c[0] / L * 96 + 2).toFixed(1), t: c[1], color: '#1D4ED8', tam: 12, radio: '2px', anillo: '#FFFFFF', top: 38 }); });
+    PLAN.forEach(function (e, i) {
+      puntos.push({ x: (e.s / L * 96 + 2).toFixed(1), t: 'E' + (i + 1), color: '#10161D', tam: i === k ? 18 : 12, radio: '50%', anillo: i === k ? '#F97316' : '#FFFFFF', top: 2 });
+      if (e.q < L) puntos.push({ x: (e.q / L * 96 + 2).toFixed(1), t: 'PC-' + (i + 1), color: '#C2410C', tam: 10, radio: '0', anillo: '#FFFFFF', top: 2 });
+    });
+    var e = PLAN[Math.min(k, n - 1)], i = Math.min(k, n - 1);
+    var ps = []; for (var m = Math.ceil(e.p / 10) * 10; m <= e.q; m += 10) ps.push(prog(m));
+    var desde = i === 0 ? 'CP-1 (0+000)' : 'PC-' + i + ' (' + prog(e.p) + ')';
+    var fin = e.q >= L;
+    return {
+      paso: Math.min(k + 1, n), total: n, puntos: puntos,
+      avance: (Math.min(k, n) / n * 100).toFixed(0),
+      enCurso: k < n, terminado: k >= n, primero: k === 0,
+      e: {
+        s: prog(e.s), desde: desde, atras: e.atras.toFixed(2), adelante: e.adelante.toFixed(2), progs: ps.join(' · '),
+        camina: 'Unos ' + Math.round(e.s - e.p) + ' m subiendo desde ' + (i === 0 ? 'CP-1' : 'PC-' + i) + '. No hace falta exacto.',
+        cierreTitulo: fin ? 'Remata en el punto de control' : 'Clava el punto de cambio PC-' + (i + 1),
+        adelanteTxt: fin ? 'Lee adelante en CP-3:' : 'En ≈ ' + prog(e.q) + ', lee adelante:'
+      },
+      anterior: function () { self.setState({ k: Math.max(0, k - 1) }); },
+      siguiente: function () { self.setState({ k: Math.min(n, k + 1) }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

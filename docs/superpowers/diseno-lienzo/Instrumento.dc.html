@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Instrumento por Bluetooth</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="background: #10161D; color: #FFFFFF; padding: 14px 16px; display: flex; align-items: center; gap: 10px">
+<a href="Inicio.dc.html" aria-label="Volver a la obra" style="width: 44px; height: 44px; margin-left: -10px; display: flex; align-items: center; justify-content: center; color: #FFFFFF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="flex: 1">
+<div style="font-size: 17px; font-weight: 700">Instrumento</div>
+<div style="font-size: 13px; color: #AEB8C2">Versión Android · más adelante</div>
+</div>
+</header>
+
+<div style="flex: 1; min-height: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 12px">
+<span style="width: 44px; height: 44px; border-radius: 12px; background: #E3F2EF; color: #0B5E56; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7l10 10-5 5V2l5 5L7 17"></path></svg></span>
+<div style="flex: 1"><div style="font-size: 16px; font-weight: 600">[Modelo de tu nivel o estación]</div><div style="font-size: 13px; color: #0B5E56">✓ Conectado por Bluetooth</div></div>
+</div>
+
+<div style="background: #10161D; color: #FFFFFF; border-radius: 14px; padding: 14px 16px">
+<div style="font-size: 13px; color: #AEB8C2">La siguiente lectura irá a</div>
+<div style="font-size: 22px; font-weight: 700"><span class="mono">0+120</span> · {{siguiente}}</div>
+<div style="font-size: 13px; color: #D7DDE3">Mide con el instrumento: no tocas el celular</div>
+</div>
+
+<button type="button" onClick="{{simular}}" disabled="{{lleno}}" style="height: 52px; border: 2px dashed #C2410C; border-radius: 12px; background: #FFF4EC; color: #9A3412; font-size: 15px; font-weight: 600">Simular que el instrumento manda una lectura</button>
+
+<div style="font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Recibidas</div>
+<sc-for list="{{recibidas}}" as="r" hint-placeholder-count="3">
+<div style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center">
+<span style="font-size: 15px; font-weight: 600">{{r.punto}}</span>
+<span class="mono" style="font-size: 18px; font-weight: 600">{{r.lectura}}</span>
+<span style="font-size: 13px; color: {{r.color}}">{{r.estado}}</span>
+<span style="font-size: 12px; color: #4A5561">{{r.hora}}</span>
+</div>
+</sc-for>
+<div style="flex: 1"></div>
+<div style="font-size: 13px; color: #4A5561">Cada lectura pasa por el mismo aviso que si la escribieras: cota, diferencia y si pasa.</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var PTS = ['Sard. izq', 'Borde izq', 'Eje', 'Borde der', 'Sard. der'];
+var LLEGAN = [
+  ['3.489', '✓ −3 mm · rellena 3 mm', '#0B5E56'],
+  ['3.468', '✓ +6 mm · corta 6 mm', '#0B5E56'],
+  ['3.377', '△ +25 mm · corta 25 mm', '#7A4A00'],
+  ['3.471', '✓ +3 mm · corta 3 mm', '#0B5E56'],
+  ['3.492', '✓ −6 mm · rellena 6 mm', '#0B5E56']
+];
+class Component extends DCLogic {
+  state = { n: 2 };
+  renderVals() {
+    var s = this.state, self = this;
+    var recibidas = [];
+    for (var i = s.n - 1; i >= 0; i--) recibidas.push({ punto: PTS[i], lectura: LLEGAN[i][0], estado: LLEGAN[i][1], color: LLEGAN[i][2], hora: '11:0' + (2 + i * 2) });
+    return {
+      recibidas: recibidas, lleno: s.n >= PTS.length,
+      siguiente: s.n >= PTS.length ? 'progresiva completa' : PTS[s.n],
+      simular: function () { if (s.n < PTS.length) self.setState({ n: s.n + 1 }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

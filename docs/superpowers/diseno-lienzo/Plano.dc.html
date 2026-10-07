@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Plano con pines</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="background: #10161D; color: #FFFFFF; padding: 14px 16px; display: flex; align-items: center; gap: 10px">
+<a href="Inicio.dc.html" aria-label="Volver a la obra" style="width: 44px; height: 44px; margin-left: -10px; display: flex; align-items: center; justify-content: center; color: #FFFFFF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="flex: 1">
+<div style="font-size: 17px; font-weight: 700">Plano de la obra</div>
+<div style="font-size: 13px; color: #AEB8C2">Toca un pin para ir a ese punto</div>
+</div>
+</header>
+
+<div style="position: relative; height: 470px; background: #F7F5EE; border-bottom: 1px solid #D5DAE0; overflow: hidden">
+<svg width="390" height="470" viewBox="0 0 390 470" style="position: absolute; inset: 0" aria-hidden="true">
+<g fill="#E4E0D3" stroke="#C9C3B0">
+<rect x="20" y="30" width="130" height="150"></rect><rect x="200" y="30" width="170" height="150"></rect>
+<rect x="20" y="240" width="130" height="200"></rect><rect x="200" y="240" width="170" height="90"></rect><rect x="200" y="380" width="170" height="70"></rect>
+</g>
+<rect x="150" y="10" width="50" height="450" fill="#FFFFFF" stroke="#B8B2A0"></rect>
+<rect x="10" y="180" width="370" height="60" fill="#FFFFFF" stroke="#B8B2A0"></rect>
+<rect x="200" y="330" width="180" height="50" fill="#FFFFFF" stroke="#B8B2A0"></rect>
+<line x1="175" y1="20" x2="175" y2="450" stroke="#B8B2A0" stroke-dasharray="6 6"></line>
+<line x1="20" y1="210" x2="370" y2="210" stroke="#B8B2A0" stroke-dasharray="6 6"></line>
+<text x="60" y="110" font-size="12" fill="#8A8470" font-family="IBM Plex Sans">Mz. A</text>
+<text x="265" y="110" font-size="12" fill="#8A8470" font-family="IBM Plex Sans">Colegio</text>
+<text x="60" y="340" font-size="12" fill="#8A8470" font-family="IBM Plex Sans">Mz. C</text>
+<text x="160" y="470" font-size="11" fill="#8A8470" font-family="IBM Plex Sans">[tu plano aquí]</text>
+</svg>
+<span style="position: absolute; left: 160px; top: 40px; writing-mode: vertical-rl; font-size: 12px; font-weight: 600; color: #4A5561">Av. Sol</span>
+<span style="position: absolute; left: 300px; top: 190px; font-size: 12px; font-weight: 600; color: #4A5561">Jr. Lima</span>
+<span style="position: absolute; left: 230px; top: 340px; font-size: 12px; font-weight: 600; color: #4A5561">Detrás del colegio</span>
+<sc-for list="{{pines}}" as="p" hint-placeholder-count="6">
+<button type="button" onClick="{{p.pick}}" aria-label="{{p.nombre}}" aria-pressed="{{p.on}}" style="position: absolute; left: {{p.x}}px; top: {{p.y}}px; transform: translate(-50%, -100%); width: 44px; height: 52px; border: 0; background: transparent; padding: 0; display: flex; align-items: flex-end; justify-content: center">
+<span style="min-width: 30px; height: 30px; padding: 0 4px; box-sizing: border-box; border-radius: 15px 15px 15px 2px; transform: rotate(-45deg); background: {{p.color}}; border: 2px solid {{p.anillo}}; display: flex; align-items: center; justify-content: center"><span style="transform: rotate(45deg); color: #FFFFFF; font-size: 11px; font-weight: 700">{{p.corto}}</span></span>
+</button>
+</sc-for>
+</div>
+
+<div style="flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; color: #4A5561">{{sel.tipo}}</div>
+<div style="font-size: 22px; font-weight: 700">{{sel.nombre}}</div>
+<div style="font-size: 15px; color: #2C3640">{{sel.detalle}}</div>
+<div style="flex: 1"></div>
+<a href="{{sel.enlace}}" style="min-height: 48px; border-radius: 10px; background: #C2410C; color: #FFFFFF; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600">{{sel.accion}}</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var PINES = [
+  { corto: 'BM1', nombre: 'BM-1', tipo: 'Banco de nivel', x: 200, y: 182, color: '#10161D', detalle: 'Cota 3245.180 · esquina Sol con Lima · clavo en sardinel.', accion: 'Ver en la obra', enlace: 'Ajustes.dc.html' },
+  { corto: 'BM2', nombre: 'BM-2', tipo: 'Banco de nivel', x: 360, y: 332, color: '#10161D', detalle: 'Cota 3243.905 · frente al colegio.', accion: 'Ver en la obra', enlace: 'Ajustes.dc.html' },
+  { corto: '✗', nombre: 'Av. Sol · 0+080', tipo: 'Fuera de tolerancia', x: 175, y: 300, color: '#9F1B1B', detalle: 'Eje +46 mm sobre la subrasante de proyecto: corta 46 mm.', accion: 'Abrir ese punto', enlace: 'Calle.dc.html' },
+  { corto: '△', nombre: 'Jr. Lima · 0+120', tipo: 'Agua empozada', x: 250, y: 210, color: '#A16207', detalle: 'Punto bajo medido en la base, 20 m después del sumidero.', accion: 'Ver el drenaje', enlace: 'Analisis.dc.html' },
+  { corto: 'N', nombre: 'Av. Sol · 0+040', tipo: 'Nota con foto', x: 175, y: 120, color: '#1D4ED8', detalle: 'Buzón de desagüe a 0.30 m bajo subrasante.', accion: 'Ver las notas', enlace: 'Notas.dc.html' }
+];
+class Component extends DCLogic {
+  state = { i: 2 };
+  renderVals() {
+    var s = this.state, self = this;
+    return {
+      pines: PINES.map(function (p, i) { var on = i === s.i; return { corto: p.corto, nombre: p.nombre, x: p.x, y: p.y, color: p.color, anillo: on ? '#F97316' : '#FFFFFF', on: on ? 'true' : 'false', pick: function () { self.setState({ i: i }); } }; }),
+      sel: PINES[s.i]
+    };
+  }
+}
+</script>
+</body>
+</html>

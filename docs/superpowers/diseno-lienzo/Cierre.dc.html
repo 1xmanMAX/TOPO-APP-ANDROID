@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Cierre y compensación</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; background: #EEF1F4; color: #10161D; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden">
+
+<header style="height: 64px; flex: none; background: #10161D; color: #FFFFFF; display: flex; align-items: center; gap: 18px; padding: 0 16px; box-sizing: border-box">
+<a href="Calle.dc.html" style="display: flex; align-items: center; gap: 8px; color: #FFFFFF; text-decoration: none; font-size: 15px; height: 44px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Av. Sol · Subrasante</a>
+<div style="font-size: 20px; font-weight: 700">Cerrar el circuito</div>
+<div style="flex: 1"></div>
+<span style="font-size: 14px; color: #AEB8C2">Jornada de hoy · 2 estaciones · 35 lecturas</span>
+</header>
+
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; padding: 16px; box-sizing: border-box">
+
+<div style="display: flex; flex-direction: column; gap: 16px; min-height: 0">
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 14px; color: #4A5561">El recorrido de hoy</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="border: 2px solid #10161D; border-radius: 10px; padding: 8px 12px; text-align: center"><div style="font-weight: 700">BM-1</div><div class="mono" style="font-size: 13px">3245.180</div><div style="font-size: 12px; color: #4A5561">salida</div></div>
+<div style="flex: 1; border-top: 2px solid #8B96A2; position: relative"><span class="mono" style="position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font-size: 12px; color: #4A5561; white-space: nowrap">atrás 1.452</span></div>
+<div style="background: #EEF1F4; border-radius: 10px; padding: 8px 12px; text-align: center"><div style="font-weight: 700">Estación 1</div><div style="font-size: 12px; color: #4A5561">30 lecturas · 0+000 a 0+100</div></div>
+<div style="flex: 1; border-top: 2px solid #8B96A2; position: relative"><span class="mono" style="position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font-size: 12px; color: #4A5561; white-space: nowrap">adelante 2.905</span></div>
+<div style="border: 2px dashed #10161D; border-radius: 10px; padding: 8px 12px; text-align: center"><div style="font-weight: 700">PC-1</div><div style="font-size: 12px; color: #4A5561">punto de cambio</div></div>
+<div style="flex: 1; border-top: 2px solid #8B96A2; position: relative"><span class="mono" style="position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font-size: 12px; color: #4A5561; white-space: nowrap">atrás 2.410</span></div>
+<div style="background: #EEF1F4; border-radius: 10px; padding: 8px 12px; text-align: center"><div style="font-weight: 700">Estación 2</div><div style="font-size: 12px; color: #4A5561">5 lecturas · 0+120</div></div>
+<div style="flex: 1; border-top: 2px solid #C2410C; position: relative"><span class="mono" style="position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font-size: 12px; color: #C2410C; font-weight: 600; white-space: nowrap">adelante ?</span></div>
+<div style="border: 2px solid #C2410C; border-radius: 10px; padding: 8px 12px; text-align: center"><div style="font-weight: 700">BM-1</div><div class="mono" style="font-size: 13px">3245.180</div><div style="font-size: 12px; color: #C2410C">llegada</div></div>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 18px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; flex: 1; min-height: 0">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<label for="cierreLectura" style="font-size: 15px; font-weight: 600">Lectura en BM-1 desde la Estación 2</label>
+<input id="cierreLectura" class="mono" inputmode="decimal" value="{{lectura}}" onChange="{{onLectura}}" style="height: 64px; border: 2px solid #10161D; border-radius: 10px; font-size: 32px; padding: 0 14px; box-sizing: border-box; width: 100%">
+<div style="font-size: 14px; color: #4A5561">Para cerrar perfecto tendrías que leer <b class="mono">0.957</b></div>
+<div style="font-size: 15px; font-weight: 600; margin-top: 6px">Tolerancia del circuito</div>
+<div role="group" aria-label="Constante k" style="display: flex; gap: 6px">
+<sc-for list="{{ks}}" as="k" hint-placeholder-count="3">
+<button type="button" onClick="{{k.pick}}" aria-pressed="{{k.on}}" class="mono" style="flex: 1; height: 44px; border-radius: 8px; border: 1px solid {{k.borde}}; background: {{k.bg}}; color: {{k.fg}}; font-size: 15px">{{k.k}} mm·√K</button>
+</sc-for>
+</div>
+<label for="cierreK" style="font-size: 14px; color: #2C3640">Longitud del circuito (km)</label>
+<input id="cierreK" class="mono" inputmode="decimal" value="{{km}}" onChange="{{onKm}}" style="height: 48px; border: 1px solid #8B96A2; border-radius: 8px; font-size: 20px; padding: 0 12px; box-sizing: border-box; width: 100%">
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="background: {{r.bg}}; color: {{r.fg}}; border-radius: 14px; padding: 18px 20px; display: flex; align-items: center; gap: 18px">
+<span style="font-size: 54px; line-height: 1">{{r.sim}}</span>
+<div>
+<div style="font-size: 30px; font-weight: 700; line-height: 1.1">{{r.titulo}}</div>
+<div style="font-size: 16px">{{r.detalle}}</div>
+</div>
+</div>
+<div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #4A5561"><span class="mono">−{{r.tol}}</span><span>error de cierre</span><span class="mono">+{{r.tol}}</span></div>
+<div style="position: relative; height: 34px; background: #FBE3E3; border-radius: 6px; margin-top: 4px">
+<div style="position: absolute; left: 20%; width: 60%; top: 0; bottom: 0; background: #E3F2EF; border-left: 2px solid #0B5E56; border-right: 2px solid #0B5E56"></div>
+<div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed #4A5561"></div>
+<div style="position: absolute; left: {{r.pos}}%; top: -4px; bottom: -4px; width: 6px; transform: translateX(-50%); background: #10161D; border-radius: 3px"></div>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: #4A5561; margin-top: 4px"><span>dos veces la tolerancia</span><span>dos veces la tolerancia</span></div>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: 1fr auto; row-gap: 8px; font-size: 15px">
+<dt style="color: #4A5561">Cota calculada del BM-1</dt><dd class="mono" style="margin: 0; font-weight: 600">{{r.calc}}</dd>
+<dt style="color: #4A5561">Cota conocida del BM-1</dt><dd class="mono" style="margin: 0">3245.180</dd>
+<dt style="color: #4A5561">Error de cierre</dt><dd class="mono" style="margin: 0; font-weight: 600">{{r.err}}</dd>
+<dt style="color: #4A5561">Tolerancia ({{r.formula}})</dt><dd class="mono" style="margin: 0">±{{r.tol}} mm</dd>
+</dl>
+</div>
+</section>
+</div>
+
+<aside style="background: #FFFFFF; border: 1px solid #D5DAE0; border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #4A5561">Compensación</div>
+<div style="font-size: 15px; color: #2C3640">El error se reparte por estaciones: la primera carga la mitad y la segunda todo.</div>
+<div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; font-size: 13px; color: #4A5561; border-bottom: 1px solid #10161D; padding-bottom: 4px"><span>Tramo</span><span style="text-align: right">Lecturas</span><span style="text-align: right">Corrección</span></div>
+<sc-for list="{{tramos}}" as="t" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr; font-size: 15px; padding: 6px 0; border-bottom: 1px solid #E3E7EB">
+<span>{{t.nombre}}</span><span class="mono" style="text-align: right">{{t.n}}</span><span class="mono" style="text-align: right; font-weight: 600">{{t.c}}</span>
+</div>
+</sc-for>
+<div style="flex: 1"></div>
+<div style="background: {{r.bg}}; color: {{r.fg}}; border-radius: 10px; padding: 12px; font-size: 15px">{{r.consecuencia}}</div>
+<button type="button" style="height: 52px; border: 0; border-radius: 10px; background: {{r.boton}}; color: #FFFFFF; font-size: 16px; font-weight: 700">{{r.accion}}</button>
+<a href="Informes.dc.html" style="min-height: 44px; border: 1px solid #C3CAD2; border-radius: 10px; color: #10161D; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 14px">Ver la libreta con cierre como informe</a>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+var AI2 = 3246.137;
+function n(x) { return parseFloat(String(x).replace(',', '.')); }
+
+class Component extends DCLogic {
+  state = { lectura: '0.961', k: 12, km: '0.30' };
+
+  renderVals() {
+    var s = this.state, self = this;
+    var v = n(s.lectura), km = n(s.km);
+    var tol = s.k * Math.sqrt(isNaN(km) ? 0 : km);
+    var r = { sim: '·', titulo: 'Falta la lectura', detalle: 'Escribe lo que marcó la mira en el BM-1', bg: '#EEF1F4', fg: '#55606B', pos: 50, calc: '—', err: '—', tol: tol.toFixed(1), formula: s.k + '·√' + s.km, consecuencia: 'Mientras no cierres, las 35 lecturas siguen sin comprobar.', accion: 'Esperando la lectura', boton: '#8B96A2' };
+    var e = 0;
+    if (!isNaN(v)) {
+      var calc = AI2 - v; e = Math.round((calc - 3245.180) * 1000);
+      var a = Math.abs(e);
+      r.calc = calc.toFixed(3); r.err = (e > 0 ? '+' : (e < 0 ? '−' : '±')) + a + ' mm';
+      r.pos = Math.max(2, Math.min(98, 50 + (tol > 0 ? e / tol * 30 : 0)));
+      if (a <= tol) {
+        r.sim = '✓'; r.titulo = 'Cierra: pasa'; r.detalle = r.err + ' dentro de ±' + r.tol + ' mm'; r.bg = '#E3F2EF'; r.fg = '#0B5E56';
+        r.consecuencia = '✓ Al compensar, las 35 lecturas de hoy quedan comprobadas y el informe sale sin aviso.'; r.accion = 'Compensar y dar por cerrada'; r.boton = '#0B5E56';
+      } else {
+        r.sim = '✗'; r.titulo = 'No cierra: repite'; r.detalle = r.err + ', permitido ±' + r.tol + ' mm'; r.bg = '#FBE3E3'; r.fg = '#9F1B1B';
+        r.consecuencia = '✗ No se compensa un error fuera de tolerancia. Revisa el punto de cambio PC-1 o repite la vuelta.'; r.accion = 'Marcar para repetir'; r.boton = '#9F1B1B';
+      }
+    }
+    var corr = function (f) { var c = Math.round(-e * f); return isNaN(v) ? '—' : ((c > 0 ? '+' : (c < 0 ? '−' : '±')) + Math.abs(c) + ' mm'); };
+    return {
+      lectura: s.lectura, km: s.km, r: r,
+      onLectura: function (ev) { self.setState({ lectura: ev.target.value }); },
+      onKm: function (ev) { self.setState({ km: ev.target.value }); },
+      ks: [12, 8, 4].map(function (k) {
+        var on = s.k === k;
+        return { k: k, on: on ? 'true' : 'false', bg: on ? '#10161D' : '#FFFFFF', fg: on ? '#FFFFFF' : '#10161D', borde: on ? '#10161D' : '#C3CAD2', pick: function () { self.setState({ k: k }); } };
+      }),
+      tramos: [
+        { nombre: 'BM-1 · salida', n: '—', c: '±0 mm' },
+        { nombre: 'Estación 1', n: '30', c: corr(0.5) },
+        { nombre: 'PC-1', n: '1', c: corr(0.5) },
+        { nombre: 'Estación 2', n: '5', c: corr(1) },
+        { nombre: 'BM-1 · llegada', n: '1', c: corr(1) }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
