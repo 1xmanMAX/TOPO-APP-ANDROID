@@ -13,6 +13,20 @@ npm run dev     # abre en http://localhost:5173
 
 Funciona **sin internet**. Guía completa: [docs/uso.md](docs/uso.md).
 
+## Android y Windows
+
+La misma app sale como **APK para Android** (Capacitor, en `packages/app/android`) y como **EXE para Windows** (Electron, en `escritorio/`). En Android los archivos exportados (Excel, CSV, PDF, `.topo`) se entregan con el menú de compartir del teléfono.
+
+Para publicar una versión, se sube una etiqueta y GitHub Actions compila los dos y crea la release con el APK, el instalador y el portable de Windows:
+
+```
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+O desde la pestaña **Actions → Release → Run workflow**. Para que cada APK se instale encima del anterior, guarda tu llave de firma en los secretos `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`; sin ellos el APK se firma con una llave de depuración.
+
+En local: `npx cap sync android` y `./gradlew assembleRelease` desde `packages/app/android` (con el SDK de Android), o `npm install && npm start` desde `escritorio/` para abrir la versión de escritorio.
+
 ## Qué hace hoy
 
 - **Libreta de nivelación** con las lecturas de mira tal como se anotan en campo: vista atrás, intermedias, punto de cambio, vista adelante.

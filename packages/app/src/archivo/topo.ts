@@ -1,3 +1,4 @@
+import { guardarArchivo } from './guardar'
 import {
   anadirPalabra,
   esPalabraDe,
@@ -805,15 +806,10 @@ function migrarASeccion(proyectoBruto: Proyecto): Proyecto {
 
 export function descargarTopo(proyecto: Proyecto, archivosDePlano: ArchivosDePlano = {}): void {
   const datos = empaquetarProyecto(proyecto, archivosDePlano)
-  const enlace = document.createElement('a')
-  const url = URL.createObjectURL(new Blob([datos], { type: 'application/zip' }))
-
-  enlace.href = url
   // Letras de cualquier idioma, no solo las del inglés: con `\w` la
   // «Pavimentación» se descargaba como «Pavimentacin» y la «Ñaña», como «aa».
-  enlace.download = `${proyecto.meta.nombre.replace(/[^\p{L}\p{N}\s-]/gu, '').trim() || 'proyecto'}.topo`
-  enlace.click()
-  URL.revokeObjectURL(url)
+  const nombre = `${proyecto.meta.nombre.replace(/[^\p{L}\p{N}\s-]/gu, '').trim() || 'proyecto'}.topo`
+  guardarArchivo(datos, nombre, 'application/zip')
 }
 
 /**

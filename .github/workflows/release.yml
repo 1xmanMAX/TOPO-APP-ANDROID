@@ -1,0 +1,137 @@
+# Publica una release con el APK de Android y el EXE de Windows.
+#
+# Se dispara al subir una etiqueta vX.Y.Z (git tag v0.2.0 && git push origin v0.2.0)
+# o a mano desde la pestaña Actions indicando la versión.
+#
+# Firma del APK (opcional, recomendada): con los secretos ANDROID_KEYSTORE_BASE64,
+# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS y ANDROID_KEY_PASSWORD cada versión
+# se instala encima de la anterior. Sin ellos se firma con una llave de depuración.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión a publicar (p. ej. 0.2.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.v.outputs.name }}
+      code: ${{ steps.v.outputs.code }}
+    steps:
+      - id: v
+        shell: bash
+        run: |
+          RAW="${{ github.event.inputs.version || github.ref_name }}"
+          NAME="${RAW#v}"
+          if ! [[ "$NAME" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "La versión debe ser X.Y.Z (recibido: $RAW)"; exit 1
+          fi
+          CODE=$(( BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3] ))
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run typecheck --workspaces
+      - run: npm run build --workspace packages/app
+      - run: npx cap sync android
+        working-directory: packages/app
+      - name: Llave de firma
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/topo.jks"
+            echo "TOPO_KEYSTORE=$RUNNER_TEMP/topo.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Sin ANDROID_KEYSTORE_BASE64: el APK se firma con la llave de depuración."
+          fi
+      - name: Compilar APK
+        working-directory: packages/app/android
+        env:
+          TOPO_VERSION_NAME: ${{ needs.version.outputs.name }}
+          TOPO_VERSION_CODE: ${{ needs.version.outputs.code }}
+          TOPO_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          TOPO_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          TOPO_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          mkdir -p "$GITHUB_WORKSPACE/salida"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/salida/TOPO-${TOPO_VERSION_NAME}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: salida/*.apk
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            escritorio/package-lock.json
+      - run: npm ci
+      - run: npm run build --workspace packages/app
+      - name: Compilar EXE
+        working-directory: escritorio
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm ci
+          npm version ${{ needs.version.outputs.name }} --no-git-tag-version --allow-same-version
+          npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: escritorio/salida/*.exe
+
+  release:
+    needs: [version, android, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: salida
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.name }}
+          name: TOPO ${{ needs.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          body: |
+            ## Descargas
+
+            - **Android:** `TOPO-${{ needs.version.outputs.name }}.apk` — ábrelo en el teléfono y permite instalar apps de origen desconocido.
+            - **Windows (instalador):** `TOPO-Setup-${{ needs.version.outputs.name }}.exe`
+            - **Windows (portable, sin instalar):** `TOPO-Portable-${{ needs.version.outputs.name }}.exe`
+
+            Windows puede avisar «Windows protegió su PC» porque el ejecutable no está firmado: «Más información» → «Ejecutar de todas formas».
+          files: salida/*
