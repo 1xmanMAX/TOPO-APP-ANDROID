@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pistas y veredas: separación entre niveles</title>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#f3f5f2; --panel:#ffffff; --ink:#1d2a24; --muted:#5d6b64; --line:#cfd8d2;
+  --up:#1f5fa8; --low:#8a5a1e; --ok:#1c7a46; --bad:#b3261e; --grid:#e1e7e3;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141a17; --panel:#1c2420; --ink:#e6ede9; --muted:#97a69d; --line:#34423b;
+    --up:#6fb0f2; --low:#e0a85c; --ok:#4cc27f; --bad:#ff7b72; --grid:#27322d;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141a17; --panel:#1c2420; --ink:#e6ede9; --muted:#97a69d; --line:#34423b;
+  --up:#6fb0f2; --low:#e0a85c; --ok:#4cc27f; --bad:#ff7b72; --grid:#27322d;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1200px;margin:0 auto;padding:16px}
+h1{font-size:1.25rem;margin:0 0 4px;font-weight:650}
+h2{font-size:1.05rem;margin:0 0 8px;font-weight:650}
+p.sub{margin:0 0 14px;color:var(--muted);font-size:.92rem}
+label{display:block;font-weight:600;font-size:.88rem;margin-bottom:3px}
+input,select,textarea,button{font:inherit;color:var(--ink)}
+input,select{padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);max-width:100%}
+input[type=number]{width:120px}
+input[readonly]{background:transparent;font-weight:600;width:120px}
+textarea{width:100%;height:112px;resize:vertical;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font:13.5px/1.5 ui-monospace,Menlo,Consolas,monospace}
+textarea:focus,input:focus,select:focus,button:focus-visible{outline:2px solid var(--up);outline-offset:1px}
+button{padding:8px 14px;border:0;border-radius:6px;background:var(--ink);color:var(--bg);font-weight:600;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.row>div{display:flex;flex-direction:column}
+.chk{display:flex;flex-direction:row!important;align-items:center;gap:8px;padding-bottom:6px}
+.chk input{width:18px;height:18px}
+.chk label{margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.chip{padding:6px 13px;border-radius:999px;background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:650}
+#editor{margin:0 0 12px;max-width:620px}
+#editor textarea{height:170px}
+.set{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg)}
+.sethead{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.refrow{align-items:center;margin:0 0 8px}
+.refrow label{margin:0}
+.sethead .nm{flex:1;min-width:0;font-weight:600}
+.sethead .del{padding:4px 10px;background:transparent;color:var(--bad);border:1px solid var(--line)}
+.panels{display:grid;gap:14px;grid-template-columns:1fr}
+@media (min-width:1000px){.panels{grid-template-columns:1fr 1fr}}
+.panel{margin-bottom:0;min-width:0}
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+@media (max-width:520px){.pick{grid-template-columns:1fr}}
+.pick select{width:100%}
+.pick .u label{color:var(--up)} .pick .l label{color:var(--low)}
+.result{border:1px solid var(--line);border-left-width:6px;border-radius:6px;padding:10px 12px;margin-bottom:10px;background:var(--bg)}
+.result.ok{border-left-color:var(--ok)} .result.bad{border-left-color:var(--bad)}
+.result .v{font-size:1.1rem}
+.result.ok .v{color:var(--ok)} .result.bad .v{color:var(--bad)}
+small{display:block;color:var(--muted);margin-top:3px}
+.plot{border:1px solid var(--line);border-radius:6px;overflow-x:auto;background:var(--panel)}
+svg{display:block;width:100%;min-width:440px;height:auto}
+.scan{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.scan input[type=range]{width:100%;padding:0;border:0;height:30px;accent-color:var(--ink)}
+.scanout{margin:2px 0 8px}
+.scanout b.ok{color:var(--ok)} .scanout b.bad{color:var(--bad)}
+#calcout .big{font-size:1.05rem;margin:4px 0}
+#calcout .big b{font-size:1.2rem}
+#calcout .ok{color:var(--ok)} #calcout .bad{color:var(--bad)}
+.adj{margin:0 0 8px}
+.adj label{margin-bottom:4px}
+.adjctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.adjctl input{width:84px}
+.adjctl span{font-size:.85rem;color:var(--muted)}
+.tblw{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:.95rem}
+.tbl th,.tbl td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl th{font-size:.8rem;color:var(--muted);font-weight:600}
+.tbl td.lec{font-weight:700;font-size:1.05rem}
+.tbl .warn{color:var(--low);font-size:.78rem;font-weight:600}
+.note{font-size:.85rem;color:var(--muted);margin:10px 0 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Pistas y veredas: separación entre niveles</h1>
+  <p class="sub">Llena cada conjunto como <code>progresiva, lectura</code> (o cota). Elige dos conjuntos por gráfica para ver su distancia, y usa el recuadro inferior para saber qué nivel registrar.</p>
+
+  <section class="card">
+    <h2>Punto de referencia (nivel)</h2>
+    <p class="sub" style="margin:0">Cada puesta del nivel tiene su cota BM y su lectura atrás. Si cambias la lectura (por ejemplo, de 1.000 a 1.500), todas las cotas de los conjuntos que usan esa puesta se actualizan. Para otro día, crea una puesta nueva y migra los conjuntos a ella.</p>
+    <div class="chips" id="refChips" role="tablist" aria-label="Puestas del nivel"></div>
+    <div class="row">
+      <div><label for="rName">Nombre</label><input id="rName" type="text"></div>
+      <div><label for="bm">Cota BM (m)</label><input id="bm" type="number" step="0.001"></div>
+      <div><label for="back">Lectura atrás (m)</label><input id="back" type="number" step="0.001"></div>
+      <div><label for="hi">HI (cota del nivel)</label><input id="hi" type="text" readonly></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="addRef" type="button" class="ghost">+ Nueva puesta</button>
+      <button id="migrate" type="button">Migrar todos los conjuntos a esta puesta</button>
+      <button id="delRef" type="button" class="ghost">Quitar puesta</button>
+    </div>
+    <p class="note" id="migMsg" aria-live="polite"></p>
+    <div class="row" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)">
+      <div><label for="unit">Unidad de lecturas</label>
+        <select id="unit"><option value="1">metros (m)</option><option value="0.01">centímetros (cm)</option><option value="0.001">milímetros (mm)</option></select></div>
+      <div><label for="mode">Mira</label>
+        <select id="mode"><option value="-1">Hacia abajo (Z = HI − L)</option><option value="1">Invertida (Z = HI + L)</option></select></div>
+      <div><label for="minCm">Separación mínima (cm)</label><input id="minCm" type="number" min="0" step="0.5"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Conjuntos de datos</h2>
+    <p class="sub" style="margin:0">Toca un conjunto para abrirlo y editarlo; al tocar otro se cambia. Progresiva en m. Si el tipo es «Cota», se usa el valor tal cual.</p>
+    <div class="chips" id="chips" role="tablist" aria-label="Conjuntos de datos"></div>
+    <div class="set" id="editor"></div>
+    <div class="row">
+      <button id="addSet" type="button">+ Agregar conjunto</button>
+      <button id="reset" type="button" class="ghost">Restablecer ejemplo</button>
+      <div class="chk"><input id="two" type="checkbox"><label for="two">Mostrar dos gráficas (izquierda y derecha)</label></div>
+    </div>
+    <div class="row" id="dlrow" style="margin-top:10px" hidden>
+      <button id="dlCsv" type="button" class="ghost">Descargar todos los datos (CSV)</button>
+      <button id="dlJson" type="button" class="ghost">Descargar respaldo (JSON)</button>
+    </div>
+    <p class="note" id="dlMsg" aria-live="polite"></p>
+    <p class="note">Tus datos se guardan en este navegador.</p>
+  </section>
+
+  <div class="panels" id="panels"></div>
+
+  <section class="card" id="calcbox" style="margin-top:14px">
+    <h2>Nivel a registrar</h2>
+    <p class="sub" style="margin:0 0 10px">Elige el conjunto y la progresiva: obtienes la cota y la lectura de mira en ese punto, siguiendo las pendientes ya establecidas. Si el conjunto no tiene línea en esa progresiva, se proyecta desde la línea más cercana. Puedes escribir varias progresivas separadas por coma.</p>
+    <div class="row">
+      <div><label for="cT">Conjunto</label><select id="cT"></select></div>
+      <div><label for="cX">Progresiva(s) (m)</label><input id="cX" type="text" placeholder="10, 20, 30" style="width:190px"></div>
+      <div><label for="cP">Leer con la puesta</label><select id="cP"></select></div>
+    </div>
+    <div id="calcout" style="margin-top:10px" aria-live="polite"></div>
+  </section>
+</main>
+
+<script>
+const $ = (q, r = document) => r.querySelector(q);
+const uid = () => Math.random().toString(36).slice(2, 8);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KEY = 'pistas-perfiles-v1';
+
+function lines(a){ return a.map((v,i) => `${i*10}, ${v.toFixed(3)}`).join('\n'); }
+function defaults(){
+  return {
+    refs: [{ id:'r1', name:'Puesta 1', bm:100, back:1.5 }], activeRef: 'r1', unit: '1', mode: '-1', minCm: 5, step: 1, two: true,
+    sets: [
+      { id:'vi', name:'Vereda izquierda',  type:'lectura', ref:'r1', text: lines([1.250,1.260,1.275,1.290,1.300]) },
+      { id:'bi', name:'Base izquierda',    type:'lectura', ref:'r1', text: lines([1.450,1.455,1.470,1.480,1.490]) },
+      { id:'si', name:'Subbase izquierda', type:'lectura', ref:'r1', text: lines([1.650,1.655,1.670,1.680,1.690]) },
+      { id:'vd', name:'Vereda derecha',    type:'lectura', ref:'r1', text: lines([1.240,1.250,1.265,1.280,1.290]) },
+      { id:'bd', name:'Base derecha',      type:'lectura', ref:'r1', text: lines([1.440,1.445,1.460,1.470,1.480]) },
+      { id:'sd', name:'Subbase derecha',   type:'lectura', ref:'r1', text: lines([1.640,1.645,1.660,1.670,1.680]) }
+    ],
+    sel: { L:['vi','si'], R:['vd','sd'] },
+    calc: { target:'vd', xs:'10, 20, 30', puesta:'' }
+  };
+}
+function load(){
+  try {
+    const t = localStorage.getItem(KEY); if (!t) return null;
+    const s = JSON.parse(t), d = defaults();
+    if (!s || !Array.isArray(s.sets) || !s.sets.length) return null;
+    const r = { ...d, ...s, sel:{ ...d.sel, ...(s.sel||{}) }, calc:{ ...d.calc, ...(s.calc||{}) } };
+    if (!Array.isArray(s.refs) || !s.refs.length) r.refs = [{ id:'r1', name:'Puesta 1', bm: s.bm ?? 100, back: s.back ?? 1.5 }];
+    if (!r.refs.some(x => x.id === r.activeRef)) r.activeRef = r.refs[0].id;
+    r.sets.forEach(q => { if (!r.refs.some(x => x.id === q.ref)) q.ref = r.refs[0].id; });
+    return r;
+  } catch(e) { return null; }
+}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {} }
+
+let state = load() || defaults();
+const byId = id => state.sets.find(s => s.id === id);
+const adjOf = q => parseFloat(q && q.adj) || 0;
+const adjTag = q => adjOf(q) ? ` (${adjOf(q) > 0 ? '+' : ''}${adjOf(q)} cm)` : '';
+
+/* ---------- datos ---------- */
+function parse(txt){
+  const pts = [];
+  for (const line of String(txt).split(/\n/)) {
+    const s = line.trim(); if (!s) continue;
+    const n = s.split(/[;\t\s,]+/).filter(Boolean).map(Number);
+    if (n.length >= 2 && n.every(v => isFinite(v))) pts.push([n[0], n[1]]);
+  }
+  return pts.sort((a,b) => a[0]-b[0]);
+}
+function ctx(){
+  return { k: parseFloat(state.unit) || 1, sg: parseFloat(state.mode) || -1 };
+}
+const refById = id => state.refs.find(r => r.id === id);
+const hiOf = r => (parseFloat(r.bm)||0) + (parseFloat(r.back)||0);
+const setRef = q => refById(q.ref) || state.refs[0];
+const setHI = q => hiOf(setRef(q));
+function zpts(set){
+  if (!set) return [];
+  const c = ctx(), HI = setHI(set), adj = adjOf(set) / 100;
+  return parse(set.text).map(([x,v]) => [x, (set.type === 'cota' ? v : HI + c.sg*v*c.k) + adj]);
+}
+function valuesAt(p, x){
+  const eps = 1e-9, out = [];
+  for (const q of p) if (Math.abs(q[0]-x) < eps) out.push(q[1]);
+  if (out.length) return out;
+  for (let i = 0; i < p.length-1; i++) {
+    const [x1,z1] = p[i], [x2,z2] = p[i+1];
+    if (x > x1 && x < x2) return [z1 + (z2-z1)*(x-x1)/(x2-x1)];
+  }
+  return [];
+}
+function analyze(U, L, minM){
+  if (U.length < 2 || L.length < 2) return { err:'Cada línea necesita al menos 2 puntos válidos.' };
+  const x0 = Math.max(U[0][0], L[0][0]), x1 = Math.min(U[U.length-1][0], L[L.length-1][0]);
+  if (x0 > x1) return { err:'Las dos líneas no se superponen en progresiva.' };
+  const xs = [...new Set([...U, ...L].map(p => p[0]).filter(x => x >= x0-1e-9 && x <= x1+1e-9))].sort((a,b) => a-b);
+  let worst = null; const fails = [];
+  for (const x of xs) {
+    const u = valuesAt(U, x), l = valuesAt(L, x);
+    if (!u.length || !l.length) continue;
+    const rec = { x, zu:Math.min(...u), zl:Math.max(...l) };
+    rec.gap = rec.zu - rec.zl;
+    if (!worst || rec.gap < worst.gap) worst = rec;
+    if (rec.gap < minM - 1e-9) fails.push(rec);
+  }
+  if (!worst) return { err:'No hay puntos comparables.' };
+  return { x0, x1, worst, fails, minM };
+}
+const cm = v => (v*100).toFixed(1) + ' cm';
+const xt = v => String(+v.toFixed(3)) + ' m';
+
+/* ---------- paneles de gráfica ---------- */
+function mkPanel(key, title){
+  const el = document.createElement('section');
+  el.className = 'card panel';
+  el.innerHTML = `
+    <h2>${title}</h2>
+    <div class="pick">
+      <div class="u"><label>Línea superior</label><select class="selU"></select></div>
+      <div class="l"><label>Línea inferior</label><select class="selL"></select></div>
+    </div>
+    <div class="result" hidden></div>
+    <div class="plot"><svg viewBox="0 0 800 380" role="img" aria-label="Gráfico ${title}"></svg></div>
+    <div class="scan" hidden>
+      <label>Escáner vertical (desliza para recorrer la progresiva)</label>
+      <input class="scanInp" type="range" min="0" max="1" step="any">
+      <div class="scanout" aria-live="polite"></div>
+      <button class="ghost tocrit" type="button">Ir al punto crítico</button>
+    </div>`;
+  const P = { key, el, U:[], L:[], an:null, cur:null, nameU:'', nameL:'',
+    selU:$('.selU',el), selL:$('.selL',el), result:$('.result',el), svg:$('svg',el),
+    scanBox:$('.scan',el), scanInp:$('.scanInp',el), scanOut:$('.scanout',el) };
+  P.selU.addEventListener('change', () => { state.sel[key][0] = P.selU.value; refreshAll(); });
+  P.selL.addEventListener('change', () => { state.sel[key][1] = P.selL.value; refreshAll(); });
+  P.scanInp.addEventListener('input', () => readScan(P));
+  $('.tocrit',el).addEventListener('click', () => { if (P.an) { P.scanInp.value = P.an.worst.x; readScan(P); } });
+  return P;
+}
+const panels = [mkPanel('L','Lado izquierdo'), mkPanel('R','Lado derecho')];
+panels.forEach(P => $('#panels').appendChild(P.el));
+
+function refreshPanel(P){
+  const minM = (parseFloat(state.minCm)||0) / 100;
+  const a = byId(P.selU.value), b = byId(P.selL.value);
+  P.U = zpts(a); P.L = zpts(b); P.an = null; P.cur = null;
+  P.nameU = a ? a.name + adjTag(a) : ''; P.nameL = b ? b.name + adjTag(b) : '';
+  const res = P.result; res.hidden = false; P.scanBox.hidden = true;
+  const fail = (t, d) => { res.className = 'result bad'; res.innerHTML = `<b class="v">${t}</b>` + (d ? `<small>${d}</small>` : ''); drawPanel(P); };
+  if (!a || !b) return fail('Elige dos conjuntos');
+  if (a === b) return fail('Elige dos conjuntos distintos');
+  const an = analyze(P.U, P.L, minM);
+  if (an.err) return fail('Sin resultado', an.err);
+  P.an = an;
+  const w = an.worst, ok = w.gap >= minM - 1e-9;
+  res.className = 'result ' + (ok ? 'ok' : 'bad');
+  res.innerHTML =
+    `<b class="v">${ok ? 'CUMPLE' : 'NO CUMPLE'}</b> — separación mínima <b>${cm(w.gap)}</b> (requerido ≥ ${(minM*100).toFixed(1)} cm)` +
+    `<small>${esc(a.name)}${adjTag(a)} sobre ${esc(b.name)}${adjTag(b)}. Ocurre en la progresiva ${xt(w.x)}${w.gap < 0 ? ' · las líneas se cruzan' : ''}. Tramo evaluado: ${xt(an.x0)} a ${xt(an.x1)}.</small>` +
+    (an.fails.length ? `<small>Puntos que no cumplen (${an.fails.length}): ` + an.fails.slice(0,8).map(r => `${xt(r.x)} (${cm(r.gap)})`).join(' · ') + (an.fails.length > 8 ? ' …' : '') + '</small>' : '');
+  const sc = P.scanInp, prev = parseFloat(sc.value), had = sc.dataset.set === '1';
+  P.scanBox.hidden = false;
+  sc.min = an.x0; sc.max = an.x1; sc.step = ((an.x1 - an.x0) / 1000) || 0.001;
+  sc.value = (had && isFinite(prev) && prev >= an.x0 && prev <= an.x1) ? prev : w.x;
+  sc.dataset.set = '1';
+  readScan(P);
+}
+
+function readScan(P){
+  if (!P.an) return;
+  const x = Math.min(P.an.x1, Math.max(P.an.x0, parseFloat(P.scanInp.value)));
+  const u = valuesAt(P.U, x), l = valuesAt(P.L, x);
+  if (!u.length || !l.length) { P.cur = null; P.scanOut.textContent = 'Sin dato en esta progresiva.'; drawPanel(P); return; }
+  const zu = Math.min(...u), zl = Math.max(...l), gap = zu - zl;
+  P.cur = { x, zu, zl, gap };
+  const ok = gap >= P.an.minM - 1e-9;
+  P.scanOut.innerHTML =
+    `Progresiva <b>${xt(x)}</b> · separación <b class="${ok ? 'ok' : 'bad'}">${cm(gap)} ${ok ? '(cumple)' : '(no cumple)'}</b>` +
+    `<small>Cota superior ${zu.toFixed(3)} m · cota inferior ${zl.toFixed(3)} m${gap < 0 ? ' · las líneas se cruzan aquí' : ''}</small>`;
+  drawPanel(P);
+}
+
+function drawPanel(P){
+  const svg = P.svg, W = 800, H = 380, m = {l:56,r:16,t:16,b:34};
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const U = P.U, L = P.L, all = [...U, ...L];
+  if (all.length < 2) { svg.innerHTML = ''; return; }
+  const xmin = Math.min(...all.map(p => p[0])), xmax = Math.max(...all.map(p => p[0]));
+  let zmin = Math.min(...all.map(p => p[1])), zmax = Math.max(...all.map(p => p[1]));
+  if (zmax - zmin < 1e-6) { zmax += .5; zmin -= .5; }
+  const pad = (zmax-zmin)*.1; zmin -= pad; zmax += pad;
+  const sx = x => m.l + (x-xmin)/((xmax-xmin)||1)*(W-m.l-m.r);
+  const sz = z => H-m.b - (z-zmin)/(zmax-zmin)*(H-m.t-m.b);
+  const halo = `stroke="${css('--panel')}" stroke-width="3" paint-order="stroke"`;
+  let s = '';
+  for (let i = 0; i <= 5; i++) {
+    const z = zmin + (zmax-zmin)*i/5, y = sz(z);
+    s += `<line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="${css('--grid')}"/>`;
+    s += `<text x="${m.l-6}" y="${y+4}" text-anchor="end" font-size="11" fill="${css('--muted')}">${z.toFixed(2)}</text>`;
+  }
+  for (let i = 0; i <= 5; i++) {
+    const x = xmin + (xmax-xmin)*i/5, px = sx(x);
+    s += `<line y1="${m.t}" y2="${H-m.b}" x1="${px}" x2="${px}" stroke="${css('--grid')}"/>`;
+    s += `<text x="${px}" y="${H-m.b+16}" text-anchor="middle" font-size="11" fill="${css('--muted')}">${x.toFixed(1)}</text>`;
+  }
+  const path = (p, c) => `<polyline fill="none" stroke="${c}" stroke-width="2.2" points="${p.map(q => sx(q[0])+','+sz(q[1])).join(' ')}"/>` +
+    p.map(q => `<circle cx="${sx(q[0])}" cy="${sz(q[1])}" r="3.4" fill="${c}"/>`).join('');
+  s += path(L, css('--low')) + path(U, css('--up'));
+  const slopes = (p, c, dy) => {
+    let t = '';
+    for (let i = 0; i < p.length-1; i++) {
+      const dx = p[i+1][0] - p[i][0];
+      if (dx < 1e-9) continue;
+      const sp = (p[i+1][1] - p[i][1]) / dx * 100;
+      const ax = sx(p[i][0]), az = sz(p[i][1]), bx = sx(p[i+1][0]), bz = sz(p[i+1][1]);
+      if (Math.hypot(bx-ax, bz-az) < 46) continue;
+      t += `<text x="${(ax+bx)/2}" y="${(az+bz)/2+dy}" text-anchor="middle" font-size="11.5" font-weight="600" fill="${c}" ${halo}>${sp>0?'+':''}${sp.toFixed(2)}%</text>`;
+    }
+    return t;
+  };
+  s += slopes(U, css('--up'), -9) + slopes(L, css('--low'), 18);
+  const an = P.an;
+  if (an) {
+    for (const r of an.fails)
+      s += `<line x1="${sx(r.x)}" x2="${sx(r.x)}" y1="${sz(r.zu)}" y2="${sz(r.zl)}" stroke="${css('--bad')}" stroke-width="2.5"/>`;
+    const w = an.worst, x = sx(w.x);
+    s += `<line x1="${x}" x2="${x}" y1="${sz(w.zu)}" y2="${sz(w.zl)}" stroke="${css('--ink')}" stroke-width="3"/>`;
+    s += `<circle cx="${x}" cy="${sz(w.zu)}" r="5" fill="none" stroke="${css('--ink')}" stroke-width="2"/>`;
+    s += `<circle cx="${x}" cy="${sz(w.zl)}" r="5" fill="none" stroke="${css('--ink')}" stroke-width="2"/>`;
+  }
+  if (an && P.cur) {
+    const c = P.cur, px = sx(c.x), col = c.gap >= an.minM - 1e-9 ? css('--ok') : css('--bad');
+    const ya = sz(c.zu), yb = sz(c.zl), ym = (ya + yb) / 2, right = px > W * 0.8;
+    s += `<line x1="${px}" x2="${px}" y1="${m.t}" y2="${H-m.b}" stroke="${col}" stroke-width="1.2" stroke-dasharray="5 4"/>`;
+    s += `<line x1="${px}" x2="${px}" y1="${ya}" y2="${yb}" stroke="${col}" stroke-width="4"/>`;
+    s += `<circle cx="${px}" cy="${ya}" r="4.5" fill="${css('--panel')}" stroke="${col}" stroke-width="2.2"/>`;
+    s += `<circle cx="${px}" cy="${yb}" r="4.5" fill="${css('--panel')}" stroke="${col}" stroke-width="2.2"/>`;
+    s += `<text x="${right ? px-8 : px+8}" y="${ym-6}" text-anchor="${right ? 'end' : 'start'}" font-size="13" font-weight="700" fill="${col}" ${halo}>${(c.gap*100).toFixed(1)} cm</text>`;
+  }
+  s += `<text x="${m.l+8}" y="${m.t+14}" font-size="12" font-weight="700" fill="${css('--up')}" ${halo}>▬ ${esc(P.nameU)}</text>`;
+  s += `<text x="${m.l+8}" y="${m.t+30}" font-size="12" font-weight="700" fill="${css('--low')}" ${halo}>▬ ${esc(P.nameL)}</text>`;
+  svg.innerHTML = s;
+}
+
+/* ---------- recuadro: nivel a registrar ---------- */
+function levelAt(p, x){
+  if (p.length < 2) return null;
+  const ok = i => p[i+1][0] - p[i][0] > 1e-9;
+  let seg = -1, extra = false;
+  for (let i = 0; i < p.length-1; i++) if (ok(i) && x >= p[i][0]-1e-9 && x <= p[i+1][0]+1e-9) { seg = i; break; }
+  if (seg < 0) {
+    extra = true;
+    if (x < p[0][0]) { for (let i = 0; i < p.length-1; i++) if (ok(i)) { seg = i; break; } }
+    else { for (let i = p.length-2; i >= 0; i--) if (ok(i)) { seg = i; break; } }
+    if (seg < 0) return null;
+  }
+  const [x1,z1] = p[seg], [x2,z2] = p[seg+1], sl = (z2-z1)/(x2-x1);
+  return { z: z1 + sl*(x-x1), slope: sl*100, extra };
+}
+function levelFor(Tz, x, others){
+  const eps = 1e-9;
+  if (Tz.length >= 2 && x >= Tz[0][0]-eps && x <= Tz[Tz.length-1][0]+eps) {
+    const r = levelAt(Tz, x);
+    if (r) return { z: r.z, slope: r.slope, tag: '' };
+  }
+  const project = (anchor, strict) => {
+    let best = null;
+    for (const o of others) {
+      const lo = o.z[0][0], hi = o.z[o.z.length-1][0];
+      if (strict && (x < lo-eps || x > hi+eps || anchor[0] < lo-eps || anchor[0] > hi+eps)) continue;
+      const ra = levelAt(o.z, anchor[0]), rx = levelAt(o.z, x);
+      if (!ra || !rx) continue;
+      const d = Math.abs(ra.z - anchor[1]);
+      if (!best || d < best.d) best = { d, o, ra, rx };
+    }
+    return best && { z: anchor[1] + best.rx.z - best.ra.z, slope: best.rx.slope, tag: 'proy', from: best.o.q.name };
+  };
+  if (Tz.length) {
+    let a = Tz[0];
+    for (const q of Tz) if (Math.abs(q[0]-x) < Math.abs(a[0]-x)) a = q;
+    const r1 = project(a, true);                     // línea más cercana que cubre ambas progresivas
+    if (r1) return r1;
+    if (Tz.length >= 2) { const r = levelAt(Tz, x); if (r) return { z: r.z, slope: r.slope, tag: 'extra' }; }
+    return project(a, false);                        // un solo punto: línea ajena más cercana
+  }
+  return null;
+}
+function refreshCalc(){
+  const out = $('#calcout'), c = ctx(), cs = state.calc;
+  const msg = t => { out.innerHTML = `<div class="bad">${t}</div>`; };
+  const T = byId(cs.target);
+  if (!T) return msg('Elige un conjunto.');
+  const xs = String(cs.xs || '').split(/[\s,;]+/).filter(Boolean).map(Number).filter(v => isFinite(v)).slice(0, 60);
+  if (!xs.length) return msg('Escribe al menos una progresiva.');
+  const Tz = zpts(T);
+  if (!Tz.length) return msg(`${esc(T.name)} no tiene puntos. Escribe al menos uno para poder proyectar desde la línea más cercana.`);
+  const others = state.sets.filter(q => q !== T).map(q => ({ q, z: zpts(q) })).filter(o => o.z.length >= 2);
+  const ref = (cs.puesta && refById(cs.puesta)) || setRef(T), HI = hiOf(ref);
+  const dec = c.k === 1 ? 3 : (c.k === 0.01 ? 1 : 0), ul = c.k === 1 ? 'm' : (c.k === 0.01 ? 'cm' : 'mm');
+  let rows = '', hasExtra = false, hasProj = false, hasNeg = false;
+  for (const x of xs) {
+    const r = levelFor(Tz, x, others);
+    if (!r) { rows += `<tr><td>${xt(x)}</td><td colspan="3">sin línea para proyectar</td></tr>`; continue; }
+    const lm = (r.z - HI) / c.sg, neg = lm < -1e-9;
+    if (r.tag === 'extra') hasExtra = true; if (r.tag === 'proy') hasProj = true; if (neg) hasNeg = true;
+    const tag = r.tag === 'extra' ? ' <span class="warn">extrapolado</span>'
+              : r.tag === 'proy' ? ` <span class="warn">proyectado desde ${esc(r.from)}</span>` : '';
+    rows += `<tr><td>${xt(x)}${tag}</td><td>${r.z.toFixed(3)} m</td>` +
+      `<td class="lec${neg ? ' bad' : ''}">${(lm/c.k).toFixed(dec)} ${ul}${neg ? ' ⚠' : ''}</td><td>${r.slope > 0 ? '+' : ''}${r.slope.toFixed(2)}%</td></tr>`;
+  }
+  out.innerHTML =
+    `<div class="tblw"><table class="tbl"><thead><tr><th>Progresiva</th><th>Cota</th><th>Lectura de mira</th><th>Pendiente</th></tr></thead><tbody>${rows}</tbody></table></div>` +
+    `<small>${esc(T.name)}${adjTag(T)} · puesta «${esc(ref.name)}» (HI ${HI.toFixed(3)} m).` +
+    (hasProj ? ' Proyectado: no hay línea del conjunto en esa progresiva; se parte de su punto más cercano y se siguen las pendientes de la línea más cercana.' : '') +
+    (hasExtra ? ' Extrapolado: ninguna otra línea cubre esa progresiva; se prolonga la pendiente del tramo extremo del conjunto.' : '') +
+    (hasNeg ? ' ⚠ Lectura negativa: la cota queda por encima del HI.' : '') + '</small>';
+}
+function fillCalcRef(){
+  const sel = $('#cP'); sel.innerHTML = '';
+  const o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'La del conjunto'; sel.appendChild(o0);
+  for (const r of state.refs) {
+    const o = document.createElement('option');
+    o.value = r.id; o.textContent = r.name + ' (HI ' + hiOf(r).toFixed(3) + ' m)';
+    sel.appendChild(o);
+  }
+  sel.value = refById(state.calc.puesta) ? state.calc.puesta : '';
+  state.calc.puesta = sel.value;
+}
+
+/* ---------- interfaz ---------- */
+function fillSel(sel, want, fb){
+  sel.innerHTML = '';
+  for (const s of state.sets) {
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.name || '(sin nombre)';
+    sel.appendChild(o);
+  }
+  const ids = state.sets.map(s => s.id);
+  sel.value = ids.includes(want) ? want : (ids[fb] || ids[0] || '');
+}
+function fillAll(){
+  for (const P of panels) {
+    const [u, l] = state.sel[P.key] || [];
+    fillSel(P.selU, u, 0); fillSel(P.selL, l, 1);
+    state.sel[P.key] = [P.selU.value, P.selL.value];
+  }
+  fillSel($('#cT'), state.calc.target, 0);
+  state.calc.target = $('#cT').value;
+  fillCalcRef();
+}
+let activeId = null;
+const chipText = q => (q.name || '(sin nombre)') + ' · ' + parse(q.text).length + (adjOf(q) ? ' · ' + (adjOf(q) > 0 ? '▲' : '▼') + Math.abs(adjOf(q)) + ' cm' : '');
+function renderSets(){
+  if (!state.sets.some(q => q.id === activeId)) activeId = state.sets.length ? state.sets[0].id : null;
+  renderChips(); renderEditor();
+}
+function renderChips(){
+  const box = $('#chips'); box.innerHTML = '';
+  for (const q of state.sets) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip' + (q.id === activeId ? ' on' : '');
+    b.dataset.id = q.id; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', q.id === activeId);
+    b.textContent = chipText(q);
+    b.addEventListener('click', () => { activeId = q.id; renderChips(); renderEditor(); });
+    box.appendChild(b);
+  }
+}
+function updateChip(q){ const c = $('.chip[data-id="' + q.id + '"]'); if (c) c.textContent = chipText(q); }
+function renderEditor(){
+  const d = $('#editor'), q = byId(activeId);
+  if (!q) { d.innerHTML = '<p class="note">No hay conjuntos. Toca «+ Agregar conjunto».</p>'; return; }
+  d.innerHTML = `<div class="sethead"><input class="nm" type="text" aria-label="Nombre del conjunto"><select class="tp" aria-label="Tipo de dato"><option value="lectura">Lectura de mira</option><option value="cota">Cota</option></select><button class="del" type="button" aria-label="Quitar conjunto" title="Quitar este conjunto">Quitar</button></div><div class="row refrow"><label for="rf">Medido desde</label><select class="rf" id="rf" aria-label="Puesta del nivel"></select></div><div class="adj"><label>Subir / bajar este conjunto (cm)</label><div class="adjctl"><button class="ghost adjDn" type="button">▼ Bajar</button><input class="av" type="number" step="0.1" aria-label="Ajuste total en cm"><button class="ghost adjUp" type="button">▲ Subir</button><span>de a</span><input class="st" type="number" min="0" step="0.5" aria-label="Paso en cm"><span>cm</span><button class="ghost adjZ" type="button">Quitar ajuste</button></div></div><textarea spellcheck="false" aria-label="Datos: progresiva, valor" placeholder="progresiva, valor"></textarea>`;
+  const nm = $('.nm', d), tp = $('.tp', d), ta = $('textarea', d);
+  nm.value = q.name; tp.value = q.type; ta.value = q.text;
+  const rf = $('.rf', d);
+  for (const r of state.refs) {
+    const o = document.createElement('option');
+    o.value = r.id; o.textContent = r.name + ' (HI ' + hiOf(r).toFixed(3) + ' m)';
+    rf.appendChild(o);
+  }
+  rf.value = setRef(q).id; rf.disabled = q.type === 'cota';
+  rf.addEventListener('change', () => { q.ref = rf.value; refreshAll(); });
+  const av = $('.av', d), st = $('.st', d);
+  av.value = adjOf(q); st.value = state.step;
+  const stepV = () => Math.max(parseFloat(st.value) || 0, 0);
+  const setAdj = v => { q.adj = +(+v).toFixed(3); av.value = q.adj; updateChip(q); refreshAll(); };
+  $('.adjDn', d).addEventListener('click', () => setAdj(adjOf(q) - stepV()));
+  $('.adjUp', d).addEventListener('click', () => setAdj(adjOf(q) + stepV()));
+  $('.adjZ', d).addEventListener('click', () => setAdj(0));
+  av.addEventListener('input', () => { q.adj = parseFloat(av.value) || 0; updateChip(q); refreshAll(); });
+  st.addEventListener('input', () => { state.step = parseFloat(st.value) || 0; save(); });
+  nm.addEventListener('input', () => { q.name = nm.value; updateChip(q); fillAll(); refreshAll(); });
+  tp.addEventListener('change', () => { q.type = tp.value; rf.disabled = q.type === 'cota'; refreshAll(); });
+  ta.addEventListener('input', () => { q.text = ta.value; updateChip(q); refreshAll(); });
+  $('.del', d).addEventListener('click', () => {
+    state.sets = state.sets.filter(r => r.id !== q.id);
+    activeId = null; renderSets(); fillAll(); refreshAll();
+  });
+}
+function refreshAll(){
+  panels[1].el.hidden = !state.two;
+  panels.forEach(refreshPanel);
+  refreshCalc();
+  save();
+}
+const refText = r => r.name + ' · HI ' + hiOf(r).toFixed(3);
+function renderRefs(){
+  if (!refById(state.activeRef)) state.activeRef = state.refs[0].id;
+  const box = $('#refChips'); box.innerHTML = '';
+  for (const r of state.refs) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip' + (r.id === state.activeRef ? ' on' : '');
+    b.dataset.id = r.id; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', r.id === state.activeRef);
+    b.textContent = refText(r);
+    b.addEventListener('click', () => { state.activeRef = r.id; $('#migMsg').textContent = ''; renderRefs(); save(); });
+    box.appendChild(b);
+  }
+  const r = refById(state.activeRef);
+  $('#rName').value = r.name; $('#bm').value = r.bm; $('#back').value = r.back;
+  $('#hi').value = hiOf(r).toFixed(3) + ' m';
+  $('#delRef').disabled = state.refs.length < 2;
+  fillCalcRef();
+}
+function updateRefChip(r){
+  const c = $('#refChips .chip[data-id="' + r.id + '"]'); if (c) c.textContent = refText(r);
+  $('#hi').value = hiOf(r).toFixed(3) + ' m';
+  fillCalcRef();
+}
+
+function initUI(){
+  $('#unit').value = state.unit; $('#mode').value = state.mode;
+  $('#minCm').value = state.minCm; $('#two').checked = !!state.two;
+  $('#cX').value = state.calc.xs;
+  renderRefs(); renderSets(); fillAll(); refreshAll();
+}
+
+[['unit','unit'],['mode','mode'],['minCm','minCm']].forEach(([id,k]) =>
+  $('#'+id).addEventListener('input', () => { state[k] = $('#'+id).value; refreshAll(); }));
+$('#two').addEventListener('change', () => { state.two = $('#two').checked; refreshAll(); });
+$('#cT').addEventListener('change', () => { state.calc.target = $('#cT').value; refreshAll(); });
+$('#cX').addEventListener('input', () => { state.calc.xs = $('#cX').value; refreshAll(); });
+$('#cP').addEventListener('change', () => { state.calc.puesta = $('#cP').value; refreshAll(); });
+$('#addSet').addEventListener('click', () => {
+  const q = { id: uid(), name: 'Nuevo conjunto', type: 'lectura', ref: state.activeRef, text: '' };
+  state.sets.push(q); activeId = q.id;
+  renderSets(); fillAll(); refreshAll();
+  const n = $('#editor .nm'); if (n) { n.focus(); n.select(); }
+});
+$('#rName').addEventListener('input', () => {
+  const r = refById(state.activeRef); r.name = $('#rName').value || 'Puesta';
+  updateRefChip(r); renderEditor(); save();
+});
+['bm','back'].forEach(k => $('#'+k).addEventListener('input', () => {
+  const r = refById(state.activeRef); r[k] = $('#'+k).value;
+  updateRefChip(r); renderEditor(); refreshAll();
+}));
+$('#addRef').addEventListener('click', () => {
+  const cur = refById(state.activeRef);
+  const r = { id: uid(), name: 'Puesta ' + (state.refs.length + 1), bm: cur.bm, back: cur.back };
+  state.refs.push(r); state.activeRef = r.id;
+  $('#migMsg').textContent = 'Puesta creada. Ajusta la lectura atrás y luego migra los conjuntos.';
+  renderRefs(); renderEditor(); refreshAll();
+  $('#back').focus(); $('#back').select();
+});
+$('#migrate').addEventListener('click', () => {
+  const r = refById(state.activeRef), hi = hiOf(r), deltas = new Set(); let n = 0;
+  for (const q of state.sets) {
+    if (q.type === 'cota') continue;
+    if (q.ref !== r.id) { deltas.add((hi - setHI(q)).toFixed(3)); n++; }
+    q.ref = r.id;
+  }
+  const f = v => (v >= 0 ? '+' : '') + v;
+  $('#migMsg').textContent = n === 0
+    ? 'Todos los conjuntos ya usan esta puesta.'
+    : `Migrados ${n} conjunto${n > 1 ? 's' : ''} a «${r.name}» (HI ${hi.toFixed(3)} m). Las cotas cambiaron ${deltas.size === 1 ? f([...deltas][0]) + ' m' : 'según el conjunto'}.`;
+  renderEditor(); refreshAll();
+});
+$('#delRef').addEventListener('click', () => {
+  if (state.refs.length < 2) return;
+  const id = state.activeRef, gone = refById(id);
+  state.refs = state.refs.filter(r => r.id !== id);
+  const first = state.refs[0]; state.activeRef = first.id;
+  state.sets.forEach(q => { if (q.ref === id) q.ref = first.id; });
+  $('#migMsg').textContent = `Puesta «${gone.name}» quitada; sus conjuntos pasaron a «${first.name}».`;
+  renderRefs(); renderEditor(); refreshAll();
+});
+/* ---------- descarga de datos ---------- */
+let dl = null;
+function stamp(){ return new Date().toISOString().slice(0, 10); }
+function buildCSV(){
+  const c = ctx(), unit = c.k === 1 ? 'm' : (c.k === 0.01 ? 'cm' : 'mm');
+  const cell = v => typeof v === 'number' ? String(v) : '"' + String(v).replace(/"/g, '""') + '"';
+  const rows = [['conjunto','tipo','puesta','cota_BM_m','lectura_atras_m','HI_m','progresiva_m','valor','unidad','ajuste_cm','cota_m']];
+  for (const q of state.sets) {
+    const isC = q.type === 'cota', r = setRef(q), HI = hiOf(r);
+    for (const [x, v] of parse(q.text)) {
+      rows.push([q.name, isC ? 'cota' : 'lectura', isC ? '' : r.name,
+        isC ? '' : (parseFloat(r.bm)||0), isC ? '' : (parseFloat(r.back)||0), isC ? '' : +HI.toFixed(3),
+        x, v, isC ? 'm' : unit, adjOf(q), +((isC ? v : HI + c.sg*v*c.k) + adjOf(q)/100).toFixed(3)]);
+    }
+  }
+  return { n: rows.length - 1, text: '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n') };
+}
+async function doDownload(filename, data){
+  const m = $('#dlMsg');
+  try {
+    await dl.save({ filename, data });
+    m.textContent = 'Archivo listo: ' + filename;
+  } catch (e) {
+    m.textContent = e && e.code === 'declined' ? 'Descarga cancelada.' : 'No se pudo descargar en esta vista' + (e && e.code ? ' (' + e.code + ')' : '') + '.';
+  }
+}
+$('#dlCsv').addEventListener('click', () => {
+  const r = buildCSV();
+  if (!r.n) { $('#dlMsg').textContent = 'No hay puntos válidos para descargar.'; return; }
+  doDownload('datos-niveles-' + stamp() + '.csv', r.text);
+});
+$('#dlJson').addEventListener('click', () => {
+  doDownload('respaldo-niveles-' + stamp() + '.json', JSON.stringify({ app: 'pistas-perfiles', version: 1, exportado: new Date().toISOString(), ...state }, null, 2));
+});
+try {
+  if (window.claude && window.claude.use) {
+    window.claude.use('downloads').then(m => { if (m) { dl = m; $('#dlrow').hidden = false; } }).catch(() => {});
+  }
+} catch (e) {}
+
+let armed = null;
+$('#reset').addEventListener('click', () => {
+  const b = $('#reset');
+  if (!armed) {
+    b.textContent = '¿Seguro? Toca otra vez';
+    armed = setTimeout(() => { armed = null; b.textContent = 'Restablecer ejemplo'; }, 3000);
+    return;
+  }
+  clearTimeout(armed); armed = null; b.textContent = 'Restablecer ejemplo';
+  panels.forEach(P => { P.scanInp.dataset.set = ''; });
+  state = defaults(); initUI();
+});
+
+initUI();
+</script>
+</body>
+</html>
