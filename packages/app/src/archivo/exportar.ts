@@ -1,3 +1,4 @@
+import { guardarArchivo } from './guardar'
 import {
   claveCelda,
   formatearProgresiva,
@@ -239,26 +240,10 @@ export async function copiarAlPortapapeles(tabla: string[][]): Promise<void> {
 export function descargarCsv(tabla: string[][], nombre: string): void {
   // El BOM hace que Excel en Windows abra el archivo con acentos correctos.
   const contenido = `﻿${aTextoSeparado(tabla, ';')}`
-  const url = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }))
-  const enlace = document.createElement('a')
-
-  enlace.href = url
-  enlace.download = `${nombre}.csv`
-  enlace.click()
-  URL.revokeObjectURL(url)
+  guardarArchivo(contenido, `${nombre}.csv`, 'text/csv;charset=utf-8')
 }
 
 export function descargarXlsx(tabla: string[][], nombre: string, nombreHoja = 'Cotas'): void {
   const datos = armarXlsx(tabla, nombreHoja)
-  const url = URL.createObjectURL(
-    new Blob([datos], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    }),
-  )
-  const enlace = document.createElement('a')
-
-  enlace.href = url
-  enlace.download = `${nombre}.xlsx`
-  enlace.click()
-  URL.revokeObjectURL(url)
+  guardarArchivo(datos, `${nombre}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 }

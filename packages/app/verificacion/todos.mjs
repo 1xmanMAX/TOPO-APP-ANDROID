@@ -27,6 +27,7 @@ const GUIONES = [
   'obra',
   'calle',
   'analisis-cierre',
+  'niveles',
   'informes',
   'plano',
   'planificador',

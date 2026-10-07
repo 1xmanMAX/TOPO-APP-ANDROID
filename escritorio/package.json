@@ -1,0 +1,40 @@
+{
+  "name": "topo-escritorio",
+  "productName": "TOPO",
+  "version": "0.1.0",
+  "description": "TOPO — Aplicación de topografía",
+  "author": "TOPO APP",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "web": "node copiar-web.cjs",
+    "start": "npm run web && electron .",
+    "dist:win": "npm run web && electron-builder --win --publish never"
+  },
+  "build": {
+    "appId": "com.topoapp.nivelacion",
+    "productName": "TOPO",
+    "directories": { "output": "salida" },
+    "files": ["main.cjs", "web/**/*"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "TOPO",
+      "artifactName": "TOPO-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "TOPO-Portable-${version}.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.0"
+  }
+}

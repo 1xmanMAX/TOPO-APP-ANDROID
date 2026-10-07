@@ -831,9 +831,12 @@ describe('Replantear', () => {
     expect(screen.queryByText(/no comprobadas/)).not.toBeInTheDocument()
   })
 
-  it('sin rasante, cada estaca dice por qué no tiene objetivo', () => {
+  it('sin rasante parte de lo medido; desde el proyecto, cada estaca dice por qué no tiene objetivo', async () => {
     cargar(proyectoSinRasante(), 'replantear')
+    const usuario = userEvent.setup()
     render(<EspacioCalle />)
+    expect(screen.getByRole('button', { name: 'Desde una capa medida' })).toHaveAttribute('aria-pressed', 'true')
+    await usuario.click(screen.getByRole('button', { name: 'Desde el proyecto' }))
     expect(screen.getByRole('region', { name: 'Estaca actual' })).toHaveTextContent(
       'Sin lectura objetivo: la calle no tiene rasante de proyecto.',
     )

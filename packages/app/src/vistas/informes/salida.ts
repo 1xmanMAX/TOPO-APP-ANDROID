@@ -1,3 +1,4 @@
+import { guardarArchivo } from '../../archivo/guardar'
 import {
   abrirPdf,
   dibujanteNavegador,
@@ -38,12 +39,7 @@ export const TIPO_PDF = 'application/pdf'
 
 /** Descarga unos bytes con su nombre, como hacen los exportadores de Excel. */
 export function descargarBytes(bytes: Uint8Array, nombre: string, tipo = TIPO_PDF): void {
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: tipo }))
-  const enlace = document.createElement('a')
-  enlace.href = url
-  enlace.download = nombre
-  enlace.click()
-  URL.revokeObjectURL(url)
+  guardarArchivo(bytes, nombre, tipo)
 }
 
 /** Lo que del navegador usa Compartir; se inyecta en las pruebas. */

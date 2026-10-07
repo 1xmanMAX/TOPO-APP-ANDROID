@@ -24,7 +24,34 @@ import {
   reglasMiraDe,
   VISUAL_ESTADO,
 } from './comun'
+import FichaNiveles from './FichaNiveles'
 import { useEvaluacionCalle, useResultadoCalle } from './resultadoCalle'
+
+type DesdeDonde = 'proyecto' | 'capa'
+
+const DESDE: { valor: DesdeDonde; texto: string }[] = [
+  { valor: 'proyecto', texto: 'Desde el proyecto' },
+  { valor: 'capa', texto: 'Desde una capa medida' },
+]
+
+/**
+ * Replantear tiene dos puntos de partida: la rasante de proyecto (la cota que
+ * pide el plano) o una capa ya medida más su espesor (la herramienta
+ * «Pistas y veredas» de Max: la base = la subrasante medida + 0.20 m, con
+ * las pendientes que de verdad quedaron). Sin rasante, de entrada se parte
+ * de lo medido: desde el proyecto no habría cota que dar.
+ */
+export default function FichaReplantear() {
+  const tieneRasante = useAlmacen((s) => s.proyecto.calles.find((c) => c.id === s.calleActivaId)?.rasante != null)
+  const [desde, setDesde] = useState<DesdeDonde | null>(null)
+  const elegido = desde ?? (tieneRasante ? 'proyecto' : 'capa')
+  return (
+    <div className="flex flex-col gap-4">
+      <Segmentado etiqueta="Replantear desde" opciones={DESDE} valor={elegido} alCambiar={setDesde} anchoCompleto />
+      {elegido === 'proyecto' ? <ReplantearDesdeProyecto /> : <FichaNiveles />}
+    </div>
+  )
+}
 
 type OrigenAltura = 'libreta' | 'bm'
 
@@ -70,7 +97,7 @@ const CAMPO_GRANDE =
  * proyecto: el modelo guarda nivelaciones, y una estaca afinada a cota se
  * comprueba después midiéndola en Medir.
  */
-export default function FichaReplantear() {
+function ReplantearDesdeProyecto() {
   const contexto = useContexto()
   const resultado = useResultadoCalle()
   const evaluacion = useEvaluacionCalle(resultado)

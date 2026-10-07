@@ -1,0 +1,9 @@
+{
+  "appId": "com.topoapp.nivelacion",
+  "appName": "TOPO",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "adjustMarginsForEdgeToEdge": "force"
+  }
+}

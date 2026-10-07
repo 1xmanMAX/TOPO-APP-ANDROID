@@ -303,8 +303,8 @@ comprobar('al abrir, la calle activa es Av. Sol',
 await pantallaCalle(pagina, 'Análisis')
 const analisis = seccion(pagina, 'Análisis')
 await analisis.waitFor({ timeout: 10000 })
-comprobar('Calle › Análisis abre con sus tres pestañas',
-  (await analisis.getByRole('tab').allInnerTexts()).join('|') === 'Espesores|Volúmenes|Drenaje')
+comprobar('Calle › Análisis abre con sus cuatro pestañas',
+  (await analisis.getByRole('tab').allInnerTexts()).join('|') === 'Espesores|Separación|Volúmenes|Drenaje')
 
 // Sin tocar nada, Espesores ya compara la base sobre la subrasante y pinta el
 // resultado; el cambio de capas queda plegado.
