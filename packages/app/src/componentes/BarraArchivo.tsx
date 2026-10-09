@@ -1,3 +1,4 @@
+import { aceptarArchivos } from '../archivo/aceptar'
 import { useRef, useState } from 'react'
 import { abrirTopoCompleto, descargarTopo } from '../archivo/topo'
 import { useAlmacen } from '../estado/almacen'
@@ -72,7 +73,7 @@ export default function BarraArchivo() {
       <input
         ref={entradaArchivo}
         type="file"
-        accept=".topo,application/zip"
+        accept={aceptarArchivos('.topo,application/zip')}
         aria-label="Abrir archivo .topo"
         className="hidden"
         onChange={(evento) => {

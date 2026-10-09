@@ -62,6 +62,29 @@ for (const [nombre, ancho, alto] of [['laptop', 1280, 800], ['celular', 390, 844
   await panel.getByRole('checkbox', { name: /Es una salida del agua/ }).check()
   const conSumidero = await panel.getByRole('status').innerText()
   comprobar(`${nombre}: con el 5 de sumidero, toda el agua llega a una salida`, /Toda el agua llega a una salida/.test(conSumidero), conSumidero)
+  // Una etiqueta fija en el plano junto al punto elegido (el 5).
+  await panel.getByLabel('Etiqueta del punto elegido').fill('Buzón Lima / Sol')
+  comprobar(`${nombre}: la etiqueta queda en el plano`, await visor.getByText('Buzón Lima / Sol').isVisible())
+  comprobar(`${nombre}: …y en la tabla de lecturas`, await panel.getByRole('table', { name: 'Lecturas de los puntos' }).getByText('Buzón Lima / Sol').isVisible())
+
+  // El modelo 3D del agua.
+  await pagina.getByRole('button', { name: 'Ver el modelo 3D del agua' }).click()
+  const modelo = pagina.getByRole('img', { name: /^Modelo 3D de 5 puntos/ })
+  await modelo.scrollIntoViewIfNeeded()
+  const etiquetaModelo = await modelo.getAttribute('aria-label')
+  comprobar(`${nombre}: el modelo 3D dice que toda el agua llega a la salida`, /el agua de 5 llega a una salida/.test(etiquetaModelo), etiquetaModelo)
+  comprobar(`${nombre}: el modelo 3D tiene sus 4 caras y el camino del agua de las 4 esquinas`,
+    (await modelo.locator('polygon[data-cara]').count()) === 4 && (await modelo.locator('polyline.camino-agua').count()) === 4)
+  comprobar(`${nombre}: el modelo 3D rotula la etiqueta`, await modelo.getByText(/5 ▼ · Buzón Lima \/ Sol/).isVisible())
+  const cajaModelo = await modelo.boundingBox()
+  const antesGiro = await modelo.locator('polygon[data-cara]').first().getAttribute('points')
+  await pagina.mouse.move(cajaModelo.x + cajaModelo.width / 2, cajaModelo.y + cajaModelo.height / 2)
+  await pagina.mouse.down()
+  await pagina.mouse.move(cajaModelo.x + cajaModelo.width / 2 + 80, cajaModelo.y + cajaModelo.height / 2 + 20, { steps: 5 })
+  await pagina.mouse.up()
+  comprobar(`${nombre}: el modelo 3D gira al arrastrar`, (await modelo.locator('polygon[data-cara]').first().getAttribute('points')) !== antesGiro)
+  await modelo.screenshot({ path: `${SALIDA}/niveles-plano-${nombre}-modelo3d.png` })
+
   // Lo medido en la libreta de las calles de este plano entra sin escribirlo otra vez.
   const sumar = panel.getByLabel('Sumar lo medido en las calles de este plano')
   if (await sumar.count()) {
@@ -75,6 +98,23 @@ for (const [nombre, ancho, alto] of [['laptop', 1280, 800], ['celular', 390, 844
   await pagina.screenshot({ path: `${SALIDA}/niveles-plano-${nombre}-2.png` })
   await panel.screenshot({ path: `${SALIDA}/niveles-plano-${nombre}-panel.png` }).catch(() => {})
   await pagina.close()
+}
+
+// En Android el selector deja en gris lo que no conoce (.dwg, .topo): allí no se filtra por tipo.
+{
+  const android = await navegador.newPage({
+    viewport: { width: 390, height: 844 },
+    userAgent: 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36',
+  })
+  await android.goto(BASE, { waitUntil: 'load' })
+  const abrir = android.locator(ESPERADO.archivo.selectorAbrir)
+  comprobar('android: «Abrir» deja elegir el .topo (sin filtro de tipo)', (await abrir.getAttribute('accept')) === null)
+  await abrir.setInputFiles(TOPO)
+  await android.getByText(ESPERADO.nombresDeCalles[0], { exact: true }).first().waitFor({ timeout: 10000 })
+  await android.getByRole('navigation', { name: 'Pantallas de la obra' }).getByRole('button', { name: 'Plano' }).click()
+  const importar = android.getByLabel('Importar planos (DWG, DXF o PDF)')
+  comprobar('android: «Importar planos» deja elegir los DWG (sin filtro de tipo)', (await importar.getAttribute('accept')) === null)
+  await android.close()
 }
 
 const errores = erroresConsola.filter((e) => !e.includes('favicon.ico'))

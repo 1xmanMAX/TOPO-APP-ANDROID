@@ -257,6 +257,8 @@ export interface PuntoNivelPlano {
   lectura: number | null
   /** Es por donde el agua tiene que salir: sumidero, cuneta, canal. */
   salida: boolean
+  /** Una etiqueta que queda fija en el plano junto al punto: «Esquina Lima / Sol», «buzón». */
+  nota?: string
 }
 
 export interface NivelesEnPlano {

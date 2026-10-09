@@ -185,6 +185,20 @@ export function DibujoNiveles({ niveles, analisis, elegidoId, upp, verPendientes
                 {formatearCota(cota)}
               </text>
             )}
+            {p.nota && (
+              <text
+                x={c.x + 10 * upp}
+                y={c.y + (cota !== undefined ? 22 : 9) * upp}
+                fontSize={11 * upp}
+                fontStyle="italic"
+                strokeWidth={3 * upp}
+                paintOrder="stroke"
+                className="fill-proyecto stroke-white dark:stroke-slate-900"
+                pointerEvents="none"
+              >
+                {p.nota}
+              </text>
+            )}
           </g>
         )
       })}
@@ -297,6 +311,17 @@ export function PanelNiveles({ plano, niveles, analisis, ubicaciones, hayPistasC
               {moviendo ? 'Toca el plano…' : 'Mover'}
             </button>
           </div>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-[13px] font-medium text-tenue">Etiqueta en el plano</span>
+            <input
+              aria-label="Etiqueta del punto elegido"
+              placeholder="Esquina Lima / Sol, buzón, cuneta…"
+              value={elegido.nota ?? ''}
+              autoComplete="off"
+              onChange={(e) => editarPunto(elegido.id, { nota: e.target.value })}
+              className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-base"
+            />
+          </label>
           {ubicacionElegida && <p className="text-[13px] text-tenue">En {textoUbicacion(ubicacionElegida)}.</p>}
           <label className="flex min-h-11 items-center gap-2 text-sm">
             <input type="checkbox" className="size-5" checked={elegido.salida} onChange={(e) => editarPunto(elegido.id, { salida: e.target.checked })} />
@@ -433,6 +458,7 @@ function TablaLecturas({
                   {p.nombre}
                   {p.salida && <span className="text-proyecto"> ▼</span>}
                 </button>
+                {p.nota && <span className="block text-[12px] italic leading-tight text-proyecto">{p.nota}</span>}
                 {ubicaciones.get(p.id) && (
                   <span className="block text-[11px] leading-tight text-tenue">{textoUbicacion(ubicaciones.get(p.id)!)}</span>
                 )}

@@ -1,3 +1,4 @@
+import { aceptarArchivos } from '../../archivo/aceptar'
 import type { Id, Punto2, TextoCota } from '@topo/core'
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useAlmacen } from '../../estado/almacen'
@@ -17,6 +18,8 @@ import { importarPlanos } from './importarPlano'
 import { BORRADOR_VACIO, PanelCalibrar, PanelCapas, PanelCroquis, textoEscala, textoEscalaCorto, type BorradorCroquis } from './Paneles'
 import { usePlanoCargado } from './usePlanoCargado'
 import VisorPlano from './VisorPlano'
+import ModeloAgua3D from './ModeloAgua3D'
+import { modeloDelAgua } from '../../niveles/modelo3d'
 import { DibujoNiveles, PanelNiveles } from './NivelesPlano'
 import { analizarPlano, nivelesVacios, puntosMedidosEnPlano, siguienteNombre, ubicacionEnCalles } from '../../niveles/enPlano'
 import { nuevoIdNivel } from '../../niveles/hoja'
@@ -36,7 +39,7 @@ const AYUDA_MODO: Record<Modo, string> = {
   ver: 'Toca una pista para ver su ficha',
   calibrar: 'Toca dos puntos de distancia conocida.',
   croquis: 'Toca el plano para poner cada vértice de la pista.',
-  niveles: 'Toca el plano para poner el punto siguiente donde vas a leer; toca un punto para elegirlo.',
+  niveles: 'Toca el plano para fijar un punto donde vas a leer; tócalo para ponerle etiqueta y su lectura.',
 }
 /** Lo que flota sobre el plano: se lee sobre cualquier dibujo. */
 const CHIP = 'pointer-events-auto inline-flex h-11 items-center rounded-full border border-borde bg-tarjeta/95 text-sm shadow-sm'
@@ -93,6 +96,7 @@ export default function EspacioPlano() {
   const refTituloFicha = useRef<HTMLHeadingElement>(null)
   const [llevarAFicha, setLlevarAFicha] = useState(0)
   const [nivelElegido, setNivelElegido] = useState<string | null>(null)
+  const [verModelo3d, setVerModelo3d] = useState(false)
   const [moviendoNivel, setMoviendoNivel] = useState(false)
   const [verPendientesNivel, setVerPendientesNivel] = useState(false)
 
@@ -173,6 +177,7 @@ export default function EspacioPlano() {
     () => analizarPlano(niveles, plano?.calibracion ?? null, proyecto, medidosEnPlano),
     [niveles, plano?.calibracion, proyecto, medidosEnPlano],
   )
+  const modeloAgua = useMemo(() => modeloDelAgua(niveles, analisisNiveles, plano?.calibracion ?? null), [niveles, analisisNiveles, plano?.calibracion])
   const ubicaciones = useMemo(
     () => new Map(niveles.puntos.map((p) => [p.id, ubicacionEnCalles(p, pistasCalibradas, proyecto.calles)])),
     [niveles.puntos, pistasCalibradas, proyecto.calles],
@@ -362,7 +367,7 @@ export default function EspacioPlano() {
         <input
           type="file"
           multiple
-          accept=".dwg,.dxf,.pdf"
+          accept={aceptarArchivos('.dwg,.dxf,.pdf')}
           aria-label="Importar planos (DWG, DXF o PDF)"
           className="sr-only"
           disabled={importando}
@@ -578,6 +583,19 @@ export default function EspacioPlano() {
                 </>
               )}
             </VisorPlano>
+            {modo === 'niveles' && modeloAgua && (
+              <div className="mt-3 flex flex-col gap-3">
+                <button
+                  type="button"
+                  aria-expanded={verModelo3d}
+                  onClick={() => setVerModelo3d((v) => !v)}
+                  className={`${BOTON_SECUNDARIO} self-start`}
+                >
+                  {verModelo3d ? 'Ocultar el modelo 3D' : 'Ver el modelo 3D del agua'}
+                </button>
+                {verModelo3d && <ModeloAgua3D modelo={modeloAgua} elegidoId={nivelElegido} alElegir={setNivelElegido} />}
+              </div>
+            )}
           </div>
 
           <div className="flex min-w-0 flex-col gap-3">

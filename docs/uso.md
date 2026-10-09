@@ -344,6 +344,10 @@ Para una zona complicada (varias intersecciones juntas) en la que quieres que el
 3. **En el plano** aparece la cota de cada punto, una flecha en cada triángulo hacia donde cae el agua y en ámbar las zonas con menos pendiente que la mínima (0.5 % por defecto).
 4. Marca como **salida** los sumideros, cunetas o canales. Arriba sale el veredicto: ✓ toda el agua llega a una salida, ✗ se empoza en tal punto (más bajo que todos sus vecinos), o △ llega al borde de lo nivelado. Al elegir un punto se dibuja el camino de su agua y cuánto baja hasta el siguiente.
 
+Cada punto puede llevar una **etiqueta** (tócalo y escribe en «Etiqueta en el plano»: «Esquina Lima / Sol», «buzón»): queda fija junto al punto en el plano, en la tabla de lecturas y en el modelo 3D.
+
+Con 3 puntos leídos o más aparece **«Ver el modelo 3D del agua»**, debajo del plano: los puntos levantados a su cota y unidos en triángulos, de azul (lo bajo) a ocre (lo alto), con una flecha en cada triángulo hacia donde cae el agua y el camino del agua de cada punto corriendo hasta donde termina (▼ salida, ✗ se empoza). Arrastra para girarlo; «Planta» lo mira desde arriba; la altura va exagerada para que el relieve se lea (puedes cambiarla).
+
 Con el plano sin escala se ven la dirección del agua y dónde se empoza, pero no las pendientes en %: calíbralo para verlas. Los puntos se guardan con esa lámina, en el `.topo`.
 
 ## La barra de cierre: qué significa cada color

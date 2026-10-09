@@ -57,6 +57,7 @@ export function nivelesEnPlanoUsables(valor: unknown): NivelesEnPlano | null {
             puestaId: typeof p.puestaId === 'string' ? p.puestaId : null,
             lectura: finito(p.lectura) ? p.lectura : null,
             salida: p.salida === true,
+            ...(typeof p.nota === 'string' && p.nota.trim() !== '' ? { nota: p.nota } : {}),
           },
         ]
       : [],
