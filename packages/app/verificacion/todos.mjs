@@ -28,6 +28,7 @@ const GUIONES = [
   'calle',
   'analisis-cierre',
   'niveles',
+  'hoja-niveles',
   'informes',
   'plano',
   'planificador',

@@ -44,11 +44,18 @@ interface Props {
   lineas: LineaDibujo[]
   /** Lo que no cumple: en rojo. */
   fallas?: Vertical[]
+  /** Corte (naranja) y relleno (azul) entre lo que hay y el replanteo. */
+  corteRelleno?: (Vertical & { tipo: 'corte' | 'relleno' })[]
   /** El punto crítico: más grueso, con dos círculos. */
   critico?: Vertical | null
   /** El escáner: la línea vertical que se mueve con el deslizador. */
   cursor?: Cursor | null
   alto?: number
+  /**
+   * Dibujar hueco el punto sin comprobar. En la hoja de niveles todo sale de
+   * puestas rápidas (ninguna se cierra): ahí se apaga para no vaciar todos los puntos.
+   */
+  marcarSinComprobar?: boolean
 }
 
 const TONO_CURSOR: Record<Cursor['tono'], { trazo: string; relleno: string }> = {
@@ -66,7 +73,16 @@ const HALO = 'stroke-tarjeta [paint-order:stroke] [stroke-width:3px]'
  * escáner. Sale del mismo marco que el perfil longitudinal, así que en el
  * celular los rótulos conservan su tamaño.
  */
-export default function GraficoNiveles({ etiqueta, lineas, fallas = [], critico = null, cursor = null, alto = 240 }: Props) {
+export default function GraficoNiveles({
+  etiqueta,
+  lineas,
+  fallas = [],
+  corteRelleno = [],
+  critico = null,
+  cursor = null,
+  alto = 240,
+  marcarSinComprobar = true,
+}: Props) {
   const puntos = lineas.flatMap((l) => l.linea.puntos)
   if (puntos.length < 2) return null
   const valoresY = [...puntos.map((p) => p.cota), ...(cursor ? [cursor.desde, cursor.hasta] : [])]
@@ -102,7 +118,7 @@ export default function GraficoNiveles({ etiqueta, lineas, fallas = [], critico 
                     cy={y(p.cota)}
                     r={3.4}
                     strokeWidth={1.6}
-                    className={p.comprobado ? `${RELLENO[tono]} ${TRAZO[tono]}` : `fill-tarjeta ${TRAZO[tono]}`}
+                    className={p.comprobado || !marcarSinComprobar ? `${RELLENO[tono]} ${TRAZO[tono]}` : `fill-tarjeta ${TRAZO[tono]}`}
                   />
                 ))}
             </g>
@@ -120,7 +136,7 @@ export default function GraficoNiveles({ etiqueta, lineas, fallas = [], critico 
                   const ay = y(a.cota)
                   const by = y(b.cota)
                   // Solo donde el tramo es largo: si no, los rótulos se pisan.
-                  if (Math.hypot(bx - ax, by - ay) < 56) return null
+                  if (Math.hypot(bx - ax, by - ay) < 40) return null
                   const signo = t.pendientePct > 0 ? '+' : t.pendientePct < 0 ? '−' : ''
                   return (
                     <text
@@ -128,7 +144,7 @@ export default function GraficoNiveles({ etiqueta, lineas, fallas = [], critico 
                       x={(ax + bx) / 2}
                       y={(ay + by) / 2 + (tono === 'superior' ? -8 : 16)}
                       textAnchor="middle"
-                      className={`${RELLENO[tono]} ${HALO} text-[11px] font-semibold`}
+                      className={`${RELLENO[tono]} ${HALO} text-[10px] font-semibold sm:text-[11px]`}
                     >
                       {signo}
                       {Math.abs(t.pendientePct).toFixed(2)}%
@@ -136,6 +152,19 @@ export default function GraficoNiveles({ etiqueta, lineas, fallas = [], critico 
                   )
                 }),
           )}
+
+          {corteRelleno.map((v) => (
+            <line
+              key={`cr-${v.progresiva}`}
+              x1={x(v.progresiva)}
+              x2={x(v.progresiva)}
+              y1={y(v.desde)}
+              y2={y(v.hasta)}
+              strokeWidth={5}
+              strokeOpacity={0.55}
+              className={v.tipo === 'corte' ? 'stroke-marca' : 'stroke-proyecto'}
+            />
+          ))}
 
           {fallas.map((f) => (
             <line
@@ -196,7 +225,17 @@ export default function GraficoNiveles({ etiqueta, lineas, fallas = [], critico 
 }
 
 /** La leyenda del gráfico: el color nunca va solo, cada línea dice su nombre. */
-export function LeyendaNiveles({ lineas }: { lineas: { nombre: string; tono: TonoLinea; discontinua?: boolean }[] }) {
+export function LeyendaNiveles({
+  lineas,
+  sinComprobar = true,
+  corteRelleno = false,
+}: {
+  lineas: { nombre: string; tono: TonoLinea; discontinua?: boolean }[]
+  /** Explica el punto hueco (sin comprobar). */
+  sinComprobar?: boolean
+  /** Explica las barras de corte y relleno. */
+  corteRelleno?: boolean
+}) {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] font-semibold">
       {lineas.map((l) => (
@@ -205,9 +244,21 @@ export function LeyendaNiveles({ lineas }: { lineas: { nombre: string; tono: Ton
           {l.nombre}
         </li>
       ))}
-      <li className="font-normal text-tenue">
-        <span aria-hidden="true">○ </span>punto sin comprobar
-      </li>
+      {corteRelleno && (
+        <>
+          <li className="text-marca">
+            <span aria-hidden="true">▮ </span>corte: sobra
+          </li>
+          <li className="text-proyecto">
+            <span aria-hidden="true">▮ </span>relleno: falta
+          </li>
+        </>
+      )}
+      {sinComprobar && (
+        <li className="font-normal text-tenue">
+          <span aria-hidden="true">○ </span>punto sin comprobar
+        </li>
+      )}
     </ul>
   )
 }

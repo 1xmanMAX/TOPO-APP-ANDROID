@@ -1,4 +1,5 @@
 import { guardarArchivo } from './guardar'
+import { hojaUsable } from '../niveles/hoja'
 import {
   anadirPalabra,
   esPalabraDe,
@@ -217,10 +218,17 @@ function migrarCamposDeLaOla2(proyecto: Proyecto): Proyecto {
     const cruda = calle as unknown as Record<string, unknown>
     const notasRotas = 'notas' in cruda && !Array.isArray(cruda.notas)
     const planRoto = 'planControles' in cruda && cruda.planControles !== null && !esObjeto(cruda.planControles)
-    if (!notasRotas && !planRoto) return calle
+    const conNiveles = 'niveles' in cruda
+    if (!notasRotas && !planRoto && !conNiveles) return calle
     const arreglada = { ...calle }
     if (notasRotas) delete arreglada.notas
     if (planRoto) delete arreglada.planControles
+    if (conNiveles) {
+      // La hoja de niveles: lo que no es hoja se quita; dentro se completa lo que falte.
+      const hoja = hojaUsable(cruda.niveles)
+      if (hoja) arreglada.niveles = hoja
+      else delete arreglada.niveles
+    }
     return arreglada
   })
 

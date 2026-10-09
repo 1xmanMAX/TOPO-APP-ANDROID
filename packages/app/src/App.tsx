@@ -7,6 +7,7 @@ import { NavegacionCalle, NavegacionObra, NavegacionPantallasCalle } from './com
 import { BOTON_ICONO, BOTON_PRINCIPAL, BOTON_SECUNDARIO } from './componentes/ui'
 import { useAlmacen } from './estado/almacen'
 import PantallaAnalisis from './vistas/analisis/PantallaAnalisis'
+import PantallaNiveles from './vistas/niveles/PantallaNiveles'
 import EspacioCalle from './vistas/calle/EspacioCalle'
 import PantallaCierre from './vistas/cierre/PantallaCierre'
 import PanelCalculadora from './vistas/herramientas/PanelCalculadora'
@@ -25,6 +26,7 @@ function Obra() {
 /** Calle: los modos o, encima de ellos, la pantalla de la calle si hay una abierta. */
 function Calle() {
   const pantalla = useAlmacen((s) => s.pantallaCalle)
+  if (pantalla === 'niveles') return <PantallaNiveles />
   if (pantalla === 'analisis') return <PantallaAnalisis />
   if (pantalla === 'cierre') return <PantallaCierre />
   if (pantalla === 'planificar') return <PantallaPlanificar />

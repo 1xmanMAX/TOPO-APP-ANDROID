@@ -83,6 +83,71 @@ export interface Calle {
    * se haya planificado.
    */
   planControles?: PlanControles | null
+  /**
+   * La hoja de niveles de la calle: la herramienta «Pistas y veredas» de Max,
+   * con sus puestas y sus conjuntos escritos a mano. Ausente en los archivos
+   * de antes: es lo mismo que una hoja vacía.
+   */
+  niveles?: HojaNiveles
+}
+
+// ---------- Hoja de niveles («Pistas y veredas») ----------
+
+/** Una puesta del nivel: cota del BM + lectura atrás = altura instrumental. */
+export interface PuestaDeNivel {
+  id: Id
+  nombre: string
+  /** Metros. */
+  cotaBM: number
+  /** Metros, siempre: es la lectura atrás al BM. */
+  lecturaAtras: number
+}
+
+/**
+ * Un conjunto de niveles tal como se guarda: una línea a lo largo de la calle,
+ * escrita «progresiva, valor» una por renglón, como en la hoja de Max.
+ */
+export interface ConjuntoDeNivel {
+  id: Id
+  nombre: string
+  /** Base, Subbase, Vereda, Replanteo… Agrupa y da color; es texto libre. */
+  categoria: string
+  /** `lectura`: lecturas de mira con su puesta. `cota`: el valor tal cual, en metros. */
+  tipo: 'lectura' | 'cota'
+  texto: string
+  /** La puesta con la que se leyó (solo `lectura`). */
+  puestaId: Id | null
+  /** Sube (+) o baja (−) la línea entera, en cm. */
+  ajusteCm: number
+}
+
+export interface HojaNiveles {
+  puestas: PuestaDeNivel[]
+  conjuntos: ConjuntoDeNivel[]
+  /** En qué unidad se escriben las lecturas. */
+  unidad: 'm' | 'cm' | 'mm'
+  /** `normal`: Z = AI − L. `invertida`: Z = AI + L. */
+  mira: 'normal' | 'invertida'
+  /** La separación mínima que se exige entre dos líneas, en cm. */
+  minimoCm: number
+  /** Las gráficas de comparación (una o dos), con lo que se eligió en cada una. */
+  paneles?: PanelDeNiveles[]
+  /** Se ven las dos gráficas (izquierda y derecha) o solo la primera. */
+  dosPaneles?: boolean
+  /** Lo último que se pidió en «Nivel a registrar». */
+  registrar?: { conjuntoId: Id | null; progresivas: string; puestaId: Id | null }
+}
+
+/**
+ * Una gráfica de comparación entre dos conjuntos. En `separacion` se mide de
+ * la línea de arriba a la de abajo contra el mínimo; en `corteRelleno` la de
+ * arriba es lo que hay y la de abajo lo que debe quedar (el replanteo): lo
+ * que sobra se corta, lo que falta se rellena.
+ */
+export interface PanelDeNiveles {
+  superiorId: Id | null
+  inferiorId: Id | null
+  modo: 'separacion' | 'corteRelleno'
 }
 
 // ---------- Notas de campo ----------

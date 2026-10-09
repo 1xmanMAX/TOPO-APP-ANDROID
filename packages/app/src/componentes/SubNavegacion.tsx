@@ -104,6 +104,7 @@ export function NavegacionCalle() {
 }
 
 const PANTALLAS: { pantalla: Exclude<PantallaCalle, 'guia'>; texto: string }[] = [
+  { pantalla: 'niveles', texto: 'Niveles' },
   { pantalla: 'analisis', texto: 'Análisis' },
   { pantalla: 'cierre', texto: 'Cierre' },
   { pantalla: 'planificar', texto: 'Planificar' },
@@ -112,7 +113,7 @@ const PANTALLAS: { pantalla: Exclude<PantallaCalle, 'guia'>; texto: string }[] =
 const TEXTO_MODO: Record<ModoCalle, string> = { medir: 'Medir', revisar: 'Revisar', replantear: 'Replantear' }
 
 /**
- * Las pantallas de la calle (Análisis, Cierre, Planificar), como pestañas de
+ * Las pantallas de la calle (Niveles, Análisis, Cierre, Planificar), como pestañas de
  * texto. Va dentro de <main>, al principio: se desplaza con el contenido y no
  * le quita alto fijo a la libreta en el celular. Con una pantalla abierta, lo
  * primero es volver al modo en el que se estaba.
@@ -127,7 +128,7 @@ export function NavegacionPantallasCalle() {
     <nav
       aria-label="Pantallas de la calle"
       className={`flex items-center gap-1 border-b border-borde bg-fondo px-3 md:px-4 ${
-        hayVolver ? 'max-md:overflow-x-auto' : 'max-md:grid max-md:grid-cols-3'
+        hayVolver ? 'max-md:overflow-x-auto' : 'max-md:grid max-md:grid-cols-4'
       }`}
     >
       {hayVolver && (
@@ -152,7 +153,7 @@ export function NavegacionPantallasCalle() {
             type="button"
             aria-pressed={activo}
             onClick={() => abrirPantallaCalle(pantalla)}
-            className={`-mb-px min-h-11 shrink-0 border-b-2 px-3 text-[15px] font-semibold whitespace-nowrap ${
+            className={`-mb-px min-h-11 shrink-0 border-b-2 px-3 text-[15px] font-semibold whitespace-nowrap max-md:px-1 max-[379px]:text-[14px] ${
               activo ? 'border-marca text-marca' : 'border-transparent text-tenue hover:text-tinta'
             }`}
           >

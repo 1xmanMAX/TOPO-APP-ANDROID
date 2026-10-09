@@ -55,7 +55,7 @@ export type SubObra = 'calles' | 'plano'
 /** Los tres modos sobre la misma vista de la calle. */
 export type ModoCalle = 'medir' | 'revisar' | 'replantear'
 /** Pantallas de la calle que tapan los modos mientras están abiertas. */
-export type PantallaCalle = 'analisis' | 'cierre' | 'planificar' | 'guia'
+export type PantallaCalle = 'niveles' | 'analisis' | 'cierre' | 'planificar' | 'guia'
 /** Las pestañas de Calle › Análisis. */
 export type PestanaAnalisis = 'espesores' | 'separacion' | 'volumenes' | 'drenaje'
 

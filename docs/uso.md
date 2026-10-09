@@ -294,7 +294,21 @@ El archivo de diferencias lleva además, en la cabecera, la **pendiente longitud
 
 ## Pistas y veredas: la capa siguiente y la separación entre niveles
 
-Tu herramienta «Pistas y veredas: separación entre niveles» ya está dentro de la app, con tus calles y tus capas: no hace falta volver a escribir los datos.
+Tu herramienta «Pistas y veredas: separación entre niveles» está dentro de la app, en **Calle › Niveles**, y se guarda con la calle en el `.topo`.
+
+### La hoja de niveles (Calle › Niveles)
+
+- **Puestas del nivel**: cota del BM (escrita o tomada de un BM del proyecto) y lectura atrás → AI. Si cambias la lectura atrás, se mueven todas las cotas de los conjuntos leídos desde esa puesta. Para otro día, «+ Nueva puesta» y «Pasar todos los conjuntos a esta puesta».
+- **Conjuntos**: tus lecturas de una zona, «progresiva, lectura» una por renglón (o cotas), con su **categoría** —Base, Subbase, Vereda, Replanteo… o la que escribas— y ▲ ▼ para subir o bajar la línea entera en cm. «Traer de lo medido» copia una capa ya nivelada en la app.
+- **Replanteo**: «+ Nuevo replanteo» copia otro conjunto (subido o bajado los cm que digas) o lo traza con una cota de arranque y una pendiente. Queda como conjunto de cotas que puedes corregir.
+- **Gráficas** (una o dos, izquierda y derecha), con la pendiente de cada tramo y un escáner:
+  - **Separación**: de la línea de arriba a la de abajo contra el mínimo; la menor, dónde, y los puntos que no cumplen.
+  - **Corte y relleno**: lo que hay contra el replanteo; cuánto cortar (naranja) o rellenar (azul) en cada punto, y el mayor de cada uno.
+- **Nivel a registrar**: eliges el conjunto, escribes la progresiva (o varias, «10, 20, 30») y sale la cota y **lo que debe marcar la mira**, siguiendo las pendientes; si el conjunto no llega ahí, se proyecta desde la línea más cercana o se extrapola, y se dice.
+
+Lecturas en m, cm o mm, y mira hacia abajo o invertida, como en tu hoja.
+
+Además, con las capas ya medidas en la app:
 
 ### Dar la capa siguiente desde la que ya mediste
 
