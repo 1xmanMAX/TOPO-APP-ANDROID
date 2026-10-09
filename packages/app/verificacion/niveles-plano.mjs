@@ -62,6 +62,15 @@ for (const [nombre, ancho, alto] of [['laptop', 1280, 800], ['celular', 390, 844
   await panel.getByRole('checkbox', { name: /Es una salida del agua/ }).check()
   const conSumidero = await panel.getByRole('status').innerText()
   comprobar(`${nombre}: con el 5 de sumidero, toda el agua llega a una salida`, /Toda el agua llega a una salida/.test(conSumidero), conSumidero)
+  // Lo medido en la libreta de las calles de este plano entra sin escribirlo otra vez.
+  const sumar = panel.getByLabel('Sumar lo medido en las calles de este plano')
+  if (await sumar.count()) {
+    const opciones = await sumar.locator('option').allInnerTexts()
+    await sumar.selectOption({ label: opciones.find((o) => /SUBRASANTE/.test(o)) ?? opciones[1] })
+    const nota = await panel.getByText(/puntos de la libreta/).innerText()
+    comprobar(`${nombre}: se puede sumar lo medido de las calles del plano (Las Lomas aún sin mediciones: el caso con puntos lo prueba enPlano.test)`, /^\d+ puntos de la libreta/.test(nota), nota)
+    await pagina.screenshot({ path: `${SALIDA}/niveles-plano-${nombre}-medido.png` })
+  } else comprobar(`${nombre}: el plano tiene pistas enlazadas a calles`, false)
   comprobar(`${nombre}: nada se sale de lado`, await pagina.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1))
   await pagina.screenshot({ path: `${SALIDA}/niveles-plano-${nombre}-2.png` })
   await panel.screenshot({ path: `${SALIDA}/niveles-plano-${nombre}-panel.png` }).catch(() => {})

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import CampoNumero from '../../componentes/CampoNumero'
 import { useAlmacen } from '../../estado/almacen'
 import { formatearCota } from '../../formato'
-import { puestaDelPunto, type AnalisisEnPlano } from '../../niveles/enPlano'
+import { puestaDelPunto, textoUbicacion, type AnalisisEnPlano, type UbicacionEnCalle } from '../../niveles/enPlano'
 import { puestasDe } from '../../niveles/puestas'
 import EditorPuestas from '../niveles/EditorPuestas'
 import { BOTON_ICONO, BOTON_SECUNDARIO, CAJA, ENLACE_PELIGRO } from './estilos'
@@ -36,7 +36,11 @@ interface PropsDibujo {
  */
 export function DibujoNiveles({ niveles, analisis, elegidoId, upp, verPendientes }: PropsDibujo) {
   const r = analisis.resultado?.ok ? analisis.resultado : null
-  const porId = new Map(niveles.puntos.map((p) => [p.id, p]))
+  // Los puntos del plano y lo medido en las calles: los dos entran a la misma superficie.
+  const porId = new Map<string, { x: number; y: number }>([
+    ...niveles.puntos.map((p) => [p.id, p] as const),
+    ...analisis.medidos.map((m) => [m.id, m] as const),
+  ])
   const empoza = new Set(r?.empozan ?? [])
   const camino = elegidoId && r ? (r.caminos.get(elegidoId)?.camino ?? []) : []
 
@@ -107,6 +111,36 @@ export function DibujoNiveles({ niveles, analisis, elegidoId, upp, verPendientes
         </g>
       )}
 
+      {analisis.medidos.map((m) => {
+        const c = aSvg(m)
+        const seEmpoza = empoza.has(m.id)
+        return (
+          <g key={m.id} pointerEvents="none">
+            {seEmpoza && <circle cx={c.x} cy={c.y} r={9 * upp} fill="none" className="stroke-falla" strokeWidth={3 * upp} />}
+            <rect
+              x={c.x - 4 * upp}
+              y={c.y - 4 * upp}
+              width={8 * upp}
+              height={8 * upp}
+              className="fill-aviso stroke-white dark:stroke-slate-900"
+              strokeWidth={1.5 * upp}
+            />
+            <text
+              x={c.x + 7 * upp}
+              y={c.y + 4 * upp}
+              fontSize={10 * upp}
+              strokeWidth={3 * upp}
+              paintOrder="stroke"
+              className={seEmpoza ? 'fill-falla stroke-white dark:stroke-slate-900' : ROTULO}
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {seEmpoza ? '✗ ' : ''}
+              {formatearCota(m.cota)}
+            </text>
+          </g>
+        )
+      })}
+
       {niveles.puntos.map((p) => {
         const c = aSvg(p)
         const cota = analisis.cotas.get(p.id)
@@ -164,6 +198,9 @@ interface PropsPanel {
   plano: PlanoImportado
   niveles: NivelesEnPlano
   analisis: AnalisisEnPlano
+  /** En qué calle y progresiva cae cada punto (por las pistas de este plano). */
+  ubicaciones: Map<string, UbicacionEnCalle | null>
+  hayPistasConCalle: boolean
   elegidoId: string | null
   alElegir: (id: string | null) => void
   cambiar: (cambio: (n: NivelesEnPlano) => NivelesEnPlano) => void
@@ -179,11 +216,13 @@ interface PropsPanel {
  * el orden en que se pusieron—, la ficha del punto elegido con su camino del
  * agua, y las puestas.
  */
-export function PanelNiveles({ plano, niveles, analisis, elegidoId, alElegir, cambiar, moviendo, alMover, verPendientes, alVerPendientes }: PropsPanel) {
+export function PanelNiveles({ plano, niveles, analisis, ubicaciones, hayPistasConCalle, elegidoId, alElegir, cambiar, moviendo, alMover, verPendientes, alVerPendientes }: PropsPanel) {
   const r = analisis.resultado
   const elegido = niveles.puntos.find((p) => p.id === elegidoId) ?? null
   const leidos = analisis.cotas.size
-  const nombre = (id: string) => niveles.puntos.find((p) => p.id === id)?.nombre ?? id
+  const proyecto = useAlmacen((s) => s.proyecto)
+  const nombre = (id: string) => niveles.puntos.find((p) => p.id === id)?.nombre ?? analisis.medidos.find((m) => m.id === id)?.nombre ?? id
+  const ubicacionElegida = elegidoId ? (ubicaciones.get(elegidoId) ?? null) : null
 
   function editarPunto(id: string, cambios: Partial<PuntoNivelPlano>) {
     cambiar((n) => ({ ...n, puntos: n.puntos.map((p) => (p.id === id ? { ...p, ...cambios } : p)) }))
@@ -258,6 +297,7 @@ export function PanelNiveles({ plano, niveles, analisis, elegidoId, alElegir, ca
               {moviendo ? 'Toca el plano…' : 'Mover'}
             </button>
           </div>
+          {ubicacionElegida && <p className="text-[13px] text-tenue">En {textoUbicacion(ubicacionElegida)}.</p>}
           <label className="flex min-h-11 items-center gap-2 text-sm">
             <input type="checkbox" className="size-5" checked={elegido.salida} onChange={(e) => editarPunto(elegido.id, { salida: e.target.checked })} />
             Es una salida del agua (sumidero, cuneta, canal)
@@ -300,7 +340,31 @@ export function PanelNiveles({ plano, niveles, analisis, elegidoId, alElegir, ca
       )}
 
       {niveles.puntos.length > 0 && (
-        <TablaLecturas niveles={niveles} analisis={analisis} elegidoId={elegidoId} alElegir={alElegir} editarPunto={editarPunto} />
+        <TablaLecturas niveles={niveles} analisis={analisis} ubicaciones={ubicaciones} elegidoId={elegidoId} alElegir={alElegir} editarPunto={editarPunto} />
+      )}
+
+      {hayPistasConCalle && (
+        <label className="flex flex-col gap-1 border-t border-dashed border-borde pt-3 text-sm">
+          <span className="font-semibold">Sumar lo medido en las calles de este plano</span>
+          <select
+            aria-label="Sumar lo medido en las calles de este plano"
+            value={niveles.capaMedidaId ?? ''}
+            onChange={(e) => cambiar((n) => ({ ...n, capaMedidaId: e.target.value === '' ? null : e.target.value }))}
+            className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-[15px]"
+          >
+            <option value="">No, solo los puntos del plano</option>
+            {proyecto.capas.map((c) => (
+              <option key={c.id} value={c.id}>
+                Sí, la capa {c.nombre}
+              </option>
+            ))}
+          </select>
+          <span className="text-[13px] text-tenue">
+            {niveles.capaMedidaId
+              ? `${analisis.medidos.length} puntos de la libreta (■ en el plano), con las mismas cotas de Revisar: no hay que volver a ponerlos.`
+              : 'Lo nivelado en la libreta entra al análisis sin escribirlo otra vez.'}
+          </span>
+        </label>
       )}
 
       <div className="flex flex-col gap-2 border-t border-dashed border-borde pt-3">
@@ -334,12 +398,14 @@ export function PanelNiveles({ plano, niveles, analisis, elegidoId, alElegir, ca
 function TablaLecturas({
   niveles,
   analisis,
+  ubicaciones,
   elegidoId,
   alElegir,
   editarPunto,
 }: {
   niveles: NivelesEnPlano
   analisis: AnalisisEnPlano
+  ubicaciones: Map<string, UbicacionEnCalle | null>
   elegidoId: string | null
   alElegir: (id: string) => void
   editarPunto: (id: string, cambios: Partial<PuntoNivelPlano>) => void
@@ -367,6 +433,9 @@ function TablaLecturas({
                   {p.nombre}
                   {p.salida && <span className="text-proyecto"> ▼</span>}
                 </button>
+                {ubicaciones.get(p.id) && (
+                  <span className="block text-[11px] leading-tight text-tenue">{textoUbicacion(ubicaciones.get(p.id)!)}</span>
+                )}
               </td>
               {varias && (
                 <td className="py-1">

@@ -260,6 +260,12 @@ export interface NivelesEnPlano {
   puntos: PuntoNivelPlano[]
   /** Por debajo de esta pendiente (%) el agua puede quedarse. */
   pendienteMinimaPct: number
+  /**
+   * Suma al análisis del agua lo medido en la libreta de esta capa, en las
+   * calles que tienen su pista en este plano: no hay que volver a poner
+   * esos puntos. Null o ausente: solo los puntos del plano.
+   */
+  capaMedidaId?: Id | null
 }
 
 export type OrigenPista = 'croquis' | 'dxf'

@@ -16,7 +16,7 @@ import { BORRADOR_VACIO, PanelCalibrar, PanelCapas, PanelCroquis, textoEscala, t
 import { usePlanoCargado } from './usePlanoCargado'
 import VisorPlano from './VisorPlano'
 import { DibujoNiveles, PanelNiveles } from './NivelesPlano'
-import { analizarPlano, nivelesVacios, siguienteNombre } from '../../niveles/enPlano'
+import { analizarPlano, nivelesVacios, puntosMedidosEnPlano, siguienteNombre, ubicacionEnCalles } from '../../niveles/enPlano'
 import { nuevoIdNivel } from '../../niveles/hoja'
 import type { NivelesEnPlano } from '@topo/core'
 
@@ -138,9 +138,22 @@ export default function EspacioPlano() {
   // Los puntos de nivel de esta lámina (vacíos con ids estables mientras no se toquen).
   const nivelesVaciosDelPlano = useMemo(() => nivelesVacios(), [plano?.id])
   const niveles = plano?.nivelesEnPlano ?? nivelesVaciosDelPlano
+  // Las pistas de este plano ya calibradas: atan cada punto a su calle y ponen lo medido en el plano.
+  const pistasCalibradas = useMemo(
+    () => pistasDelPlano.map((p) => pistaCalibrada(p, plano)).filter((p): p is NonNullable<typeof p> => p !== null),
+    [pistasDelPlano, plano],
+  )
+  const medidosEnPlano = useMemo(
+    () => (niveles.capaMedidaId ? puntosMedidosEnPlano(proyecto, pistasCalibradas, niveles.capaMedidaId) : []),
+    [proyecto, pistasCalibradas, niveles.capaMedidaId],
+  )
   const analisisNiveles = useMemo(
-    () => analizarPlano(niveles, plano?.calibracion ?? null, proyecto),
-    [niveles, plano?.calibracion, proyecto],
+    () => analizarPlano(niveles, plano?.calibracion ?? null, proyecto, medidosEnPlano),
+    [niveles, plano?.calibracion, proyecto, medidosEnPlano],
+  )
+  const ubicaciones = useMemo(
+    () => new Map(niveles.puntos.map((p) => [p.id, ubicacionEnCalles(p, pistasCalibradas, proyecto.calles)])),
+    [niveles.puntos, pistasCalibradas, proyecto.calles],
   )
   function cambiarNiveles(cambio: (n: NivelesEnPlano) => NivelesEnPlano) {
     if (!plano) return
@@ -604,6 +617,8 @@ export default function EspacioPlano() {
                 plano={plano}
                 niveles={niveles}
                 analisis={analisisNiveles}
+                ubicaciones={ubicaciones}
+                hayPistasConCalle={pistasCalibradas.some((p) => p.calleId)}
                 elegidoId={nivelElegido}
                 alElegir={setNivelElegido}
                 cambiar={cambiarNiveles}

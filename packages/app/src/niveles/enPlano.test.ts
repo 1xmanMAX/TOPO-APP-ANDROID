@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { analizarPlano, cotaDelPunto, nivelesEnPlanoUsables, nivelesVacios, siguienteNombre } from './enPlano'
+import {
+  analizarPlano,
+  cotaDelPunto,
+  nivelesEnPlanoUsables,
+  nivelesVacios,
+  puntoDeSeccionEnPlano,
+  puntosMedidosEnPlano,
+  siguienteNombre,
+  textoUbicacion,
+  ubicacionEnCalles,
+} from './enPlano'
+import { proyectoDePrueba } from '../vistas/analisis/proyectoDePrueba'
 import type { NivelesEnPlano, Proyecto, PuntoNivelPlano } from '@topo/core'
 import { proyectoVacio } from '../estado/ejemplo'
 
@@ -69,5 +80,46 @@ describe('niveles sobre el plano', () => {
     const n = niveles()
     n.puntos = n.puntos.slice(0, 2)
     expect(analizarPlano(n, { metrosPorUnidad: 1 }, P).resultado).toBeNull()
+  })
+})
+
+describe('el plano y las calles', () => {
+  // Una pista recta hacia el norte, 1 unidad = 1 m, enlazada a la calle de la obra de prueba.
+  const pista = {
+    id: 'pi',
+    nombre: 'Pista',
+    polilinea: [{ x: 0, y: 0 }, { x: 0, y: 100 }],
+    calibracion: { metrosPorUnidad: 1, ejeY: 'arriba' as const },
+    progresivaInicio: 0,
+    calleId: 'c-1',
+  }
+
+  it('un punto del plano dice en qué calle, progresiva y lado está', () => {
+    const proyecto = proyectoDePrueba()
+    const u = ubicacionEnCalles({ x: -3, y: 40 }, [pista], proyecto.calles)!
+    expect(u.calle).toBe('Jr. Prueba')
+    expect(u.progresiva).toBeCloseTo(40, 6)
+    expect(u.desplazamiento).toBeCloseTo(-3, 6)
+    expect(textoUbicacion(u)).toBe('Jr. Prueba 0+040, 3.0 m izq.')
+    expect(ubicacionEnCalles({ x: 80, y: 40 }, [pista], proyecto.calles)).toBeNull()
+  })
+
+  it('un punto de la sección cae a su lado: la izquierda, mirando el avance, al oeste', () => {
+    const izq = puntoDeSeccionEnPlano(pista, 40, -3)!
+    expect(izq.x).toBeCloseTo(-3, 9)
+    expect(izq.y).toBeCloseTo(40, 9)
+    expect(puntoDeSeccionEnPlano(pista, 40, 3)!.x).toBeCloseTo(3, 9)
+  })
+
+  it('lo medido en la libreta aparece en el plano con las cotas de Revisar, sin escribirlo otra vez', () => {
+    const proyecto = proyectoDePrueba()
+    const medidos = puntosMedidosEnPlano(proyecto, [pista], 'cap-sub')
+    expect(medidos).toHaveLength(9)
+    const eje0 = medidos.find((m) => m.nombre === 'Jr. Prueba 0+000 EJE')!
+    expect(eje0).toMatchObject({ x: 0, y: 0 })
+    expect(eje0.cota).toBeCloseTo(100.003, 6)
+    // Y entra al análisis del agua junto con los puntos del plano.
+    const a = analizarPlano({ puntos: [], pendienteMinimaPct: 0.5 }, { metrosPorUnidad: 1 }, proyecto, medidos)
+    expect(a.resultado?.ok).toBe(true)
   })
 })
