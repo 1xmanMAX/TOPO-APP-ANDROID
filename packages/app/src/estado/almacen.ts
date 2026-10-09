@@ -31,6 +31,7 @@ import {
   type Pista,
   type PlanControles,
   type PlanoImportado,
+  type PuestaDeNivel,
 } from '@topo/core'
 import { create } from 'zustand'
 import type { ArchivosDePlano } from '../archivo/topo'
@@ -57,7 +58,7 @@ export type ModoCalle = 'medir' | 'revisar' | 'replantear'
 /** Pantallas de la calle que tapan los modos mientras están abiertas. */
 export type PantallaCalle = 'niveles' | 'analisis' | 'cierre' | 'planificar' | 'guia'
 /** Las pestañas de Calle › Análisis. */
-export type PestanaAnalisis = 'espesores' | 'separacion' | 'volumenes' | 'drenaje'
+export type PestanaAnalisis = 'espesores' | 'volumenes' | 'drenaje'
 
 /**
  * Las siete pantallas de antes del rediseño. Ya no mandan en la navegación:
@@ -104,7 +105,7 @@ interface EstadoApp {
   pantallaCalle: PantallaCalle | null
   /**
    * La pestaña abierta en Análisis. Vive aquí y no en la pantalla para que
-   * Replantear pueda abrir Análisis › Separación directamente.
+   * otra pantalla pueda abrir Análisis en una pestaña concreta.
    */
   pestanaAnalisis: PestanaAnalisis
   calculadoraAbierta: boolean
@@ -178,6 +179,11 @@ interface EstadoApp {
 
   agregarCalle(datos: Omit<Calle, 'id' | 'seccion' | 'nivelaciones'>): Id
   actualizarCalle(id: Id, cambios: Partial<Omit<Calle, 'id'>>): void
+  /** Una puesta nueva del proyecto; devuelve su id. */
+  agregarPuesta(datos: Omit<PuestaDeNivel, 'id'>): Id
+  actualizarPuesta(id: Id, cambios: Partial<Omit<PuestaDeNivel, 'id'>>): void
+  /** La quita; lo que la usaba pasa a la primera que quede. */
+  eliminarPuesta(id: Id): void
   eliminarCalle(id: Id): void
   fijarRasante(calleId: Id, rasante: Rasante | null): void
 
@@ -750,6 +756,42 @@ export const useAlmacen = create<EstadoApp>((set, get) => ({
     }))
     return id
   },
+
+  agregarPuesta: (datos) => {
+    const id = nuevoId('puesta')
+    set((s) => ({ proyecto: marcarModificado({ ...s.proyecto, puestas: [...(s.proyecto.puestas ?? []), { ...datos, id }] }) }))
+    return id
+  },
+
+  actualizarPuesta: (id, cambios) =>
+    set((s) => ({
+      proyecto: marcarModificado({
+        ...s.proyecto,
+        puestas: (s.proyecto.puestas ?? []).map((p) => (p.id === id ? { ...p, ...cambios } : p)),
+      }),
+    })),
+
+  eliminarPuesta: (id) =>
+    set((s) => {
+      // Quien la usaba se queda sin puesta propia: toma la primera que quede.
+      const suelta = <T extends { puestaId: Id | null }>(x: T): T => (x.puestaId === id ? { ...x, puestaId: null } : x)
+      return {
+        proyecto: marcarModificado({
+          ...s.proyecto,
+          puestas: (s.proyecto.puestas ?? []).filter((p) => p.id !== id),
+          calles: s.proyecto.calles.map((c) =>
+            c.niveles ? { ...c, niveles: { ...c.niveles, conjuntos: c.niveles.conjuntos.map(suelta) } } : c,
+          ),
+          ...(s.proyecto.planos
+            ? {
+                planos: s.proyecto.planos.map((pl) =>
+                  pl.nivelesEnPlano ? { ...pl, nivelesEnPlano: { ...pl.nivelesEnPlano, puntos: pl.nivelesEnPlano.puntos.map(suelta) } } : pl,
+                ),
+              }
+            : {}),
+        }),
+      }
+    }),
 
   actualizarCalle: (id, cambios) =>
     set((s) => ({

@@ -8,13 +8,15 @@ import { useAlmacen } from '../../estado/almacen'
 import {
   CATEGORIA_REPLANTEO,
   CATEGORIAS_DE_FABRICA,
-  contarPuntos,
   nuevoIdNivel,
   puestaDe,
+  puntosDeConjunto,
   textoDeCotas,
   textoPorPendiente,
   type LineaDeLaHoja,
 } from '../../niveles/hoja'
+import { puestasDe } from '../../niveles/puestas'
+import { SelectorPuesta } from './EditorPuestas'
 import { capasMedidas, puntosDeIzquierdaADerecha, textoAjusteCm } from './lineas'
 import type { PropsHoja } from './PantallaNiveles'
 
@@ -40,13 +42,21 @@ type Formulario = null | 'medido' | 'replanteo'
  * replanteo copiando otra o con una pendiente.
  */
 export default function TarjetaConjuntos({ hoja, cambiar, lineas }: PropsHoja & { lineas: Map<string, LineaDeLaHoja> }) {
+  const proyecto = useAlmacen((s) => s.proyecto)
+  const agregarPuesta = useAlmacen((s) => s.agregarPuesta)
   const [activoId, setActivoId] = useState<string | null>(null)
   const [formulario, setFormulario] = useState<Formulario>(null)
   const activo = hoja.conjuntos.find((c) => c.id === activoId) ?? hoja.conjuntos[0] ?? null
 
   function agregar(conjunto: Omit<ConjuntoDeNivel, 'id'>) {
     const id = nuevoIdNivel('conjunto')
-    cambiar((h) => ({ ...h, conjuntos: [...h.conjuntos, { ...conjunto, id }] }))
+    let puestaId = conjunto.puestaId
+    // Unas lecturas sin ninguna puesta en el proyecto: se crea la primera sobre el primer BM.
+    if (conjunto.tipo === 'lectura' && puestasDe(proyecto).length === 0) {
+      const bm = proyecto.bms[0]
+      puestaId = agregarPuesta({ nombre: 'Puesta 1', cotaBM: bm?.cota ?? 100, lecturaAtras: 1.5, bmId: bm?.id ?? null })
+    }
+    cambiar((h) => ({ ...h, conjuntos: [...h.conjuntos, { ...conjunto, puestaId, id }] }))
     setActivoId(id)
     setFormulario(null)
   }
@@ -78,14 +88,17 @@ export default function TarjetaConjuntos({ hoja, cambiar, lineas }: PropsHoja & 
               }`}
             >
               <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${colorDeCategoria(c.categoria)}`} />
-              {c.nombre || '(sin nombre)'} · {contarPuntos(c.texto)}
+              {c.nombre || '(sin nombre)'} · {puntosDeConjunto(c, lineas)}
+              {(c.tipo === 'medido' || c.tipo === 'derivado') && <span aria-label="enlazado"> ⛓</span>}
               {c.ajusteCm !== 0 && <span className="numerico">{c.ajusteCm > 0 ? ' ▲' : ' ▼'}{Math.abs(c.ajusteCm)} cm</span>}
             </button>
           ))}
         </div>
       )}
 
-      {activo && <EditorConjunto key={activo.id} conjunto={activo} hoja={hoja} linea={lineas.get(activo.id)} editar={editar} quitar={quitar} />}
+      {activo && (
+        <EditorConjunto key={activo.id} conjunto={activo} hoja={hoja} lineas={lineas} linea={lineas.get(activo.id)} editar={editar} quitar={quitar} />
+      )}
 
       <div className="flex flex-wrap gap-2">
         <button
@@ -96,7 +109,7 @@ export default function TarjetaConjuntos({ hoja, cambiar, lineas }: PropsHoja & 
               categoria: '',
               tipo: 'lectura',
               texto: '',
-              puestaId: hoja.puestas[0]?.id ?? null,
+              puestaId: puestasDe(proyecto)[0]?.id ?? null,
               ajusteCm: 0,
             })
           }
@@ -129,21 +142,28 @@ export default function TarjetaConjuntos({ hoja, cambiar, lineas }: PropsHoja & 
 function EditorConjunto({
   conjunto,
   hoja,
+  lineas,
   linea,
   editar,
   quitar,
 }: {
   conjunto: ConjuntoDeNivel
   hoja: PropsHoja['hoja']
+  lineas: Map<string, LineaDeLaHoja>
   linea: LineaDeLaHoja | undefined
   editar: (cambios: Partial<ConjuntoDeNivel>) => void
   quitar: () => void
 }) {
-  const capas = useAlmacen((s) => s.proyecto.capas)
+  const proyecto = useAlmacen((s) => s.proyecto)
+  const capas = proyecto.capas
+  const calle = useAlmacen((s) => s.proyecto.calles.find((c) => c.id === s.calleActivaId) ?? null)
   const idCategorias = useId()
   const [paso, setPaso] = useState(1)
   const [seguro, setSeguro] = useState(false)
-  const puesta = puestaDe(hoja, conjunto)
+  const puesta = puestaDe(proyecto, conjunto)
+  const enlazado = conjunto.tipo === 'medido' || conjunto.tipo === 'derivado'
+  const medidas = calle ? capasMedidas(calle, capas) : []
+  const puntosSeccion = calle ? puntosDeIzquierdaADerecha(calle) : []
   const categorias = [...new Set([...CATEGORIAS_DE_FABRICA, ...capas.map((c) => c.nombre)])]
   // Los avisos que importan al escribir: renglones que no se entienden o lecturas que no caben.
   const avisos = (linea?.avisos ?? []).filter((a) => !/sin cierre|no comprobad/i.test(a))
@@ -173,34 +193,75 @@ function EditorConjunto({
           </datalist>
         </label>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Segmentado
-          etiqueta="Tipo de dato"
-          opciones={[
-            { valor: 'lectura', texto: 'Lecturas de mira' },
-            { valor: 'cota', texto: 'Cotas' },
-          ]}
-          valor={conjunto.tipo}
-          alCambiar={(tipo) => editar({ tipo })}
-        />
-        {conjunto.tipo === 'lectura' && (
-          <label className="flex items-center gap-2 text-[13px] text-tenue">
-            Medido desde
-            <select
-              aria-label="Puesta del conjunto"
-              value={puesta?.id ?? ''}
-              onChange={(e) => editar({ puestaId: e.target.value })}
-              className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-[15px] text-tinta"
-            >
-              {hoja.puestas.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
+      {enlazado ? (
+        <div className="flex flex-col gap-2 rounded-[10px] border border-dashed border-proyecto/50 p-2">
+          {conjunto.tipo === 'medido' ? (
+            <>
+              <p className="text-[13px] text-tenue">⛓ Enlazado a la libreta: si se corrige lo medido o se compensa el cierre, esta línea cambia sola.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[13px] font-medium text-tenue">Capa medida</span>
+                  <select aria-label="Capa enlazada" value={conjunto.capaId ?? ''} onChange={(e) => editar({ capaId: e.target.value })} className={CAMPO}>
+                    {medidas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[13px] font-medium text-tenue">Punto</span>
+                  <select aria-label="Punto enlazado" value={conjunto.puntoId ?? ''} onChange={(e) => editar({ puntoId: e.target.value })} className={CAMPO}>
+                    {puntosSeccion.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-[13px] text-tenue">⛓ Sigue a otra línea más su ajuste: si esa línea cambia, esta también.</p>
+              <label className="flex flex-col gap-1">
+                <span className="text-[13px] font-medium text-tenue">Sigue a</span>
+                <select aria-label="Línea que sigue" value={conjunto.origenId ?? ''} onChange={(e) => editar({ origenId: e.target.value })} className={CAMPO}>
+                  {hoja.conjuntos
+                    .filter((c) => c.id !== conjunto.id)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => editar({ tipo: 'cota', texto: textoDeCotas((linea?.linea.puntos ?? []).map((p) => ({ progresiva: p.progresiva, cota: p.cota - conjunto.ajusteCm / 100 }))) })}
+            className={`${BOTON_SECUNDARIO} self-start`}
+          >
+            Soltar el enlace y editar las cotas a mano
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-end gap-2">
+          <Segmentado
+            etiqueta="Tipo de dato"
+            opciones={[
+              { valor: 'lectura', texto: 'Lecturas de mira' },
+              { valor: 'cota', texto: 'Cotas' },
+            ]}
+            valor={conjunto.tipo === 'cota' ? 'cota' : 'lectura'}
+            alCambiar={(tipo) => editar({ tipo })}
+          />
+          {conjunto.tipo === 'lectura' && (
+            <SelectorPuesta etiqueta="Medido desde" valor={puesta?.id ?? null} alCambiar={(puestaId) => editar({ puestaId })} />
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-1">
         <span className="mr-1 text-[13px] font-medium text-tenue">Subir / bajar{textoAjusteCm(conjunto.ajusteCm)}</span>
         <button type="button" aria-label={`Bajar ${paso} cm`} onClick={() => editar({ ajusteCm: Math.round((conjunto.ajusteCm - paso) * 100) / 100 })} className={BOTON_ICONO}>
@@ -219,6 +280,13 @@ function EditorConjunto({
           </button>
         )}
       </div>
+      {enlazado ? (
+        <p className="numerico rounded-[10px] bg-tarjeta px-3 py-2 text-[13px] text-tenue">
+          {(linea?.linea.puntos ?? []).slice(0, 12).map((p) => `${p.progresiva.toFixed(0)}: ${p.cota.toFixed(3)}`).join(' · ')}
+          {(linea?.linea.puntos.length ?? 0) > 12 && ' …'}
+          {(linea?.linea.puntos.length ?? 0) === 0 && 'Sin puntos.'}
+        </p>
+      ) : (
       <textarea
         aria-label={`Datos de ${conjunto.nombre}: progresiva, valor`}
         spellCheck={false}
@@ -227,6 +295,7 @@ function EditorConjunto({
         onChange={(e) => editar({ texto: e.target.value })}
         className="numerico min-h-40 w-full rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 py-2 text-[14px] leading-6 text-tinta"
       />
+      )}
       {avisos.map((a) => (
         <AvisoLinea key={a} tono="aviso">
           {a}
@@ -297,15 +366,17 @@ function TraerDeLoMedido({ agregar }: { agregar: (c: Omit<ConjuntoDeNivel, 'id'>
           agregar({
             nombre: `${capa.nombre} · ${punto.nombre}`,
             categoria: capa.nombre,
-            tipo: 'cota',
-            texto: textoDeCotas(leida!.linea.puntos),
+            tipo: 'medido',
+            capaId: capa.id,
+            puntoId: punto.id,
+            texto: '',
             puestaId: null,
             ajusteCm: 0,
           })
         }
         className={`${BOTON_SECUNDARIO} self-start`}
       >
-        {n === 0 ? 'Sin puntos medidos ahí' : `Traer ${n} ${n === 1 ? 'punto' : 'puntos'} como cotas`}
+        {n === 0 ? 'Sin puntos medidos ahí' : `Enlazar ${n} ${n === 1 ? 'punto' : 'puntos'} de la libreta`}
       </button>
     </div>
   )
@@ -379,22 +450,34 @@ function NuevoReplanteo({
         type="button"
         disabled={(como === 'copia' ? textoCopia : textoPend) === ''}
         onClick={() =>
-          agregar({
-            nombre: como === 'copia' && origen ? `Replanteo de ${origen.conjunto.nombre}` : `Replanteo ${n}`,
-            categoria: CATEGORIA_REPLANTEO,
-            tipo: 'cota',
-            texto: como === 'copia' ? textoCopia : textoPend,
-            puestaId: null,
-            ajusteCm: 0,
-          })
+          agregar(
+            como === 'copia' && origen
+              ? {
+                  nombre: `Replanteo de ${origen.conjunto.nombre}`,
+                  categoria: CATEGORIA_REPLANTEO,
+                  tipo: 'derivado',
+                  origenId: origen.conjunto.id,
+                  texto: '',
+                  puestaId: null,
+                  ajusteCm: subirCm,
+                }
+              : {
+                  nombre: `Replanteo ${n}`,
+                  categoria: CATEGORIA_REPLANTEO,
+                  tipo: 'cota',
+                  texto: textoPend,
+                  puestaId: null,
+                  ajusteCm: 0,
+                },
+          )
         }
         className={`${BOTON_SECUNDARIO} self-start`}
       >
         Crear el replanteo
       </button>
       <p className="text-[13px] text-tenue">
-        Queda como un conjunto de cotas que puedes corregir punto por punto o subir y bajar entero. Compáralo en una
-        gráfica en «Corte y relleno».
+        Copiado, sigue a su línea (si ella cambia, el replanteo también) y lo subes o bajas con su ajuste; si quieres
+        corregirlo punto por punto, suelta el enlace. Compáralo en una gráfica en «Corte y relleno».
       </p>
     </div>
   )

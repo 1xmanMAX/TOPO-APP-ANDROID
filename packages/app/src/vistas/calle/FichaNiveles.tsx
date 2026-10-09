@@ -36,12 +36,15 @@ import {
   type ContraProyecto,
 } from '../niveles/lineas'
 import { instrumentoDe, leerNumero } from './comun'
+import { SelectorPuesta } from '../niveles/EditorPuestas'
+import { puestaParaMotor, puestaPorId, puestasDe } from '../../niveles/puestas'
 
-type OrigenAltura = 'libreta' | 'bm'
+type OrigenAltura = 'libreta' | 'bm' | 'puesta'
 
 const ORIGENES: { valor: OrigenAltura; texto: string }[] = [
   { valor: 'libreta', texto: 'De la libreta' },
   { valor: 'bm', texto: 'Desde un BM' },
+  { valor: 'puesta', texto: 'Una puesta' },
 ]
 
 const UNIDADES: { valor: UnidadLectura; texto: string }[] = [
@@ -149,7 +152,7 @@ export default function FichaNiveles() {
   const estacionActiva = useAlmacen((s) => s.estacionActiva)
   const seleccion = useAlmacen((s) => s.seleccion)
   const seleccionar = useAlmacen((s) => s.seleccionar)
-  const abrirAnalisis = useAlmacen((s) => s.abrirAnalisis)
+  const abrirPantallaCalle = useAlmacen((s) => s.abrirPantallaCalle)
   const contexto = useContexto()
   const instrumento = instrumentoDe(proyecto)
 
@@ -180,6 +183,8 @@ export default function FichaNiveles() {
   const [unidad, setUnidad] = useState<UnidadLectura>('m')
   const [mira, setMira] = useState<SentidoMira>('normal')
   const [textoExtra, setTextoExtra] = useState('')
+  const [puestaId, setPuestaId] = useState<string | null>(null)
+  const agregarPuesta = useAlmacen((s) => s.agregarPuesta)
 
   const bm = proyecto.bms.find((b) => b.id === bmId) ?? proyecto.bms[0] ?? null
   const indiceEstacion =
@@ -191,8 +196,12 @@ export default function FichaNiveles() {
     if (origen === 'libreta') {
       return tomaId !== null && indiceEstacion !== null ? puestaDeLibreta(proyecto, tomaId, indiceEstacion) : null
     }
+    if (origen === 'puesta') {
+      const elegida = puestaPorId(proyecto, puestaId)
+      return elegida ? puestaParaMotor(elegida, proyecto) : null
+    }
     return bm ? puestaDesdeBM(bm, leerNumero(textoVistaAtras), instrumento.largoMira) : null
-  }, [origen, proyecto, tomaId, indiceEstacion, bm, textoVistaAtras, instrumento.largoMira])
+  }, [origen, proyecto, tomaId, indiceEstacion, bm, textoVistaAtras, instrumento.largoMira, puestaId])
 
   const extra = leerListaDeProgresivas(textoExtra, parsearProgresiva)
   const progresivas = useMemo(() => {
@@ -384,8 +393,32 @@ export default function FichaNiveles() {
                 className="numerico min-h-11 w-28 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-right text-base text-tinta"
               />
             </label>
+            {bm && puesta && (
+              <button
+                type="button"
+                onClick={() => {
+                  const id = agregarPuesta({
+                    nombre: `${bm.nombre} · ${formatearCota(leerNumero(textoVistaAtras))}`,
+                    cotaBM: bm.cota,
+                    lecturaAtras: leerNumero(textoVistaAtras),
+                    bmId: bm.id,
+                  })
+                  setPuestaId(id)
+                  setOrigen('puesta')
+                }}
+                className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-sm font-medium text-tinta"
+              >
+                Guardar como puesta
+              </button>
+            )}
           </div>
         )}
+        {origen === 'puesta' &&
+          (puestasDe(proyecto).length === 0 ? (
+            <p className="text-[13px] text-tenue">No hay puestas en el proyecto: parte de un BM y guárdala, o créalas en Calle › Niveles.</p>
+          ) : (
+            <SelectorPuesta valor={puestaPorId(proyecto, puestaId)?.id ?? null} alCambiar={setPuestaId} etiqueta="Puesta del proyecto" />
+          ))}
       </fieldset>
 
       {sinLineaPropia && (
@@ -566,7 +599,7 @@ export default function FichaNiveles() {
       )}
 
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => abrirAnalisis('separacion')} className={BOTON_SECUNDARIO}>
+        <button type="button" onClick={() => abrirPantallaCalle('niveles')} className={BOTON_SECUNDARIO}>
           Comprobar separación
         </button>
         <button type="button" onClick={descargarHoja} disabled={!resultado} className={BOTON_PRINCIPAL}>

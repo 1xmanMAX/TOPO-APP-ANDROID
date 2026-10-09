@@ -67,6 +67,7 @@ export default function EspacioPlano() {
   const actualizarPlano = useAlmacen((s) => s.actualizarPlano)
   const eliminarPlano = useAlmacen((s) => s.eliminarPlano)
   const eliminarPista = useAlmacen((s) => s.eliminarPista)
+  const agregarPuesta = useAlmacen((s) => s.agregarPuesta)
 
   const planos = useMemo(() => proyecto.planos ?? [], [proyecto.planos])
   const pistas = useMemo(() => proyecto.pistas ?? [], [proyecto.pistas])
@@ -135,11 +136,11 @@ export default function EspacioPlano() {
   }, [cargado, pistasDelPlano])
 
   // Los puntos de nivel de esta lámina (vacíos con ids estables mientras no se toquen).
-  const nivelesVaciosDelPlano = useMemo(() => nivelesVacios(proyecto.bms), [plano?.id])
+  const nivelesVaciosDelPlano = useMemo(() => nivelesVacios(), [plano?.id])
   const niveles = plano?.nivelesEnPlano ?? nivelesVaciosDelPlano
   const analisisNiveles = useMemo(
-    () => analizarPlano(niveles, plano?.calibracion ?? null, proyecto.instrumento),
-    [niveles, plano?.calibracion, proyecto.instrumento],
+    () => analizarPlano(niveles, plano?.calibracion ?? null, proyecto),
+    [niveles, plano?.calibracion, proyecto],
   )
   function cambiarNiveles(cambio: (n: NivelesEnPlano) => NivelesEnPlano) {
     if (!plano) return
@@ -242,12 +243,15 @@ export default function EspacioPlano() {
         return
       }
       const id = nuevoIdNivel('nivel')
+      // El punto se lee con la última puesta del proyecto; sin ninguna, se crea la primera sobre el primer BM.
+      const puestas = proyecto.puestas ?? []
+      const bm = proyecto.bms[0]
+      const puestaId =
+        puestas[puestas.length - 1]?.id ??
+        agregarPuesta({ nombre: 'Puesta 1', cotaBM: bm?.cota ?? 100, lecturaAtras: 1.5, bmId: bm?.id ?? null })
       cambiarNiveles((n) => ({
         ...n,
-        puntos: [
-          ...n.puntos,
-          { id, nombre: siguienteNombre(n.puntos), x: punto.x, y: punto.y, puestaId: n.puestas[n.puestas.length - 1]?.id ?? null, lectura: null, salida: false },
-        ],
+        puntos: [...n.puntos, { id, nombre: siguienteNombre(n.puntos), x: punto.x, y: punto.y, puestaId, lectura: null, salida: false }],
       }))
       setNivelElegido(id)
       return

@@ -1,15 +1,14 @@
 import {
   analizarEscurrimiento,
   PENDIENTE_MINIMA_DRENAJE_PCT,
-  type BM,
   type Calibracion,
-  type Instrumento,
   type NivelesEnPlano,
+  type Proyecto,
   type PuestaDeNivel,
   type PuntoNivelPlano,
   type ResultadoEscurrimiento,
 } from '@topo/core'
-import { alturaDe, nuevoIdNivel } from './hoja'
+import { alturaDe, puestaPorId, puestaUsable } from './puestas'
 
 /*
  * Los puntos de nivel sobre un plano: Max los pone en el plano antes de salir
@@ -19,9 +18,9 @@ import { alturaDe, nuevoIdNivel } from './hoja'
  * (`terreno/escurrimiento`).
  */
 
-export function nivelesVacios(bms: BM[]): NivelesEnPlano {
+/** Sin puntos todavía (las puestas son del proyecto). */
+export function nivelesVacios(): NivelesEnPlano {
   return {
-    puestas: [{ id: nuevoIdNivel('puesta'), nombre: 'Puesta 1', cotaBM: bms[0]?.cota ?? 100, lecturaAtras: 1.5 }],
     puntos: [],
     pendienteMinimaPct: PENDIENTE_MINIMA_DRENAJE_PCT,
   }
@@ -35,18 +34,10 @@ const finito = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 /** Lo que venga del archivo, listo para usar: lo que no sirve se quita (null si no es nada). Idempotente. */
 export function nivelesEnPlanoUsables(valor: unknown): NivelesEnPlano | null {
   if (!esObjeto(valor)) return null
-  const puestas = (Array.isArray(valor.puestas) ? valor.puestas : []).flatMap((p): PuestaDeNivel[] =>
-    esObjeto(p) && typeof p.id === 'string'
-      ? [
-          {
-            id: p.id,
-            nombre: typeof p.nombre === 'string' ? p.nombre : 'Puesta',
-            cotaBM: finito(p.cotaBM) ? p.cotaBM : 0,
-            lecturaAtras: finito(p.lecturaAtras) ? p.lecturaAtras : 0,
-          },
-        ]
-      : [],
-  )
+  // Las puestas de los archivos viejos: `unirPuestas` las pasa después al proyecto.
+  const puestas = Array.isArray(valor.puestas)
+    ? valor.puestas.map(puestaUsable).filter((p): p is PuestaDeNivel => p !== null)
+    : null
   const puntos = (Array.isArray(valor.puntos) ? valor.puntos : []).flatMap((p): PuntoNivelPlano[] =>
     esObjeto(p) && typeof p.id === 'string' && finito(p.x) && finito(p.y)
       ? [
@@ -63,7 +54,7 @@ export function nivelesEnPlanoUsables(valor: unknown): NivelesEnPlano | null {
       : [],
   )
   return {
-    puestas,
+    ...(puestas ? { puestas } : {}),
     puntos,
     pendienteMinimaPct: finito(valor.pendienteMinimaPct) && valor.pendienteMinimaPct >= 0 ? valor.pendienteMinimaPct : PENDIENTE_MINIMA_DRENAJE_PCT,
   }
@@ -75,16 +66,16 @@ export function siguienteNombre(puntos: PuntoNivelPlano[]): string {
   return String(numeros.length ? Math.max(...numeros) + 1 : 1)
 }
 
-/** La puesta de un punto: la suya, o la primera si la suya ya no existe. */
-export function puestaDelPunto(niveles: NivelesEnPlano, p: PuntoNivelPlano): PuestaDeNivel | null {
-  return niveles.puestas.find((x) => x.id === p.puestaId) ?? niveles.puestas[0] ?? null
+/** La puesta de un punto: la suya, o la primera del proyecto si la suya ya no existe. */
+export function puestaDelPunto(proyecto: Proyecto, p: PuntoNivelPlano): PuestaDeNivel | null {
+  return puestaPorId(proyecto, p.puestaId)
 }
 
 /** Cota = AI − lectura (mira apoyada en el punto). Null sin lectura o sin una puesta válida. */
-export function cotaDelPunto(niveles: NivelesEnPlano, p: PuntoNivelPlano, instrumento?: Partial<Instrumento> | null): number | null {
+export function cotaDelPunto(proyecto: Proyecto, p: PuntoNivelPlano): number | null {
   if (p.lectura === null) return null
-  const puesta = puestaDelPunto(niveles, p)
-  const ai = puesta ? alturaDe(puesta, instrumento) : null
+  const puesta = puestaDelPunto(proyecto, p)
+  const ai = puesta ? alturaDe(puesta, proyecto) : null
   return ai === null ? null : ai - p.lectura
 }
 
@@ -101,14 +92,10 @@ export interface AnalisisEnPlano {
  * de escurrimiento. Sin escala se analiza igual en unidades del plano: el
  * camino del agua y las direcciones no cambian, los porcentajes no se enseñan.
  */
-export function analizarPlano(
-  niveles: NivelesEnPlano,
-  calibracion: Calibracion | null,
-  instrumento?: Partial<Instrumento> | null,
-): AnalisisEnPlano {
+export function analizarPlano(niveles: NivelesEnPlano, calibracion: Calibracion | null, proyecto: Proyecto): AnalisisEnPlano {
   const cotas = new Map<string, number>()
   for (const p of niveles.puntos) {
-    const z = cotaDelPunto(niveles, p, instrumento)
+    const z = cotaDelPunto(proyecto, p)
     if (z !== null) cotas.set(p.id, z)
   }
   const k = calibracion?.metrosPorUnidad ?? 1

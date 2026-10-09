@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { analizarPlano, cotaDelPunto, nivelesEnPlanoUsables, nivelesVacios, siguienteNombre } from './enPlano'
-import type { NivelesEnPlano, PuntoNivelPlano } from '@topo/core'
+import type { NivelesEnPlano, Proyecto, PuntoNivelPlano } from '@topo/core'
+import { proyectoVacio } from '../estado/ejemplo'
+
+const P: Proyecto = { ...proyectoVacio(), puestas: [{ id: 'r1', nombre: 'Puesta 1', cotaBM: 100, lecturaAtras: 1.5 }] }
 
 function punto(nombre: string, x: number, y: number, lectura: number | null, salida = false): PuntoNivelPlano {
   return { id: `p${nombre}`, nombre, x, y, puestaId: 'r1', lectura, salida }
@@ -9,7 +12,6 @@ function punto(nombre: string, x: number, y: number, lectura: number | null, sal
 /** Puesta BM 100 + 1.5 → AI 101.500. Cuatro esquinas y un centro más bajo, cada 10 unidades. */
 function niveles(salidaEnElCentro = false): NivelesEnPlano {
   return {
-    puestas: [{ id: 'r1', nombre: 'Puesta 1', cotaBM: 100, lecturaAtras: 1.5 }],
     puntos: [
       punto('1', 0, 0, 1.2),
       punto('2', 20, 0, 1.25),
@@ -27,8 +29,8 @@ describe('niveles sobre el plano', () => {
     expect(siguienteNombre([punto('3', 0, 0, null), punto('A', 0, 0, null), punto('7', 0, 0, null)])).toBe('8')
   })
 
-  it('una hoja nueva parte del primer BM', () => {
-    expect(nivelesVacios([{ id: 'b', nombre: 'BM', cota: 3245.18, tipo: 'oficial', descripcion: '' }]).puestas[0]!.cotaBM).toBe(3245.18)
+  it('sin puntos ni puestas propias: las puestas son del proyecto', () => {
+    expect(nivelesVacios()).toEqual({ puntos: [], pendienteMinimaPct: 0.5 })
   })
 
   it('lo que viene roto del archivo se arregla, y dos veces da lo mismo', () => {
@@ -41,16 +43,16 @@ describe('niveles sobre el plano', () => {
 
   it('la cota es AI − lectura; sin lectura no hay cota', () => {
     const n = niveles()
-    expect(cotaDelPunto(n, n.puntos[0]!)).toBeCloseTo(100.3, 9)
-    expect(cotaDelPunto(n, { ...n.puntos[0]!, lectura: null })).toBeNull()
+    expect(cotaDelPunto(P, n.puntos[0]!)).toBeCloseTo(100.3, 9)
+    expect(cotaDelPunto(P, { ...n.puntos[0]!, lectura: null })).toBeNull()
   })
 
   it('con escala: el centro más bajo empoza; si es sumidero, todo llega a él', () => {
-    const conEscala = analizarPlano(niveles(), { metrosPorUnidad: 1 })
+    const conEscala = analizarPlano(niveles(), { metrosPorUnidad: 1 }, P)
     expect(conEscala.sinEscala).toBe(false)
     expect(conEscala.resultado?.ok && conEscala.resultado.empozan).toEqual(['p5'])
 
-    const conSumidero = analizarPlano(niveles(true), { metrosPorUnidad: 1 })
+    const conSumidero = analizarPlano(niveles(true), { metrosPorUnidad: 1 }, P)
     const r = conSumidero.resultado!
     if (!r.ok) throw new Error(r.error)
     expect(r.empozan).toEqual([])
@@ -58,7 +60,7 @@ describe('niveles sobre el plano', () => {
   })
 
   it('sin escala se analiza igual y se dice', () => {
-    const a = analizarPlano(niveles(), null)
+    const a = analizarPlano(niveles(), null, P)
     expect(a.sinEscala).toBe(true)
     expect(a.resultado?.ok && a.resultado.empozan).toEqual(['p5'])
   })
@@ -66,6 +68,6 @@ describe('niveles sobre el plano', () => {
   it('con menos de tres puntos leídos no hay análisis', () => {
     const n = niveles()
     n.puntos = n.puntos.slice(0, 2)
-    expect(analizarPlano(n, { metrosPorUnidad: 1 }).resultado).toBeNull()
+    expect(analizarPlano(n, { metrosPorUnidad: 1 }, P).resultado).toBeNull()
   })
 })

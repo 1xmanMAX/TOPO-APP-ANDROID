@@ -56,6 +56,9 @@ for (const [nombre, ancho, alto] of [['laptop', 1280, 800], ['celular', 390, 844
 
   // La puesta del ejemplo de su HTML: BM 100, atrás 1.5.
   const puestas = pagina.getByRole('region', { name: 'Puestas del nivel' })
+  // Las puestas son del proyecto: se crea una vez y la usan las otras pantallas.
+  await puestas.getByRole('button', { name: '+ Nueva puesta' }).click()
+  await puestas.getByRole('button', { name: 'Cota escrita' }).click()
   await puestas.getByLabel('Cota BM (m)').fill('100')
   await puestas.getByLabel('Lectura atrás (m)').fill('1.5')
   await puestas.getByLabel('Lectura atrás (m)').blur()

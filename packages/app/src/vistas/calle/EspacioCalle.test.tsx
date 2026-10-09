@@ -762,6 +762,20 @@ describe('Replantear', () => {
     expect(screen.getByText(/la vista atrás 7.2 no cabe en la mira de 5 m/i)).toBeInTheDocument()
   })
 
+  it('la vista atrás se escribe una vez: guardada como puesta, sirve con «Una puesta» y en todo el proyecto', async () => {
+    const usuario = userEvent.setup()
+    render(<EspacioCalle />)
+    await usuario.click(screen.getByRole('button', { name: 'Desde un BM' }))
+    await usuario.type(screen.getByLabelText('Vista atrás al BM'), '1.600')
+    await usuario.click(screen.getByRole('button', { name: 'Guardar como puesta' }))
+    expect(useAlmacen.getState().proyecto.puestas).toEqual([expect.objectContaining({ bmId: 'bm-1', lecturaAtras: 1.6 })])
+    expect(screen.getByText(/ya sirve en Niveles, el plano, la calculadora/)).toBeInTheDocument()
+
+    await usuario.click(screen.getByRole('button', { name: 'Una puesta' }))
+    expect(screen.getByLabelText('Puesta del proyecto')).toHaveDisplayValue(/AI 101\.600/)
+    expect(screen.getByText(/^AI/)).toHaveTextContent('AI 101.600')
+  })
+
   it('sin BMs en el proyecto lo dice y manda a Obra', async () => {
     const datos = proyecto()
     datos.bms = []

@@ -1,19 +1,18 @@
 import {
-  alturaDePuesta,
   formatearProgresiva,
+  lineaDeCapa,
   lineaDeConjunto,
   redondear3,
   separacionEn,
-  type BM,
   type ConjuntoDeNivel,
   type HojaNiveles,
-  type Instrumento,
   type LineaNivel,
   type PanelDeNiveles,
-  type Puesta,
+  type Proyecto,
   type PuestaDeNivel,
   type PuntoLinea,
 } from '@topo/core'
+import { puestaParaMotor, puestaPorId, puestaUsable } from './puestas'
 
 /*
  * La hoja de niveles de una calle: la herramienta «Pistas y veredas» de Max
@@ -35,10 +34,9 @@ export function nuevoIdNivel(prefijo: string): string {
   return `${prefijo}-${Date.now().toString(36)}-${contador.toString(36)}`
 }
 
-/** Una hoja nueva: una puesta sobre el primer BM del proyecto, sin conjuntos. */
-export function hojaVacia(bms: BM[]): HojaNiveles {
+/** Una hoja nueva, sin conjuntos (las puestas son del proyecto). */
+export function hojaVacia(): HojaNiveles {
   return {
-    puestas: [{ id: nuevoIdNivel('puesta'), nombre: 'Puesta 1', cotaBM: bms[0]?.cota ?? 100, lecturaAtras: 1.5 }],
     conjuntos: [],
     unidad: 'm',
     mira: 'normal',
@@ -65,11 +63,10 @@ function texto(valor: unknown, porDefecto = ''): string {
  */
 export function hojaUsable(valor: unknown): HojaNiveles | null {
   if (!esObjeto(valor)) return null
-  const puestas = (Array.isArray(valor.puestas) ? valor.puestas : []).flatMap((p): PuestaDeNivel[] =>
-    esObjeto(p) && typeof p.id === 'string'
-      ? [{ id: p.id, nombre: texto(p.nombre, 'Puesta'), cotaBM: numero(p.cotaBM, 0), lecturaAtras: numero(p.lecturaAtras, 0) }]
-      : [],
-  )
+  // Las puestas que traían las hojas viejas: `unirPuestas` las pasa después al proyecto.
+  const puestas = Array.isArray(valor.puestas)
+    ? valor.puestas.map(puestaUsable).filter((p): p is PuestaDeNivel => p !== null)
+    : null
   const conjuntos = (Array.isArray(valor.conjuntos) ? valor.conjuntos : []).flatMap((c): ConjuntoDeNivel[] =>
     esObjeto(c) && typeof c.id === 'string'
       ? [
@@ -77,16 +74,19 @@ export function hojaUsable(valor: unknown): HojaNiveles | null {
             id: c.id,
             nombre: texto(c.nombre, 'Conjunto'),
             categoria: texto(c.categoria),
-            tipo: c.tipo === 'cota' ? 'cota' : 'lectura',
+            tipo: c.tipo === 'cota' || c.tipo === 'medido' || c.tipo === 'derivado' ? c.tipo : 'lectura',
             texto: texto(c.texto),
             puestaId: typeof c.puestaId === 'string' ? c.puestaId : null,
             ajusteCm: numero(c.ajusteCm, 0),
+            ...(typeof c.capaId === 'string' ? { capaId: c.capaId } : {}),
+            ...(typeof c.puntoId === 'string' ? { puntoId: c.puntoId } : {}),
+            ...(typeof c.origenId === 'string' ? { origenId: c.origenId } : {}),
           },
         ]
       : [],
   )
   const hoja: HojaNiveles = {
-    puestas,
+    ...(puestas ? { puestas } : {}),
     conjuntos,
     unidad: valor.unidad === 'cm' || valor.unidad === 'mm' ? valor.unidad : 'm',
     mira: valor.mira === 'invertida' ? 'invertida' : 'normal',
@@ -113,19 +113,9 @@ export function hojaUsable(valor: unknown): HojaNiveles | null {
   return hoja
 }
 
-/** La puesta como la entiende el motor: rápida, cota BM + lectura atrás. */
-export function puestaParaMotor(p: PuestaDeNivel): Puesta {
-  return { tipo: 'rapida', nombre: p.nombre, cotaBM: p.cotaBM, lecturaAtras: p.lecturaAtras }
-}
-
-/** La AI de una puesta (null si la lectura atrás no puede ser de la mira). */
-export function alturaDe(p: PuestaDeNivel, instrumento?: Partial<Instrumento> | null): number | null {
-  return alturaDePuesta(puestaParaMotor(p), instrumento)?.alturaInstrumental ?? null
-}
-
-/** La puesta de un conjunto: la suya, o la primera si la suya ya no existe. */
-export function puestaDe(hoja: HojaNiveles, c: ConjuntoDeNivel): PuestaDeNivel | null {
-  return hoja.puestas.find((p) => p.id === c.puestaId) ?? hoja.puestas[0] ?? null
+/** La puesta de un conjunto: la suya, o la primera del proyecto si la suya ya no existe. */
+export function puestaDe(proyecto: Proyecto, c: ConjuntoDeNivel): PuestaDeNivel | null {
+  return puestaPorId(proyecto, c.puestaId)
 }
 
 export interface LineaDeLaHoja {
@@ -134,30 +124,80 @@ export interface LineaDeLaHoja {
   avisos: string[]
 }
 
-/** Las líneas de todos los conjuntos, con la lectura de la hoja (unidad y mira) y el instrumento del proyecto. */
-export function lineasDeLaHoja(hoja: HojaNiveles, instrumento?: Partial<Instrumento> | null): Map<string, LineaDeLaHoja> {
-  const salida = new Map<string, LineaDeLaHoja>()
-  for (const c of hoja.conjuntos) {
-    const puesta = puestaDe(hoja, c)
-    const leida = lineaDeConjunto(
-      {
-        nombre: c.nombre,
-        tipo: c.tipo,
-        texto: c.texto,
-        ajusteCm: c.ajusteCm,
-        ...(c.tipo === 'lectura' && puesta ? { puesta: puestaParaMotor(puesta) } : {}),
-      },
-      { unidad: hoja.unidad, mira: hoja.mira },
-      instrumento,
-    )
-    salida.set(c.id, { conjunto: c, ...leida })
+/** Sube una línea entera unos cm, con su nombre: « (+2 cm)». */
+function conAjuste(linea: LineaNivel, nombre: string, ajusteCm: number): LineaNivel {
+  const signo = ajusteCm > 0 ? '+' : '−'
+  return {
+    nombre: ajusteCm ? `${nombre} (${signo}${Math.abs(ajusteCm)} cm)` : nombre,
+    puntos: linea.puntos.map((p) => ({ ...p, cota: p.cota + ajusteCm / 100 })),
   }
-  return salida
+}
+
+/**
+ * Las líneas de todos los conjuntos de la hoja de una calle:
+ * - los escritos, con la lectura de la hoja (unidad y mira) y su puesta del proyecto;
+ * - los `medido`, desde la libreta de esa calle en vivo (`lineaDeCapa`: compensada si cerró);
+ * - los `derivado`, desde la línea de su origen más su ajuste (un origen que
+ *   no existe, o una cadena que vuelve sobre sí misma, da una línea vacía con su aviso).
+ */
+export function lineasDeLaHoja(hoja: HojaNiveles, proyecto: Proyecto, calleId: string): Map<string, LineaDeLaHoja> {
+  const instrumento = proyecto.instrumento
+  const porId = new Map(hoja.conjuntos.map((c) => [c.id, c]))
+  const salida = new Map<string, LineaDeLaHoja>()
+
+  const resolver = (c: ConjuntoDeNivel, camino: Set<string>): LineaDeLaHoja => {
+    const hecha = salida.get(c.id)
+    if (hecha) return hecha
+    let resultado: LineaDeLaHoja
+    if (c.tipo === 'medido') {
+      const leida = c.capaId && c.puntoId ? lineaDeCapa(proyecto, calleId, c.capaId, c.puntoId) : null
+      resultado = leida
+        ? { conjunto: c, linea: conAjuste(leida.linea, c.nombre, c.ajusteCm), avisos: leida.avisos }
+        : { conjunto: c, linea: { nombre: c.nombre, puntos: [] }, avisos: [`${c.nombre}: la capa o el punto ya no existen en esta calle.`] }
+    } else if (c.tipo === 'derivado') {
+      const origen = c.origenId ? porId.get(c.origenId) : undefined
+      if (!origen || camino.has(origen.id)) {
+        resultado = {
+          conjunto: c,
+          linea: { nombre: c.nombre, puntos: [] },
+          avisos: [origen ? `${c.nombre}: sigue a una línea que lo sigue a él.` : `${c.nombre}: la línea que seguía ya no existe.`],
+        }
+      } else {
+        const base = resolver(origen, new Set([...camino, c.id]))
+        resultado = { conjunto: c, linea: conAjuste(base.linea, c.nombre, c.ajusteCm), avisos: [] }
+      }
+    } else {
+      const puesta = puestaDe(proyecto, c)
+      const leida = lineaDeConjunto(
+        {
+          nombre: c.nombre,
+          tipo: c.tipo,
+          texto: c.texto,
+          ajusteCm: c.ajusteCm,
+          ...(c.tipo === 'lectura' && puesta ? { puesta: puestaParaMotor(puesta, proyecto) } : {}),
+        },
+        { unidad: hoja.unidad, mira: hoja.mira },
+        instrumento,
+      )
+      resultado = { conjunto: c, ...leida }
+    }
+    salida.set(c.id, resultado)
+    return resultado
+  }
+
+  for (const c of hoja.conjuntos) resolver(c, new Set([c.id]))
+  // En el orden de la hoja.
+  return new Map(hoja.conjuntos.map((c) => [c.id, salida.get(c.id)!]))
 }
 
 /** Cuántos renglones del conjunto se leen como punto (para el chip). */
 export function contarPuntos(textoConjunto: string): number {
   return textoConjunto.split(/\r?\n/).filter((l) => l.trim() !== '').length
+}
+
+/** Cuántos puntos tiene la línea de un conjunto (los escritos, los enlazados y los derivados). */
+export function puntosDeConjunto(c: ConjuntoDeNivel, lineas: Map<string, LineaDeLaHoja>): number {
+  return c.tipo === 'medido' || c.tipo === 'derivado' ? (lineas.get(c.id)?.linea.puntos.length ?? 0) : contarPuntos(c.texto)
 }
 
 /** Una línea vuelta a escribir como cotas, «0+020, 3244.123» por renglón. */

@@ -1,6 +1,7 @@
 import { guardarArchivo } from './guardar'
 import { hojaUsable } from '../niveles/hoja'
 import { nivelesEnPlanoUsables } from '../niveles/enPlano'
+import { puestaUsable, unirPuestas } from '../niveles/puestas'
 import {
   anadirPalabra,
   esPalabraDe,
@@ -144,9 +145,25 @@ export function desempaquetarTopo(datos: Uint8Array): ContenidoTopo {
  * indefinido) y las cuentas que dependen de ellos se rompieran en silencio.
  */
 export function migrarProyecto(proyecto: Proyecto): Proyecto {
-  return migrarCamposDeLaOla2(
-    migrarProgresivasDeclaradas(migrarASeccion(migrarCamposDe2B(migrarCapasSinOrden(proyecto)))),
+  return migrarPuestas(
+    migrarCamposDeLaOla2(migrarProgresivasDeclaradas(migrarASeccion(migrarCamposDe2B(migrarCapasSinOrden(proyecto))))),
   )
+}
+
+/**
+ * Las puestas del nivel son del proyecto: las que traían las hojas de
+ * Niveles y los planos de antes pasan a `Proyecto.puestas`, y las que no
+ * sirven (sin id) se quitan.
+ */
+function migrarPuestas(proyecto: Proyecto): Proyecto {
+  const bruto = proyecto as unknown as Record<string, unknown>
+  const limpio: Proyecto = { ...proyecto }
+  if ('puestas' in bruto) {
+    if (Array.isArray(bruto.puestas)) {
+      limpio.puestas = bruto.puestas.map(puestaUsable).filter((p): p is NonNullable<typeof p> => p !== null)
+    } else delete limpio.puestas
+  }
+  return unirPuestas(limpio)
 }
 
 function esObjeto(valor: unknown): valor is Record<string, unknown> {

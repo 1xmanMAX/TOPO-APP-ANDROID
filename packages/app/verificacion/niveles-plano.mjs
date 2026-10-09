@@ -49,8 +49,8 @@ for (const [nombre, ancho, alto] of [['laptop', 1280, 800], ['celular', 390, 844
 
   const panel = pagina.getByRole('region', { name: 'Niveles del plano' })
   comprobar(`${nombre}: se pusieron los 5 puntos`, (await panel.getByRole('table', { name: 'Lecturas de los puntos' }).locator('tbody tr').count()) === 5)
-  // La puesta: BM-1 de la obra (3245.180) + 1.500.
-  await panel.getByLabel('Tomar la cota de un BM para Puesta 1').selectOption({ label: 'BM-1 · 3245.180' })
+  // La puesta se creó sola al poner el primer punto: BM-1 de la obra (3245.180) + 1.500, del proyecto.
+  comprobar(`${nombre}: la puesta es del proyecto, sobre el BM-1`, await panel.getByRole('button', { name: 'Puesta 1 · AI 3246.680' }).isVisible())
   for (const [i, l] of ['1.2', '1.25', '1.3', '1.35', '1.4'].entries()) await panel.getByLabel(`Lectura del punto ${i + 1}`).fill(l)
   const veredicto = await panel.getByRole('status').innerText()
   comprobar(`${nombre}: dice que el agua se empoza en el 5`, /se empoza en 5/.test(veredicto), veredicto)

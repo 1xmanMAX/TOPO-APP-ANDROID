@@ -1,4 +1,5 @@
 import { formatearProgresiva, parsearProgresiva, type Id } from '@topo/core'
+import { origenDePuesta, puestasDe } from '../../niveles/puestas'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { copiarAlPortapapeles, descargarCsv, descargarXlsx } from '../../archivo/exportar'
 import AvisoLinea from '../../componentes/AvisoLinea'
@@ -462,6 +463,32 @@ export default function EspacioInformes({
                       </select>
                     )}
                   </Campo>
+                  {puestasDe(proyecto).some((p) => p.bmId && !p.libreta) && (
+                    <Campo etiqueta="Tomar de una puesta del proyecto" ayuda="Rellena el BM y la vista atrás con los de esa puesta.">
+                      {(campo) => (
+                        <select
+                          {...campo}
+                          className={CAMPO}
+                          value=""
+                          onChange={(e) => {
+                            const p = puestasDe(proyecto).find((x) => x.id === e.target.value)
+                            if (!p?.bmId) return
+                            setBmId(p.bmId)
+                            cambiar({ vistaAtras: p.lecturaAtras.toFixed(3) })
+                          }}
+                        >
+                          <option value="">Elegir puesta…</option>
+                          {puestasDe(proyecto)
+                            .filter((p) => p.bmId && !p.libreta)
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nombre} · {origenDePuesta(p, proyecto)}
+                              </option>
+                            ))}
+                        </select>
+                      )}
+                    </Campo>
+                  )}
                   <Campo etiqueta="Banco de nivel">
                     {(campo) => (
                       <select

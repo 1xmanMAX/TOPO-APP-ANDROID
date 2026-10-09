@@ -93,14 +93,30 @@ export interface Calle {
 
 // ---------- Hoja de niveles («Pistas y veredas») ----------
 
-/** Una puesta del nivel: cota del BM + lectura atrás = altura instrumental. */
+/**
+ * Una puesta del nivel: dónde se plantó el equipo y con qué altura
+ * instrumental. Es del proyecto, una sola lista para todas las pantallas
+ * (Niveles, el plano, la calculadora, Replantear, la hoja de estacas): la
+ * vista atrás se escribe una vez y se usa en todas.
+ *
+ * La AI sale, por orden:
+ *  - de una estación de la libreta (`libreta`), con la AI que calcula el
+ *    motor, compensada si el circuito cerró;
+ *  - de un BM del proyecto (`bmId`) + la lectura atrás: si la cota del BM se
+ *    corrige, la puesta la sigue;
+ *  - de `cotaBM` escrita a mano + la lectura atrás.
+ */
 export interface PuestaDeNivel {
   id: Id
   nombre: string
-  /** Metros. */
+  /** Metros. Se usa si no hay `bmId` (o si ese BM ya no existe). */
   cotaBM: number
   /** Metros, siempre: es la lectura atrás al BM. */
   lecturaAtras: number
+  /** El BM del proyecto sobre el que se leyó atrás. */
+  bmId?: Id | null
+  /** Una estación de la libreta: entonces la AI es la de esa estación. */
+  libreta?: { tomaId: Id; indiceEstacion: number } | null
 }
 
 /**
@@ -112,9 +128,22 @@ export interface ConjuntoDeNivel {
   nombre: string
   /** Base, Subbase, Vereda, Replanteo… Agrupa y da color; es texto libre. */
   categoria: string
-  /** `lectura`: lecturas de mira con su puesta. `cota`: el valor tal cual, en metros. */
-  tipo: 'lectura' | 'cota'
+  /**
+   * - `lectura`: lecturas de mira escritas, con su puesta.
+   * - `cota`: cotas escritas, en metros.
+   * - `medido`: enlazado a lo medido en la libreta (`capaId` en `puntoId`):
+   *   sigue a la libreta, no es una copia.
+   * - `derivado`: sigue a otro conjunto (`origenId`) más su ajuste: un
+   *   replanteo «2 cm bajo la vereda» que se mueve si la vereda cambia.
+   */
+  tipo: 'lectura' | 'cota' | 'medido' | 'derivado'
+  /** El texto «progresiva, valor» (solo `lectura` y `cota`). */
   texto: string
+  /** `medido`: la capa y el punto de la sección. */
+  capaId?: Id
+  puntoId?: Id
+  /** `derivado`: el conjunto al que sigue. */
+  origenId?: Id
   /** La puesta con la que se leyó (solo `lectura`). */
   puestaId: Id | null
   /** Sube (+) o baja (−) la línea entera, en cm. */
@@ -122,7 +151,8 @@ export interface ConjuntoDeNivel {
 }
 
 export interface HojaNiveles {
-  puestas: PuestaDeNivel[]
+  /** @deprecated Las puestas son del proyecto (`Proyecto.puestas`); solo la traen archivos viejos. */
+  puestas?: PuestaDeNivel[]
   conjuntos: ConjuntoDeNivel[]
   /** En qué unidad se escriben las lecturas. */
   unidad: 'm' | 'cm' | 'mm'
@@ -225,7 +255,8 @@ export interface PuntoNivelPlano {
 }
 
 export interface NivelesEnPlano {
-  puestas: PuestaDeNivel[]
+  /** @deprecated Las puestas son del proyecto (`Proyecto.puestas`); solo la traen archivos viejos. */
+  puestas?: PuestaDeNivel[]
   puntos: PuntoNivelPlano[]
   /** Por debajo de esta pendiente (%) el agua puede quedarse. */
   pendienteMinimaPct: number
@@ -402,4 +433,6 @@ export interface Proyecto {
   planos?: PlanoImportado[]
   /** Pistas dibujadas o tomadas de los planos. */
   pistas?: Pista[]
+  /** Las puestas del nivel de toda la obra, compartidas por todas las pantallas. */
+  puestas?: PuestaDeNivel[]
 }

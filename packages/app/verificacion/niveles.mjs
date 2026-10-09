@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 /**
  * Niveles de la capa siguiente (la herramienta «Pistas y veredas» de Max)
  * sobre la obra simulada, en un navegador real: Calle › Replantear › Desde
- * una capa medida y Calle › Análisis › Separación, en la laptop y en el
+ * una capa medida y Calle › Niveles con lo medido enlazado, en la laptop y en el
  * celular. Comprueba que se dibuja, que el deslizador mueve la fila, que el
  * escáner lee la separación y que nada se sale de la pantalla del celular.
  *
@@ -77,20 +77,26 @@ for (const [nombre, ancho, alto] of [['laptop', 1280, 800], ['celular', 390, 844
   ])
   comprobar(`${nombre}: la hoja de estacas baja en PDF`, descarga.suggestedFilename().endsWith('.pdf'), descarga.suggestedFilename())
 
-  // ---- Análisis › Separación, desde el botón de Replantear ----
+  // ---- Calle › Niveles, desde el botón de Replantear, con lo medido enlazado ----
   await pagina.getByRole('button', { name: 'Comprobar separación' }).click()
-  const separacion = pagina.getByRole('tab', { name: 'Separación' })
-  await separacion.waitFor({ timeout: 10000 })
-  comprobar(`${nombre}: «Comprobar separación» abre Análisis › Separación`, (await separacion.getAttribute('aria-selected')) === 'true')
+  await pagina.getByRole('heading', { name: 'Niveles' }).waitFor({ timeout: 10000 })
+  comprobar(`${nombre}: «Comprobar separación» abre Calle › Niveles`, true)
+  const conjuntos = pagina.getByRole('region', { name: 'Conjuntos de datos' })
+  for (const capa of ['BASE', 'SUBRASANTE']) {
+    await conjuntos.getByRole('button', { name: 'Traer de lo medido' }).click()
+    await conjuntos.getByLabel('Capa medida').selectOption({ label: capa })
+    await conjuntos.getByLabel('Punto de la sección').selectOption({ label: 'Borde izquierdo' })
+    await conjuntos.getByRole('button', { name: /^Enlazar \d+ puntos de la libreta$/ }).click()
+  }
   const izquierdo = pagina.getByRole('region', { name: 'Lado izquierdo' })
   const veredicto = await izquierdo.getByRole('status').innerText()
-  comprobar(`${nombre}: el lado izquierdo da un veredicto con la separación mínima`, /CUMPLE.*separación mínima \d+\.\d cm/s.test(veredicto), veredicto.replace(/\n/g, ' '))
+  comprobar(`${nombre}: base sobre subrasante enlazadas dan la separación mínima`, /CUMPLE.*separación mínima \d+\.\d cm/s.test(veredicto), veredicto.replace(/\n/g, ' '))
   const lectura = izquierdo.locator('[aria-live=polite]')
   const antesEscaner = await lectura.innerText()
   await izquierdo.getByRole('slider').focus()
-  for (let i = 0; i < 200; i++) await pagina.keyboard.press('ArrowLeft')
+  await pagina.keyboard.press('End')
   comprobar(`${nombre}: el escáner lee otra progresiva`, antesEscaner !== (await lectura.innerText()), (await lectura.innerText()).replace(/\n/g, ' '))
-  comprobar(`${nombre}: Separación no se sale de lado`, await sinDesbordeLateral(pagina))
+  comprobar(`${nombre}: Niveles no se sale de lado`, await sinDesbordeLateral(pagina))
   await pagina.screenshot({ path: `${SALIDA}/niveles-separacion-${nombre}.png`, fullPage: true })
   await pagina.close()
 }

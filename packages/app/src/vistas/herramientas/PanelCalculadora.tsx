@@ -27,6 +27,8 @@ import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CEJA, ENLACE, TARJETA } from '../../
 import { useAlmacen } from '../../estado/almacen'
 import { formatearDiferencia } from '../../estadoRasante'
 import { useContextoCalculadora, type ContextoCalculadora } from './contextoCalculadora'
+import { alturaDe, puestasDe } from '../../niveles/puestas'
+import { textoDePuesta } from '../niveles/EditorPuestas'
 
 type IdPestana = 'cota' | 'objetivo' | 'pendiente' | 'interpolar' | 'volumen' | 'conversion'
 
@@ -758,6 +760,12 @@ export default function PanelCalculadora() {
 
   const reglas = reglasDeMira(ctx.instrumento)
   const cambiar = (clave: string) => (valor: string) => setValores((x) => ({ ...x, [clave]: valor }))
+  // Las puestas y los BMs del proyecto: la misma base de datos que Niveles, el plano y Replantear.
+  const proyecto = useAlmacen((s) => s.proyecto)
+  const agregarPuesta = useAlmacen((s) => s.agregarPuesta)
+  const [bmDelPunto, setBmDelPunto] = useState<string | null>(null)
+  const [puestaGuardada, setPuestaGuardada] = useState(false)
+  const puestasDelProyecto = puestasDe(proyecto)
   const v = (clave: string): string => valores[clave] ?? ''
   const datos = foto.ctx
 
@@ -825,7 +833,52 @@ export default function PanelCalculadora() {
               <Casillero etiqueta="Lectura" sufijo="m" valor={v('lectura')} alCambiar={cambiar('lectura')} />
             </div>
             {tarjeta('cota', calculoCota(valores, ctx, reglas), motivo('aiCota', ['lectura']))}
+            {puestasDelProyecto.length > 0 && (
+              <label className="flex flex-col gap-1 text-[13px] text-tenue">
+                <span>AI de una puesta del proyecto</span>
+                <select
+                  aria-label="AI de una puesta del proyecto"
+                  value=""
+                  onChange={(e) => {
+                    const p = puestasDelProyecto.find((x) => x.id === e.target.value)
+                    const ai = p ? alturaDe(p, proyecto) : null
+                    if (ai !== null) setValores((x) => ({ ...x, aiCota: m3(ai), ai: m3(ai) }))
+                  }}
+                  className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-[15px] text-tinta"
+                >
+                  <option value="">Elegir puesta…</option>
+                  {puestasDelProyecto.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {textoDePuesta(p, alturaDe(p, proyecto))}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <Plegable titulo="Altura instrumental desde un punto conocido">
+              {proyecto.bms.length > 0 && (
+                <label className="mb-2 flex flex-col gap-1 text-[13px] text-tenue">
+                  <span>El punto conocido es un BM</span>
+                  <select
+                    aria-label="El punto conocido es un BM"
+                    value={bmDelPunto ?? ''}
+                    onChange={(e) => {
+                      const bm = proyecto.bms.find((b) => b.id === e.target.value)
+                      setBmDelPunto(bm?.id ?? null)
+                      setPuestaGuardada(false)
+                      if (bm) setValores((x) => ({ ...x, cotaConocida: m3(bm.cota) }))
+                    }}
+                    className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-[15px] text-tinta"
+                  >
+                    <option value="">Otro punto (escribe su cota)</option>
+                    {proyecto.bms.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.nombre} · {m3(b.cota)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <div className={FILAS}>
                 <Casillero
                   etiqueta="Cota del punto conocido"
@@ -846,7 +899,27 @@ export default function PanelCalculadora() {
                 >
                   Usar esta altura instrumental
                 </button>
+                <button
+                  type="button"
+                  disabled={aiPunto === null}
+                  onClick={() => {
+                    const bm = proyecto.bms.find((b) => b.id === bmDelPunto)
+                    agregarPuesta({
+                      nombre: `${bm ? bm.nombre : 'Punto'} · ${v('vistaAtras').trim()}`,
+                      cotaBM: numero(v('cotaConocida')),
+                      lecturaAtras: numero(v('vistaAtras')),
+                      bmId: bm && m3(bm.cota) === m3(numero(v('cotaConocida'))) ? bm.id : null,
+                    })
+                    setPuestaGuardada(true)
+                  }}
+                  className={BOTON_SECUNDARIO}
+                >
+                  Guardar como puesta
+                </button>
               </div>
+              {puestaGuardada && (
+                <p className="mt-1 text-[13px] text-pasa">✓ Guardada: ya sirve en Niveles, el plano, Replantear y la hoja de estacas.</p>
+              )}
             </Plegable>
           </>
         )

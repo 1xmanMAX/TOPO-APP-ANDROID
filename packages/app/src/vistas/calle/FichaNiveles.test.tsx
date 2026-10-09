@@ -86,10 +86,9 @@ describe('Replantear › Desde una capa medida', () => {
     expect(nivel().getByRole('status')).toHaveTextContent('✗ Cambie de estación')
   })
 
-  it('«Comprobar separación» abre Análisis en Separación', async () => {
+  it('«Comprobar separación» abre Calle › Niveles', async () => {
     const usuario = await abrirDesdeCapaMedida()
     await usuario.click(screen.getByRole('button', { name: 'Comprobar separación' }))
-    expect(useAlmacen.getState().pantallaCalle).toBe('analisis')
-    expect(useAlmacen.getState().pestanaAnalisis).toBe('separacion')
+    expect(useAlmacen.getState().pantallaCalle).toBe('niveles')
   })
 })

@@ -30,12 +30,18 @@ describe('Calle › Niveles', () => {
     useAlmacen.setState({ espacio: 'calle', pantallaCalle: 'niveles' })
   })
 
-  it('propone una puesta sobre el BM del proyecto y pide el primer conjunto, sin tocar el proyecto', () => {
+  it('pide el primer conjunto sin tocar el proyecto; al escribir lecturas crea la puesta sobre el BM del proyecto', async () => {
+    const usuario = userEvent.setup()
     render(<PantallaNiveles />)
     expect(screen.getByRole('heading', { name: 'Niveles' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Puesta 1 · AI 101.500' })).toBeInTheDocument()
+    expect(screen.getByText(/Todavía no hay puestas/)).toBeInTheDocument()
     expect(screen.getByText(/Agrega un conjunto/)).toBeInTheDocument()
     expect(useAlmacen.getState().proyecto.calles[0]!.niveles).toBeUndefined()
+
+    await usuario.click(screen.getByRole('button', { name: '+ Agregar conjunto' }))
+    // La puesta es del proyecto, enlazada al BM-1 (100.000): la misma para el plano, la calculadora y Replantear.
+    expect(screen.getByRole('button', { name: 'Puesta 1 · AI 101.500' })).toBeInTheDocument()
+    expect(useAlmacen.getState().proyecto.puestas).toEqual([expect.objectContaining({ nombre: 'Puesta 1', bmId: 'bm-1', lecturaAtras: 1.5 })])
   })
 
   it('con dos conjuntos escritos a mano, la gráfica da la separación de su herramienta y se guarda con la calle', async () => {
@@ -128,17 +134,21 @@ describe('Calle › Niveles', () => {
     expect(registrar.getByRole('status', { name: 'Lectura a registrar' })).toHaveTextContent('100.350')
   })
 
-  it('trae una capa medida en la app como conjunto de cotas', async () => {
+  it('enlaza una capa medida en la app: sigue a la libreta, no es una copia', async () => {
     const usuario = userEvent.setup()
     render(<PantallaNiveles />)
     await usuario.click(screen.getByRole('button', { name: 'Traer de lo medido' }))
     const conjuntos = within(screen.getByRole('region', { name: 'Conjuntos de datos' }))
     await usuario.selectOptions(conjuntos.getByLabelText('Capa medida'), 'cap-sub')
     await usuario.selectOptions(conjuntos.getByLabelText('Punto de la sección'), 'p-eje')
-    await usuario.click(conjuntos.getByRole('button', { name: 'Traer 3 puntos como cotas' }))
+    await usuario.click(conjuntos.getByRole('button', { name: 'Enlazar 3 puntos de la libreta' }))
     const traido = useAlmacen.getState().proyecto.calles[0]!.niveles!.conjuntos[0]!
-    expect(traido).toMatchObject({ nombre: 'SUBRASANTE · Eje', categoria: 'SUBRASANTE', tipo: 'cota' })
+    expect(traido).toMatchObject({ nombre: 'SUBRASANTE · Eje', categoria: 'SUBRASANTE', tipo: 'medido', capaId: 'cap-sub', puntoId: 'p-eje' })
     // La subrasante compensada en el eje: 100.003, 99.973, 99.946.
-    expect(traido.texto).toBe('0+000, 100.003\n0+010, 99.973\n0+020, 99.946')
+    expect(conjuntos.getByText(/0: 100\.003 · 10: 99\.973 · 20: 99\.946/)).toBeInTheDocument()
+
+    // Soltar el enlace lo vuelve cotas escritas, para corregirlas a mano.
+    await usuario.click(conjuntos.getByRole('button', { name: 'Soltar el enlace y editar las cotas a mano' }))
+    expect(useAlmacen.getState().proyecto.calles[0]!.niveles!.conjuntos[0]!).toMatchObject({ tipo: 'cota', texto: '0+000, 100.003\n0+010, 99.973\n0+020, 99.946' })
   })
 })

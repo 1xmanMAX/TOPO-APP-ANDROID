@@ -4,7 +4,9 @@ import AvisoLinea from '../../componentes/AvisoLinea'
 import { CEJA, TARJETA } from '../../componentes/ui'
 import { useAlmacen } from '../../estado/almacen'
 import { formatearCota } from '../../formato'
-import { alturaDe, CATEGORIA_REPLANTEO, puestaDe, puestaParaMotor, type LineaDeLaHoja } from '../../niveles/hoja'
+import { CATEGORIA_REPLANTEO, puestaDe, type LineaDeLaHoja } from '../../niveles/hoja'
+import { alturaDe, puestaParaMotor, puestasDe } from '../../niveles/puestas'
+import { SelectorPuesta } from './EditorPuestas'
 import { leerListaDeProgresivas } from '../analisis/superficies'
 import type { PropsHoja } from './PantallaNiveles'
 
@@ -36,7 +38,8 @@ function etiquetaComo(f: FilaNivel): string | null {
  * se juzga con la mira del instrumento del proyecto.
  */
 export default function NivelARegistrar({ hoja, cambiar, lineas }: PropsHoja & { lineas: Map<string, LineaDeLaHoja> }) {
-  const instrumento = useAlmacen((s) => s.proyecto.instrumento)
+  const proyecto = useAlmacen((s) => s.proyecto)
+  const instrumento = proyecto.instrumento
   const idTitulo = useId()
   const registrar = hoja.registrar ?? { conjuntoId: null, progresivas: '', puestaId: null }
   const conjunto =
@@ -44,7 +47,7 @@ export default function NivelARegistrar({ hoja, cambiar, lineas }: PropsHoja & {
     hoja.conjuntos.find((c) => c.categoria === CATEGORIA_REPLANTEO) ??
     hoja.conjuntos[0] ??
     null
-  const puesta = hoja.puestas.find((p) => p.id === registrar.puestaId) ?? (conjunto ? puestaDe(hoja, conjunto) : null)
+  const puesta = puestasDe(proyecto).find((p) => p.id === registrar.puestaId) ?? (conjunto ? puestaDe(proyecto, conjunto) : null)
   const [elegida, setElegida] = useState(0)
 
   function fijar(cambios: Partial<NonNullable<typeof hoja.registrar>>) {
@@ -60,16 +63,16 @@ export default function NivelARegistrar({ hoja, cambiar, lineas }: PropsHoja & {
       linea: propia.linea,
       otras: [...lineas.values()].filter((l) => l.conjunto.id !== conjunto.id).map((l) => l.linea),
       progresivas: leidas.progresivas.slice(0, 60),
-      ai: puestaParaMotor(puesta),
+      ai: puestaParaMotor(puesta, proyecto),
       instrumento,
       forma: { unidad: hoja.unidad, mira: hoja.mira },
     })
     // `leidas` se rehace en cada dibujado: se mira el texto.
-  }, [conjunto, puesta, lineas, registrar.progresivas, instrumento, hoja.unidad, hoja.mira])
+  }, [conjunto, puesta, lineas, registrar.progresivas, instrumento, hoja.unidad, hoja.mira, proyecto])
 
   const filas = resultado?.filas ?? []
   const fila = filas[Math.min(elegida, filas.length - 1)]
-  const ai = puesta ? alturaDe(puesta, instrumento) : null
+  const ai = puesta ? alturaDe(puesta, proyecto) : null
   const avisos = [...new Set((resultado?.avisos ?? []).filter((a) => !/no comprobad|sin cierre/i.test(a)))]
 
   return (
@@ -107,24 +110,12 @@ export default function NivelARegistrar({ hoja, cambiar, lineas }: PropsHoja & {
             className={`${SELECTOR} numerico`}
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-[13px] font-medium text-tenue">Leer con la puesta</span>
-          <select
-            value={registrar.puestaId ?? ''}
-            onChange={(e) => fijar({ puestaId: e.target.value === '' ? null : e.target.value })}
-            className={SELECTOR}
-          >
-            <option value="">La del conjunto</option>
-            {hoja.puestas.map((p) => {
-              const altura = alturaDe(p, instrumento)
-              return (
-                <option key={p.id} value={p.id}>
-                  {p.nombre} (AI {altura !== null ? formatearCota(altura) : '—'})
-                </option>
-              )
-            })}
-          </select>
-        </label>
+        <SelectorPuesta
+          etiqueta="Leer con la puesta"
+          valor={registrar.puestaId}
+          alCambiar={(puestaId) => fijar({ puestaId })}
+          vacio="La del conjunto"
+        />
       </div>
       {leidas.noEntendidas.length > 0 && (
         <AvisoLinea tono="aviso">No se entiende como progresiva: {leidas.noEntendidas.join(', ')}.</AvisoLinea>

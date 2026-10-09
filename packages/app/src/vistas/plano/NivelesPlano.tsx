@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import CampoNumero from '../../componentes/CampoNumero'
 import { useAlmacen } from '../../estado/almacen'
 import { formatearCota } from '../../formato'
-import { alturaDe, nuevoIdNivel } from '../../niveles/hoja'
 import { puestaDelPunto, type AnalisisEnPlano } from '../../niveles/enPlano'
+import { puestasDe } from '../../niveles/puestas'
+import EditorPuestas from '../niveles/EditorPuestas'
 import { BOTON_ICONO, BOTON_SECUNDARIO, CAJA, ENLACE_PELIGRO } from './estilos'
 import { aSvg, puntosSvg } from './geometriaVisor'
 
@@ -302,7 +303,11 @@ export function PanelNiveles({ plano, niveles, analisis, elegidoId, alElegir, ca
         <TablaLecturas niveles={niveles} analisis={analisis} elegidoId={elegidoId} alElegir={alElegir} editarPunto={editarPunto} />
       )}
 
-      <Puestas niveles={niveles} cambiar={cambiar} />
+      <div className="flex flex-col gap-2 border-t border-dashed border-borde pt-3">
+        <h4 className="text-sm font-semibold">Puestas del nivel</h4>
+        <p className="text-[13px] text-tenue">Son las de toda la obra: las mismas de Niveles, la calculadora y Replantear.</p>
+        <EditorPuestas />
+      </div>
 
       <div className="flex flex-wrap items-end gap-3">
         <CampoNumero
@@ -339,7 +344,9 @@ function TablaLecturas({
   alElegir: (id: string) => void
   editarPunto: (id: string, cambios: Partial<PuntoNivelPlano>) => void
 }) {
-  const varias = niveles.puestas.length > 1
+  const proyecto = useAlmacen((s) => s.proyecto)
+  const puestas = puestasDe(proyecto)
+  const varias = puestas.length > 1
   return (
     <table aria-label="Lecturas de los puntos" className="w-full text-sm">
       <thead>
@@ -365,11 +372,11 @@ function TablaLecturas({
                 <td className="py-1">
                   <select
                     aria-label={`Puesta del punto ${p.nombre}`}
-                    value={puestaDelPunto(niveles, p)?.id ?? ''}
+                    value={puestaDelPunto(proyecto, p)?.id ?? ''}
                     onChange={(e) => editarPunto(p.id, { puestaId: e.target.value })}
                     className="min-h-11 max-w-[7rem] rounded-[10px] border border-borde-fuerte bg-tarjeta px-1 text-sm"
                   >
-                    {niveles.puestas.map((x) => (
+                    {puestas.map((x) => (
                       <option key={x.id} value={x.id}>
                         {x.nombre}
                       </option>
@@ -448,91 +455,5 @@ function CampoLectura({
       }}
       className="numerico min-h-11 w-24 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-right text-base"
     />
-  )
-}
-
-/** Las puestas con que se leyó: cota del BM + lectura atrás. */
-function Puestas({ niveles, cambiar }: { niveles: NivelesEnPlano; cambiar: PropsPanel['cambiar'] }) {
-  const instrumento = useAlmacen((s) => s.proyecto.instrumento)
-  const bms = useAlmacen((s) => s.proyecto.bms)
-  function editar(id: string, cambios: Partial<{ nombre: string; cotaBM: number; lecturaAtras: number }>) {
-    cambiar((n) => ({ ...n, puestas: n.puestas.map((p) => (p.id === id ? { ...p, ...cambios } : p)) }))
-  }
-  return (
-    <div className="flex flex-col gap-2 border-t border-dashed border-borde pt-3">
-      <h4 className="text-sm font-semibold">Puestas del nivel</h4>
-      {niveles.puestas.map((p) => {
-        const ai = alturaDe(p, instrumento)
-        return (
-          <div key={p.id} className="grid grid-cols-2 gap-2 rounded-[10px] border border-borde p-2">
-            <input
-              aria-label="Nombre de la puesta"
-              value={p.nombre}
-              onChange={(e) => editar(p.id, { nombre: e.target.value })}
-              className="col-span-2 min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-sm font-semibold"
-            />
-            <CampoNumero etiqueta="Cota BM (m)" valor={p.cotaBM} alCambiar={(v) => editar(p.id, { cotaBM: v })} />
-            <CampoNumero etiqueta="Lectura atrás (m)" valor={p.lecturaAtras} alCambiar={(v) => editar(p.id, { lecturaAtras: v })} />
-            {bms.length > 0 && (
-              <select
-                aria-label={`Tomar la cota de un BM para ${p.nombre}`}
-                value=""
-                onChange={(e) => {
-                  const bm = bms.find((b) => b.id === e.target.value)
-                  if (bm) editar(p.id, { cotaBM: bm.cota })
-                }}
-                className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-sm"
-              >
-                <option value="">Cota de un BM…</option>
-                {bms.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.nombre} · {formatearCota(b.cota)}
-                  </option>
-                ))}
-              </select>
-            )}
-            <p className="flex items-center text-sm">
-              AI <b className="numerico ml-1">{ai !== null ? formatearCota(ai) : '—'}</b>
-            </p>
-          </div>
-        )
-      })}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() =>
-            cambiar((n) => {
-              const ultima = n.puestas[n.puestas.length - 1]
-              return {
-                ...n,
-                puestas: [
-                  ...n.puestas,
-                  { id: nuevoIdNivel('puesta'), nombre: `Puesta ${n.puestas.length + 1}`, cotaBM: ultima?.cotaBM ?? 100, lecturaAtras: ultima?.lecturaAtras ?? 1.5 },
-                ],
-              }
-            })
-          }
-          className={BOTON_SECUNDARIO}
-        >
-          + Puesta
-        </button>
-        {niveles.puestas.length > 1 && (
-          <button
-            type="button"
-            aria-label="Quitar la última puesta"
-            onClick={() =>
-              cambiar((n) => {
-                const quitada = n.puestas[n.puestas.length - 1]!
-                const resto = n.puestas.slice(0, -1)
-                return { ...n, puestas: resto, puntos: n.puntos.map((p) => (p.puestaId === quitada.id ? { ...p, puestaId: resto[0]!.id } : p)) }
-              })
-            }
-            className={BOTON_ICONO}
-          >
-            −
-          </button>
-        )}
-      </div>
-    </div>
   )
 }

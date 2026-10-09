@@ -28,16 +28,16 @@ export interface PropsHoja {
  */
 export default function PantallaNiveles() {
   const calle = useAlmacen((s) => s.proyecto.calles.find((c) => c.id === s.calleActivaId) ?? null)
-  const bms = useAlmacen((s) => s.proyecto.bms)
-  const instrumento = useAlmacen((s) => s.proyecto.instrumento)
+  const proyecto = useAlmacen((s) => s.proyecto)
   const actualizarCalle = useAlmacen((s) => s.actualizarCalle)
   const idTitulo = useId()
 
   // Una calle sin hoja todavía: se le propone una vacía, con ids estables
   // mientras no se toque (mirarla no cambia el proyecto).
-  const vacia = useMemo(() => hojaVacia(bms), [calle?.id])
+  const vacia = useMemo(() => hojaVacia(), [calle?.id])
   const hoja = calle?.niveles ?? vacia
-  const lineas = useMemo(() => lineasDeLaHoja(hoja, instrumento), [hoja, instrumento])
+  // Depende del proyecto entero: los conjuntos enlazados siguen a la libreta y las puestas a los BMs.
+  const lineas = useMemo(() => lineasDeLaHoja(hoja, proyecto, calle?.id ?? ''), [hoja, proyecto, calle?.id])
 
   if (!calle) {
     return (

@@ -25,6 +25,8 @@ import {
   VISUAL_ESTADO,
 } from './comun'
 import FichaNiveles from './FichaNiveles'
+import { SelectorPuesta } from '../niveles/EditorPuestas'
+import { alturaDe, origenDePuesta, puestaParaMotor, puestaPorId, puestasDe } from '../../niveles/puestas'
 import { useEvaluacionCalle, useResultadoCalle } from './resultadoCalle'
 
 type DesdeDonde = 'proyecto' | 'capa'
@@ -53,11 +55,12 @@ export default function FichaReplantear() {
   )
 }
 
-type OrigenAltura = 'libreta' | 'bm'
+type OrigenAltura = 'libreta' | 'bm' | 'puesta'
 
 const ORIGENES: { valor: OrigenAltura; texto: string }[] = [
   { valor: 'libreta', texto: 'De la libreta' },
   { valor: 'bm', texto: 'Desde un BM' },
+  { valor: 'puesta', texto: 'Una puesta' },
 ]
 
 const MOTIVO: Record<MotivoSinObjetivo, string> = {
@@ -111,6 +114,11 @@ function ReplantearDesdeProyecto() {
   const [bmId, setBmId] = useState<string>(proyecto.bms[0]?.id ?? '')
   const [textoVistaAtras, setTextoVistaAtras] = useState('')
   const [leidas, setLeidas] = useState<Record<string, string>>({})
+  const [puestaId, setPuestaId] = useState<string | null>(null)
+  const [guardada, setGuardada] = useState<string | null>(null)
+  const agregarPuesta = useAlmacen((s) => s.agregarPuesta)
+  // Una puesta del proyecto: la misma que se usa en Niveles, el plano y la calculadora.
+  const puesta = origen === 'puesta' ? puestaPorId(proyecto, puestaId) : null
 
   const instrumento = instrumentoDe(proyecto)
   const mira = reglasMiraDe(instrumento)
@@ -137,6 +145,12 @@ function ReplantearDesdeProyecto() {
     }
     // Solo si el cierre respalda esta estación (no una de antes de volver a arrancar en un BM).
     comprobado = resultado ? estacionComprobada(resultado, indiceSeguro) : false
+  } else if (origen === 'puesta') {
+    if (puesta) {
+      const motor = puestaParaMotor(puesta, proyecto)
+      alturaInstrumental = alturaDe(puesta, proyecto) ?? Number.NaN
+      comprobado = motor.tipo === 'libreta' && motor.comprobado
+    }
   } else if (bm) {
     alturaInstrumental = alturaInstrumentalDe(bm.cota, leerNumero(textoVistaAtras), instrumento.largoMira) ?? Number.NaN
     // Un BM oficial ya tiene su cota comprobada; uno auxiliar vale lo que su nivelación.
@@ -178,7 +192,12 @@ function ReplantearDesdeProyecto() {
   const clave = fila ? claveCelda(fila.progresiva, fila.puntoId) : ''
   // Lo leído vale para esta capa y esta altura de instrumento: con otra capa
   // u otra estación el objetivo es otro, y el dato de antes no le corresponde.
-  const origenClave = origen === 'bm' ? `bm:${bm?.id ?? ''}:${textoVistaAtras.trim()}` : `libreta:${indiceSeguro}`
+  const origenClave =
+    origen === 'bm'
+      ? `bm:${bm?.id ?? ''}:${textoVistaAtras.trim()}`
+      : origen === 'puesta'
+        ? `puesta:${puesta?.id ?? ''}:${alturaInstrumental}`
+        : `libreta:${indiceSeguro}`
   const claveLeida = `${contexto.campania.id}|${origenClave}|${clave}`
   const textoLeida = leidas[claveLeida] ?? ''
   const toleranciaMm = hoja.toleranciaMm ?? Number.NaN
@@ -239,6 +258,8 @@ function ReplantearDesdeProyecto() {
       )}{' '}
       · estación {indiceSeguro + 1} de la libreta
     </>
+  ) : origen === 'puesta' && puesta ? (
+    <> · {puesta.nombre} ({origenDePuesta(puesta, proyecto)})</>
   ) : bm ? (
     <>
       {' '}
@@ -337,6 +358,12 @@ function ReplantearDesdeProyecto() {
             detalleAI
           ) : origen === 'libreta' ? (
             'La estación de la libreta no tiene vista atrás: escríbela en Medir o parte de un BM.'
+          ) : origen === 'puesta' ? (
+            puestasDe(proyecto).length === 0 ? (
+              'No hay puestas en el proyecto: parte de un BM y guárdala como puesta, o créalas en Calle › Niveles.'
+            ) : (
+              'Esa puesta no da altura: revísala en Calle › Niveles.'
+            )
           ) : !bm ? null : vistaAtrasEscrita ? (
             <span className="text-falla">
               <span aria-hidden="true">✗ </span>
@@ -377,6 +404,33 @@ function ReplantearDesdeProyecto() {
                 className="numerico min-h-11 w-28 rounded-[10px] border border-borde-fuerte bg-tarjeta px-2 text-right text-base text-tinta"
               />
             </label>
+            {bm && Number.isFinite(alturaInstrumental) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const id = agregarPuesta({
+                    nombre: `${bm.nombre} · ${formatearCota(leerNumero(textoVistaAtras))}`,
+                    cotaBM: bm.cota,
+                    lecturaAtras: leerNumero(textoVistaAtras),
+                    bmId: bm.id,
+                  })
+                  setGuardada(id)
+                }}
+                className="min-h-11 rounded-[10px] border border-borde-fuerte bg-tarjeta px-3 text-sm font-medium text-tinta"
+              >
+                Guardar como puesta
+              </button>
+            )}
+            {guardada && (
+              <p className="w-full text-[13px] text-pasa">
+                ✓ Guardada: ya sirve en Niveles, el plano, la calculadora y la hoja de estacas.
+              </p>
+            )}
+          </div>
+        )}
+        {origen === 'puesta' && puestasDe(proyecto).length > 0 && (
+          <div className="col-span-2">
+            <SelectorPuesta valor={puesta?.id ?? null} alCambiar={setPuestaId} etiqueta="Puesta del proyecto" />
           </div>
         )}
       </fieldset>

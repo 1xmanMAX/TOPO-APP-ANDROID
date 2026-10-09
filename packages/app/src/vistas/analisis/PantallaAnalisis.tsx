@@ -4,22 +4,20 @@ import { useAlmacen, type PestanaAnalisis } from '../../estado/almacen'
 import { Aviso, useCalleYToma } from './comunes'
 import PestanaDrenaje, { DRENAJE_DE_FABRICA, type EleccionDrenaje } from './PestanaDrenaje'
 import PestanaEspesores from './PestanaEspesores'
-import PestanaSeparacion, { SEPARACION_DE_FABRICA, type EleccionSeparacion } from './PestanaSeparacion'
 import PestanaVolumenes, { VOLUMENES_DE_FABRICA, type EleccionVolumenes } from './PestanaVolumenes'
 
 const PESTANAS: { valor: PestanaAnalisis; texto: string }[] = [
   { valor: 'espesores', texto: 'Espesores' },
-  { valor: 'separacion', texto: 'Separación' },
   { valor: 'volumenes', texto: 'Volúmenes' },
   { valor: 'drenaje', texto: 'Drenaje' },
 ]
 
 /**
- * Calle › Análisis: espesores, separación entre niveles, volúmenes y drenaje
- * de la calle activa, en pestañas de la misma pantalla. Todo sale del motor
- * (`capas/comparar`, `campo/niveles`, `analisis/volumenes`,
- * `analisis/drenaje`); aquí solo se elige qué comparar y se dice, arriba de
- * cada número, si está comprobado.
+ * Calle › Análisis: espesores, volúmenes y drenaje de la calle activa, en
+ * tres pestañas de la misma pantalla. Todo sale del motor (`capas/comparar`,
+ * `analisis/volumenes`, `analisis/drenaje`); aquí solo se elige qué comparar
+ * y se dice, arriba de cada número, si está comprobado. La separación entre
+ * niveles está en Calle › Niveles, con lo medido enlazado.
  *
  * Lo que se elige en cada pestaña (superficies, factor, volquete, punto,
  * sumideros) vive aquí y no dentro de la pestaña: así no se pierde al pasar
@@ -31,7 +29,6 @@ export default function PantallaAnalisis() {
   const idPanel = useId()
   const pestana = useAlmacen((s) => s.pestanaAnalisis)
   const setPestana = useAlmacen((s) => s.fijarPestanaAnalisis)
-  const [eleccionSeparacion, setEleccionSeparacion] = useState<Record<string, EleccionSeparacion>>({})
   const [eleccionVolumenes, setEleccionVolumenes] = useState<Record<string, EleccionVolumenes>>({})
   const [eleccionDrenaje, setEleccionDrenaje] = useState<Record<string, EleccionDrenaje>>({})
   const barra = useRef<HTMLDivElement>(null)
@@ -94,18 +91,6 @@ export default function PantallaAnalisis() {
       ) : (
         <div role="tabpanel" id={idPanel} aria-labelledby={`${idPanel}-${pestana}`} className="flex flex-col gap-4">
           {pestana === 'espesores' && <PestanaEspesores calle={calle} />}
-          {pestana === 'separacion' && (
-            <PestanaSeparacion
-              calle={calle}
-              eleccion={eleccionSeparacion[calle.id] ?? SEPARACION_DE_FABRICA}
-              alCambiar={(cambio) =>
-                setEleccionSeparacion((todas) => ({
-                  ...todas,
-                  [calle.id]: { ...(todas[calle.id] ?? SEPARACION_DE_FABRICA), ...cambio },
-                }))
-              }
-            />
-          )}
           {pestana === 'volumenes' && (
             <PestanaVolumenes
               calle={calle}
