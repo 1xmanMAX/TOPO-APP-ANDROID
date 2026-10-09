@@ -137,8 +137,10 @@ function empiezaComoPdf(bytes: Uint8Array): boolean {
 async function bibliotecaDeFabrica(): Promise<BibliotecaPdf> {
   // Primero el trabajador: sin workerSrc, pdfjs falla con todos los archivos.
   // Import dinámico de los dos: así las pruebas no cargan el build de navegador.
+  // El build «legacy» trae los polyfills de lo más nuevo (Map.getOrInsertComputed):
+  // sin él, el PDF no abre en el WebView de un Android no tan nuevo ni en Electron 38.
   await import('./pdfTrabajador')
-  return (await import('pdfjs-dist')) as BibliotecaPdf
+  return (await import('pdfjs-dist/legacy/build/pdf.mjs')) as unknown as BibliotecaPdf
 }
 
 /** Abre un PDF. Copia los bytes porque pdfjs se queda con el búfer que recibe. */

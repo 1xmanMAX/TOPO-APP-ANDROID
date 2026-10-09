@@ -11,6 +11,7 @@ import {
   type Vista,
 } from './geometriaVisor'
 import { BOTON_ICONO } from './estilos'
+import type { Encuadre } from './pintarVectorial'
 
 interface Props {
   /** Lo que «Encuadrar» deja a la vista. */
@@ -31,6 +32,37 @@ interface Props {
    * herramientas). Va junto a los botones de zoom, fuera del dibujo.
    */
   encima?: ReactNode
+  /**
+   * Un fondo que se pinta en un <canvas> debajo del SVG (el DXF o DWG):
+   * miles de líneas que en SVG trabarían el celular. `rapido` es verdadero
+   * mientras se arrastra o pellizca: se pinta solo lo grueso y al soltar se
+   * completa el detalle. `clave` cambia cuando hay que repintar por algo que
+   * no es la vista (capas ocultas, tema).
+   */
+  fondo?: { pintar: (ctx: CanvasRenderingContext2D, encuadre: Encuadre, rapido: boolean) => void; clave: string }
+}
+
+/** Tras la última vuelta de rueda o el último dedo, cuánto esperar para pintar el detalle. */
+const PAUSA_DETALLE_MS = 140
+
+/** Un cuadro a 60 por segundo: si pintar tarda más, durante el gesto se mueve la imagen ya pintada. */
+const COSTO_MAXIMO_MS = 16
+
+/**
+ * La transformación CSS que lleva lo pintado con la vista `antes` a donde
+ * cae con la vista `ahora` (las dos con el encaje «meet» del SVG).
+ */
+function transformacionEntre(antes: Vista, ahora: Vista, caja: { width: number; height: number }): string {
+  const encaje = (v: Vista) => {
+    const e = Math.min(caja.width / v.ancho, caja.height / v.alto)
+    return { e, mx: (caja.width - v.ancho * e) / 2, my: (caja.height - v.alto * e) / 2 }
+  }
+  const a = encaje(antes)
+  const b = encaje(ahora)
+  const k = b.e / a.e
+  const tx = b.mx + (antes.x - ahora.x) * b.e - a.mx * k
+  const ty = b.my + (antes.y - ahora.y) * b.e - a.my * k
+  return `translate(${tx}px, ${ty}px) scale(${k})`
 }
 
 /** Pasado este arrastre (en píxeles), el gesto ya no es un toque sino mover el plano. */
@@ -43,11 +75,59 @@ const BOTON = `${BOTON_ICONO} bg-tarjeta/95 text-xl shadow-sm hover:bg-fondo dis
  * El plano a pantalla: rueda o pellizco para acercar, arrastrar para mover,
  * y un toque (sin arrastre) para elegir una pista o poner un punto.
  */
-export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPuntos = false, children, encima }: Props) {
+export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPuntos = false, children, encima, fondo }: Props) {
   const contenedor = useRef<HTMLDivElement>(null)
   const lienzo = useRef<SVGSVGElement>(null)
   const [caja, setCaja] = useState(CAJA_DE_FABRICA)
   const [vista, setVista] = useState<Vista | null>(() => (limites ? encuadrar(limites, CAJA_DE_FABRICA) : null))
+
+  const fondoLienzo = useRef<HTMLCanvasElement>(null)
+  /** Si hay un gesto en curso (arrastre, pellizco, rueda): entonces se pinta rápido. */
+  const enGesto = useRef(false)
+  const [detalle, setDetalle] = useState(0)
+  const pausa = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Marca que hubo movimiento; al quedarse quieto, se repinta con todo el detalle. */
+  function moviendo(sigue: boolean) {
+    enGesto.current = true
+    if (pausa.current) clearTimeout(pausa.current)
+    pausa.current = sigue
+      ? null
+      : setTimeout(() => {
+          enGesto.current = false
+          setDetalle((n) => n + 1)
+        }, PAUSA_DETALLE_MS)
+  }
+  useEffect(() => () => void (pausa.current && clearTimeout(pausa.current)), [])
+
+  // El fondo en canvas: un cuadro por vista, en el próximo refresco de pantalla.
+  // Si pintar cuesta más que un cuadro (un plano enorme en un celular), durante
+  // el gesto no se repinta: se mueve y escala la imagen ya pintada (lo hace la
+  // tarjeta gráfica, sin costo) y al soltar se pinta de nuevo, nítida.
+  const pintar = fondo?.pintar
+  const pintado = useRef<{ vista: Vista; caja: { width: number; height: number }; costoMs: number } | null>(null)
+  useEffect(() => {
+    const lienzoFondo = fondoLienzo.current
+    if (!pintar || !vista || !lienzoFondo) return
+    const anterior = pintado.current
+    if (enGesto.current && anterior && anterior.costoMs > COSTO_MAXIMO_MS && anterior.caja === caja) {
+      lienzoFondo.style.transform = transformacionEntre(anterior.vista, vista, caja)
+      return
+    }
+    const ctx = lienzoFondo.getContext('2d')
+    if (!ctx) return
+    const cuadro = requestAnimationFrame(() => {
+      const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 3)
+      const w = Math.max(1, Math.round(caja.width * dpr))
+      const h = Math.max(1, Math.round(caja.height * dpr))
+      if (lienzoFondo.width !== w) lienzoFondo.width = w
+      if (lienzoFondo.height !== h) lienzoFondo.height = h
+      const t0 = performance.now()
+      pintar(ctx, { vista, ancho: caja.width, alto: caja.height, dpr }, enGesto.current)
+      lienzoFondo.style.transform = ''
+      pintado.current = { vista, caja, costoMs: performance.now() - t0 }
+    })
+    return () => cancelAnimationFrame(cuadro)
+  }, [pintar, fondo?.clave, vista, caja, detalle])
 
   const punteros = useRef(new Map<number, Punto2>())
   const toque = useRef<{ x: number; y: number; objetivo: Element | null; movido: boolean } | null>(null)
@@ -94,6 +174,7 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
       evento.preventDefault()
       const rect = svg.getBoundingClientRect()
       const factor = Math.exp(-evento.deltaY * 0.0015)
+      moviendo(false)
       setVista((v) => (v ? acercar(v, pantallaASvg(evento.clientX, evento.clientY, rect, v), factor) : v))
     }
     svg.addEventListener('wheel', alGirar, { passive: false })
@@ -133,6 +214,7 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
       const t = toque.current
       if (t && !t.movido && Math.hypot(actual.x - t.x, actual.y - t.y) > UMBRAL_TOQUE_PX) t.movido = true
       if (!t?.movido) return
+      moviendo(true)
       const escala = 1 / unidadesPorPixel(vista, rect)
       setVista((v) => (v ? desplazar(v, (actual.x - anterior.x) / escala, (actual.y - anterior.y) / escala) : v))
       return
@@ -144,6 +226,7 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
       const antes = pellizco.current
       pellizco.current = { distancia, centro }
       if (!(antes.distancia > 0) || !(distancia > 0)) return
+      moviendo(true)
       setVista((v) => {
         if (!v) return v
         const escala = 1 / unidadesPorPixel(v, rect)
@@ -158,6 +241,7 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
     punteros.current.delete(evento.pointerId)
     if (punteros.current.size < 2) pellizco.current = null
     if (punteros.current.size > 0) return
+    if (enGesto.current) moviendo(false)
     const t = toque.current
     toque.current = null
     if (cancelado || !t || t.movido || !vista) return
@@ -175,6 +259,7 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
       ref={contenedor}
       className="relative h-[60vh] min-h-72 w-full overflow-hidden border-y border-borde bg-white sm:rounded-xl sm:border md:h-[55vh] lg:h-[calc(100dvh-12rem)] dark:bg-slate-900"
     >
+      {fondo && <canvas ref={fondoLienzo} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full origin-top-left text-slate-800 will-change-transform dark:text-slate-100" />}
       <svg
         ref={lienzo}
         role="application"
@@ -183,7 +268,7 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
         viewBox={vista ? `${vista.x} ${vista.y} ${vista.ancho} ${vista.alto}` : '0 0 1 1'}
         width="100%"
         height="100%"
-        className={`block select-none text-slate-800 dark:text-slate-100 ${enModoPuntos ? 'cursor-crosshair' : 'cursor-grab'}`}
+        className={`relative block select-none text-slate-800 dark:text-slate-100 ${enModoPuntos ? 'cursor-crosshair' : 'cursor-grab'}`}
         style={{ touchAction: 'none' }}
         onPointerDown={alBajar}
         onPointerMove={alMover}

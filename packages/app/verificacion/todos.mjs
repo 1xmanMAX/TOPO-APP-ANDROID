@@ -30,6 +30,7 @@ const GUIONES = [
   'niveles',
   'hoja-niveles',
   'niveles-plano',
+  'visor-dwg',
   'informes',
   'plano',
   'planificador',

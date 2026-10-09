@@ -329,6 +329,12 @@ En **Calle › Análisis › Separación** (o con «Comprobar separación» desd
 
 Lo que sale de una nivelación sin cerrar se marca **no comprobado**, igual que en el resto de la app.
 
+## Planos: DWG, DXF y PDF
+
+En **Obra › Plano**, «Importar planos» acepta **DWG** (AutoCAD R13 a 2018), **DXF** y **PDF**; puedes elegir o soltar varios a la vez y quedan todos en la lista «Plano a la vista». El DWG se lee directo, sin pasarlo a DXF: los bloques se dibujan con su posición, giro y escala, las cotas con su texto, y lo del espacio papel (el rótulo de la lámina) se deja fuera. Lo que no se dibuja (rayados, sólidos 3D, imágenes…) se lista en «Capas del plano».
+
+Arrastra con un dedo y pellizca para acercar. Lo muy pequeño se ve tenue de lejos y aparece al acercarte; los textos, cuando ya se pueden leer. Si un DWG trae unidades (metros, milímetros…) llega calibrado; si no, calibra con dos puntos.
+
 ## Niveles en el plano: por dónde se va el agua
 
 Para una zona complicada (varias intersecciones juntas) en la que quieres que el agua de una lluvia fuerte vaya por donde tú decides, en **Obra › Plano**, herramienta **Niveles**:

@@ -23,6 +23,19 @@ vi.mock('./cargarPlano', async (importarOriginal) => {
   return {
     ...real,
     revisarPdf: vi.fn(async () => 1),
+    // En jsdom no hay trabajador ni WebAssembly: un «DWG» de prueba es la
+    // firma y un texto; «LINEA» da un plano con una línea, lo demás falla
+    // como un DWG dañado. La lectura de verdad se prueba en planos/dwg.test.ts.
+    cargarDwg: vi.fn(async (bytes: Uint8Array) => {
+      const { convertirDwg } = await import('../../planos/dwg')
+      const { ErrorDxf } = await import('../../planos/dxf')
+      if (!new TextDecoder('latin1').decode(bytes).includes('LINEA')) throw new ErrorDxf('El DWG (AutoCAD 2018) está dañado o no se pudo leer (prueba).')
+      return convertirDwg({
+        header: { INSUNITS: 6 },
+        entities: [{ type: 'LINE', layer: 'EJE', startPoint: { x: 0, y: 0 }, endPoint: { x: 100, y: 0 } }],
+        tables: { LAYER: { entries: [{ name: 'EJE', colorIndex: 1 }] } },
+      })
+    }),
     cargarPdf: vi.fn(async (bytes: Uint8Array, pagina: number) => {
       const doc = await abrirPdf(bytes, { biblioteca: pdfjsLegacy as unknown as BibliotecaPdf })
       const { anchoPt, altoPt } = await doc.tamanoPagina(1)
@@ -201,21 +214,35 @@ describe('Plano de obra: importar', () => {
     render(<EspacioPlano />)
     expect(screen.getByRole('heading', { name: 'Plano de obra' })).toBeInTheDocument()
     expect(screen.getByText(/todavía no hay planos/i)).toBeInTheDocument()
-    expect(screen.getByLabelText('Importar plano (DXF o PDF)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Importar planos (DWG, DXF o PDF)')).toBeInTheDocument()
   })
 
-  it('un DWG no se intenta leer: dice que se pase a DXF con ODA File Converter', async () => {
+  it('un DWG se lee directo, sin convertirlo: en metros queda calibrado y dibuja sus capas', async () => {
     const usuario = userEvent.setup()
     render(<EspacioPlano />)
-    await usuario.upload(screen.getByLabelText('Importar plano (DXF o PDF)'), archivo(new Uint8Array([65, 67, 49, 48]), 'obra.dwg'))
-    expect(await screen.findByRole('alert')).toHaveTextContent(/ODA File Converter/)
-    expect(useAlmacen.getState().proyecto.planos ?? []).toHaveLength(0)
+    const dwg = new TextEncoder().encode('AC1032 LINEA') as Uint8Array<ArrayBuffer>
+    await usuario.upload(screen.getByLabelText('Importar planos (DWG, DXF o PDF)'), archivo(dwg, 'obra.dwg'))
+    expect(await screen.findByText('✓ Plano importado.')).toBeInTheDocument()
+    expect(useAlmacen.getState().proyecto.planos![0]).toMatchObject({ nombre: 'obra', formato: 'dwg', calibracion: { metrosPorUnidad: 1 } })
+    expect(await screen.findByRole('checkbox', { name: 'EJE' })).toBeChecked()
+  })
+
+  it('varios planos de una vez: se guardan todos y queda abierto el último', async () => {
+    const usuario = userEvent.setup()
+    render(<EspacioPlano />)
+    const dwg = new TextEncoder().encode('AC1032 LINEA') as Uint8Array<ArrayBuffer>
+    await usuario.upload(screen.getByLabelText('Importar planos (DWG, DXF o PDF)'), [
+      archivo(DXF, 'expediente-pistas.dxf'),
+      archivo(dwg, 'obra.dwg'),
+    ])
+    expect(await screen.findByText(/2 planos importados \(abierto «obra.dwg»\)/)).toBeInTheDocument()
+    expect(useAlmacen.getState().proyecto.planos!.map((p) => p.formato)).toEqual(['dxf', 'dwg'])
   })
 
   it('un DXF en metros se guarda ya calibrado, con sus bytes aparte, y dibuja sus capas', async () => {
     const usuario = userEvent.setup()
     render(<EspacioPlano />)
-    await usuario.upload(screen.getByLabelText('Importar plano (DXF o PDF)'), archivo(DXF, 'expediente-pistas.dxf'))
+    await usuario.upload(screen.getByLabelText('Importar planos (DWG, DXF o PDF)'), archivo(DXF, 'expediente-pistas.dxf'))
 
     expect(await screen.findByText('✓ Plano importado.')).toBeInTheDocument()
     const { proyecto, archivosDePlano } = useAlmacen.getState()
@@ -248,7 +275,7 @@ describe('Plano de obra: importar', () => {
   it('un PDF se guarda sin escala y abre la calibración', async () => {
     const usuario = userEvent.setup()
     render(<EspacioPlano />)
-    await usuario.upload(screen.getByLabelText('Importar plano (DXF o PDF)'), archivo(PDF, 'plano-expediente.pdf'))
+    await usuario.upload(screen.getByLabelText('Importar planos (DWG, DXF o PDF)'), archivo(PDF, 'plano-expediente.pdf'))
     expect(await screen.findByText(/Un PDF no trae escala/)).toBeInTheDocument()
     expect(useAlmacen.getState().proyecto.planos![0]).toMatchObject({ formato: 'pdf', pagina: 1, calibracion: null })
     expect(screen.getByRole('button', { name: 'Calibrar escala' })).toHaveAttribute('aria-pressed', 'true')
@@ -258,8 +285,8 @@ describe('Plano de obra: importar', () => {
   it('un archivo que no es DXF ni PDF se rechaza con un mensaje claro', async () => {
     const usuario = userEvent.setup({ applyAccept: false })
     render(<EspacioPlano />)
-    await usuario.upload(screen.getByLabelText('Importar plano (DXF o PDF)'), archivo(new TextEncoder().encode('hola') as Uint8Array<ArrayBuffer>, 'notas.txt'))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Solo se importan planos en DXF o PDF.')
+    await usuario.upload(screen.getByLabelText('Importar planos (DWG, DXF o PDF)'), archivo(new TextEncoder().encode('hola') as Uint8Array<ArrayBuffer>, 'notas.txt'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Solo se importan planos en DWG, DXF o PDF.')
   })
 
   it('soltar el archivo sobre la pantalla también lo importa', async () => {
@@ -814,7 +841,7 @@ describe('Plano de obra: importar, casos raros', () => {
     const texto = new TextDecoder('latin1').decode(DXF).replace(/(\$INSUNITS\r?\n\s*70\r?\n\s*)6/, '$10')
     expect(texto).not.toBe(new TextDecoder('latin1').decode(DXF))
     render(<EspacioPlano />)
-    await usuario.upload(screen.getByLabelText('Importar plano (DXF o PDF)'), archivo(new TextEncoder().encode(texto) as Uint8Array<ArrayBuffer>, 'sin-unidades.dxf'))
+    await usuario.upload(screen.getByLabelText('Importar planos (DWG, DXF o PDF)'), archivo(new TextEncoder().encode(texto) as Uint8Array<ArrayBuffer>, 'sin-unidades.dxf'))
     expect(await screen.findByText(/no dice en qué unidades está/)).toBeInTheDocument()
     expect(useAlmacen.getState().proyecto.planos![0]!.calibracion).toBeNull()
     expect(screen.getByRole('button', { name: 'Calibrar escala' })).toHaveAttribute('aria-pressed', 'true')
@@ -824,8 +851,8 @@ describe('Plano de obra: importar, casos raros', () => {
     const usuario = userEvent.setup()
     render(<EspacioPlano />)
     const dwg = new TextEncoder().encode('AC1032\u0000\u0000basura binaria') as Uint8Array<ArrayBuffer>
-    await usuario.upload(screen.getByLabelText('Importar plano (DXF o PDF)'), archivo(dwg, 'renombrado.dxf'))
-    expect(await screen.findByRole('alert')).toHaveTextContent(/ODA File Converter/)
+    await usuario.upload(screen.getByLabelText('Importar planos (DWG, DXF o PDF)'), archivo(dwg, 'renombrado.dxf'))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/El DWG \(AutoCAD 2018\) está dañado/)
     expect(useAlmacen.getState().proyecto.planos ?? []).toHaveLength(0)
   })
 
@@ -834,13 +861,13 @@ describe('Plano de obra: importar, casos raros', () => {
     const seccion = screen.getByRole('region', { name: 'Plano de obra' })
     const hijo = screen.getByRole('heading', { name: 'Plano de obra' })
     fireEvent.dragEnter(seccion, { dataTransfer: { types: ['text/plain'], files: [] } })
-    expect(screen.queryByText(/Suelta el plano aquí/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Suelta los planos aquí/)).not.toBeInTheDocument()
     fireEvent.dragEnter(seccion, { dataTransfer: { types: ['Files'], files: [] } })
     fireEvent.dragEnter(hijo, { dataTransfer: { types: ['Files'], files: [] } })
     fireEvent.dragLeave(seccion, { dataTransfer: { types: ['Files'], files: [] } })
-    expect(screen.getByText(/Suelta el plano aquí/)).toBeInTheDocument()
+    expect(screen.getByText(/Suelta los planos aquí/)).toBeInTheDocument()
     fireEvent.dragLeave(hijo, { dataTransfer: { types: ['Files'], files: [] } })
-    expect(screen.queryByText(/Suelta el plano aquí/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Suelta los planos aquí/)).not.toBeInTheDocument()
   })
 
   it('un segundo archivo soltado mientras se lee el primero no se importa', async () => {
@@ -1025,7 +1052,7 @@ describe('Plano de obra: lo que flota sobre el plano', () => {
     expect(screen.queryByRole('button', { name: 'Quitar este plano' })).not.toBeInTheDocument()
     await abrirMenu(usuario, 'Más del plano')
     const menu = screen.getByRole('group', { name: 'Opciones del plano' })
-    expect(within(menu).getByLabelText('Importar plano (DXF o PDF)')).toBeInTheDocument()
+    expect(within(menu).getByLabelText('Importar planos (DWG, DXF o PDF)')).toBeInTheDocument()
     expect(within(menu).getByRole('button', { name: 'Quitar este plano' })).toBeInTheDocument()
 
     const ejes = screen.getByRole('region', { name: 'Ejes del DXF' })

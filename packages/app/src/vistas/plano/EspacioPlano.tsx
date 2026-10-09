@@ -3,7 +3,9 @@ import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'rea
 import { useAlmacen } from '../../estado/almacen'
 import { ejesCandidatos, type TextoPlano } from '../../planos/dxf'
 import { datosDePista, estacasDeCroquis, type DatosPista } from './datosPista'
-import { DibujoCroquis, DibujoEje, DibujoPista, FondoDxf, FondoPdf, MarcasCalibracion } from './Dibujos'
+import { DibujoCroquis, DibujoEje, DibujoPista, FondoPdf, MarcasCalibracion } from './Dibujos'
+import { pintarVectorial, type Encuadre } from './pintarVectorial'
+import { prepararDibujo } from '../../planos/indiceDibujo'
 import MenuMas from '../../componentes/MenuMas'
 import Plegable from '../../componentes/Plegable'
 import Segmentado, { type OpcionSegmentado } from '../../componentes/Segmentado'
@@ -11,7 +13,7 @@ import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAJA, ENLACE_PELIGRO, ITEM_MENU, TAR
 import FichaEje from './FichaEje'
 import { FichaPista } from './FichaPista'
 import { limitesDePuntos, mismaPolilinea, pistaCalibrada, unirLimites } from './geometriaVisor'
-import { importarPlano } from './importarPlano'
+import { importarPlanos } from './importarPlano'
 import { BORRADOR_VACIO, PanelCalibrar, PanelCapas, PanelCroquis, textoEscala, textoEscalaCorto, type BorradorCroquis } from './Paneles'
 import { usePlanoCargado } from './usePlanoCargado'
 import VisorPlano from './VisorPlano'
@@ -49,7 +51,7 @@ function traeArchivos(evento: DragEvent): boolean {
 }
 
 /**
- * Obra › Plano: el plano de obra (DXF o PDF) con las pistas encima, sus
+ * Obra › Plano: el plano de obra (DWG, DXF o PDF) con las pistas encima, sus
  * pendientes, flechas hacia donde bajan y sus controles; el croquis de una
  * pista nueva dibujado vértice a vértice; y, en un DXF, sus ejes para
  * convertirlos en calles. Tocar una pista abre su ficha y desde ahí sus
@@ -80,6 +82,7 @@ export default function EspacioPlano() {
   const [puntosCalibrar, setPuntosCalibrar] = useState<Punto2[]>([])
   const [mensaje, setMensaje] = useState<AvisoPantalla | null>(null)
   const [importando, setImportando] = useState(false)
+  const [avance, setAvance] = useState<string | null>(null)
   const [verCotas, setVerCotas] = useState(true)
   const [confirmarQuitarPlano, setConfirmarQuitarPlano] = useState(false)
   const [paginaPedida, setPaginaPedida] = useState<number | null>(null)
@@ -129,6 +132,25 @@ export default function EspacioPlano() {
       .map((eje, indice) => ({ eje, indice }))
       .filter(({ eje }) => !pistasDelPlano.some((p) => mismaPolilinea(p.polilinea, eje.puntos)))
   }, [cargado, pistasDelPlano])
+
+  // El DXF o DWG, preparado para el canvas: teselas, lotes y nivel de detalle.
+  const vectorial = cargado.estado === 'dxf' ? cargado.vectorial : null
+  const dibujo = useMemo(() => (vectorial ? prepararDibujo(vectorial) : null), [vectorial])
+  const fondo = useMemo(
+    () =>
+      dibujo
+        ? {
+            clave: [...ocultas].join('\u0000'),
+            pintar: (ctx: CanvasRenderingContext2D, encuadre: Encuadre, rapido: boolean) =>
+              pintarVectorial(ctx, dibujo, encuadre, {
+                ocultas,
+                rapido,
+                colorTinta: getComputedStyle(ctx.canvas).color || '#1e293b',
+              }),
+          }
+        : undefined,
+    [dibujo, ocultas],
+  )
 
   const limites = useMemo(() => {
     const delPlano = cargado.estado === 'dxf' || cargado.estado === 'pdf' ? cargado.limites : null
@@ -196,21 +218,31 @@ export default function EspacioPlano() {
     setMoviendoNivel(false)
   }
 
-  async function importar(archivo: File | undefined) {
-    if (!archivo || importandoAhora.current) return
+  async function importar(lista: FileList | File[] | null | undefined) {
+    const archivos = lista ? [...lista] : []
+    if (archivos.length === 0 || importandoAhora.current) return
     importandoAhora.current = true
     setImportando(true)
     setMensaje(null)
-    const resultado = await importarPlano(archivo, agregarPlano)
+    const { importados, fallidos } = await importarPlanos(archivos, agregarPlano, (hechos, total) =>
+      setAvance(total > 1 && hechos < total ? `${hechos + 1} de ${total}` : null),
+    )
     importandoAhora.current = false
     setImportando(false)
-    if (!resultado.ok) {
-      setMensaje({ tipo: 'error', texto: resultado.mensaje })
+    setAvance(null)
+    const errores = fallidos.map((f) => (archivos.length > 1 ? `${f.nombre}: ${f.mensaje}` : f.mensaje)).join(' · ')
+    const ultimo = importados[importados.length - 1]
+    if (!ultimo) {
+      setMensaje({ tipo: 'error', texto: errores })
       return
     }
-    elegirPlano(resultado.id)
-    setModo(resultado.aviso ? 'calibrar' : 'ver')
-    setMensaje(resultado.aviso ? { tipo: 'aviso', texto: `Plano importado. ${resultado.aviso}` } : { tipo: 'ok', texto: '✓ Plano importado.' })
+    // Queda abierto el último; los demás, en la lista de planos.
+    elegirPlano(ultimo.id)
+    setModo(ultimo.aviso ? 'calibrar' : 'ver')
+    const hechos = importados.length === 1 ? 'Plano importado.' : `${importados.length} planos importados (abierto «${ultimo.nombre}»).`
+    if (fallidos.length > 0) setMensaje({ tipo: 'aviso', texto: `${hechos} No se pudo: ${errores}` })
+    else if (ultimo.aviso) setMensaje({ tipo: 'aviso', texto: `${hechos} ${ultimo.aviso}` })
+    else setMensaje({ tipo: 'ok', texto: `✓ ${hechos}` })
   }
 
   function alEntrarArrastre(evento: DragEvent) {
@@ -232,7 +264,7 @@ export default function EspacioPlano() {
     setArrastrando(false)
     // Mientras se lee un plano no se acepta otro: se importarían los dos a la vez.
     if (importandoAhora.current) return
-    void importar(evento.dataTransfer?.files?.[0])
+    void importar(evento.dataTransfer?.files)
   }
 
   function alTocar(punto: Punto2, objetivo: Element | null) {
@@ -326,15 +358,16 @@ export default function EspacioPlano() {
   function importarPlanoBoton(clase: string) {
     return (
       <label className={`${clase} cursor-pointer focus-within:ring-2 focus-within:ring-marca`}>
-        {importando ? 'Leyendo el plano…' : 'Importar plano'}
+        {importando ? `Leyendo el plano…${avance ? ` (${avance})` : ''}` : 'Importar planos'}
         <input
           type="file"
-          accept=".dxf,.pdf,.dwg"
-          aria-label="Importar plano (DXF o PDF)"
+          multiple
+          accept=".dwg,.dxf,.pdf"
+          aria-label="Importar planos (DWG, DXF o PDF)"
           className="sr-only"
           disabled={importando}
           onChange={(e) => {
-            void importar(e.target.files?.[0])
+            void importar(e.target.files)
             e.target.value = ''
           }}
         />
@@ -379,7 +412,7 @@ export default function EspacioPlano() {
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-marca bg-tarjeta/85 p-4 text-center text-base font-semibold"
         >
-          Suelta el plano aquí (DXF o PDF).
+          Suelta los planos aquí (DWG, DXF o PDF).
         </div>
       )}
 
@@ -395,7 +428,7 @@ export default function EspacioPlano() {
           {avisos}
           <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-borde-fuerte bg-tarjeta p-8 text-center">
             <p className="text-lg font-semibold">Todavía no hay planos</p>
-            <p className="max-w-md text-sm text-tenue">Importa el plano de la obra en DXF o PDF, o suéltalo aquí. Un DWG se pasa antes a DXF con ODA File Converter.</p>
+            <p className="max-w-md text-sm text-tenue">Importa los planos de la obra en DWG, DXF o PDF (varios a la vez), o suéltalos aquí.</p>
             {importarPlanoBoton(BOTON_PRINCIPAL)}
           </div>
         </>
@@ -408,6 +441,7 @@ export default function EspacioPlano() {
               claveEncuadre={`${plano.id}:${cargado.estado}:${plano.pagina ?? 1}`}
               alTocar={alTocar}
               enModoPuntos={modo !== 'ver'}
+              fondo={fondo}
               encima={
                 <>
                   <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start gap-2">
@@ -514,7 +548,6 @@ export default function EspacioPlano() {
             >
               {(upp) => (
                 <>
-                  {cargado.estado === 'dxf' && <FondoDxf vectorial={cargado.vectorial} ocultas={ocultas} />}
                   {cargado.estado === 'pdf' && <FondoPdf pdf={cargado.pdf} verCotas={verCotas} upp={upp} />}
                   {modo === 'ver' &&
                     ejes.map(({ eje, indice }) => (

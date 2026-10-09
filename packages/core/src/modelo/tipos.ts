@@ -219,7 +219,7 @@ export interface PlanControles {
 
 // ---------- Planos y pistas ----------
 
-export type FormatoPlano = 'dxf' | 'pdf'
+export type FormatoPlano = 'dxf' | 'pdf' | 'dwg'
 
 /**
  * Un plano de obra importado. Sus bytes NO van aquí: viven aparte (en el
@@ -235,7 +235,7 @@ export interface PlanoImportado {
   pagina?: number
   /** Null hasta que se calibra con dos puntos de distancia conocida. */
   calibracion: Calibracion | null
-  /** Capas del DXF que no se dibujan. */
+  /** Capas del DXF o DWG que no se dibujan. */
   capasOcultas?: string[]
   /** Los puntos de nivel puestos sobre esta lámina para controlar por dónde se va el agua. */
   nivelesEnPlano?: NivelesEnPlano

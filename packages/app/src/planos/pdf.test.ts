@@ -21,17 +21,24 @@ import {
 /**
  * Sin biblioteca inyectada, abrirPdf carga pdfjs por su cuenta y antes tiene
  * que configurar el trabajador. En node se cambian los dos: el trabajador
- * real usa «?url», que solo entiende Vite, y pdfjs-dist normal es para el
- * navegador. Aquí se anota el orden en que se cargan.
+ * real usa «?url», que solo entiende Vite. pdfjs es el build «legacy», el
+ * mismo de la app. Aquí se anota el orden en que se cargan.
  */
 const cargas = vi.hoisted(() => [] as string[])
 vi.mock('./pdfTrabajador', () => {
   cargas.push('trabajador')
   return {}
 })
-vi.mock('pdfjs-dist', async () => {
-  cargas.push('pdfjs')
-  return await import('pdfjs-dist/legacy/build/pdf.mjs')
+vi.mock('pdfjs-dist/legacy/build/pdf.mjs', async (importarOriginal) => {
+  // Las demás pruebas ya cargan este build: se anota cuando se usa, no cuando se carga.
+  const real = await importarOriginal<typeof import('pdfjs-dist/legacy/build/pdf.mjs')>()
+  return {
+    ...real,
+    getDocument: (...args: Parameters<typeof real.getDocument>) => {
+      cargas.push('pdfjs')
+      return real.getDocument(...args)
+    },
+  }
 })
 
 /** Lo justo de Node para leer la muestra; ver pruebas/muestras.ts. */

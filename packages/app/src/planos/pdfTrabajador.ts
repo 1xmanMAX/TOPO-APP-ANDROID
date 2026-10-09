@@ -8,7 +8,8 @@
  *   import './planos/pdfTrabajador'
  * Sin internet: Vite copia el archivo del trabajador junto a la app.
  */
-import { GlobalWorkerOptions } from 'pdfjs-dist'
-import urlTrabajador from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs'
+// El trabajador también «legacy»: usa lo mismo que el build normal no polyfilla.
+import urlTrabajador from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 
 GlobalWorkerOptions.workerSrc = urlTrabajador

@@ -204,7 +204,7 @@ function migrarCamposDeLaOla2(proyecto: Proyecto): Proyecto {
       delete resultado.planos
     } else {
       resultado.planos = (bruto.planos as unknown[]).flatMap((plano): PlanoImportado[] => {
-        if (!esObjeto(plano) || typeof plano.id !== 'string' || (plano.formato !== 'dxf' && plano.formato !== 'pdf')) {
+        if (!esObjeto(plano) || typeof plano.id !== 'string' || (plano.formato !== 'dxf' && plano.formato !== 'pdf' && plano.formato !== 'dwg')) {
           console.warn('Un plano del proyecto venía sin id o sin formato, y se quitó.')
           return []
         }

@@ -82,7 +82,8 @@ async function tintaDelVisor(pagina, { soloMarco = false } = {}) {
   const visor = pagina.getByRole('application', { name: 'Visor del plano' })
   const estilo = [
     '[aria-label="Visor del plano"] ~ div { visibility: hidden !important; }',
-    soloMarco ? '[aria-label="Visor del plano"] > * { visibility: hidden !important; }' : '',
+    // El DXF y el DWG se pintan en un canvas debajo del SVG: el marco va sin él.
+    soloMarco ? '[aria-label="Visor del plano"] > *, canvas { visibility: hidden !important; }' : '',
   ].join('\n')
   const png = await visor.screenshot({ style: estilo })
   return pagina.evaluate(async (b64) => {
@@ -330,7 +331,7 @@ async function recorrido(ancho, alto) {
   await pagina.screenshot({ path: `${SALIDA}/plano-${ancho}-1c-ficha-jr-lima.png`, fullPage: true })
 
   // ── 2. Importar el DXF ──
-  await pagina.getByLabel('Importar plano (DXF o PDF)').setInputFiles(DXF)
+  await pagina.getByLabel('Importar planos (DWG, DXF o PDF)').setInputFiles(DXF)
   await pagina.waitForFunction(() => document.querySelectorAll('option').length > 0 &&
     [...document.querySelectorAll('label')].some((l) => l.textContent?.includes('Plano a la vista') && l.querySelectorAll('option').length === 3), null, { timeout: 15000 }).catch(() => {})
   const tras1 = await opciones()
@@ -340,7 +341,7 @@ async function recorrido(ancho, alto) {
   comprobar(`${pre} el aviso dice «Plano importado»`, /Plano importado/.test(await mensaje(pagina)), await mensaje(pagina))
   const escalaDxf = await pagina.getByText(/^Escala: /).first().innerText().catch(() => '')
   comprobar(`${pre} el DXF llega calibrado a 1 m por unidad`, /= 1 m$/.test(escalaDxf), escalaDxf)
-  await pagina.locator('svg[aria-label="Visor del plano"] g[aria-hidden="true"] polyline').first().waitFor({ state: 'attached', timeout: 10000 }).catch(() => {})
+  await pagina.waitForTimeout(300)
   const marco = await tintaDelVisor(pagina, { soloMarco: true })
   const tintaDxf = await tintaDelVisor(pagina)
   comprobar(`${pre} el DXF se pinta (no queda en blanco)`, tintaDxf.n - marco.n > tintaDxf.total * 0.005,
@@ -352,7 +353,11 @@ async function recorrido(ancho, alto) {
   const capas = pagina.getByRole('group', { name: 'Capas del plano' }).getByRole('checkbox')
   const nCapas = await capas.count()
   comprobar(`${pre} el panel de capas lista las capas del DXF`, nCapas > 0, `${nCapas} capas`)
-  const dibujado = () => pagina.locator('svg[aria-label="Visor del plano"] g[aria-hidden="true"] > *').count()
+  // El fondo es un canvas: lo que dibuja se mide en píxeles con tinta.
+  const dibujado = async () => {
+    await pagina.waitForTimeout(150)
+    return (await tintaDelVisor(pagina)).n
+  }
   const antes = await dibujado()
   let oculta = null
   for (let i = 0; i < nCapas && oculta === null; i++) {
@@ -366,7 +371,7 @@ async function recorrido(ancho, alto) {
       await casilla.check()
     }
   }
-  comprobar(`${pre} ocultar una capa deja de dibujar lo suyo`, oculta !== null, oculta ? `«${oculta.nombre}»: ${antes} → ${oculta.ahora} elementos` : `${antes} elementos, ninguna capa los cambió`)
+  comprobar(`${pre} ocultar una capa deja de dibujar lo suyo`, oculta !== null, oculta ? `«${oculta.nombre}»: ${antes} → ${oculta.ahora} px con tinta` : `${antes} px, ninguna capa los cambió`)
   if (oculta) {
     const tintaOculta = await tintaDelVisor(pagina)
     comprobar(`${pre} con la capa oculta hay menos tinta en el visor`, tintaOculta.n < tintaDxf.n, `${tintaDxf.n} → ${tintaOculta.n}`)
@@ -431,7 +436,7 @@ async function recorrido(ancho, alto) {
   await sinDesplazamientoLateral(pagina, ancho, 'con la ficha de un eje abierta')
 
   // ── 6. Importar el PDF y calibrarlo con la barra de escala ──
-  await pagina.getByLabel('Importar plano (DXF o PDF)').setInputFiles(PDF)
+  await pagina.getByLabel('Importar planos (DWG, DXF o PDF)').setInputFiles(PDF)
   await pagina.waitForFunction(() =>
     [...document.querySelectorAll('label')].some((l) => l.textContent?.includes('Plano a la vista') && l.querySelectorAll('option').length === 4), null, { timeout: 15000 }).catch(() => {})
   const tras2 = await opciones()

@@ -17,6 +17,7 @@ import {
   type Rasante,
 } from '@topo/core'
 import { leerDxf } from '../../planos/dxf'
+import { dwgYaLeido } from '../plano/cargarPlano'
 
 /**
  * De dónde sale el perfil que se planifica:
@@ -122,13 +123,20 @@ export function cotasDelPlano(
   })
   if (!plano) return nada('la pista no tiene su plano')
   if (!pista) return nada('el plano de la pista aún no está calibrado')
-  if (plano.formato !== 'dxf') return nada('las cotas de un plano PDF todavía no se leen aquí; digítalas')
+  if (plano.formato === 'pdf') return nada('las cotas de un plano PDF todavía no se leen aquí; digítalas')
   if (!bytes) return nada('falta el archivo del plano (vuelve a importarlo)')
   let textos
-  try {
-    textos = leerDxf(new TextDecoder().decode(bytes)).textos
-  } catch {
-    return nada('no se pudo leer el DXF del plano')
+  if (plano.formato === 'dwg') {
+    // El DWG se lee en segundo plano al abrirlo en Obra › Plano; aquí se usa lo ya leído.
+    const leido = dwgYaLeido(bytes)
+    if (!leido) return nada('abre el plano DWG en Obra › Plano para leer sus cotas')
+    textos = leido.textos
+  } else {
+    try {
+      textos = leerDxf(new TextDecoder().decode(bytes)).textos
+    } catch {
+      return nada('no se pudo leer el DXF del plano')
+    }
   }
   const { cercanas, conflictos } = clasificarCotasDePista(
     pista,

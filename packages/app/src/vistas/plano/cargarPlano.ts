@@ -66,3 +66,34 @@ export async function revisarPdf(bytes: Uint8Array): Promise<number> {
   await doc.cerrar()
   return paginas
 }
+
+/**
+ * Los planos vectoriales ya leídos, por sus bytes: abrir otra vez el mismo
+ * DWG (o pasar de un plano a otro y volver) es instantáneo. Los bytes del
+ * almacén no cambian; si se reimporta, son otros bytes y se lee de nuevo.
+ */
+const leidos = new WeakMap<Uint8Array, PlanoVectorial>()
+const leyendo = new WeakMap<Uint8Array, Promise<PlanoVectorial>>()
+
+/** El plano de un DWG si ya se leyó; si no, undefined. */
+export function dwgYaLeido(bytes: Uint8Array): PlanoVectorial | undefined {
+  return leidos.get(bytes)
+}
+
+/** Lee un DWG en segundo plano (una sola vez por archivo). */
+export function cargarDwg(bytes: Uint8Array): Promise<PlanoVectorial> {
+  const listo = leidos.get(bytes)
+  if (listo) return Promise.resolve(listo)
+  let enCurso = leyendo.get(bytes)
+  if (!enCurso) {
+    enCurso = import('../../planos/dwgEnSegundoPlano')
+      .then(({ leerDwgEnSegundoPlano }) => leerDwgEnSegundoPlano(bytes))
+      .then((plano) => {
+        leidos.set(bytes, plano)
+        return plano
+      })
+      .finally(() => leyendo.delete(bytes))
+    leyendo.set(bytes, enCurso)
+  }
+  return enCurso
+}

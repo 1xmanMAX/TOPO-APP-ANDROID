@@ -318,7 +318,7 @@ export function limpiarMtext(crudo: string): string {
 }
 
 /** Los códigos %% de un TEXT de una línea, más \U+XXXX que también aparece ahí. */
-function limpiarTexto(crudo: string): string {
+export function limpiarTexto(crudo: string): string {
   return crudo
     .replace(/%%[cC]/g, 'Ø')
     .replace(/%%[dD]/g, '°')
@@ -595,7 +595,7 @@ function convertirText(t: ITextEntity, capa: string, crudos: DatosCrudos): Texto
 }
 
 /** Grupo 71 del MTEXT: 1-3 arriba, 4-6 medio, 7-9 abajo; izquierda, centro, derecha. Por defecto 1. */
-function anclaMtext(adjunto: number | undefined): AnclaTexto {
+export function anclaMtext(adjunto: number | undefined): AnclaTexto {
   const i = adjunto !== undefined && adjunto >= 1 && adjunto <= 9 ? adjunto - 1 : 0
   const fila = (['arriba', 'medio', 'abajo'] as const)[Math.floor(i / 3)]!
   const columna = (['izquierda', 'centro', 'derecha'] as const)[i % 3]!
@@ -607,7 +607,7 @@ function anclaMtext(adjunto: number | undefined): AnclaTexto {
  * rechaza la entidad entera: quitar solo ese vértice cambiaría la forma sin
  * que nadie se entere.
  */
-function polilineaValida(capa: string, puntos: PuntoPlano[], cerrada: boolean): PolilineaPlano | MotivoIgnorada {
+export function polilineaValida(capa: string, puntos: PuntoPlano[], cerrada: boolean): PolilineaPlano | MotivoIgnorada {
   if (!puntos.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) return 'coordenada inválida'
   // Los repetidos seguidos no dibujan nada y estorban al calcular direcciones.
   // Se compara con el último que quedó, no con el anterior del archivo.
@@ -621,7 +621,7 @@ function polilineaValida(capa: string, puntos: PuntoPlano[], cerrada: boolean): 
   return { capa, puntos: limpios, cerrada }
 }
 
-function conElevacion(
+export function conElevacion(
   resultado: PolilineaPlano | MotivoIgnorada,
   elevacion: number | undefined,
 ): PolilineaPlano | MotivoIgnorada {
@@ -631,7 +631,7 @@ function conElevacion(
   return resultado
 }
 
-function textoValido(
+export function textoValido(
   capa: string,
   texto: string,
   p: { x: number; y: number } | undefined,
@@ -693,7 +693,7 @@ function mediana(valores: number[]): number {
  * no hay ninguna, la de todos los números. El texto queda en la lista, sin
  * valor y con el motivo.
  */
-function descartarNumerosAjenos(textos: TextoPlano[]): TextoPlano[] {
+export function descartarNumerosAjenos(textos: TextoPlano[]): TextoPlano[] {
   const conValor = textos.filter((t) => t.valor !== null)
   if (conValor.length === 0) return textos
   const seguras = conValor.filter((t) => tienePrefijo(t.texto) || esCapaDeCotas(t.capa))
@@ -732,7 +732,7 @@ function redondearGiro(g: number): number {
  * contra el reloj), uno cada PASO_ARCO como máximo. `conFinal` decide si se
  * incluye el último punto (no en un círculo, donde coincide con el primero).
  */
-function puntosDeArco(
+export function puntosDeArco(
   centro: PuntoPlano,
   radio: number,
   inicio: number,
@@ -759,7 +759,7 @@ function puntosDeArco(
  * avance. Así el signo lleva solo el centro al lado correcto, también en
  * arcos de más de media vuelta.
  */
-function conBulges(
+export function conBulges(
   vertices: readonly { x: number; y: number; bulge?: number }[],
   cerrada: boolean,
 ): PuntoPlano[] {
@@ -799,7 +799,7 @@ function espejoOcs(puntos: PuntoPlano[], extrusionZ: number | undefined): PuntoP
   return extrusionZ !== undefined && extrusionZ < 0 ? puntos.map((p) => ({ x: -p.x, y: p.y })) : puntos
 }
 
-function calcularLimites(polilineas: PolilineaPlano[], textos: TextoPlano[]): LimitesPlano {
+export function calcularLimites(polilineas: PolilineaPlano[], textos: TextoPlano[]): LimitesPlano {
   const l = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
   const sumar = (p: PuntoPlano) => {
     l.minX = Math.min(l.minX, p.x)

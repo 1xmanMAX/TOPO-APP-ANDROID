@@ -1,6 +1,4 @@
 import { formatearPendiente, formatearProgresiva, puntoA, type EstacaSobrePlano, type Punto2 } from '@topo/core'
-import { memo } from 'react'
-import type { AnclaTexto, PlanoVectorial, TextoPlano } from '../../planos/dxf'
 import { anguloHaciaDondeBaja, type DatosPista } from './datosPista'
 import { aSvg, desfaseAlCostado, puntosSvg, type DesfaseRotulo } from './geometriaVisor'
 import type { PdfCargado } from './cargarPlano'
@@ -43,72 +41,6 @@ function Rotulo({ punto, texto, upp, tamano = 12, clase = ROTULO, dx = 0, dy = 0
     </text>
   )
 }
-
-// ─── Fondo DXF ───────────────────────────────────────────────────────────
-
-const ANCLA_HORIZONTAL = { izquierda: 'start', centro: 'middle', derecha: 'end' } as const
-const ANCLA_VERTICAL = { base: 'alphabetic', abajo: 'text-after-edge', medio: 'central', arriba: 'hanging' } as const
-
-function anclas(ancla: AnclaTexto | undefined) {
-  const [fila, columna] = (ancla ?? 'base-izquierda').split('-') as [keyof typeof ANCLA_VERTICAL, keyof typeof ANCLA_HORIZONTAL]
-  return { textAnchor: ANCLA_HORIZONTAL[columna], dominantBaseline: ANCLA_VERTICAL[fila] }
-}
-
-/** El 7 de AutoCAD es «blanco o negro según el fondo»: aquí, el color del texto del tema. */
-function colorVisible(color: string): string {
-  return color.toLowerCase() === '#ffffff' ? 'currentColor' : color
-}
-
-function TextoDxf({ texto, color }: { texto: TextoPlano; color: string }) {
-  const p = aSvg(texto)
-  const giro = texto.rotacion ?? 0
-  return (
-    <text
-      x={p.x}
-      y={p.y}
-      fontSize={texto.altura}
-      fill={color}
-      {...anclas(texto.ancla)}
-      transform={giro ? `rotate(${-giro} ${p.x} ${p.y})` : undefined}
-      pointerEvents="none"
-    >
-      {texto.texto}
-    </text>
-  )
-}
-
-export const FondoDxf = memo(function FondoDxf({ vectorial, ocultas }: { vectorial: PlanoVectorial; ocultas: ReadonlySet<string> }) {
-  const colorDeCapa = new Map(vectorial.capas.map((c) => [c.nombre, c.color]))
-  const color = (propio: string | undefined, capa: string) => colorVisible(propio ?? colorDeCapa.get(capa) ?? '#808080')
-  return (
-    <g aria-hidden="true">
-      {vectorial.polilineas.map((p, i) =>
-        ocultas.has(p.capa) ? null : p.cerrada ? (
-          <polygon
-            key={i}
-            points={puntosSvg(p.puntos)}
-            fill="none"
-            stroke={color(p.color, p.capa)}
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-            pointerEvents="none"
-          />
-        ) : (
-          <polyline
-            key={i}
-            points={puntosSvg(p.puntos)}
-            fill="none"
-            stroke={color(p.color, p.capa)}
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-            pointerEvents="none"
-          />
-        ),
-      )}
-      {vectorial.textos.map((t, i) => (ocultas.has(t.capa) ? null : <TextoDxf key={`t${i}`} texto={t} color={color(t.color, t.capa)} />))}
-    </g>
-  )
-})
 
 // ─── Fondo PDF ───────────────────────────────────────────────────────────
 
