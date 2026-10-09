@@ -115,3 +115,30 @@ describe('rótulos al costado de la pista', () => {
     }
   })
 })
+
+describe('origen del visor (planos en UTM)', () => {
+  it('cerca del cero no se corre; en UTM se corre al centro redondeado', async () => {
+    const g = await import('./geometriaVisor')
+    expect(g.origenPara({ minX: 0, minY: 0, maxX: 500, maxY: 300 })).toEqual({ x: 0, y: 0 })
+    expect(g.origenPara({ minX: 480000, minY: 8660000, maxX: 482880, maxY: 8665000 })).toEqual({ x: 481000, y: 8663000 })
+  })
+
+  it('con origen, el SVG recibe números chicos y el toque vuelve al mismo punto del plano', async () => {
+    const g = await import('./geometriaVisor')
+    try {
+      g.fijarOrigenDelVisor({ x: 481000, y: 8662000 })
+      const p = { x: 481234.5678, y: 8662345.6789 }
+      const s = g.aSvg(p)
+      expect(s.x).toBeCloseTo(234.5678, 9)
+      expect(s.y).toBeCloseTo(-345.6789, 9)
+      expect(g.puntosSvg([p])).toBe(`${p.x - 481000},${8662000 - p.y}`)
+      const vista = g.encuadrar({ minX: p.x - 1, minY: p.y - 1, maxX: p.x + 1, maxY: p.y + 1 }, { width: 100, height: 100 }, 0)
+      const caja = { left: 0, top: 0, width: 100, height: 100 }
+      const w = g.pantallaAMundo(50, 50, caja, vista)
+      expect(w.x).toBeCloseTo(p.x, 6)
+      expect(w.y).toBeCloseTo(p.y, 6)
+    } finally {
+      g.fijarOrigenDelVisor({ x: 0, y: 0 })
+    }
+  })
+})

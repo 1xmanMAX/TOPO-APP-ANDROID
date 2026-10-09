@@ -49,8 +49,8 @@ export function FondoPdf({ pdf, verCotas, upp }: { pdf: PdfCargado; verCotas: bo
     <g>
       <image
         href={pdf.url}
-        x={0}
-        y={-pdf.altoPt}
+        x={aSvg({ x: 0, y: pdf.altoPt }).x}
+        y={aSvg({ x: 0, y: pdf.altoPt }).y}
         width={pdf.anchoPt}
         height={pdf.altoPt}
         preserveAspectRatio="none"

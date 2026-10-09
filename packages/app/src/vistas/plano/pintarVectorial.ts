@@ -16,6 +16,8 @@ export interface Encuadre {
   alto: number
   /** Píxeles del dispositivo por píxel CSS. */
   dpr: number
+  /** El origen del SVG en el plano (ver origenDelVisor): el viewBox es relativo a él. */
+  origen: { x: number; y: number }
 }
 
 export interface OpcionesPintado {
@@ -58,7 +60,7 @@ export function pintarVectorial(
   e: Encuadre,
   op: OpcionesPintado,
 ): { teselas: number; textos: number } {
-  const { vista, ancho, alto, dpr } = e
+  const { vista, ancho, alto, dpr, origen } = e
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
   if (!(vista.ancho > 0) || !(vista.alto > 0) || !(ancho > 0) || !(alto > 0)) return { teselas: 0, textos: 0 }
@@ -68,9 +70,9 @@ export function pintarVectorial(
   const margenX = (ancho - vista.ancho * escala) / 2
   const margenY = (alto - vista.alto * escala) / 2
   // Lo que se ve, en el sistema del plano (Y hacia arriba).
-  const minX = vista.x - margenX / escala
+  const minX = origen.x + vista.x - margenX / escala
   const maxX = minX + ancho / escala
-  const maxY = -(vista.y - margenY / escala)
+  const maxY = origen.y - (vista.y - margenY / escala)
   const minY = maxY - alto / escala
   const ventana = { minX, minY, maxX, maxY, escala }
   const teselas = teselasALaVista(dibujo, ventana)
@@ -84,8 +86,8 @@ export function pintarVectorial(
       0,
       0,
       -escala * dpr,
-      (margenX + (t.origen.x - vista.x) * escala) * dpr,
-      (margenY + (-t.origen.y - vista.y) * escala) * dpr,
+      (margenX + (t.origen.x - origen.x - vista.x) * escala) * dpr,
+      (margenY + (origen.y - t.origen.y - vista.y) * escala) * dpr,
     )
     for (const lote of t.lotes) {
       if (op.ocultas.has(lote.capa)) continue
@@ -106,8 +108,8 @@ export function pintarVectorial(
         if (textos >= TEXTOS_MAXIMOS) break
         const texto = dibujo.textos[i]!
         if (op.ocultas.has(texto.capa) || !seLeeTexto(texto, escala)) continue
-        const x = margenX + (texto.x - vista.x) * escala
-        const y = margenY + (-texto.y - vista.y) * escala
+        const x = margenX + (texto.x - origen.x - vista.x) * escala
+        const y = margenY + (origen.y - texto.y - vista.y) * escala
         if (x < -ancho || x > 2 * ancho || y < -alto || y > 2 * alto) continue
         const [fila, columna] = (texto.ancla ?? ('base-izquierda' as AnclaTexto)).split('-') as [keyof typeof BASE, keyof typeof ALINEA]
         ctx.save()

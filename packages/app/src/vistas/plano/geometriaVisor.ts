@@ -29,14 +29,46 @@ export interface Rectangulo {
   height: number
 }
 
-/** Un punto del plano en coordenadas del SVG (Y hacia abajo). */
+/**
+ * El origen del SVG, en el plano. El navegador guarda las coordenadas del
+ * SVG con unos 7 dígitos: un plano en UTM (y ≈ 8 600 000) dibujado con esos
+ * números deja cada punto redondeado al metro, y al acercar los puntos, las
+ * pistas y los rótulos saltan de metro en metro («tiemblan»). Por eso el SVG
+ * trabaja en coordenadas relativas a un origen cerca del dibujo: números
+ * chicos, con todos sus decimales. Solo cambia la cuenta de aquí; el resto
+ * de la app sigue en coordenadas del plano.
+ */
+let origen: Punto2 = { x: 0, y: 0 }
+
+/** Lejos del cero más que esto, el SVG se corre a un origen propio. */
+const LEJOS_DEL_CERO = 10_000
+
+/** El origen para estos límites: 0 si el plano está cerca del cero; si no, su centro redondeado a 1000. */
+export function origenPara(limites: LimitesPlano | null): Punto2 {
+  if (!limites) return { x: 0, y: 0 }
+  const cx = (limites.minX + limites.maxX) / 2
+  const cy = (limites.minY + limites.maxY) / 2
+  if (!Number.isFinite(cx) || !Number.isFinite(cy) || Math.max(Math.abs(cx), Math.abs(cy)) < LEJOS_DEL_CERO) return { x: 0, y: 0 }
+  return { x: Math.round(cx / 1000) * 1000, y: Math.round(cy / 1000) * 1000 }
+}
+
+/** Fija el origen del visor (lo hace la pantalla del plano antes de dibujar). */
+export function fijarOrigenDelVisor(o: Punto2): void {
+  origen = o
+}
+
+export function origenDelVisor(): Punto2 {
+  return origen
+}
+
+/** Un punto del plano en coordenadas del SVG (Y hacia abajo, relativo al origen del visor). */
 export function aSvg(punto: Punto2): Punto2 {
-  return { x: punto.x, y: -punto.y }
+  return { x: punto.x - origen.x, y: origen.y - punto.y }
 }
 
 /** `points` de un <polyline> a partir de puntos del plano. */
 export function puntosSvg(puntos: readonly Punto2[]): string {
-  return puntos.map((p) => `${p.x},${-p.y}`).join(' ')
+  return puntos.map((p) => `${p.x - origen.x},${origen.y - p.y}`).join(' ')
 }
 
 /**
@@ -64,7 +96,7 @@ export function pantallaASvg(clienteX: number, clienteY: number, caja: Rectangul
 /** Un punto de la pantalla en coordenadas del plano (Y hacia arriba). */
 export function pantallaAMundo(clienteX: number, clienteY: number, caja: Rectangulo, vista: Vista): Punto2 {
   const enSvg = pantallaASvg(clienteX, clienteY, caja, vista)
-  return { x: enSvg.x, y: -enSvg.y }
+  return { x: enSvg.x + origen.x, y: origen.y - enSvg.y }
 }
 
 /** Cuántas unidades del plano mide un píxel de pantalla: para que rótulos y marcas no crezcan con el zoom. */
@@ -124,9 +156,10 @@ export function unirLimites(a: LimitesPlano | null, b: LimitesPlano | null): Lim
 export function encuadrar(limites: LimitesPlano, caja?: Pick<Rectangulo, 'width' | 'height'>, margen = 0.05): Vista {
   let ancho = Math.max(limites.maxX - limites.minX, 1e-6)
   let alto = Math.max(limites.maxY - limites.minY, 1e-6)
-  const cx = (limites.minX + limites.maxX) / 2
-  // En el SVG la Y va al revés: el centro está en −cy.
-  const cy = -(limites.minY + limites.maxY) / 2
+  const centro = aSvg({ x: (limites.minX + limites.maxX) / 2, y: (limites.minY + limites.maxY) / 2 })
+  const cx = centro.x
+  // En el SVG la Y va al revés (aSvg lo da vuelta).
+  const cy = centro.y
   ancho *= 1 + 2 * margen
   alto *= 1 + 2 * margen
   if (caja && caja.width > 0 && caja.height > 0) {

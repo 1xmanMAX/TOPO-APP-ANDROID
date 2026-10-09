@@ -129,6 +129,47 @@ for (const [nombre, ancho, alto, movil] of [['laptop', 1280, 800, false], ['celu
   const pintadosGrande = await pixelesPintados(pagina)
   comprobar(`${nombre}: el DXF grande se ve`, pintadosGrande > 1000, `${pintadosGrande} píxeles`)
   await pagina.screenshot({ path: `${SALIDA}/visor-grande-${nombre}.png` })
+
+  // En UTM, lo que se pone sobre el plano no tiembla: un punto puesto y
+  // acercado 4000 veces sigue exactamente donde se puso.
+  const viewBox = (await visor.getAttribute('viewBox')).split(/\s+/).map(Number)
+  comprobar(`${nombre}: el SVG trabaja con números chicos aunque el plano esté en UTM`, viewBox.every((v) => Math.abs(v) < 1e5), viewBox.join(' '))
+  await pagina.getByRole('button', { name: 'Encuadrar' }).click()
+  await pagina.getByRole('group', { name: 'Herramientas del plano' }).getByRole('button', { name: 'Niveles' }).click()
+  const caja2 = await visor.boundingBox()
+  // En píxeles enteros: el navegador redondea la posición de la rueda, no la del toque.
+  const px = Math.round(caja2.x + caja2.width * 0.43)
+  const py = Math.round(caja2.y + caja2.height * 0.47)
+  await pagina.mouse.click(px, py)
+  const marca = visor.locator('[data-punto-nivel] circle').nth(1)
+  // Al aparecer el panel la página puede reacomodarse: se acerca sobre donde quedó el punto.
+  await pagina.waitForTimeout(250)
+  const b0 = await marca.boundingBox()
+  const cx0 = Math.round(b0.x + b0.width / 2)
+  const cy0 = Math.round(b0.y + b0.height / 2)
+  const desvios = []
+  for (let i = 0; i < 6; i++) {
+    await pagina.mouse.move(cx0, cy0)
+    for (let k = 0; k < 8; k++) await pagina.mouse.wheel(0, -100)
+    await pagina.waitForTimeout(250)
+    const b = await marca.boundingBox()
+    desvios.push(Math.hypot(b.x + b.width / 2 - cx0, b.y + b.height / 2 - cy0))
+  }
+  const escala = await pagina.getByText(/^Escala: /).first().innerText().catch(() => '')
+  comprobar(`${nombre}: el punto puesto queda clavado en su sitio al acercar mucho (< 1.5 px)`, Math.max(...desvios) < 1.5, `desvíos ${desvios.map((d) => d.toFixed(2)).join(', ')} px · ${escala}`)
+  const pintadoDeCerca = await pixelesPintados(pagina)
+  comprobar(`${nombre}: de muy cerca el plano sigue pintado debajo`, pintadoDeCerca > 100, `${pintadoDeCerca} px`)
+
+  // Pantalla completa.
+  await pagina.getByRole('button', { name: 'Pantalla completa' }).click()
+  await pagina.waitForTimeout(300)
+  const enCompleta = await visor.boundingBox()
+  comprobar(`${nombre}: en pantalla completa el plano ocupa toda la pantalla`, enCompleta.width >= ancho - 2 && enCompleta.height >= alto - 2, `${Math.round(enCompleta.width)}×${Math.round(enCompleta.height)}`)
+  comprobar(`${nombre}: …con sus herramientas a mano`, await pagina.getByRole('group', { name: 'Herramientas del plano' }).isVisible())
+  await pagina.screenshot({ path: `${SALIDA}/visor-completa-${nombre}.png` })
+  await pagina.getByRole('button', { name: 'Salir de pantalla completa' }).click()
+  await pagina.waitForTimeout(200)
+  comprobar(`${nombre}: al salir vuelve a su lugar`, (await visor.boundingBox()).height < alto - 50)
   await contexto.close()
 }
 

@@ -333,7 +333,7 @@ Lo que sale de una nivelación sin cerrar se marca **no comprobado**, igual que 
 
 En **Obra › Plano**, «Importar planos» acepta **DWG** (AutoCAD R13 a 2018), **DXF** y **PDF**; puedes elegir o soltar varios a la vez y quedan todos en la lista «Plano a la vista». El DWG se lee directo, sin pasarlo a DXF: los bloques se dibujan con su posición, giro y escala, las cotas con su texto, y lo del espacio papel (el rótulo de la lámina) se deja fuera. Lo que no se dibuja (rayados, sólidos 3D, imágenes…) se lista en «Capas del plano».
 
-Arrastra con un dedo y pellizca para acercar. Lo muy pequeño se ve tenue de lejos y aparece al acercarte; los textos, cuando ya se pueden leer. Si un DWG trae unidades (metros, milímetros…) llega calibrado; si no, calibra con dos puntos.
+Arrastra con un dedo y pellizca para acercar. El botón de las cuatro esquinas (junto a + y −) pone el plano en **pantalla completa**, con sus herramientas; el mismo botón (o Esc) lo devuelve. Lo muy pequeño se ve tenue de lejos y aparece al acercarte; los textos, cuando ya se pueden leer. Si un DWG trae unidades (metros, milímetros…) llega calibrado; si no, calibra con dos puntos.
 
 ## Niveles en el plano: por dónde se va el agua
 

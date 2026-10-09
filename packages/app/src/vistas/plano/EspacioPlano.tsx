@@ -13,7 +13,7 @@ import Segmentado, { type OpcionSegmentado } from '../../componentes/Segmentado'
 import { BOTON_PRINCIPAL, BOTON_SECUNDARIO, CAJA, ENLACE_PELIGRO, ITEM_MENU, TARJETA, type AvisoPantalla } from './estilos'
 import FichaEje from './FichaEje'
 import { FichaPista } from './FichaPista'
-import { limitesDePuntos, mismaPolilinea, pistaCalibrada, unirLimites } from './geometriaVisor'
+import { fijarOrigenDelVisor, limitesDePuntos, mismaPolilinea, origenPara, pistaCalibrada, unirLimites } from './geometriaVisor'
 import { importarPlanos } from './importarPlano'
 import { BORRADOR_VACIO, PanelCalibrar, PanelCapas, PanelCroquis, textoEscala, textoEscalaCorto, type BorradorCroquis } from './Paneles'
 import { usePlanoCargado } from './usePlanoCargado'
@@ -160,6 +160,14 @@ export default function EspacioPlano() {
     const delPlano = cargado.estado === 'dxf' || cargado.estado === 'pdf' ? cargado.limites : null
     return unirLimites(delPlano, limitesDePuntos(pistasDelPlano.flatMap((p) => p.polilinea)))
   }, [cargado, pistasDelPlano])
+
+  // El SVG del visor dibuja relativo a un origen cerca del plano (ver
+  // origenPara): con un plano en UTM, sin esto los puntos y las pistas
+  // tiemblan al acercar. Sale de los límites del plano mismo, para que
+  // agregar una pista no lo mueva.
+  const limitesDelArchivo = cargado.estado === 'dxf' || cargado.estado === 'pdf' ? cargado.limites : null
+  const origenVisor = origenPara(limitesDelArchivo ?? limites)
+  fijarOrigenDelVisor(origenVisor)
 
   // Los puntos de nivel de esta lámina (vacíos con ids estables mientras no se toquen).
   const nivelesVaciosDelPlano = useMemo(() => nivelesVacios(), [plano?.id])
@@ -443,7 +451,7 @@ export default function EspacioPlano() {
           <div className="-mx-3 min-w-0 sm:mx-0">
             <VisorPlano
               limites={limites}
-              claveEncuadre={`${plano.id}:${cargado.estado}:${plano.pagina ?? 1}`}
+              claveEncuadre={`${plano.id}:${cargado.estado}:${plano.pagina ?? 1}:${origenVisor.x}:${origenVisor.y}`}
               alTocar={alTocar}
               enModoPuntos={modo !== 'ver'}
               fondo={fondo}

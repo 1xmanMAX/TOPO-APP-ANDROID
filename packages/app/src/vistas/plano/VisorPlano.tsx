@@ -5,6 +5,7 @@ import {
   acercar,
   desplazar,
   encuadrar,
+  origenDelVisor,
   pantallaAMundo,
   pantallaASvg,
   unidadesPorPixel,
@@ -99,34 +100,34 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
   }
   useEffect(() => () => void (pausa.current && clearTimeout(pausa.current)), [])
 
-  // El fondo en canvas: un cuadro por vista, en el próximo refresco de pantalla.
-  // Si pintar cuesta más que un cuadro (un plano enorme en un celular), durante
-  // el gesto no se repinta: se mueve y escala la imagen ya pintada (lo hace la
-  // tarjeta gráfica, sin costo) y al soltar se pinta de nuevo, nítida.
+  // El fondo en canvas, pintado en el mismo cuadro que el SVG de encima
+  // (useLayoutEffect, antes de que el navegador muestre nada): si el fondo
+  // llegara un cuadro después, los puntos y las pistas se verían temblar
+  // sobre el plano al moverlo. Si pintar cuesta más que un cuadro (un plano
+  // enorme en un celular), durante el gesto no se repinta: se mueve y escala
+  // la imagen ya pintada (lo hace la tarjeta gráfica, sin costo), con la
+  // misma cuenta que el SVG, y al soltar se pinta de nuevo, nítida.
   const pintar = fondo?.pintar
-  const pintado = useRef<{ vista: Vista; caja: { width: number; height: number }; costoMs: number } | null>(null)
-  useEffect(() => {
+  const pintado = useRef<{ vista: Vista; caja: { width: number; height: number }; costoMs: number; pintar: unknown } | null>(null)
+  useLayoutEffect(() => {
     const lienzoFondo = fondoLienzo.current
     if (!pintar || !vista || !lienzoFondo) return
     const anterior = pintado.current
-    if (enGesto.current && anterior && anterior.costoMs > COSTO_MAXIMO_MS && anterior.caja === caja) {
+    if (enGesto.current && anterior && anterior.pintar === pintar && anterior.costoMs > COSTO_MAXIMO_MS && anterior.caja === caja) {
       lienzoFondo.style.transform = transformacionEntre(anterior.vista, vista, caja)
       return
     }
     const ctx = lienzoFondo.getContext('2d')
     if (!ctx) return
-    const cuadro = requestAnimationFrame(() => {
-      const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 3)
-      const w = Math.max(1, Math.round(caja.width * dpr))
-      const h = Math.max(1, Math.round(caja.height * dpr))
-      if (lienzoFondo.width !== w) lienzoFondo.width = w
-      if (lienzoFondo.height !== h) lienzoFondo.height = h
-      const t0 = performance.now()
-      pintar(ctx, { vista, ancho: caja.width, alto: caja.height, dpr }, enGesto.current)
-      lienzoFondo.style.transform = ''
-      pintado.current = { vista, caja, costoMs: performance.now() - t0 }
-    })
-    return () => cancelAnimationFrame(cuadro)
+    const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 3)
+    const w = Math.max(1, Math.round(caja.width * dpr))
+    const h = Math.max(1, Math.round(caja.height * dpr))
+    if (lienzoFondo.width !== w) lienzoFondo.width = w
+    if (lienzoFondo.height !== h) lienzoFondo.height = h
+    const t0 = performance.now()
+    pintar(ctx, { vista, ancho: caja.width, alto: caja.height, dpr, origen: origenDelVisor() }, enGesto.current)
+    lienzoFondo.style.transform = ''
+    pintado.current = { vista, caja, costoMs: performance.now() - t0, pintar }
   }, [pintar, fondo?.clave, vista, caja, detalle])
 
   const punteros = useRef(new Map<number, Punto2>())
@@ -138,8 +139,13 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
     const elemento = contenedor.current
     if (!elemento) return
     const medir = () => {
-      const r = elemento.getBoundingClientRect()
-      if (r.width > 0 && r.height > 0) setCaja({ width: r.width, height: r.height })
+      // Por dentro del borde: es lo que mide el SVG (y el canvas). Con el
+      // borde incluido, el fondo y lo de encima quedaban a escalas un poco
+      // distintas y se separaban al acercar.
+      const svg = lienzo.current?.getBoundingClientRect()
+      const ancho = svg && svg.width > 0 ? svg.width : elemento.clientWidth
+      const alto = svg && svg.height > 0 ? svg.height : elemento.clientHeight
+      if (ancho > 0 && alto > 0) setCaja((c) => (c.width === ancho && c.height === alto ? c : { width: ancho, height: alto }))
     }
     medir()
     if (typeof ResizeObserver === 'undefined') return
@@ -254,10 +260,48 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
 
   const upp = vista ? unidadesPorPixel(vista, caja) : 1
 
+  // Pantalla completa: el visor ocupa toda la pantalla (con sus herramientas
+  // encima). En el navegador y en Windows además se pide al sistema que
+  // oculte sus barras; en Android basta con ocupar la ventana.
+  const [completa, setCompleta] = useState(false)
+  function cambiarCompleta(quiere: boolean) {
+    setCompleta(quiere)
+    try {
+      if (quiere) void contenedor.current?.requestFullscreen?.().catch(() => {})
+      else if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {})
+    } catch {
+      // Sin la API de pantalla completa basta con ocupar la ventana.
+    }
+  }
+  useEffect(() => {
+    if (!completa) return
+    const alSalirDelSistema = () => {
+      if (!document.fullscreenElement) setCompleta(false)
+    }
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cambiarCompleta(false)
+    }
+    document.addEventListener('fullscreenchange', alSalirDelSistema)
+    document.addEventListener('keydown', alTeclear)
+    const antes = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('fullscreenchange', alSalirDelSistema)
+      document.removeEventListener('keydown', alTeclear)
+      document.body.style.overflow = antes
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completa])
+
   return (
     <div
       ref={contenedor}
-      className="relative h-[60vh] min-h-72 w-full overflow-hidden border-y border-borde bg-white sm:rounded-xl sm:border md:h-[55vh] lg:h-[calc(100dvh-12rem)] dark:bg-slate-900"
+      data-pantalla-completa={completa || undefined}
+      className={
+        completa
+          ? 'fixed inset-0 z-50 h-[100dvh] w-screen overflow-hidden bg-white dark:bg-slate-900'
+          : 'relative h-[60vh] min-h-72 w-full overflow-hidden border-y border-borde bg-white sm:rounded-xl sm:border md:h-[55vh] lg:h-[calc(100dvh-12rem)] dark:bg-slate-900'
+      }
     >
       {fondo && <canvas ref={fondoLienzo} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full origin-top-left text-slate-800 will-change-transform dark:text-slate-100" />}
       <svg
@@ -295,6 +339,18 @@ export default function VisorPlano({ limites, claveEncuadre, alTocar, enModoPunt
           disabled={!limites}
         >
           <span aria-hidden="true">⤢</span>
+        </button>
+        <button
+          type="button"
+          className={BOTON}
+          aria-label={completa ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          aria-pressed={completa}
+          title={completa ? 'Salir de pantalla completa' : 'Ver el plano en pantalla completa'}
+          onClick={() => cambiarCompleta(!completa)}
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="mx-auto size-5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            {completa ? <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /> : <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />}
+          </svg>
         </button>
       </div>
     </div>
