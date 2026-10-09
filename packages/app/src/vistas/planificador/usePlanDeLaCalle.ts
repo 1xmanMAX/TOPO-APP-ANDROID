@@ -137,7 +137,9 @@ export function usePlanDeLaCalle(): PlanDeLaCalle | null {
   const fuentePedida = usePlanificador((s) => s.porCalle[id]?.fuente)
   const desdePedido = usePlanificador((s) => s.porCalle[id]?.desde)
   const hastaPedido = usePlanificador((s) => s.porCalle[id]?.hasta)
-  const digitados = usePlanificador((s) => s.porCalle[id]?.digitados)
+  // Del proyecto; los de antes, que vivían solo en el navegador, sirven mientras no se guarden.
+  const digitadosViejos = usePlanificador((s) => s.porCalle[id]?.digitados)
+  const digitados = calle?.perfilDigitado ?? digitadosViejos
 
   const calibrada = useMemo(() => (pista ? pistaCalibrada(pista, plano) : null), [pista, plano])
   const cotasPlano = useMemo<CotasDelPlano>(

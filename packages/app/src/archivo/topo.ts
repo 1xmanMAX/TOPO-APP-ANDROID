@@ -244,10 +244,22 @@ function migrarCamposDeLaOla2(proyecto: Proyecto): Proyecto {
     const notasRotas = 'notas' in cruda && !Array.isArray(cruda.notas)
     const planRoto = 'planControles' in cruda && cruda.planControles !== null && !esObjeto(cruda.planControles)
     const conNiveles = 'niveles' in cruda
-    if (!notasRotas && !planRoto && !conNiveles) return calle
+    const conPerfil = 'perfilDigitado' in cruda
+    if (!notasRotas && !planRoto && !conNiveles && !conPerfil) return calle
     const arreglada = { ...calle }
     if (notasRotas) delete arreglada.notas
     if (planRoto) delete arreglada.planControles
+    if (conPerfil) {
+      // El perfil del planificador: solo los vértices con progresiva y cota numéricas.
+      const vertices = Array.isArray(cruda.perfilDigitado)
+        ? (cruda.perfilDigitado as unknown[]).filter(
+            (v): v is { progresiva: number; cota: number } =>
+              esObjeto(v) && Number.isFinite(v.progresiva) && Number.isFinite(v.cota),
+          )
+        : null
+      if (vertices) arreglada.perfilDigitado = vertices.map((v) => ({ progresiva: v.progresiva, cota: v.cota }))
+      else delete arreglada.perfilDigitado
+    }
     if (conNiveles) {
       // La hoja de niveles: lo que no es hoja se quita; dentro se completa lo que falte.
       const hoja = hojaUsable(cruda.niveles)

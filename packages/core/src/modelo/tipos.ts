@@ -84,6 +84,11 @@ export interface Calle {
    */
   planControles?: PlanControles | null
   /**
+   * El perfil escrito a mano en el planificador (progresiva, cota), cuando no
+   * hay rasante ni cotas del plano. Antes vivía solo en el navegador.
+   */
+  perfilDigitado?: { progresiva: number; cota: number }[]
+  /**
    * La hoja de niveles de la calle: la herramienta «Pistas y veredas» de Max,
    * con sus puestas y sus conjuntos escritos a mano. Ausente en los archivos
    * de antes: es lo mismo que una hoja vacía.
@@ -420,6 +425,10 @@ export interface MetaProyecto {
   responsable: string
   creado: string
   modificado: string
+  /** Quien firma como supervisor en los informes. */
+  supervisor?: string
+  /** El logo de los informes: dataURL PNG o JPEG ya reducido, con un id que cambia con cada logo. */
+  logo?: { id: string; dataUrl: string }
 }
 
 export interface Proyecto {

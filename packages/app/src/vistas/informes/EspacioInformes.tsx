@@ -133,7 +133,43 @@ export default function EspacioInformes({
   const proyecto = useAlmacen((s) => s.proyecto)
   const calleActivaId = useAlmacen((s) => s.calleActivaId)
   const campaniaActivaId = useAlmacen((s) => s.campaniaActivaId)
-  const preferencias = useInformes()
+  const actualizarMeta = useAlmacen((s) => s.actualizarMeta)
+  const enNavegador = useInformes()
+  // El supervisor y el logo son de la obra: van en el proyecto (viajan en el .topo).
+  // Los de antes, guardados solo en el navegador, sirven mientras el proyecto no tenga los suyos.
+  // El supervisor se escribe aquí y va al proyecto cuando se deja de escribir:
+  // si cada tecla tocara el proyecto, la vista previa se rehacería en cada una.
+  const cargas = useAlmacen((s) => s.cargas)
+  const [textoSupervisor, setTextoSupervisor] = useState(() => proyecto.meta.supervisor ?? enNavegador.supervisor)
+  useEffect(() => {
+    setTextoSupervisor(useAlmacen.getState().proyecto.meta.supervisor ?? '')
+  }, [cargas])
+  // Al salir de la pantalla se guarda lo escrito aunque no haya pasado la pausa.
+  const ultimoSupervisor = useRef(textoSupervisor)
+  ultimoSupervisor.current = textoSupervisor
+  useEffect(
+    () => () => {
+      const escrito = ultimoSupervisor.current
+      if (escrito !== (useAlmacen.getState().proyecto.meta.supervisor ?? '')) useAlmacen.getState().actualizarMeta({ supervisor: escrito })
+    },
+    [],
+  )
+  const preferencias = {
+    ...enNavegador,
+    supervisor: textoSupervisor,
+    logo: proyecto.meta.logo ?? enNavegador.logo,
+    cambiar: (cambios: Parameters<typeof enNavegador.cambiar>[0]) => {
+      const { supervisor, logo, ...resto } = cambios
+      if ('supervisor' in cambios) setTextoSupervisor(supervisor ?? '')
+      if ('logo' in cambios) actualizarMeta({ logo: logo ?? undefined })
+      // Lo viejo del navegador ya no manda: si no, quitar el logo dejaría ver el de antes.
+      enNavegador.cambiar({
+        ...resto,
+        ...('supervisor' in cambios ? { supervisor: '' } : {}),
+        ...('logo' in cambios ? { logo: null } : {}),
+      })
+    },
+  }
   const { tipo, conNotas, firmas, logo, cambiar } = preferencias
   const idBase = useId()
   const ids = {
@@ -162,6 +198,9 @@ export default function EspacioInformes({
   const vistaAtras = useDiferido(preferencias.vistaAtras, esperaMs)
   const estacion = useDiferido(preferencias.estacion, esperaMs)
   const supervisor = useDiferido(preferencias.supervisor, esperaMs)
+  useEffect(() => {
+    if (supervisor !== (useAlmacen.getState().proyecto.meta.supervisor ?? '')) actualizarMeta({ supervisor })
+  }, [supervisor, actualizarMeta])
 
   // Lo elegido aquí manda; si ya no existe (se borró la calle), se vuelve a la activa.
   const calleId =

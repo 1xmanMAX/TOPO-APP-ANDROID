@@ -208,6 +208,7 @@ function resumenDelPerfil(datos: PlanDeLaCalle): string {
 export default function PantallaPlanificar() {
   const abrirPantallaCalle = useAlmacen((s) => s.abrirPantallaCalle)
   const cambiarRecuerdo = usePlanificador((s) => s.cambiar)
+  const actualizarCalle = useAlmacen((s) => s.actualizarCalle)
   const datos = usePlanDeLaCalle()
   const idTitulo = useId()
   const esCelular = useEsCelular()
@@ -228,7 +229,11 @@ export default function PantallaPlanificar() {
 
   const { calle, fuente, disponibles, perfil } = datos
   const cambiar = (c: Partial<PlanificadorDeCalle>) => cambiarRecuerdo(calle.id, c)
-  const fijarDigitados = (vertices: Vertice[]) => cambiar({ fuente: 'digitado', digitados: vertices })
+  // El perfil escrito va al proyecto (viaja en el .topo); en el navegador solo queda la fuente elegida.
+  const fijarDigitados = (vertices: Vertice[]) => {
+    actualizarCalle(calle.id, { perfilDigitado: vertices })
+    cambiar({ fuente: 'digitado', digitados: undefined })
+  }
 
   function elegirFuente(f: FuentePerfil) {
     // Al pasar a «Digitado» por primera vez se copia el perfil que se veía,

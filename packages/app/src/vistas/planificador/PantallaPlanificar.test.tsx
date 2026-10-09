@@ -233,7 +233,9 @@ describe('PantallaPlanificar', () => {
     const cota6 = screen.getByRole('textbox', { name: 'Cota del vértice 6' })
     await usuario.clear(cota6)
     await usuario.type(cota6, '3215{Enter}')
-    const escritos = usePlanificador.getState().porCalle['c-empinada']!.digitados
+    // Los vértices escritos van al proyecto (viajan en el .topo), no solo al navegador.
+    const perfilDe = () => useAlmacen.getState().proyecto.calles.find((c) => c.id === 'c-empinada')!.perfilDigitado
+    const escritos = perfilDe()
     expect(escritos).toHaveLength(6)
 
     await usuario.click(screen.getByRole('radio', { name: 'Rasante' }))
@@ -242,7 +244,7 @@ describe('PantallaPlanificar', () => {
 
     expect(within(screen.getByRole('list', { name: 'Vértices del perfil' })).getAllByRole('listitem')).toHaveLength(6)
     expect(screen.getByRole('textbox', { name: 'Cota del vértice 6' })).toHaveValue('3215.000')
-    expect(usePlanificador.getState().porCalle['c-empinada']!.digitados).toEqual(escritos)
+    expect(perfilDe()).toEqual(escritos)
   })
 
   it('un perfil que no avanza se dice y no se planifica', async () => {

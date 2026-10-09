@@ -366,6 +366,8 @@ describe('EspacioInformes tras la revisión', () => {
     await usuario.type(screen.getByRole('textbox', { name: 'Supervisor' }), 'Ing. Pérez')
     await usuario.type(screen.getByRole('textbox', { name: 'Hasta' }), '0+020')
     unmount()
+    // El supervisor es de la obra: queda en el proyecto y viaja en el .topo.
+    expect(useAlmacen.getState().proyecto.meta.supervisor).toBe('Ing. Pérez')
     montar()
     expect(screen.getByRole('button', { name: 'Metrado' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('textbox', { name: 'Supervisor' })).toHaveValue('Ing. Pérez')
