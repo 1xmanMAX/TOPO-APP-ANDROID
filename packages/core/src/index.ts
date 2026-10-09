@@ -35,6 +35,7 @@ export * from './terreno/triangulacion'
 export * from './terreno/curvas'
 export * from './terreno/zona'
 export * from './terreno/perfilLinea'
+export * from './terreno/escurrimiento'
 
 // Hay dos «Pista»: la del modelo (lo que se guarda en el proyecto, con su
 // plano y su calle) y la de la geometría (lista para calcular, con la

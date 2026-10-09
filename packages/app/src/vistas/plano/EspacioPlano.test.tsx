@@ -1013,7 +1013,7 @@ describe('Plano de obra: lo que flota sobre el plano', () => {
     useAlmacen.getState().cargarProyecto(proyectoConDxf(), { 'plano-dxf': DXF })
     render(<EspacioPlano />)
     const herramientas = screen.getByRole('group', { name: 'Herramientas del plano' })
-    expect(within(herramientas).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ver', 'Calibrar escala', 'Dibujar croquis'])
+    expect(within(herramientas).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ver', 'Calibrar escala', 'Dibujar croquis', 'Niveles'])
     expect(screen.getByRole('button', { name: 'Encuadrar' })).toHaveTextContent('⤢')
     expect(screen.getByText(/^Escala: 1 u = 1 m$/)).toBeInTheDocument()
   })
@@ -1034,5 +1034,72 @@ describe('Plano de obra: lo que flota sobre el plano', () => {
     const capas = screen.getByRole('group', { name: 'Capas del plano' }).closest('details')!
     expect(capas).not.toHaveAttribute('open')
     expect(capas.querySelector('summary')).toHaveTextContent('Capas del plano7 visibles de 7')
+  })
+})
+
+describe('Plano de obra: niveles para el agua', () => {
+  beforeEach(() => {
+    useAlmacen.getState().cargarProyecto({ ...proyectoVacio(), planos: [PLANO_DXF] }, { 'plano-dxf': DXF })
+  })
+
+  /*
+   * Cuatro esquinas cada 20 m y un centro (el 5). Puesta de fábrica sin BM en
+   * el proyecto: 100 + 1.5 = AI 101.500. Lecturas 1.200 … 1.350 en las
+   * esquinas y 1.400 en el centro: el centro es el más bajo (100.100).
+   */
+  it('se ponen los puntos en el plano, se escriben las lecturas en la tabla y se ve dónde se empoza', async () => {
+    const usuario = userEvent.setup()
+    render(<EspacioPlano />)
+    await usuario.click(screen.getByRole('button', { name: 'Niveles' }))
+    const svg = visor()
+    for (const [x, y] of [[1000, 1950], [1020, 1950], [1000, 1970], [1020, 1970], [1010, 1960]] as const) tocarEnPlano(svg, x, y)
+
+    const panel = within(screen.getByRole('region', { name: 'Niveles del plano' }))
+    expect(panel.getByRole('status')).toHaveTextContent('Escribe las lecturas en la tabla')
+    const lecturas = ['1.2', '1.25', '1.3', '1.35', '1.4']
+    for (const [i, l] of lecturas.entries()) await usuario.type(panel.getByLabelText(`Lectura del punto ${i + 1}`), l)
+
+    const tabla = within(panel.getByRole('table', { name: 'Lecturas de los puntos' }))
+    expect(tabla.getByRole('row', { name: /^5 .*100\.100$/ })).toBeInTheDocument()
+    expect(panel.getByRole('status')).toHaveTextContent('✗ El agua se empoza en 5')
+    // En el plano: el 5 con su ✗ y su cota.
+    expect(within(svg as unknown as HTMLElement).getByText('✗ 5')).toBeInTheDocument()
+    expect(within(svg as unknown as HTMLElement).getByText('100.100')).toBeInTheDocument()
+
+    // El 5 es el sumidero: ahí tiene que ir el agua.
+    await usuario.click(tabla.getByRole('button', { name: '5' }))
+    await usuario.click(panel.getByRole('checkbox', { name: /Es una salida del agua/ }))
+    expect(panel.getByRole('status')).toHaveTextContent('✓ Toda el agua llega a una salida.')
+
+    // El agua del 1 va derecho al sumidero.
+    await usuario.click(tabla.getByRole('button', { name: '1' }))
+    expect(panel.getByText(/El agua de/)).toHaveTextContent('El agua de 1 va a 5 (salida ✓)')
+
+    const guardados = useAlmacen.getState().proyecto.planos![0]!.nivelesEnPlano!
+    expect(guardados.puntos.map((p) => [p.nombre, p.lectura])).toEqual([
+      ['1', 1.2],
+      ['2', 1.25],
+      ['3', 1.3],
+      ['4', 1.35],
+      ['5', 1.4],
+    ])
+    expect(guardados.puntos[4]!.salida).toBe(true)
+  })
+
+  it('Enter en una lectura pasa al punto siguiente, y tocar un punto lo elige en vez de poner otro', async () => {
+    const usuario = userEvent.setup()
+    render(<EspacioPlano />)
+    await usuario.click(screen.getByRole('button', { name: 'Niveles' }))
+    const svg = visor()
+    tocarEnPlano(svg, 1000, 1950)
+    tocarEnPlano(svg, 1020, 1950)
+    const panel = within(screen.getByRole('region', { name: 'Niveles del plano' }))
+    await usuario.type(panel.getByLabelText('Lectura del punto 1'), '1.5{Enter}')
+    expect(panel.getByLabelText('Lectura del punto 2')).toHaveFocus()
+
+    fireEvent.pointerDown(svg.querySelector('[data-punto-nivel] circle')!, { pointerId: 1, clientX: 10, clientY: 10 })
+    fireEvent.pointerUp(svg.querySelector('[data-punto-nivel] circle')!, { pointerId: 1, clientX: 10, clientY: 10 })
+    expect(useAlmacen.getState().proyecto.planos![0]!.nivelesEnPlano!.puntos).toHaveLength(2)
+    expect(panel.getByLabelText('Nombre del punto elegido')).toHaveValue('1')
   })
 })

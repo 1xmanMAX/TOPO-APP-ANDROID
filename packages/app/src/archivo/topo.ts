@@ -1,5 +1,6 @@
 import { guardarArchivo } from './guardar'
 import { hojaUsable } from '../niveles/hoja'
+import { nivelesEnPlanoUsables } from '../niveles/enPlano'
 import {
   anadirPalabra,
   esPalabraDe,
@@ -190,7 +191,14 @@ function migrarCamposDeLaOla2(proyecto: Proyecto): Proyecto {
           console.warn('Un plano del proyecto venía sin id o sin formato, y se quitó.')
           return []
         }
-        return [{ ...(plano as unknown as PlanoImportado), calibracion: calibracionUsable(plano.calibracion) }]
+        const usable: PlanoImportado = { ...(plano as unknown as PlanoImportado), calibracion: calibracionUsable(plano.calibracion) }
+        // Los puntos de nivel del plano: lo que no sirve se quita; dentro se completa lo que falte.
+        if ('nivelesEnPlano' in plano) {
+          const niveles = nivelesEnPlanoUsables(plano.nivelesEnPlano)
+          if (niveles) usable.nivelesEnPlano = niveles
+          else delete usable.nivelesEnPlano
+        }
+        return [usable]
       })
     }
   }

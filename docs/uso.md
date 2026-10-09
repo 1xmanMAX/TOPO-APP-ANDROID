@@ -329,6 +329,17 @@ En **Calle › Análisis › Separación** (o con «Comprobar separación» desd
 
 Lo que sale de una nivelación sin cerrar se marca **no comprobado**, igual que en el resto de la app.
 
+## Niveles en el plano: por dónde se va el agua
+
+Para una zona complicada (varias intersecciones juntas) en la que quieres que el agua de una lluvia fuerte vaya por donde tú decides, en **Obra › Plano**, herramienta **Niveles**:
+
+1. **Antes de salir**, toca el plano donde vas a leer: el punto 1, el 2, el 3… Tocar un punto lo elige; «Mover» lo cambia de sitio con el siguiente toque.
+2. **En campo**, escribe en la tabla la lectura de cada punto (Enter pasa al siguiente). La cota sale de la puesta (cota del BM + lectura atrás); si cambias de estación, agrega otra puesta y elige en cada punto con cuál lo leíste.
+3. **En el plano** aparece la cota de cada punto, una flecha en cada triángulo hacia donde cae el agua y en ámbar las zonas con menos pendiente que la mínima (0.5 % por defecto).
+4. Marca como **salida** los sumideros, cunetas o canales. Arriba sale el veredicto: ✓ toda el agua llega a una salida, ✗ se empoza en tal punto (más bajo que todos sus vecinos), o △ llega al borde de lo nivelado. Al elegir un punto se dibuja el camino de su agua y cuánto baja hasta el siguiente.
+
+Con el plano sin escala se ven la dirección del agua y dónde se empoza, pero no las pendientes en %: calíbralo para verlas. Los puntos se guardan con esa lámina, en el `.topo`.
+
 ## La barra de cierre: qué significa cada color
 
 Aparece al pie de la libreta y es lo que te dice si tu trabajo sirve, **mientras sigues en la calle**.

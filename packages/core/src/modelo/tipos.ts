@@ -202,6 +202,33 @@ export interface PlanoImportado {
   calibracion: Calibracion | null
   /** Capas del DXF que no se dibujan. */
   capasOcultas?: string[]
+  /** Los puntos de nivel puestos sobre esta lámina para controlar por dónde se va el agua. */
+  nivelesEnPlano?: NivelesEnPlano
+}
+
+/**
+ * Un punto de nivel sobre el plano: Max lo pone donde va a leer («punto 7»),
+ * después escribe la lectura que hizo ahí y la cota sale de su puesta.
+ */
+export interface PuntoNivelPlano {
+  id: Id
+  /** Como se llama en el plano y en la tabla: «7». */
+  nombre: string
+  /** En unidades del plano, Y hacia arriba (como las pistas). */
+  x: number
+  y: number
+  puestaId: Id | null
+  /** Lectura de mira en metros; null mientras no se haya leído. */
+  lectura: number | null
+  /** Es por donde el agua tiene que salir: sumidero, cuneta, canal. */
+  salida: boolean
+}
+
+export interface NivelesEnPlano {
+  puestas: PuestaDeNivel[]
+  puntos: PuntoNivelPlano[]
+  /** Por debajo de esta pendiente (%) el agua puede quedarse. */
+  pendienteMinimaPct: number
 }
 
 export type OrigenPista = 'croquis' | 'dxf'

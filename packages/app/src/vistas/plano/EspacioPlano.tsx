@@ -15,20 +15,26 @@ import { importarPlano } from './importarPlano'
 import { BORRADOR_VACIO, PanelCalibrar, PanelCapas, PanelCroquis, textoEscala, textoEscalaCorto, type BorradorCroquis } from './Paneles'
 import { usePlanoCargado } from './usePlanoCargado'
 import VisorPlano from './VisorPlano'
+import { DibujoNiveles, PanelNiveles } from './NivelesPlano'
+import { analizarPlano, nivelesVacios, siguienteNombre } from '../../niveles/enPlano'
+import { nuevoIdNivel } from '../../niveles/hoja'
+import type { NivelesEnPlano } from '@topo/core'
 
-type Modo = 'ver' | 'calibrar' | 'croquis'
+type Modo = 'ver' | 'calibrar' | 'croquis' | 'niveles'
 type Seleccion = { tipo: 'pista'; id: Id } | { tipo: 'eje'; indice: number } | null
 
 const MODOS: OpcionSegmentado<Modo>[] = [
   { valor: 'ver', texto: 'Ver' },
   { valor: 'calibrar', texto: 'Calibrar escala' },
   { valor: 'croquis', texto: 'Dibujar croquis' },
+  { valor: 'niveles', texto: 'Niveles' },
 ]
 /** Lo que se hace con el dedo en cada herramienta: va junto al título. */
 const AYUDA_MODO: Record<Modo, string> = {
   ver: 'Toca una pista para ver su ficha',
   calibrar: 'Toca dos puntos de distancia conocida.',
   croquis: 'Toca el plano para poner cada vértice de la pista.',
+  niveles: 'Toca el plano para poner el punto siguiente donde vas a leer; toca un punto para elegirlo.',
 }
 /** Lo que flota sobre el plano: se lee sobre cualquier dibujo. */
 const CHIP = 'pointer-events-auto inline-flex h-11 items-center rounded-full border border-borde bg-tarjeta/95 text-sm shadow-sm'
@@ -82,6 +88,9 @@ export default function EspacioPlano() {
   const importandoAhora = useRef(false)
   const refTituloFicha = useRef<HTMLHeadingElement>(null)
   const [llevarAFicha, setLlevarAFicha] = useState(0)
+  const [nivelElegido, setNivelElegido] = useState<string | null>(null)
+  const [moviendoNivel, setMoviendoNivel] = useState(false)
+  const [verPendientesNivel, setVerPendientesNivel] = useState(false)
 
   const plano = planos.find((p) => p.id === planoElegidoId) ?? planos[0]
   const cargado = usePlanoCargado(plano, plano ? archivosDePlano[plano.id] : undefined)
@@ -125,6 +134,19 @@ export default function EspacioPlano() {
     return unirLimites(delPlano, limitesDePuntos(pistasDelPlano.flatMap((p) => p.polilinea)))
   }, [cargado, pistasDelPlano])
 
+  // Los puntos de nivel de esta lámina (vacíos con ids estables mientras no se toquen).
+  const nivelesVaciosDelPlano = useMemo(() => nivelesVacios(proyecto.bms), [plano?.id])
+  const niveles = plano?.nivelesEnPlano ?? nivelesVaciosDelPlano
+  const analisisNiveles = useMemo(
+    () => analizarPlano(niveles, plano?.calibracion ?? null, proyecto.instrumento),
+    [niveles, plano?.calibracion, proyecto.instrumento],
+  )
+  function cambiarNiveles(cambio: (n: NivelesEnPlano) => NivelesEnPlano) {
+    if (!plano) return
+    const actual = useAlmacen.getState().proyecto.planos?.find((p) => p.id === plano.id)?.nivelesEnPlano ?? niveles
+    actualizarPlano(plano.id, { nivelesEnPlano: cambio(actual) })
+  }
+
   const estacasCroquis = useMemo(() => estacasDeCroquis(puntosCroquis, plano?.calibracion), [puntosCroquis, plano?.calibracion])
 
   // En el celular la ficha cae debajo del visor: se la trae a la vista y se le da el foco.
@@ -145,6 +167,7 @@ export default function EspacioPlano() {
   function cambiarModo(nuevo: Modo) {
     setModo(nuevo)
     setPuntosCalibrar([])
+    setMoviendoNivel(false)
     if (nuevo !== 'ver') setSeleccion(null)
   }
 
@@ -155,6 +178,8 @@ export default function EspacioPlano() {
     setPuntosCalibrar([])
     setConfirmarQuitarPlano(false)
     setPaginaPedida(null)
+    setNivelElegido(null)
+    setMoviendoNivel(false)
   }
 
   async function importar(archivo: File | undefined) {
@@ -203,6 +228,28 @@ export default function EspacioPlano() {
     }
     if (modo === 'croquis') {
       setPuntosCroquis((actuales) => [...actuales, punto])
+      return
+    }
+    if (modo === 'niveles') {
+      if (moviendoNivel && nivelElegido) {
+        cambiarNiveles((n) => ({ ...n, puntos: n.puntos.map((p) => (p.id === nivelElegido ? { ...p, x: punto.x, y: punto.y } : p)) }))
+        setMoviendoNivel(false)
+        return
+      }
+      const tocado = objetivo?.closest?.('[data-punto-nivel]')?.getAttribute('data-punto-nivel')
+      if (tocado) {
+        setNivelElegido(tocado)
+        return
+      }
+      const id = nuevoIdNivel('nivel')
+      cambiarNiveles((n) => ({
+        ...n,
+        puntos: [
+          ...n.puntos,
+          { id, nombre: siguienteNombre(n.puntos), x: punto.x, y: punto.y, puestaId: n.puestas[n.puestas.length - 1]?.id ?? null, lectura: null, salida: false },
+        ],
+      }))
+      setNivelElegido(id)
       return
     }
     const pista = objetivo?.closest?.('[data-pista]')?.getAttribute('data-pista')
@@ -442,7 +489,7 @@ export default function EspacioPlano() {
                       {nombreElegido} elegida · ver ficha ↓
                     </button>
                   )}
-                  <div className="absolute bottom-3 left-1/2 z-10 w-[min(24rem,calc(100%-1rem))] -translate-x-1/2 rounded-xl bg-tarjeta/95 shadow-lg">
+                  <div className="absolute bottom-3 left-1/2 z-10 w-[min(30rem,calc(100%-1rem))] -translate-x-1/2 rounded-xl bg-tarjeta/95 shadow-lg">
                     <Segmentado etiqueta="Herramientas del plano" como="group" opciones={MODOS} valor={modo} alCambiar={cambiarModo} anchoCompleto />
                   </div>
                 </>
@@ -469,6 +516,15 @@ export default function EspacioPlano() {
                   ))}
                   {modo === 'croquis' && <DibujoCroquis puntos={puntosCroquis} estacas={estacasCroquis} upp={upp} />}
                   {modo === 'calibrar' && <MarcasCalibracion puntos={puntosCalibrar} upp={upp} />}
+                  {(modo === 'niveles' || (modo === 'ver' && niveles.puntos.length > 0)) && (
+                    <DibujoNiveles
+                      niveles={niveles}
+                      analisis={analisisNiveles}
+                      elegidoId={modo === 'niveles' ? nivelElegido : null}
+                      upp={upp}
+                      verPendientes={verPendientesNivel}
+                    />
+                  )}
                 </>
               )}
             </VisorPlano>
@@ -537,6 +593,20 @@ export default function EspacioPlano() {
                   setModo('ver')
                   elegir({ tipo: 'pista', id: pistaId })
                 }}
+              />
+            )}
+            {modo === 'niveles' && (
+              <PanelNiveles
+                plano={plano}
+                niveles={niveles}
+                analisis={analisisNiveles}
+                elegidoId={nivelElegido}
+                alElegir={setNivelElegido}
+                cambiar={cambiarNiveles}
+                moviendo={moviendoNivel}
+                alMover={setMoviendoNivel}
+                verPendientes={verPendientesNivel}
+                alVerPendientes={setVerPendientesNivel}
               />
             )}
             {modo === 'ver' && pistaElegida && (
