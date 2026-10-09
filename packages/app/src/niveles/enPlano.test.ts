@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   analizarPlano,
+  cotasDeLosPuntos,
+  sinCotaPorque,
+  textoDesnivel,
   cotaDelPunto,
   nivelesEnPlanoUsables,
   nivelesVacios,
@@ -121,5 +124,76 @@ describe('el plano y las calles', () => {
     // Y entra al análisis del agua junto con los puntos del plano.
     const a = analizarPlano({ puntos: [], pendienteMinimaPct: 0.5 }, { metrosPorUnidad: 1 }, proyecto, medidos)
     expect(a.resultado?.ok).toBe(true)
+  })
+})
+
+describe('cotas por BM y por relación entre puntos', () => {
+  const conBM: Proyecto = { ...P, bms: [{ id: 'bm1', nombre: 'BM-1', cota: 3245.18, tipo: 'oficial', descripcion: '' }] }
+
+  it('un punto puesto sobre un BM toma su cota, y la sigue si se corrige', () => {
+    const n: NivelesEnPlano = { puntos: [{ ...punto('B', 0, 0, null), origen: 'bm', bmId: 'bm1' }], pendienteMinimaPct: 0.5 }
+    expect(cotasDeLosPuntos(n, conBM).get('pB')).toBeCloseTo(3245.18, 9)
+    const corregido = { ...conBM, bms: [{ ...conBM.bms[0]!, cota: 3245.2 }] }
+    expect(cotasDeLosPuntos(n, corregido).get('pB')).toBeCloseTo(3245.2, 9)
+  })
+
+  it('«el 2 está 0.35 m más abajo que el BM» y «el 3, 0.10 más arriba que el 2»: en cadena', () => {
+    const n: NivelesEnPlano = {
+      puntos: [
+        { ...punto('B', 0, 0, null), origen: 'bm', bmId: 'bm1' },
+        { ...punto('2', 10, 0, null), origen: 'relacion', relacion: { desdeId: 'pB', desnivel: -0.35 } },
+        { ...punto('3', 20, 0, null), origen: 'relacion', relacion: { desdeId: 'p2', desnivel: 0.1 } },
+      ],
+      pendienteMinimaPct: 0.5,
+    }
+    const c = cotasDeLosPuntos(n, conBM)
+    expect(c.get('p2')).toBeCloseTo(3244.83, 9)
+    expect(c.get('p3')).toBeCloseTo(3244.93, 9)
+  })
+
+  it('una cadena que vuelve sobre sí misma no cuelga: esos puntos quedan sin cota, y se dice por qué', () => {
+    const n: NivelesEnPlano = {
+      puntos: [
+        { ...punto('A', 0, 0, null), origen: 'relacion', relacion: { desdeId: 'pB', desnivel: 1 } },
+        { ...punto('B', 1, 0, null), origen: 'relacion', relacion: { desdeId: 'pA', desnivel: -1 } },
+      ],
+      pendienteMinimaPct: 0.5,
+    }
+    const c = cotasDeLosPuntos(n, P)
+    expect(c.size).toBe(0)
+    expect(sinCotaPorque(n.puntos[0]!, n, P, c)).toMatch(/falta la cota de B/)
+  })
+
+  it('las relaciones entran al análisis del agua junto con las lecturas', () => {
+    const n: NivelesEnPlano = {
+      puntos: [
+        punto('1', 0, 0, 1.2),
+        punto('2', 20, 0, 1.25),
+        { ...punto('3', 0, 20, null), origen: 'relacion', relacion: { desdeId: 'p1', desnivel: -0.1 } },
+      ],
+      pendienteMinimaPct: 0.5,
+    }
+    const a = analizarPlano(n, null, P)
+    expect(a.cotas.get('p3')).toBeCloseTo(100.2, 9)
+    expect(a.resultado?.ok).toBe(true)
+  })
+
+  it('el desnivel en palabras', () => {
+    expect(textoDesnivel(0.35)).toBe('0.350 m más arriba')
+    expect(textoDesnivel(-0.1204)).toBe('0.120 m más abajo')
+    expect(textoDesnivel(0.0001)).toBe('a la misma altura')
+  })
+
+  it('el .topo guarda el origen de la cota; lo que no sirve se descarta', () => {
+    const n = nivelesEnPlanoUsables({
+      puntos: [
+        { id: 'a', x: 0, y: 0, origen: 'bm', bmId: 'bm1' },
+        { id: 'b', x: 0, y: 0, origen: 'relacion', relacion: { desdeId: 'a', desnivel: -0.2 } },
+        { id: 'c', x: 0, y: 0, origen: 'relacion', relacion: { desdeId: 'a', desnivel: 'x' } },
+      ],
+    })!
+    expect(n.puntos[0]).toMatchObject({ origen: 'bm', bmId: 'bm1' })
+    expect(n.puntos[1]).toMatchObject({ origen: 'relacion', relacion: { desdeId: 'a', desnivel: -0.2 } })
+    expect('origen' in n.puntos[2]!).toBe(false)
   })
 })

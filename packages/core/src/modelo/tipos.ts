@@ -259,6 +259,15 @@ export interface PuntoNivelPlano {
   salida: boolean
   /** Una etiqueta que queda fija en el plano junto al punto: «Esquina Lima / Sol», «buzón». */
   nota?: string
+  /**
+   * De dónde sale su cota: leída con la mira (lo de siempre, si falta), la
+   * de un BM del proyecto (sigue al BM si se corrige), o la de otro punto
+   * del plano más o menos un desnivel.
+   */
+  origen?: 'lectura' | 'bm' | 'relacion'
+  bmId?: Id | null
+  /** Para `relacion`: el punto de referencia y cuánto está este por encima (+) o por debajo (−), en metros. */
+  relacion?: { desdeId: Id; desnivel: number } | null
 }
 
 export interface NivelesEnPlano {

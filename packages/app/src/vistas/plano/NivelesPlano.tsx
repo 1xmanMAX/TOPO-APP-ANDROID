@@ -6,6 +6,7 @@ import { formatearCota } from '../../formato'
 import { puestaDelPunto, textoUbicacion, type AnalisisEnPlano, type UbicacionEnCalle } from '../../niveles/enPlano'
 import { puestasDe } from '../../niveles/puestas'
 import EditorPuestas from '../niveles/EditorPuestas'
+import CotaDelPunto from './CotaDelPunto'
 import { BOTON_ICONO, BOTON_SECUNDARIO, CAJA, ENLACE_PELIGRO } from './estilos'
 import { aSvg, puntosSvg } from './geometriaVisor'
 
@@ -141,6 +142,35 @@ export function DibujoNiveles({ niveles, analisis, elegidoId, upp, verPendientes
         )
       })}
 
+      {/* Las relaciones: «este está 0.35 m más abajo que aquel», como una línea a trazos con su desnivel. */}
+      {niveles.puntos.map((p) => {
+        if (p.origen !== 'relacion' || !p.relacion) return null
+        const desde = niveles.puntos.find((q) => q.id === p.relacion!.desdeId)
+        if (!desde) return null
+        const a = aSvg(desde)
+        const b = aSvg(p)
+        const d = p.relacion.desnivel
+        return (
+          <g key={`rel-${p.id}`} pointerEvents="none" data-relacion={p.id}>
+            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} className="stroke-proyecto" strokeWidth={2 * upp} strokeDasharray={`${6 * upp} ${4 * upp}`} />
+            <text
+              x={(a.x + b.x) / 2}
+              y={(a.y + b.y) / 2 - 5 * upp}
+              textAnchor="middle"
+              fontSize={11 * upp}
+              fontWeight={700}
+              strokeWidth={3 * upp}
+              paintOrder="stroke"
+              className="fill-proyecto stroke-white dark:stroke-slate-900"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {d < 0 ? '↓' : '↑'} {d < 0 ? '−' : '+'}
+              {Math.abs(d).toFixed(3)}
+            </text>
+          </g>
+        )
+      })}
+
       {niveles.puntos.map((p) => {
         const c = aSvg(p)
         const cota = analisis.cotas.get(p.id)
@@ -157,7 +187,16 @@ export function DibujoNiveles({ niveles, analisis, elegidoId, upp, verPendientes
             <circle cx={c.x} cy={c.y} r={18 * upp} fill="transparent" />
             {elegido && <circle cx={c.x} cy={c.y} r={13 * upp} className="fill-marca/25 stroke-marca" strokeWidth={2 * upp} />}
             {seEmpoza && <circle cx={c.x} cy={c.y} r={11 * upp} fill="none" className="stroke-falla" strokeWidth={3 * upp} />}
-            <circle cx={c.x} cy={c.y} r={7 * upp} className={clase} strokeWidth={2 * upp} strokeDasharray={cota === undefined ? `${2 * upp} ${2 * upp}` : undefined} />
+            {p.origen === 'bm' ? (
+              // Un BM: el triángulo de siempre en los planos.
+              <path
+                d={`M ${c.x} ${c.y - 9 * upp} L ${c.x + 8 * upp} ${c.y + 6 * upp} L ${c.x - 8 * upp} ${c.y + 6 * upp} Z`}
+                className="fill-proyecto stroke-white dark:stroke-slate-900"
+                strokeWidth={2 * upp}
+              />
+            ) : (
+              <circle cx={c.x} cy={c.y} r={7 * upp} className={clase} strokeWidth={2 * upp} strokeDasharray={cota === undefined ? `${2 * upp} ${2 * upp}` : undefined} />
+            )}
             <text
               x={c.x + 10 * upp}
               y={c.y - 6 * upp}
@@ -323,6 +362,7 @@ export function PanelNiveles({ plano, niveles, analisis, ubicaciones, hayPistasC
             />
           </label>
           {ubicacionElegida && <p className="text-[13px] text-tenue">En {textoUbicacion(ubicacionElegida)}.</p>}
+          <CotaDelPunto key={elegido.id} punto={elegido} niveles={niveles} cotas={analisis.cotas} editarPunto={editarPunto} />
           <label className="flex min-h-11 items-center gap-2 text-sm">
             <input type="checkbox" className="size-5" checked={elegido.salida} onChange={(e) => editarPunto(elegido.id, { salida: e.target.checked })} />
             Es una salida del agua (sumidero, cuneta, canal)
@@ -480,6 +520,15 @@ function TablaLecturas({
                 </td>
               )}
               <td className="py-1">
+                {p.origen === 'bm' || p.origen === 'relacion' ? (
+                  <button type="button" onClick={() => alElegir(p.id)} className="min-h-11 text-left text-[13px] text-tenue">
+                    {p.origen === 'bm'
+                      ? `BM ${proyecto.bms.find((b) => b.id === p.bmId)?.nombre ?? '?'}`
+                      : p.relacion
+                        ? `${p.relacion.desnivel < 0 ? '↓' : '↑'} ${Math.abs(p.relacion.desnivel).toFixed(3)} de ${niveles.puntos.find((q) => q.id === p.relacion!.desdeId)?.nombre ?? '?'}`
+                        : 'sin referencia'}
+                  </button>
+                ) : (
                 <CampoLectura
                   etiqueta={`Lectura del punto ${p.nombre}`}
                   valor={p.lectura}
@@ -487,6 +536,7 @@ function TablaLecturas({
                   alEnfocar={() => alElegir(p.id)}
                   siguiente={i < niveles.puntos.length - 1 ? `Lectura del punto ${niveles.puntos[i + 1]!.nombre}` : null}
                 />
+                )}
               </td>
               <td className="numerico py-1 text-right font-semibold">{cota !== undefined ? formatearCota(cota) : '—'}</td>
             </tr>

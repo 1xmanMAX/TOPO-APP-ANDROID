@@ -58,6 +58,10 @@ export function nivelesEnPlanoUsables(valor: unknown): NivelesEnPlano | null {
             lectura: finito(p.lectura) ? p.lectura : null,
             salida: p.salida === true,
             ...(typeof p.nota === 'string' && p.nota.trim() !== '' ? { nota: p.nota } : {}),
+            ...(p.origen === 'bm' && typeof p.bmId === 'string' ? { origen: 'bm' as const, bmId: p.bmId } : {}),
+            ...(p.origen === 'relacion' && esObjeto(p.relacion) && typeof p.relacion.desdeId === 'string' && finito(p.relacion.desnivel)
+              ? { origen: 'relacion' as const, relacion: { desdeId: p.relacion.desdeId, desnivel: p.relacion.desnivel } }
+              : {}),
           },
         ]
       : [],
@@ -81,12 +85,63 @@ export function puestaDelPunto(proyecto: Proyecto, p: PuntoNivelPlano): PuestaDe
   return puestaPorId(proyecto, p.puestaId)
 }
 
-/** Cota = AI − lectura (mira apoyada en el punto). Null sin lectura o sin una puesta válida. */
+/** Cota leída: AI − lectura (mira apoyada en el punto). Null sin lectura o sin una puesta válida. */
 export function cotaDelPunto(proyecto: Proyecto, p: PuntoNivelPlano): number | null {
   if (p.lectura === null) return null
   const puesta = puestaDelPunto(proyecto, p)
   const ai = puesta ? alturaDe(puesta, proyecto) : null
   return ai === null ? null : ai - p.lectura
+}
+
+/**
+ * La cota de cada punto del plano, venga de donde venga: leída con la mira,
+ * la de un BM del proyecto (si se corrige el BM, cambia), o la de otro punto
+ * más su desnivel («el 4 está 0.35 m más abajo que BM-1»). Una relación
+ * puede apoyarse en otra relación; si la cadena vuelve sobre sí misma o
+ * llega a un punto sin cota, ese punto queda sin cota. `extra` son cotas
+ * de fuera del plano (lo medido en las calles) a las que también se puede
+ * referir un punto.
+ */
+export function cotasDeLosPuntos(niveles: NivelesEnPlano, proyecto: Proyecto, extra: ReadonlyMap<string, number> = new Map()): Map<string, number> {
+  const porId = new Map(niveles.puntos.map((p) => [p.id, p]))
+  const cotas = new Map<string, number>()
+  const resolver = (id: string, camino: Set<string>): number | null => {
+    if (cotas.has(id)) return cotas.get(id)!
+    if (extra.has(id)) return extra.get(id)!
+    const p = porId.get(id)
+    if (!p || camino.has(id)) return null
+    camino.add(id)
+    let z: number | null = null
+    if (p.origen === 'bm') z = proyecto.bms.find((b) => b.id === p.bmId)?.cota ?? null
+    else if (p.origen === 'relacion' && p.relacion) {
+      const base = resolver(p.relacion.desdeId, camino)
+      z = base === null ? null : base + p.relacion.desnivel
+    } else z = cotaDelPunto(proyecto, p)
+    camino.delete(id)
+    if (z !== null && Number.isFinite(z)) cotas.set(id, z)
+    return z
+  }
+  for (const p of niveles.puntos) resolver(p.id, new Set())
+  return cotas
+}
+
+/** «0.350 m más arriba», «0.120 m más abajo», «a la misma altura» (a menos de medio milímetro). */
+export function textoDesnivel(desnivel: number): string {
+  if (Math.abs(desnivel) < 0.0005) return 'a la misma altura'
+  return `${Math.abs(desnivel).toFixed(3)} m más ${desnivel > 0 ? 'arriba' : 'abajo'}`
+}
+
+/** Por qué un punto no tiene cota, en palabras (null si la tiene). */
+export function sinCotaPorque(p: PuntoNivelPlano, niveles: NivelesEnPlano, proyecto: Proyecto, cotas: ReadonlyMap<string, number>): string | null {
+  if (cotas.has(p.id)) return null
+  if (p.origen === 'bm') return proyecto.bms.some((b) => b.id === p.bmId) ? 'el BM no tiene cota' : 'elige su BM'
+  if (p.origen === 'relacion') {
+    if (!p.relacion) return 'elige respecto de qué punto'
+    const desde = niveles.puntos.find((q) => q.id === p.relacion!.desdeId)
+    if (!desde) return 'el punto de referencia ya no existe'
+    return `falta la cota de ${desde.nombre}${desde.origen === 'relacion' ? ' (o la cadena vuelve sobre sí misma)' : ''}`
+  }
+  return p.lectura === null ? 'falta su lectura' : 'la puesta no da altura'
 }
 
 export interface AnalisisEnPlano {
@@ -110,11 +165,8 @@ export function analizarPlano(
   proyecto: Proyecto,
   medidos: PuntoMedidoEnPlano[] = [],
 ): AnalisisEnPlano {
-  const cotas = new Map<string, number>()
-  for (const p of niveles.puntos) {
-    const z = cotaDelPunto(proyecto, p)
-    if (z !== null) cotas.set(p.id, z)
-  }
+  const deLaLibreta = new Map(medidos.map((m) => [m.id, m.cota]))
+  const cotas = cotasDeLosPuntos(niveles, proyecto, deLaLibreta)
   for (const m of medidos) cotas.set(m.id, m.cota)
   const k = calibracion?.metrosPorUnidad ?? 1
   const leidos = niveles.puntos.filter((p) => cotas.has(p.id))

@@ -51,12 +51,31 @@ export function useAutoguardado(activo: boolean): string | null {
   useEffect(() => {
     if (!activo) return
 
-    const temporizador = window.setTimeout(() => {
-      guardarArchivosDePlano(archivosDePlano).catch(() => setFallo(MENSAJE_FALLO))
-    }, RETARDO_MS)
-
-    return () => window.clearTimeout(temporizador)
+    // Sin esperar: un plano recién importado tiene que quedar guardado
+    // aunque se cierre la app al instante (cambian pocas veces).
+    guardarArchivosDePlano(archivosDePlano).catch(() => setFallo(MENSAJE_FALLO))
   }, [archivosDePlano, activo])
+
+  // Al pasar la app a segundo plano (cambiar de app, apagar la pantalla,
+  // cerrarla) se guarda en el acto: Android puede cerrarla ahí mismo, antes
+  // de que pase el segundo de espera, y se perdería lo último.
+  useEffect(() => {
+    if (!activo) return
+    const guardar = () => {
+      const { proyecto: actual } = useAlmacen.getState()
+      ultimoGuardado.current = Date.now()
+      guardarBorrador(actual).catch(() => setFallo(MENSAJE_FALLO))
+    }
+    const alOcultarse = () => {
+      if (document.visibilityState === 'hidden') guardar()
+    }
+    document.addEventListener('visibilitychange', alOcultarse)
+    window.addEventListener('pagehide', guardar)
+    return () => {
+      document.removeEventListener('visibilitychange', alOcultarse)
+      window.removeEventListener('pagehide', guardar)
+    }
+  }, [activo])
 
   return fallo
 }

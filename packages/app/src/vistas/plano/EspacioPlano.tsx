@@ -25,6 +25,8 @@ import { analizarPlano, nivelesVacios, puntosMedidosEnPlano, siguienteNombre, ub
 import { nuevoIdNivel } from '../../niveles/hoja'
 import type { NivelesEnPlano } from '@topo/core'
 
+const CLAVE_PLANO_ELEGIDO = 'topo:plano-elegido'
+
 type Modo = 'ver' | 'calibrar' | 'croquis' | 'niveles'
 type Seleccion = { tipo: 'pista'; id: Id } | { tipo: 'eje'; indice: number } | null
 
@@ -77,7 +79,14 @@ export default function EspacioPlano() {
   const planos = useMemo(() => proyecto.planos ?? [], [proyecto.planos])
   const pistas = useMemo(() => proyecto.pistas ?? [], [proyecto.pistas])
 
-  const [planoElegidoId, setPlanoElegidoId] = useState<Id | null>(null)
+  // El último plano que se miró: al volver a la app se abre ese, no el primero.
+  const [planoElegidoId, setPlanoElegidoId] = useState<Id | null>(() => {
+    try {
+      return localStorage.getItem(CLAVE_PLANO_ELEGIDO)
+    } catch {
+      return null
+    }
+  })
   const [modo, setModo] = useState<Modo>('ver')
   const [seleccion, setSeleccion] = useState<Seleccion>(null)
   const [puntosCroquis, setPuntosCroquis] = useState<Punto2[]>([])
@@ -222,6 +231,11 @@ export default function EspacioPlano() {
 
   function elegirPlano(id: Id) {
     setPlanoElegidoId(id)
+    try {
+      localStorage.setItem(CLAVE_PLANO_ELEGIDO, id)
+    } catch {
+      // Sin almacenamiento se abre el primero: no es grave.
+    }
     setSeleccion(null)
     setPuntosCroquis([])
     setPuntosCalibrar([])

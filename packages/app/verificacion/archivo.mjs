@@ -408,14 +408,14 @@ await pagina.keyboard.press('Escape')
 comprobar('el autoguardado deja en el navegador la obra renombrada y los bytes de sus planos',
   await esperarBorrador(pagina, NOMBRE_NUEVO, ESPERADO.planos.map((p) => p.id)))
 await pagina.reload({ waitUntil: 'load' })
-const aviso = pagina.getByText(/Recuperé tu trabajo/)
+// Al volver, lo guardado se abre solo (sin preguntar ni bloquear la pantalla).
+const aviso = pagina.getByText(/Abrí tu trabajo guardado/)
 await aviso.waitFor({ timeout: 10000 }).catch(() => {})
 const textoAviso = (await aviso.count()) > 0 ? await aviso.innerText() : ''
-comprobar('al recargar se ofrece recuperar el trabajo', textoAviso !== '', textoAviso)
+comprobar('al recargar se abre solo el trabajo guardado, y lo dice', textoAviso !== '', textoAviso)
 comprobar('el aviso nombra la obra con el cambio', textoAviso.includes(NOMBRE_NUEVO), textoAviso)
-comprobar('el aviso cuenta las lecturas (no cero)', /, [1-9]\d* lecturas/.test(textoAviso), textoAviso)
+comprobar('el aviso dice que trae sus planos', /con sus \d+ planos|con su plano/.test(textoAviso), textoAviso)
 await pagina.screenshot({ path: `${SALIDA}/archivo-recuperar-1280.png` })
-await pagina.getByRole('button', { name: 'Recuperar', exact: true }).click()
 comprobar('tras recuperar, la barra dice el nombre nuevo', await esperarObra(pagina, NOMBRE_NUEVO))
 for (const calle of ESPERADO.nombresDeCalles) {
   comprobar(`tras recuperar, la calle «${calle}» sigue`, await pagina.getByText(calle, { exact: true }).first().isVisible())
@@ -499,7 +499,7 @@ comprobar('dentro, los BMs llevan las cotas de ESPERADO',
 // ---------------------------------------------------------------------------
 
 const { ctx: ctxLimpio, pagina: limpia } = await nuevaPagina(1280, 800)
-comprobar('un navegador limpio no ofrece recuperar nada', (await limpia.getByText(/Recuperé tu trabajo/).count()) === 0)
+comprobar('un navegador limpio no abre nada guardado', (await limpia.getByText(/Abrí tu trabajo guardado/).count()) === 0)
 await abrirArchivo(limpia, RUTA_DESCARGADO)
 // Un navegador limpio ya muestra el proyecto de ejemplo, que también tiene
 // una «Av. Sol»: se espera al nombre de la obra, no a una calle.
@@ -603,7 +603,7 @@ comprobar('tras el rechazo, la obra abierta sigue', (await nombreEnDatosDeObra(c
 await ctxCelular.close()
 
 // ---------------------------------------------------------------------------
-// 6. Con el aviso de recuperar a la vista, Max abre otro archivo
+// 6. Con lo guardado ya abierto, Max abre otro archivo
 // ---------------------------------------------------------------------------
 
 // ctxLaptop ya tiene un borrador (la obra simulada renombrada).
@@ -611,22 +611,22 @@ const otra = await ctxLaptop.newPage()
 escucharConsola(otra, 1280)
 await pagina.close()
 await otra.goto(BASE, { waitUntil: 'load', timeout: 120000 })
-await otra.getByText(/Recuperé tu trabajo/).waitFor({ timeout: 10000 }).catch(() => {})
-comprobar('con un borrador guardado, al abrir la app sale el aviso de recuperar', (await otra.getByText(/Recuperé tu trabajo/).count()) === 1)
+await otra.getByText(/Abrí tu trabajo guardado/).waitFor({ timeout: 10000 }).catch(() => {})
+comprobar('con un borrador guardado, al abrir la app se abre solo y lo avisa', (await otra.getByText(/Abrí tu trabajo guardado/).count()) === 1)
 await abrirArchivo(otra, RUTA_MINIMO)
 comprobar('el archivo se abre con el aviso a la vista', await esperarObra(otra, minimo.meta.nombre))
-const seFue = await otra.getByText(/Recuperé tu trabajo/).waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false)
-comprobar('al abrir otro archivo, el aviso de recuperar el anterior se va', seFue)
+const seFue = await otra.getByText(/Abrí tu trabajo guardado/).waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false)
+comprobar('al abrir otro archivo, el aviso del trabajo anterior se va', seFue)
 await nombreEnDatosDeObra(otra, minimo.meta.nombre)
 const NOMBRE_OTRA = 'Obra abierta con el aviso a la vista'
 await otra.getByLabel('Nombre del proyecto').fill(NOMBRE_OTRA)
 comprobar('lo trabajado sobre el archivo abierto también se autoguarda (llega al borrador del navegador)',
   await esperarBorrador(otra, NOMBRE_OTRA, [], 8000))
 await otra.reload({ waitUntil: 'load' })
-const avisoOtra = otra.getByText(/Recuperé tu trabajo/)
+const avisoOtra = otra.getByText(/Abrí tu trabajo guardado/)
 await avisoOtra.waitFor({ timeout: 10000 }).catch(() => {})
 const textoOtra = (await avisoOtra.count()) > 0 ? await avisoOtra.innerText() : ''
-comprobar('al recargar, lo que se ofrece recuperar es lo trabajado después, no el borrador viejo',
+comprobar('al recargar, lo que se abre es lo trabajado después, no el borrador viejo',
   textoOtra.includes(NOMBRE_OTRA), textoOtra)
 await ctxLaptop.close()
 

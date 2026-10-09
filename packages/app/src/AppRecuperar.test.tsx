@@ -21,57 +21,54 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('App: el aviso de recuperar el trabajo', () => {
-  it('si se abre otro proyecto con el aviso a la vista, el aviso se va y el autoguardado se enciende', async () => {
+describe('App: el trabajo guardado se abre solo', () => {
+  it('al volver a la app se abre lo guardado, sin bloquear la pantalla, y se sigue guardando', async () => {
     vi.spyOn(autoguardado, 'leerBorrador').mockResolvedValue(borradorViejo())
     const guardar = vi.spyOn(autoguardado, 'guardarBorrador').mockResolvedValue()
     render(<App />)
 
-    await screen.findByText(/Recuperé tu trabajo/)
-    // Con el aviso a la vista no se guarda nada: pisaría el borrador.
-    await new Promise((r) => setTimeout(r, 1300))
-    expect(guardar).not.toHaveBeenCalled()
+    await screen.findByText(/Abrí tu trabajo guardado/)
+    expect(useAlmacen.getState().proyecto.meta.nombre).toBe('Borrador viejo')
+    expect(screen.getByRole('main').closest('[inert]')).toBeNull()
+    act(() => useAlmacen.getState().actualizarMeta({ nombre: 'Borrador viejo, seguido' }))
+    await waitFor(() => expect(guardar).toHaveBeenCalled(), { timeout: 3000 })
+  })
 
-    // Max abre otro .topo (cargarProyecto) sin tocar Recuperar ni Descartar.
+  it('«Empezar uno nuevo» pide confirmación y deja un proyecto vacío', async () => {
+    vi.spyOn(autoguardado, 'leerBorrador').mockResolvedValue(borradorViejo())
+    vi.spyOn(autoguardado, 'guardarBorrador').mockResolvedValue()
+    render(<App />)
+
+    const empezar = await screen.findByRole('button', { name: 'Empezar uno nuevo' })
+    act(() => empezar.click())
+    expect(useAlmacen.getState().proyecto.meta.nombre).toBe('Borrador viejo')
+    act(() => screen.getByRole('button', { name: 'Sí, empezar de cero' }).click())
+    expect(useAlmacen.getState().proyecto.meta.nombre).not.toBe('Borrador viejo')
+    await waitFor(() => expect(screen.queryByText(/Abrí tu trabajo guardado/)).not.toBeInTheDocument())
+  })
+
+  it('si ya se abrió otro archivo mientras se leía lo guardado, se respeta lo abierto', async () => {
+    let soltar: (b: autoguardado.Borrador) => void = () => {}
+    vi.spyOn(autoguardado, 'leerBorrador').mockReturnValue(new Promise((r) => (soltar = r)))
+    vi.spyOn(autoguardado, 'guardarBorrador').mockResolvedValue()
+    render(<App />)
     const otro = proyectoEjemplo()
     otro.meta = { ...otro.meta, nombre: 'Obra abierta' }
     act(() => useAlmacen.getState().cargarProyecto(otro))
+    await act(async () => soltar(borradorViejo()))
+    expect(useAlmacen.getState().proyecto.meta.nombre).toBe('Obra abierta')
+    expect(screen.queryByText(/Abrí tu trabajo guardado/)).not.toBeInTheDocument()
+  })
 
-    await waitFor(() => expect(screen.queryByText(/Recuperé tu trabajo/)).not.toBeInTheDocument())
+  it('al pasar la app a segundo plano se guarda en el acto', async () => {
+    vi.spyOn(autoguardado, 'leerBorrador').mockResolvedValue(null)
+    const guardar = vi.spyOn(autoguardado, 'guardarBorrador').mockResolvedValue()
+    render(<App />)
     await waitFor(() => expect(guardar).toHaveBeenCalled(), { timeout: 3000 })
-    expect(guardar.mock.calls.at(-1)?.[0].meta.nombre).toBe('Obra abierta')
-  })
-
-  it('Nuevo también quita el aviso', async () => {
-    vi.spyOn(autoguardado, 'leerBorrador').mockResolvedValue(borradorViejo())
-    vi.spyOn(autoguardado, 'guardarBorrador').mockResolvedValue()
-    render(<App />)
-
-    await screen.findByText(/Recuperé tu trabajo/)
-    act(() => useAlmacen.getState().nuevoProyecto())
-    await waitFor(() => expect(screen.queryByText(/Recuperé tu trabajo/)).not.toBeInTheDocument())
-  })
-
-  it('mientras se decide, el proyecto de debajo no se puede editar', async () => {
-    vi.spyOn(autoguardado, 'leerBorrador').mockResolvedValue(borradorViejo())
-    vi.spyOn(autoguardado, 'guardarBorrador').mockResolvedValue()
-    render(<App />)
-
-    await screen.findByText(/Recuperé tu trabajo/)
-    expect(screen.getByRole('main', { hidden: true }).closest('[inert]')).not.toBeNull()
-    // La barra de arriba sí se usa: desde ella se abre otro archivo.
-    expect(screen.getByRole('button', { name: 'Archivo' }).closest('[inert]')).toBeNull()
-  })
-
-  it('Recuperar carga el borrador y deja la pantalla editable', async () => {
-    vi.spyOn(autoguardado, 'leerBorrador').mockResolvedValue(borradorViejo())
-    vi.spyOn(autoguardado, 'guardarBorrador').mockResolvedValue()
-    render(<App />)
-
-    const boton = await screen.findByRole('button', { name: 'Recuperar' })
-    act(() => boton.click())
-    await waitFor(() => expect(screen.queryByText(/Recuperé tu trabajo/)).not.toBeInTheDocument())
-    expect(useAlmacen.getState().proyecto.meta.nombre).toBe('Borrador viejo')
-    expect(screen.getByRole('main').closest('[inert]')).toBeNull()
+    guardar.mockClear()
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'))
+    })
+    expect(guardar).toHaveBeenCalledTimes(1)
   })
 })

@@ -329,6 +329,10 @@ En **Calle › Análisis › Separación** (o con «Comprobar separación» desd
 
 Lo que sale de una nivelación sin cerrar se marca **no comprobado**, igual que en el resto de la app.
 
+## Tu trabajo se guarda solo
+
+Todo (el proyecto, los planos importados, los puntos y lecturas) se guarda en el teléfono mientras trabajas, y al instante cuando cambias de app o la cierras. Al volver a abrir la app aparece tal cual lo dejaste, con el último plano que mirabas; arriba un aviso lo dice y ofrece «Empezar uno nuevo» si quieres partir de cero. Para pasarlo a otro equipo, guarda el `.topo`.
+
 ## Planos: DWG, DXF y PDF
 
 En **Obra › Plano**, «Importar planos» acepta **DWG** (AutoCAD R13 a 2018), **DXF** y **PDF**; puedes elegir o soltar varios a la vez y quedan todos en la lista «Plano a la vista». El DWG se lee directo, sin pasarlo a DXF: los bloques se dibujan con su posición, giro y escala, las cotas con su texto, y lo del espacio papel (el rótulo de la lámina) se deja fuera. Lo que no se dibuja (rayados, sólidos 3D, imágenes…) se lista en «Capas del plano».
@@ -345,6 +349,13 @@ Para una zona complicada (varias intersecciones juntas) en la que quieres que el
 4. Marca como **salida** los sumideros, cunetas o canales. Arriba sale el veredicto: ✓ toda el agua llega a una salida, ✗ se empoza en tal punto (más bajo que todos sus vecinos), o △ llega al borde de lo nivelado. Al elegir un punto se dibuja el camino de su agua y cuánto baja hasta el siguiente.
 
 Cada punto puede llevar una **etiqueta** (tócalo y escribe en «Etiqueta en el plano»: «Esquina Lima / Sol», «buzón»): queda fija junto al punto en el plano, en la tabla de lecturas y en el modelo 3D.
+
+**La cota de cada punto** no tiene que ser una lectura. En la ficha del punto, «Su cota sale de»:
+- **Lectura**: la de la mira, en la tabla (con su puesta).
+- **Es un BM**: pon el punto donde está el BM en el plano y elige cuál; toma su cota (y la sigue si corriges el BM). Se dibuja como triángulo.
+- **Desde otro punto**: «este está 0.350 m más **abajo** (o arriba) que BM-1». Puede encadenarse: un punto referido a otro que está referido a un BM. En el plano se ve una línea a trazos con «↓ −0.350».
+
+Con «Comparar con» eliges cualquier otro punto y te dice cuánto más arriba o más abajo está uno del otro. «Guardar como BM del proyecto» convierte un punto con cota en un BM que se usa en toda la obra.
 
 Con 3 puntos leídos o más aparece **«Ver el modelo 3D del agua»**, debajo del plano: los puntos levantados a su cota y unidos en triángulos, de azul (lo bajo) a ocre (lo alto), con una flecha en cada triángulo hacia donde cae el agua y el camino del agua de cada punto corriendo hasta donde termina (▼ salida, ✗ se empoza). Arrastra para girarlo; «Planta» lo mira desde arriba; la altura va exagerada para que el relieve se lea (puedes cambiarla).
 

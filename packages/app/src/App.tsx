@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { borrarBorrador, contarLecturas, leerBorrador, type Borrador } from './archivo/autoguardado'
+import { leerBorrador, type Borrador } from './archivo/autoguardado'
 import { useAutoguardado } from './archivo/useAutoguardado'
 import BarraSuperior from './componentes/BarraSuperior'
 import AvisoLinea from './componentes/AvisoLinea'
@@ -86,25 +86,40 @@ export default function App() {
   const espacio = useAlmacen((s) => s.espacio)
   const calculadoraAbierta = useAlmacen((s) => s.calculadoraAbierta)
   const cargarProyecto = useAlmacen((s) => s.cargarProyecto)
-  const [borrador, setBorrador] = useState<Borrador | null>(null)
+  const nuevoProyecto = useAlmacen((s) => s.nuevoProyecto)
+  // El trabajo guardado en el teléfono (o el navegador) se abre solo al
+  // volver: antes se preguntaba «Recuperar / Descartar» con la pantalla
+  // bloqueada, y quien no lo tocaba veía un proyecto vacío y creía perdido
+  // su plano. Queda un aviso, sin bloquear nada, por si quiere empezar otro.
+  const [recuperado, setRecuperado] = useState<Borrador | null>(null)
+  const [confirmarNuevo, setConfirmarNuevo] = useState(false)
   const [revisado, setRevisado] = useState(false)
-  const falloAutoguardado = useAutoguardado(revisado && borrador === null)
+  const falloAutoguardado = useAutoguardado(revisado)
 
-  // Si mientras se decide se abre otro .topo o se pulsa Nuevo, el borrador ya
-  // no es la duda: Max eligió trabajar en otra cosa. El aviso se quita y el
-  // autoguardado se enciende; si no, lo que haga después no se guardaría y
-  // un «Recuperar» pulsado tarde pisaría el proyecto abierto.
+  // Si se abre otro .topo o se pulsa Nuevo, el aviso ya no viene al caso.
   const cargas = useAlmacen((s) => s.cargas)
-  const cargasAlEmpezar = useRef(cargas)
+  const cargasAlRecuperar = useRef<number | null>(null)
   useEffect(() => {
-    if (cargas !== cargasAlEmpezar.current) setBorrador(null)
+    if (cargasAlRecuperar.current !== null && cargas !== cargasAlRecuperar.current) setRecuperado(null)
   }, [cargas])
 
   useEffect(() => {
+    let vigente = true
+    const cargasAlEmpezar = useAlmacen.getState().cargas
     leerBorrador()
-      .then((encontrado) => setBorrador(encontrado))
-      .catch(() => setBorrador(null))
-      .finally(() => setRevisado(true))
+      .then((encontrado) => {
+        // Si mientras se leía ya se abrió otro archivo, se respeta lo abierto.
+        if (!vigente || !encontrado || useAlmacen.getState().cargas !== cargasAlEmpezar) return
+        cargarProyecto(encontrado.proyecto, encontrado.archivosDePlano)
+        cargasAlRecuperar.current = useAlmacen.getState().cargas
+        setRecuperado(encontrado)
+      })
+      .catch(() => {})
+      .finally(() => vigente && setRevisado(true))
+    return () => {
+      vigente = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
@@ -117,42 +132,41 @@ export default function App() {
           <AvisoLinea tono="aviso">{falloAutoguardado}</AvisoLinea>
         </div>
       )}
-      {borrador && (
-        <div className="flex flex-col gap-2 border-b border-borde bg-fondo px-3 py-3 md:px-4">
-          <AvisoLinea tono="aviso">
-            Recuperé tu trabajo del{' '}
-            {new Date(borrador.guardado).toLocaleString('es-PE', {
-              day: '2-digit',
-              month: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}{' '}
-            — {borrador.proyecto.meta.nombre}, {contarLecturas(borrador.proyecto)} lecturas. Elige
-            antes de seguir: lo de abajo no se guarda hasta que decidas. Si abres otro archivo, este
-            borrador se descarta.
-          </AvisoLinea>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                cargarProyecto(borrador.proyecto, borrador.archivosDePlano)
-                setBorrador(null)
-              }}
-              className={BOTON_PRINCIPAL}
-            >
-              Recuperar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void borrarBorrador()
-                setBorrador(null)
-              }}
-              className={BOTON_SECUNDARIO}
-            >
-              Descartar
-            </button>
-          </div>
+      {recuperado && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-borde bg-fondo px-3 py-2 md:px-4">
+          <p role="status" className="min-w-0 flex-1 text-sm text-tenue">
+            <span aria-hidden="true">✓ </span>
+            Abrí tu trabajo guardado del{' '}
+            {new Date(recuperado.guardado).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} —{' '}
+            {recuperado.proyecto.meta.nombre}
+            {(recuperado.proyecto.planos?.length ?? 0) > 0 ? `, con ${recuperado.proyecto.planos!.length === 1 ? 'su plano' : `sus ${recuperado.proyecto.planos!.length} planos`}` : ''}.
+          </p>
+          {confirmarNuevo ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  nuevoProyecto()
+                  setConfirmarNuevo(false)
+                }}
+                className={`${BOTON_SECUNDARIO} border-falla text-falla`}
+              >
+                Sí, empezar de cero
+              </button>
+              <button type="button" onClick={() => setConfirmarNuevo(false)} className={BOTON_SECUNDARIO}>
+                No
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => setConfirmarNuevo(true)} className={BOTON_SECUNDARIO}>
+                Empezar uno nuevo
+              </button>
+              <button type="button" aria-label="Cerrar el aviso" onClick={() => setRecuperado(null)} className={BOTON_SECUNDARIO}>
+                ✕
+              </button>
+            </>
+          )}
         </div>
       )}
       {/*
@@ -168,8 +182,7 @@ export default function App() {
         guardaría y se perdería al pulsar Recuperar.
       */}
       <div
-        inert={borrador !== null}
-        className={`flex min-h-0 flex-1 flex-col ${calculadoraAbierta ? 'max-md:hidden md:pr-96' : ''} ${borrador ? 'opacity-40' : ''}`}
+        className={`flex min-h-0 flex-1 flex-col ${calculadoraAbierta ? 'max-md:hidden md:pr-96' : ''}`}
       >
         {espacio === 'obra' && <NavegacionObra />}
         {espacio === 'calle' && <NavegacionCalle />}
