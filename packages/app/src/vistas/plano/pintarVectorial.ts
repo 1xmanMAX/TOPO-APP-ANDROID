@@ -24,7 +24,7 @@ export interface OpcionesPintado {
   ocultas: ReadonlySet<string>
   /** El color con que se pinta el blanco de AutoCAD (el 7): el texto del tema. */
   colorTinta: string
-  /** Mientras se arrastra o se pellizca: solo lo grueso, sin detalle ni textos. */
+  /** Mientras se arrastra o se pellizca: sin el detalle tenue (los textos sí). */
   rapido: boolean
 }
 
@@ -100,8 +100,10 @@ export function pintarVectorial(
     ctx.globalAlpha = 1
   }
 
+  // Los textos también mientras se mueve el plano: si desaparecieran, las
+  // tablas y los rótulos parpadearían en cada arrastre.
   let textos = 0
-  if (!op.rapido) {
+  {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     for (const t of teselas) {
       for (const i of t.textos) {

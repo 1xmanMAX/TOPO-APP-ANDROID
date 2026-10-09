@@ -407,9 +407,11 @@ export function convertirDwg(db: BaseDwg): PlanoVectorial {
   }
 
   const bloques = new Map<string, { basePoint?: P; entities?: EntidadDwg[] }>()
+  const porHandle = new Map<string, { name?: string; basePoint?: P; entities?: EntidadDwg[] }>()
   let modelo: string | null = null
   for (const b of db.tables.BLOCK_RECORD?.entries ?? []) {
     bloques.set(b.name.toUpperCase(), b)
+    if (b.handle) porHandle.set(b.handle, b)
     if (b.name.toUpperCase() === '*MODEL_SPACE' && b.handle) modelo = b.handle
   }
 
@@ -458,6 +460,22 @@ export function convertirDwg(db: BaseDwg): PlanoVectorial {
       const propia = e.layer ?? '0'
       const capa = capaPadre !== null && propia === '0' ? capaPadre : propia
       const color = e.colorIndex === 0 ? colorPadre : (colorPropio(e) ?? (capaPadre !== null && propia === '0' ? colorPadre : null))
+
+      if (e.type === 'ACAD_TABLE' || e.type === 'TABLE') {
+        // Una tabla es un bloque anónimo (*T…) con sus líneas y sus textos
+        // ya armados. LibreDWG no siempre llena `blockRecordHandle`: a veces
+        // el handle del bloque llega en `tableStyleId`.
+        const candidatos = [e.blockRecordHandle, e.tableStyleId].filter((h): h is string => typeof h === 'string' && h !== '')
+        const bloque = candidatos.map((h) => porHandle.get(h)).find((b) => b?.entities && /^\*T/i.test(b.name ?? ''))
+        if (!bloque?.entities) {
+          anotar(e.type, 'no leída')
+          continue
+        }
+        const p0 = punto(e.startPoint) ?? punto(e.insertionPoint) ?? { x: 0, y: 0 }
+        const local: Matriz = { ...IDENTIDAD, e: p0.x, f: p0.y }
+        recorrer(bloque.entities, componer(m, local), capa, colorPropio(e) ?? colorPadre, profundidad + 1, [...pila, `*T${e.handle ?? ''}`])
+        continue
+      }
 
       if (e.type === 'INSERT' || e.type === 'DIMENSION') {
         const nombre = String(e.name ?? '')

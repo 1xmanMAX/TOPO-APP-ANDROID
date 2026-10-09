@@ -159,6 +159,9 @@ describe('DWG reales con LibreDWG', () => {
     // El atributo del bloque y el número de una cota (su bloque anónimo).
     expect(plano.textos.some((t) => t.texto.includes('valoro de la teksto en bloko'))).toBe(true)
     expect(plano.ignoradas.VIEWPORT).toBeGreaterThan(0)
+    // La tabla del ejemplo (ACAD_TABLE) sale con sus textos.
+    expect(plano.textos.filter((t) => t.texto === 'xx').length).toBeGreaterThanOrEqual(5)
+    expect(plano.ignoradas.ACAD_TABLE).toBeUndefined()
     expect(Number.isFinite(plano.limites.minX)).toBe(true)
   }, 60000)
 })
@@ -170,5 +173,32 @@ describe('encuadre sin objetos sueltos', () => {
     const plano = convertirDwg(base(lineas))
     expect(plano.polilineas).toHaveLength(31)
     expect(plano.limites).toEqual({ minX: 0, minY: 0, maxX: 290, maxY: 50 })
+  })
+})
+
+describe('tablas del DWG', () => {
+  it('una tabla se dibuja desde su bloque *T, aunque el enlace venga en tableStyleId', () => {
+    const plano = convertirDwg(
+      base(
+        [{ type: 'ACAD_TABLE', handle: '4F2', blockRecordHandle: '', tableStyleId: '4F3', startPoint: { x: 100, y: 200 } }],
+        {
+          entries: [
+            {
+              handle: '4F3',
+              name: '*T13',
+              entities: [
+                { type: 'LINE', layer: '0', startPoint: { x: 0, y: 0 }, endPoint: { x: 50, y: 0 } },
+                { type: 'MTEXT', layer: '0', colorIndex: 0, text: 'Cota 3244.10', insertionPoint: { x: 10, y: -5 }, textHeight: 2, attachmentPoint: 5 },
+              ],
+            },
+          ],
+        },
+      ),
+    )
+    expect(plano.polilineas[0]!.puntos).toEqual([{ x: 100, y: 200 }, { x: 150, y: 200 }])
+    const t = plano.textos[0]!
+    expect(t.texto).toBe('Cota 3244.10')
+    expect([t.x, t.y]).toEqual([110, 195])
+    expect(t.ancla).toBe('medio-centro')
   })
 })
